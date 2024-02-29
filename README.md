@@ -26,9 +26,11 @@ I have tried different reverse proxy services, i.e. [nginx proxy manager](https:
 
 5. start `go-proxy` with `docker compose up -d`.
 
+6. start your docker app, and visit <container_name>.yourdomain.com
+
 ## Configuration
 
-With a proper container name, no label needs to be added.
+With container name, no label needs to be added.
 
 However, there are some labels you can manipulate with:
 
@@ -47,9 +49,9 @@ However, there are some labels you can manipulate with:
 version: '3'
 services:
   whoami:
-    image: traefik/whoami
+    image: traefik/whoami # port 80 is exposed
     container_name: whoami
-# visit https://whoami.yourdomain.com to access
+# (default) https://whoami.yourdomain.com
 
 # enable both subdomain and path matching:
 whoami:
@@ -58,8 +60,8 @@ whoami:
   labels:
     - proxy.aliases=whoami,apps
     - proxy.apps.path=/whoami
-# 1. visit https://whoami.yourdomain.com to access
-# 2. visit https://apps.yourdomain.com/whoami to access
+# 1. visit https://whoami.yourdomain.com
+# 2. visit https://apps.yourdomain.com/whoami
 ```
 
 For multiple port container (i.e. minio)
