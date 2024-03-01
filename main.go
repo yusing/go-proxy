@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"time"
 
@@ -36,6 +37,7 @@ type Route struct {
 var dockerClient *client.Client
 var subdomainRouteMap map[string][]Route // subdomain -> path
 
+// TODO: default + per proxy
 var transport = &http.Transport{
 	Proxy: http.ProxyFromEnvironment,
 	DialContext: (&net.Dialer{
@@ -158,6 +160,11 @@ func buildContainerCfg(container types.Container) {
 			}
 		}
 		if config.Port == "" {
+			// usually the smaller port is the http one
+			// so make it the last one to be set (if 80 or 8080 are not exposed)
+			sort.Slice(container.Ports, func(i, j int) bool {
+				return container.Ports[i].PrivatePort > container.Ports[j].PrivatePort
+			})
 			for _, port := range container.Ports {
 				// set first, but keep trying
 				config.Port = fmt.Sprintf("%d", port.PrivatePort)
