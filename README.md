@@ -2,7 +2,7 @@
 
 A simple auto docker reverse proxy for home use.
 
-Written in **Go** with *~180 loc*.
+Written in **Go** with *~220 loc*.
 
 ## Features
 
@@ -20,11 +20,22 @@ I have tried different reverse proxy services, i.e. [nginx proxy manager](https:
 
 2. Copy [compose.example.yml](compose.example.yml) to `compose.yml`
 
-3. add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
+3. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
 
-4. modify the path to your SSL certs. See [Getting SSL Certs](#getting-ssl-certs)
+4. Modify the path to your SSL certs. See [Getting SSL Certs](#getting-ssl-certs)
 
-5. start `go-proxy` with `docker compose up -d`.
+5. Start `go-proxy` with `docker compose up -d`.
+
+6. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
+
+    In case the network of your container is in subnet `172.16.0.0/12` (bridge),
+    and vpn network is under `100.64.0.0/10` (i.e. tailscale)
+
+    `sudo ufw allow from 172.16.0.0/12 to 100.64.0.0/10`
+
+    You can also list CIDRs of all docker bridge networks by:
+
+    `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
 ## Configuration
 
@@ -107,35 +118,35 @@ Direct connection
 Running 10s test @ http://homelab:4999/bench
   20 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.71ms    2.26ms  48.10ms   94.95%
-    Req/Sec     1.41k   179.01     2.11k    69.97%
+    Latency     3.74ms    1.19ms  19.94ms   81.53%
+    Req/Sec     1.35k   103.96     1.60k    73.60%
   Latency Distribution
-     50%    3.32ms
-     75%    3.98ms
-     90%    4.97ms
-     99%   11.36ms
-  282804 requests in 10.10s, 33.98MB read
-Requests/sec:  27998.62
-Transfer/sec:      3.36MB
+     50%    3.46ms
+     75%    4.16ms
+     90%    4.98ms
+     99%    8.04ms
+  269696 requests in 10.01s, 32.41MB read
+Requests/sec:  26950.35
+Transfer/sec:      3.24MB
 ```
 
 With **go-proxy** reverse proxy
 
 ```shell
 % wrk -t20 -c100 -d10s --latency https://whoami.mydomain.com/bench
-Running 10s test @ https://whoami.mydomain.com/bench
+Running 10s test @ https://whoami.6uo.me/bench
   20 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     4.41ms    2.56ms  77.80ms   95.38%
-    Req/Sec     1.18k   156.44     1.63k    86.51%
+    Latency     4.94ms    1.88ms  43.49ms   85.82%
+    Req/Sec     1.03k   123.57     1.22k    83.20%
   Latency Distribution
-     50%    3.93ms
-     75%    4.76ms
-     90%    5.92ms
-     99%   10.46ms
-  235374 requests in 10.10s, 22.90MB read
-Requests/sec:  23302.42
-Transfer/sec:      2.27MB
+     50%    4.60ms
+     75%    5.59ms
+     90%    6.77ms
+     99%   10.81ms
+  203565 requests in 10.02s, 19.80MB read
+Requests/sec:  20320.87
+Transfer/sec:      1.98MB
 ```
 
 ## Build it yourself

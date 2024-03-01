@@ -3,12 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"reflect"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -34,8 +36,23 @@ type Route struct {
 var dockerClient *client.Client
 var subdomainRouteMap map[string][]Route // subdomain -> path
 
+var transport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   60 * time.Second,
+		KeepAlive: 60 * time.Second,
+		DualStack: true,
+	}).DialContext,
+	MaxIdleConns:          1000,
+	MaxIdleConnsPerHost:   1000,
+	IdleConnTimeout:       90 * time.Second,
+	TLSHandshakeTimeout:   10 * time.Second,
+	ExpectContinueTimeout: 1 * time.Second,
+	ResponseHeaderTimeout: 10 * time.Second,
+}
+
 func NewConfig() Config {
-	return Config{Scheme: "http", Host: "", Port: "", Path: ""}
+	return Config{Scheme: "", Host: "", Port: "", Path: ""}
 }
 
 func main() {
@@ -66,36 +83,38 @@ func main() {
 	buildRoutes()
 	log.Printf("[Build] built %v reverse proxies", len(subdomainRouteMap))
 
-	http.DefaultTransport.(*http.Transport).MaxIdleConnsPerHost = 100
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", handler)
 
-	http.HandleFunc("/", handler)
 	go func() {
 		log.Println("Starting HTTP server on port 80")
-		err := http.ListenAndServe(":80", nil)
+		err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS))
 		if err != nil {
 			log.Fatal("HTTP server error", err)
 		}
 	}()
 	log.Println("Starting HTTPS server on port 443")
-	err = http.ListenAndServeTLS(":443", "/certs/cert.crt", "/certs/priv.key", nil)
+	err = http.ListenAndServeTLS(":443", "/certs/cert.crt", "/certs/priv.key", mux)
 	if err != nil {
 		log.Fatal("HTTPS Server error: ", err)
 	}
 }
 
-func redirectTLS(w http.ResponseWriter, r *http.Request) {
+func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 	// Redirect to the same host but with HTTPS
-	http.Redirect(w, r, "https://"+r.Host+r.URL.Path, http.StatusMovedPermanently)
+	log.Printf("[Redirect] redirecting to https")
+	var redirectCode int
+	if r.Method == http.MethodGet {
+		redirectCode = http.StatusMovedPermanently
+	} else {
+		redirectCode = http.StatusPermanentRedirect
+	}
+	http.Redirect(w, r, fmt.Sprintf("https://%s%s?%s", r.Host, r.URL.Path, r.URL.RawQuery), redirectCode)
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	if r.TLS == nil {
-		redirectTLS(w, r)
-		return
-	}
+	log.Printf("[Request] %s %s", r.Method, r.URL.String())
 	subdomain := strings.Split(r.Host, ".")[0]
-	// log.Printf("[Request] %s%s\n", r.Host, r.URL)
-
 	routeMap, ok := subdomainRouteMap[subdomain]
 	if !ok {
 		http.Error(w, fmt.Sprintf("no matching route for subdomain %s", subdomain), http.StatusNotFound)
@@ -103,11 +122,13 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 	for _, route := range routeMap {
 		if strings.HasPrefix(r.URL.Path, route.Path) {
-			r.URL.Path = strings.TrimPrefix(r.URL.Path, route.Path)
-			// log.Printf("[Route] %s", route.Url.String())
-
-			proxy := httputil.NewSingleHostReverseProxy(&route.Url)
-			proxy.ServeHTTP(w, r)
+			realPath := strings.TrimPrefix(r.URL.Path, route.Path)
+			origHost := r.Host
+			r.URL.Path = realPath
+			log.Printf("[Route] %s -> %s%s ", origHost, route.Url.String(), route.Path)
+			proxyServer := httputil.NewSingleHostReverseProxy(&route.Url)
+			proxyServer.Transport = transport
+			proxyServer.ServeHTTP(w, r)
 			return
 		}
 	}
@@ -136,19 +157,30 @@ func buildContainerCfg(container types.Container) {
 				prop.Set(reflect.ValueOf(value))
 			}
 		}
-		if config.Scheme != "http" && config.Scheme != "https" {
-			log.Printf("%s: unsupported scheme: %s, using http", container_name, config.Scheme)
-			config.Scheme = "http"
-		}
 		if config.Port == "" {
 			for _, port := range container.Ports {
+				// set first, but keep trying
 				config.Port = fmt.Sprintf("%d", port.PrivatePort)
-				break
+				// until we find 80 or 8080
+				if port.PrivatePort == 80 || port.PrivatePort == 8080 {
+					break
+				}
 			}
 		}
 		if config.Port == "" {
 			// no ports exposed or specified
 			return
+		}
+		if config.Scheme == "" {
+			if strings.HasSuffix(config.Port, "443") {
+				config.Scheme = "https"
+			} else {
+				config.Scheme = "http"
+			}
+		}
+		if config.Scheme != "http" && config.Scheme != "https" {
+			log.Printf("%s: unsupported scheme: %s, using http", container_name, config.Scheme)
+			config.Scheme = "http"
 		}
 		if config.Host == "" {
 			if container.HostConfig.NetworkMode != "host" {
@@ -161,7 +193,11 @@ func buildContainerCfg(container types.Container) {
 		if !inMap {
 			subdomainRouteMap[alias] = make([]Route, 0)
 		}
-		route := Route{Url: url.URL{Scheme: config.Scheme, Host: fmt.Sprintf("%s:%s", config.Host, config.Port)}, Path: config.Path}
+		url, err := url.Parse(fmt.Sprintf("%s://%s:%s", config.Scheme, config.Host, config.Port))
+		if err != nil {
+			log.Fatal(err)
+		}
+		route := Route{Url: *url, Path: config.Path}
 		subdomainRouteMap[alias] = append(subdomainRouteMap[alias], route)
 	}
 }
@@ -174,5 +210,4 @@ func buildRoutes() {
 	for _, container := range containerSlice {
 		buildContainerCfg(container)
 	}
-	// log.Println(subdomainRouteMap)
 }

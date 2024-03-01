@@ -4,7 +4,6 @@ go 1.21.7
 
 require (
 	github.com/docker/docker v25.0.3+incompatible
-	github.com/jellydator/ttlcache/v3 v3.2.0
 	golang.org/x/text v0.14.0
 )
 
@@ -14,7 +13,6 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.24.0 // indirect
-	golang.org/x/sync v0.1.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
