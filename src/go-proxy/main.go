@@ -1,4 +1,4 @@
-package main
+package go_proxy
 
 import (
 	"fmt"
@@ -7,35 +7,19 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"reflect"
 	"runtime"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"golang.org/x/net/context"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
+
+	mapset "github.com/deckarep/golang-set/v2"
 )
 
-type Config struct {
-	Scheme string
-	Host   string
-	Port   string
-	Path   string
-}
-
-type Route struct {
-	Url  url.URL
-	Path string
-}
-
-var dockerClient *client.Client
-var subdomainRouteMap map[string][]Route // subdomain -> path
+var panelRoute = mapset.NewSet(Route{Url: &url.URL{Scheme: "http", Host: "localhost:81", Path: "/"}, Path: "/"})
 
 // TODO: default + per proxy
 var transport = &http.Transport{
@@ -95,6 +79,13 @@ func main() {
 			log.Fatal("HTTP server error", err)
 		}
 	}()
+	go func() {
+		log.Println("Starting HTTP panel on port 81")
+		err := http.ListenAndServe(":81", http.HandlerFunc(panelHandler))
+		if err != nil {
+			log.Fatal("HTTP server error", err)
+		}
+	}()
 	log.Println("Starting HTTPS server on port 443")
 	err = http.ListenAndServeTLS(":443", "/certs/cert.crt", "/certs/priv.key", mux)
 	if err != nil {
@@ -122,99 +113,17 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("no matching route for subdomain %s", subdomain), http.StatusNotFound)
 		return
 	}
-	for _, route := range routeMap {
+	for route := range routeMap.Iter() {
 		if strings.HasPrefix(r.URL.Path, route.Path) {
 			realPath := strings.TrimPrefix(r.URL.Path, route.Path)
 			origHost := r.Host
 			r.URL.Path = realPath
 			log.Printf("[Route] %s -> %s%s ", origHost, route.Url.String(), route.Path)
-			proxyServer := httputil.NewSingleHostReverseProxy(&route.Url)
+			proxyServer := httputil.NewSingleHostReverseProxy(route.Url)
 			proxyServer.Transport = transport
 			proxyServer.ServeHTTP(w, r)
 			return
 		}
 	}
 	http.Error(w, fmt.Sprintf("no matching route for path %s for subdomain %s", r.URL.Path, subdomain), http.StatusNotFound)
-}
-
-func buildContainerCfg(container types.Container) {
-	var aliases []string
-
-	container_name := strings.TrimPrefix(container.Names[0], "/")
-	aliases_label, ok := container.Labels["proxy.aliases"]
-	if !ok {
-		aliases = []string{container_name}
-	} else {
-		aliases = strings.Split(aliases_label, ",")
-	}
-
-	for _, alias := range aliases {
-		config := NewConfig()
-		prefix := fmt.Sprintf("proxy.%s.", alias)
-		for label, value := range container.Labels {
-			if strings.HasPrefix(label, prefix) {
-				field := strings.TrimPrefix(label, prefix)
-				field = cases.Title(language.Und, cases.NoLower).String(field)
-				prop := reflect.ValueOf(&config).Elem().FieldByName(field)
-				prop.Set(reflect.ValueOf(value))
-			}
-		}
-		if config.Port == "" {
-			// usually the smaller port is the http one
-			// so make it the last one to be set (if 80 or 8080 are not exposed)
-			sort.Slice(container.Ports, func(i, j int) bool {
-				return container.Ports[i].PrivatePort > container.Ports[j].PrivatePort
-			})
-			for _, port := range container.Ports {
-				// set first, but keep trying
-				config.Port = fmt.Sprintf("%d", port.PrivatePort)
-				// until we find 80 or 8080
-				if port.PrivatePort == 80 || port.PrivatePort == 8080 {
-					break
-				}
-			}
-		}
-		if config.Port == "" {
-			// no ports exposed or specified
-			return
-		}
-		if config.Scheme == "" {
-			if strings.HasSuffix(config.Port, "443") {
-				config.Scheme = "https"
-			} else {
-				config.Scheme = "http"
-			}
-		}
-		if config.Scheme != "http" && config.Scheme != "https" {
-			log.Printf("%s: unsupported scheme: %s, using http", container_name, config.Scheme)
-			config.Scheme = "http"
-		}
-		if config.Host == "" {
-			if container.HostConfig.NetworkMode != "host" {
-				config.Host = container_name
-			} else {
-				config.Host = "host.docker.internal"
-			}
-		}
-		_, inMap := subdomainRouteMap[alias]
-		if !inMap {
-			subdomainRouteMap[alias] = make([]Route, 0)
-		}
-		url, err := url.Parse(fmt.Sprintf("%s://%s:%s", config.Scheme, config.Host, config.Port))
-		if err != nil {
-			log.Fatal(err)
-		}
-		route := Route{Url: *url, Path: config.Path}
-		subdomainRouteMap[alias] = append(subdomainRouteMap[alias], route)
-	}
-}
-func buildRoutes() {
-	subdomainRouteMap = make(map[string][]Route)
-	containerSlice, err := dockerClient.ContainerList(context.Background(), container.ListOptions{})
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, container := range containerSlice {
-		buildContainerCfg(container)
-	}
 }

@@ -12,3 +12,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     extra_hosts:
       - host.docker.internal:host-gateway
+    logging:
+      driver: 'json-file'
+      options:
+        max-file: '1'
+        max-size: 128k

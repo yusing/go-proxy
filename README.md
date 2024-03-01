@@ -9,6 +9,9 @@ Written in **Go** with *~220 loc*.
 - subdomain matching **(domain name doesn't matter)**
 - path matching
 - Auto hot-reload when container start / die / stop.
+- Simple panel to see all reverse proxies and health (visit `https://go-proxy.yourdomain.com`)
+
+    ![panel screenshot](screenshots/panel.png)
 
 ## Why am I making this
 
@@ -157,13 +160,9 @@ Transfer/sec:      1.98MB
 
 2. Get dependencies with `go get`
 
-3. build image with following commands
+3. build binary with `sh build.sh`
 
-    ```shell
-    mkdir -p bin
-    CGO_ENABLED=0 GOOS=<platform> go build -o bin/go-proxy
-    docker build -t <tag> .
-    ```
+4. start your container with `docker compose up -d`
 
 ## Getting SSL certs
 

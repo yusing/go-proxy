@@ -1,8 +1,9 @@
 FROM alpine:latest
 
-MAINTAINER yusing@6uo.me
+LABEL maintainer="yusing@6uo.me"
 
 COPY bin/go-proxy /usr/bin
+COPY templates/ /app/templates
 
 RUN chmod +rx /usr/bin/go-proxy
 ENV DOCKER_HOST unix:///var/run/docker.sock

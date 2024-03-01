@@ -1,8 +1,9 @@
-module go-proxy
+module github.com/yusing/go-proxy
 
 go 1.21.7
 
 require (
+	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/docker/docker v25.0.3+incompatible
 	golang.org/x/text v0.14.0
 )
