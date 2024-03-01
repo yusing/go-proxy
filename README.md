@@ -37,7 +37,7 @@ I have tried different reverse proxy services, i.e. [nginx proxy manager](https:
 
     `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
-6. start your docker app, and visit <container_name>.yourdomain.com
+7. start your docker app, and visit <container_name>.yourdomain.com
 
 ## Configuration
 
