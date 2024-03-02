@@ -20,7 +20,8 @@ func main() {
 		log.Fatal(err)
 	}
 	buildRoutes()
-	log.Printf("[Build] built %v reverse proxies", countProxies())
+	log.Printf("[Build] built %v reverse proxies", countRoutes())
+	beginListenStreams()
 
 	go func() {
 		filter := filters.NewArgs(
@@ -34,8 +35,10 @@ func main() {
 		for msg := range msgs {
 			// TODO: handle actor only
 			log.Printf("[Event] %s %s caused rebuild", msg.Action, msg.Actor.Attributes["name"])
+			endListenStreams()
 			buildRoutes()
-			log.Printf("[Build] rebuilt %v reverse proxies", countProxies())
+			log.Printf("[Build] rebuilt %v reverse proxies", countRoutes())
+			beginListenStreams()
 		}
 	}()
 

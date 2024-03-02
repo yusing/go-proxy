@@ -33,6 +33,7 @@ var imageNamePortMap = map[string]string{
 	"mssql":     "1433",
 	"memcached": "11211",
 	"rabbitmq":  "5672",
+	"mongo":     "27017",
 }
 var extraNamePortMap = map[string]string{
 	"dns":  "53",
@@ -56,9 +57,7 @@ var namePortMap = func() map[string]string {
 const UDPStreamType = "udp"
 const TCPStreamType = "tcp"
 
-func NewStreamRoute(config ProxyConfig) (*StreamRoute, error) {
-	port_split := strings.Split(config.Port, ":")
-
+func NewStreamRoute(config *ProxyConfig) (*StreamRoute, error) {
 	var streamType string = TCPStreamType
 	var srcPort string
 	var dstPort string
@@ -67,21 +66,13 @@ func NewStreamRoute(config ProxyConfig) (*StreamRoute, error) {
 	var srcUDPAddr *net.UDPAddr = nil
 	var dstUDPAddr *net.UDPAddr = nil
 
+	port_split := strings.Split(config.Port, ":")
 	if len(port_split) != 2 {
-		warnMsg := fmt.Sprintf(`[Build] Invalid stream port %s, `+
-			`should be <listeningPort>:<targetPort>`, config.Port)
-		freePort, err := findFreePort()
-		if err != nil {
-			return nil, fmt.Errorf("%s and %s", warnMsg, err)
-		}
-		srcPort = fmt.Sprintf("%d", freePort)
+		log.Printf(`[Build] Invalid stream port %s, `+
+			`should be <listeningPort>:<targetPort>, `+
+			`assuming it is targetPort`, config.Port)
+		srcPort = "0"
 		dstPort = config.Port
-		fmt.Printf(`%s, assuming %s is targetPort and `+
-			`using free port %s as listeningPort`,
-			warnMsg,
-			srcPort,
-			dstPort,
-		)
 	} else {
 		srcPort = port_split[0]
 		dstPort = port_split[1]
@@ -94,8 +85,8 @@ func NewStreamRoute(config ProxyConfig) (*StreamRoute, error) {
 	_, err := strconv.Atoi(dstPort)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"[Build] Unrecognized stream target port %s, ignoring",
-			dstPort,
+			"[Build] %s: Unrecognized stream target port %s, ignoring",
+			config.Alias, dstPort,
 		)
 	}
 
@@ -125,6 +116,12 @@ func NewStreamRoute(config ProxyConfig) (*StreamRoute, error) {
 		}
 	}
 
+	lsPort, err := strconv.Atoi(srcPort)
+	if err != nil {
+		return nil, err
+	}
+	utils.markPortInUse(lsPort)
+
 	ctx, cancel := context.WithCancel(context.Background())
 
 	route := StreamRoute{
@@ -140,28 +137,29 @@ func NewStreamRoute(config ProxyConfig) (*StreamRoute, error) {
 		Cancel:  cancel,
 	}
 
-	if streamType == UDPStreamType {
-		return (*StreamRoute)(unsafe.Pointer(&UDPRoute{
-			StreamRoute:   route,
-			ConnMap:       make(map[net.Addr]*net.UDPConn),
-			ConnMapMutex:  sync.Mutex{},
-			QueueSize:     atomic.Int32{},
-			SourceUDPAddr: srcUDPAddr,
-			TargetUDPAddr: dstUDPAddr,
-		})), nil
+	if streamType == TCPStreamType {
+		return &route, nil
 	}
-	return &route, nil
+	
+	return (*StreamRoute)(unsafe.Pointer(&UDPRoute{
+		StreamRoute:   route,
+		ConnMap:       make(map[net.Addr]*net.UDPConn),
+		ConnMapMutex:  sync.Mutex{},
+		QueueSize:     atomic.Int32{},
+		SourceUDPAddr: srcUDPAddr,
+		TargetUDPAddr: dstUDPAddr,
+	})), nil
 }
 
 func (route *StreamRoute) PrintError(err error) {
 	if err == nil {
 		return
 	}
-	log.Printf("[Stream] %s => %s error: %v", route.ListeningUrl(), route.TargetUrl(), err)
+	log.Printf("[Stream] %s (%s => %s) error: %v", route.Alias, route.ListeningUrl(), route.TargetUrl(), err)
 }
 
 func (route *StreamRoute) ListeningUrl() string {
-	return fmt.Sprintf("%s://:%s", route.ListeningScheme, route.ListeningPort)
+	return fmt.Sprintf("%s:%s", route.ListeningScheme, route.ListeningPort)
 }
 
 func (route *StreamRoute) TargetUrl() string {
@@ -169,9 +167,40 @@ func (route *StreamRoute) TargetUrl() string {
 }
 
 func (route *StreamRoute) listenStream() {
+	if route.ListeningPort == "0" {
+		freePort, err := utils.findFreePort(20000)
+		if err != nil {
+			route.PrintError(err)
+			return
+		}
+		route.ListeningPort = fmt.Sprintf("%d", freePort)
+		utils.markPortInUse(freePort)
+	}
 	if route.Type == UDPStreamType {
 		listenUDP((*UDPRoute)(unsafe.Pointer(route)))
 	} else {
 		listenTCP(route)
+	}
+}
+
+func beginListenStreams() {
+	for _, route := range routes.StreamRoutes {
+		go route.listenStream()
+	}
+}
+
+func endListenStreams() {
+	var wg sync.WaitGroup
+	wg.Add(len(routes.StreamRoutes))
+	defer wg.Wait()
+
+	routes.Mutex.Lock()
+	defer routes.Mutex.Unlock()
+
+	for _, route := range routes.StreamRoutes {
+		go func(r *StreamRoute) {
+			r.Cancel()
+			wg.Done()
+		}(route)
 	}
 }

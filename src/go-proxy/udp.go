@@ -69,10 +69,10 @@ func udpLoop(route *UDPRoute, in *net.UDPConn, out *net.UDPConn, buffer []byte, 
 	defer route.QueueSize.Add(-1)
 	defer wg.Done()
 
-	in.SetReadDeadline(time.Now().Add(udpListenTimeout))
-
 	var nRead int
 	var nWritten int
+
+	in.SetReadDeadline(time.Now().Add(udpListenTimeout))
 	nRead, srcAddr, err := in.ReadFromUDP(buffer)
 
 	if err != nil {

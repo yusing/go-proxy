@@ -51,7 +51,7 @@ func panelIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tmpl.Execute(w, routes)
+	err = tmpl.Execute(w, &routes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -79,9 +79,9 @@ func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 	scheme := url.Scheme
 
 	if isStreamScheme(scheme) {
-		err = healthCheckStream(scheme, url.Host)
+		err = utils.healthCheckStream(scheme, url.Host)
 	} else {
-		err = healthCheckHttp(targetUrl)
+		err = utils.healthCheckHttp(targetUrl)
 	}
 
 	if err != nil {

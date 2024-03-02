@@ -11,7 +11,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - [How to use](#how-to-use)
 - [Configuration](#configuration)
   - [Single Port Configuration](#single-port-configuration-example)
-  - [Multiple Configuration](#multiple-configuration-example)
+  - [Multiple Ports Configuration](#multiple-ports-configuration-example)
   - [TCP/UDP Configuration](#tcpudp-configuration-example)
 - [Troubleshooting](#troubleshooting)
 - [Benchmarks](#benchmarks)
@@ -99,7 +99,7 @@ whoami:
 # 2. visit https://apps.y.z/whoami
 ```
 
-### Multiple configuration example
+### Multiple ports configuration example
 
 ```yaml
 minio:
@@ -198,7 +198,7 @@ It takes ~ 0.1-0.4MB for each HTTP Proxy, and <2MB for each TCP/UDP Proxy
 
 1. [Install go](https://go.dev/doc/install) if not already
 
-2. Get dependencies with `go get`
+2. get dependencies with `sh scripts/get.sh`
 
 3. build binary with `sh scripts/build.sh`
 

@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -17,6 +18,7 @@ import (
 )
 
 type ProxyConfig struct {
+	id	   string
 	Alias  string
 	Scheme string
 	Host   string
@@ -28,10 +30,15 @@ func NewProxyConfig() ProxyConfig {
 	return ProxyConfig{}
 }
 
+func (cfg *ProxyConfig) UpdateId() {
+	cfg.id = fmt.Sprintf("%s-%s-%s-%s-%s", cfg.Alias, cfg.Scheme, cfg.Host, cfg.Port, cfg.Path)
+}
+
 var dockerClient *client.Client
 
 func buildContainerRoute(container types.Container) {
 	var aliases []string
+	var wg sync.WaitGroup
 
 	container_name := strings.TrimPrefix(container.Names[0], "/")
 	aliases_label, ok := container.Labels["proxy.aliases"]
@@ -101,12 +108,19 @@ func buildContainerRoute(container types.Container) {
 			}
 		}
 		config.Alias = alias
-		createProxy(config)
+		config.UpdateId()
+		
+		wg.Add(1)
+		go func() {
+			createRoute(&config)
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 }
 
 func buildRoutes() {
-	initProxyMaps()
+	initRoutes()
 	containerSlice, err := dockerClient.ContainerList(context.Background(), container.ListOptions{})
 	if err != nil {
 		log.Fatal(err)
