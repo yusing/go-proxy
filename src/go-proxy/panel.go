@@ -1,8 +1,11 @@
-package go_proxy
+package main
 
 import (
 	"html/template"
+	"log"
+	"net"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -11,7 +14,13 @@ const templateFile = "/app/templates/panel.html"
 var healthCheckHttpClient = &http.Client{
 	Timeout: 5 * time.Second,
 	Transport: &http.Transport{
+		Proxy:             http.ProxyFromEnvironment,
 		DisableKeepAlives: true,
+		ForceAttemptHTTP2: true,
+		DialContext: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 5 * time.Second,
+		}).DialContext,
 	},
 }
 
@@ -42,7 +51,7 @@ func panelIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = tmpl.Execute(w, subdomainRouteMap)
+	err = tmpl.Execute(w, routes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -61,20 +70,23 @@ func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// try HEAD first
-	// if HEAD is not allowed, try GET
-	resp, err := healthCheckHttpClient.Head(targetUrl)
-	if err != nil && resp != nil && resp.StatusCode == http.StatusMethodNotAllowed {
-		_, err = healthCheckHttpClient.Get(targetUrl)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusServiceUnavailable)
-			return
-		}
-	}
+	url, err := url.Parse(targetUrl)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		log.Printf("[Panel] failed to parse %s, error: %v", targetUrl, err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	scheme := url.Scheme
 
-	w.WriteHeader(http.StatusOK)
+	if isStreamScheme(scheme) {
+		err = healthCheckStream(scheme, url.Host)
+	} else {
+		err = healthCheckHttp(targetUrl)
+	}
+
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
 }

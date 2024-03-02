@@ -1,27 +1,45 @@
 # go-proxy
 
-A simple auto docker reverse proxy for home use.
+A simple auto docker reverse proxy for home use. *Written in **Go***
 
-Written in **Go** with *~220 loc*.
+In the examples domain `x.y.z` is used, replace them with your domain
+
+## Table of content
+
+- [Features](#features)
+- [Why am I making this](#why-am-i-making-this)
+- [How to use](#how-to-use)
+- [Configuration](#configuration)
+  - [Single Port Configuration](#single-port-configuration-example)
+  - [Multiple Configuration](#multiple-configuration-example)
+  - [TCP/UDP Configuration](#tcpudp-configuration-example)
+- [Troubleshooting](#troubleshooting)
+- [Benchmarks](#benchmarks)
+- [Memory usage](#memory-usage)
+- [Build it yourself](#build-it-yourself)
+- [Getting SSL certs](#getting-ssl-certs)
 
 ## Features
 
 - subdomain matching **(domain name doesn't matter)**
 - path matching
+- HTTP proxy
+- TCP/UDP Proxy (experimental, unable to release port on hot-reload)
 - Auto hot-reload when container start / die / stop.
-- Simple panel to see all reverse proxies and health (visit `https://go-proxy.yourdomain.com`)
+- Simple panel to see all reverse proxies and health (visit port :81 of go-proxy `https://*.y.z:81`)
 
     ![panel screenshot](screenshots/panel.png)
 
 ## Why am I making this
 
-I have tried different reverse proxy services, i.e. [nginx proxy manager](https://nginxproxymanager.com/), [traefik](https://github.com/traefik/traefik), [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy). I have found that `traefik` is not easy to use, and I don't want to click buttons every time I spin up a new container (`nginx proxy manager`). For `nginx-proxy` I found it buggy and quite unusable.
+1. It's fun.
+2. I have tried different reverse proxy services, i.e. [nginx proxy manager](https://nginxproxymanager.com/), [traefik](https://github.com/traefik/traefik), [nginx-proxy](https://github.com/nginx-proxy/nginx-proxy). I have found that `traefik` is not easy to use, and I don't want to click buttons every time I spin up a new container (`nginx proxy manager`). For `nginx-proxy` I found it buggy and quite unusable.
 
 ## How to use
 
-1. Clone the repo `git clone https://github.com/yusing/go-proxy`
+1. Clone the repo git clone `https://github.com/yusing/go-proxy`
 
-2. Copy [compose.example.yml](compose.example.yml) to `compose.yml`
+2. Copy content from [compose.example.yml](compose.example.yml) and create your own `compose.yml`
 
 3. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
 
@@ -40,7 +58,7 @@ I have tried different reverse proxy services, i.e. [nginx proxy manager](https:
 
     `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
-7. start your docker app, and visit <container_name>.yourdomain.com
+7. start your docker app, and visit <container_name>.y.z
 
 ## Configuration
 
@@ -55,17 +73,20 @@ However, there are some labels you can manipulate with:
 - `proxy.<alias>.host`: proxy host
   - defaults to `container_name`
 - `proxy.<alias>.port`: proxy port
-  - defaults to first expose port (declared in `Dockerfile` or `docker-compose.yml`)
-- `proxy.<alias>.path`: path matching
+  - http/https: defaults to first expose port (declared in `Dockerfile` or `docker-compose.yml`)
+  - tcp/udp: is in format of `[<listeningPort>:]<targetPort>`
+    - when `listeningPort` is omitted (not suggested), a free port will be used automatically.
+    - `targetPort` must be a number, or the predefined names (see [stream.go](src/go-proxy/stream.go#L28))
+- `proxy.<alias>.path`: path matching (for http proxy only)
   - defaults to empty
 
+### Single port configuration example
+
 ```yaml
-version: '3'
-services:
-  whoami:
-    image: traefik/whoami # port 80 is exposed
-    container_name: whoami
-# (default) https://whoami.yourdomain.com
+# (default) https://<container_name>.y.z
+whoami:
+  image: traefik/whoami
+  container_name: whoami # => whoami.y.z
 
 # enable both subdomain and path matching:
 whoami:
@@ -74,36 +95,51 @@ whoami:
   labels:
     - proxy.aliases=whoami,apps
     - proxy.apps.path=/whoami
-# 1. visit https://whoami.yourdomain.com
-# 2. visit https://apps.yourdomain.com/whoami
+# 1. visit https://whoami.y.z
+# 2. visit https://apps.y.z/whoami
 ```
 
-For multiple port container (i.e. minio)
+### Multiple configuration example
 
 ```yaml
-version: '3'
-services:
-  minio:
-    image: quay.io/minio/minio
-    container_name: minio
-    command:
-      - server
-      - /data
-      - --console-address
-      - "9001"
-    env_file: minio.env
-    expose:
-      - 9000
-      - 9001
-    volumes:
-      - ./data/minio/data:/data
-    labels:
-      proxy.aliases: minio,minio-console
-      proxy.minio.port: 9000
-      proxy.minio-console.port: 9001
+minio:
+  image: quay.io/minio/minio
+  container_name: minio
+  ...
+  labels:
+    proxy.aliases: minio,minio-console
+    proxy.minio.port: 9000
+    proxy.minio-console.port: 9001
 
-# visit https://minio.yourdomain.com to access minio
-# visit https://minio-console.yourdomain.com/whoami to access minio console
+# visit https://minio.y.z to access minio
+# visit https://minio-console.y.z/whoami to access minio console
+```
+
+### TCP/UDP configuration example
+
+```yaml
+# In the app
+app-db:
+  image: postgres:15
+  container_name: app-db
+  ...
+  labels:
+    # Optional (postgres is in the known image map)
+    - proxy.app-db.scheme=tcp
+
+    # Optional (first free port will be used for listening port)
+    - proxy.app-db.port=20000:postgres  
+
+# In go-proxy
+go-proxy:
+  ...
+  ports:
+    - 80:80
+    ...
+    - 20000:20000/tcp
+    # or 20000-20010:20000-20010/tcp to declare large range at once
+
+# access app-db via <*>.y.z:20000
 ```
 
 ## Troubleshooting
@@ -142,17 +178,21 @@ With **go-proxy** reverse proxy
 Running 10s test @ https://whoami.6uo.me/bench
   20 threads and 100 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     4.94ms    1.88ms  43.49ms   85.82%
-    Req/Sec     1.03k   123.57     1.22k    83.20%
+    Latency     4.02ms    2.13ms  47.49ms   95.14%
+    Req/Sec     1.28k   139.15     1.47k    91.67%
   Latency Distribution
-     50%    4.60ms
-     75%    5.59ms
-     90%    6.77ms
-     99%   10.81ms
-  203565 requests in 10.02s, 19.80MB read
-Requests/sec:  20320.87
-Transfer/sec:      1.98MB
+     50%    3.60ms
+     75%    4.36ms
+     90%    5.29ms
+     99%    8.83ms
+  253874 requests in 10.02s, 24.70MB read
+Requests/sec:  25342.46
+Transfer/sec:      2.47MB
 ```
+
+## Memory usage
+
+It takes ~ 0.1-0.4MB for each HTTP Proxy, and <2MB for each TCP/UDP Proxy
 
 ## Build it yourself
 
@@ -160,7 +200,7 @@ Transfer/sec:      1.98MB
 
 2. Get dependencies with `go get`
 
-3. build binary with `sh build.sh`
+3. build binary with `sh scripts/build.sh`
 
 4. start your container with `docker compose up -d`
 

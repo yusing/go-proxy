@@ -3,9 +3,15 @@ services:
   app:
     build: .
     container_name: go-proxy
+    restart: always
+    networks: # also add here
+      - default
     ports:
-      - 80:80
-      - 443:443
+      - 80:80 # http
+      - 443:443 # https
+      - 8443:8443 # panel
+      - 20000:20100/tcp # tcp (optional, if you have proxy.<app>.scheme == tcp)
+      - 20000:20100/udp # tcp (optional, if you have proxy.<app>.scheme == udp)
     volumes:
       - /path/to/cert.pem:/certs/cert.crt:ro
       - /path/to/privkey.pem:/certs/priv.key:ro
@@ -17,3 +23,6 @@ services:
       options:
         max-file: '1'
         max-size: 128k
+networks: # you may add other external networks
+  default:
+    driver: bridge

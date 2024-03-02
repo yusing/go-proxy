@@ -1,14 +1,13 @@
-package go_proxy
+package main
 
 import (
 	"fmt"
 	"log"
-	"net/url"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
@@ -17,22 +16,21 @@ import (
 	"golang.org/x/text/language"
 )
 
-type Config struct {
+type ProxyConfig struct {
+	Alias  string
 	Scheme string
 	Host   string
 	Port   string
-	Path   string
+	Path   string // http proxy only
 }
 
-type Route struct {
-	Url  *url.URL
-	Path string
+func NewProxyConfig() ProxyConfig {
+	return ProxyConfig{}
 }
 
 var dockerClient *client.Client
-var subdomainRouteMap map[string]mapset.Set[Route] // subdomain -> path
 
-func buildContainerCfg(container types.Container) {
+func buildContainerRoute(container types.Container) {
 	var aliases []string
 
 	container_name := strings.TrimPrefix(container.Names[0], "/")
@@ -44,7 +42,7 @@ func buildContainerCfg(container types.Container) {
 	}
 
 	for _, alias := range aliases {
-		config := NewConfig()
+		config := NewProxyConfig()
 		prefix := fmt.Sprintf("proxy.%s.", alias)
 		for label, value := range container.Labels {
 			if strings.HasPrefix(label, prefix) {
@@ -76,11 +74,22 @@ func buildContainerCfg(container types.Container) {
 		if config.Scheme == "" {
 			if strings.HasSuffix(config.Port, "443") {
 				config.Scheme = "https"
-			} else {
+			} else if strings.HasPrefix(container.Image, "sha256:") {
 				config.Scheme = "http"
+			} else {
+				imageSplit := strings.Split(container.Image, "/")
+				imageSplit = strings.Split(imageSplit[len(imageSplit)-1], ":")
+				imageName := imageSplit[0]
+				_, isKnownImage := imageNamePortMap[imageName]
+				if isKnownImage {
+					log.Printf("[Build] Known image '%s' detected for %s", imageName, container_name)
+					config.Scheme = "tcp"
+				} else {
+					config.Scheme = "http"
+				}
 			}
 		}
-		if config.Scheme != "http" && config.Scheme != "https" {
+		if !isValidScheme(config.Scheme) {
 			log.Printf("%s: unsupported scheme: %s, using http", container_name, config.Scheme)
 			config.Scheme = "http"
 		}
@@ -91,26 +100,39 @@ func buildContainerCfg(container types.Container) {
 				config.Host = "host.docker.internal"
 			}
 		}
-		_, inMap := subdomainRouteMap[alias]
-		if !inMap {
-			subdomainRouteMap[alias] = mapset.NewSet[Route]()
-		}
-		url, err := url.Parse(fmt.Sprintf("%s://%s:%s", config.Scheme, config.Host, config.Port))
-		if err != nil {
-			log.Fatal(err)
-		}
-		subdomainRouteMap[alias].Add(Route{Url: url, Path: config.Path})
+		config.Alias = alias
+		createProxy(config)
 	}
 }
 
 func buildRoutes() {
-	subdomainRouteMap = make(map[string]mapset.Set[Route])
+	initProxyMaps()
 	containerSlice, err := dockerClient.ContainerList(context.Background(), container.ListOptions{})
 	if err != nil {
 		log.Fatal(err)
 	}
-	for _, container := range containerSlice {
-		buildContainerCfg(container)
+	hostname, err := os.Hostname()
+	if err != nil {
+		hostname = "go-proxy"
 	}
-	subdomainRouteMap["go-proxy"] = panelRoute
+	for _, container := range containerSlice {
+		if container.Names[0] == hostname { // skip self
+			continue
+		}
+		buildContainerRoute(container)
+	}
+}
+
+func findHTTPRoute(host string, path string) (*HTTPRoute, error) {
+	subdomain := strings.Split(host, ".")[0]
+	routeMap, ok := routes.HTTPRoutes[subdomain]
+	if !ok {
+		return nil, fmt.Errorf("no matching route for subdomain %s", subdomain)
+	}
+	for _, route := range routeMap {
+		if strings.HasPrefix(path, route.Path) {
+			return &route, nil
+		}
+	}
+	return nil, fmt.Errorf("no matching route for path %s for subdomain %s", path, subdomain)
 }

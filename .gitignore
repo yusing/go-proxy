@@ -1,2 +1,2 @@
-bin/
 compose.yml
+go-proxy.yml

@@ -10,5 +10,6 @@ ENV DOCKER_HOST unix:///var/run/docker.sock
 
 EXPOSE 80
 EXPOSE 443
+EXPOSE 8443
 
 CMD ["go-proxy"]
