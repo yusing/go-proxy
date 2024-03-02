@@ -12,7 +12,6 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - [Configuration](#configuration)
   - [Single Port Configuration](#single-port-configuration-example)
   - [Multiple Ports Configuration](#multiple-ports-configuration-example)
-  - [Multiple Ports Configuration](#multiple-ports-configuration-example)
   - [TCP/UDP Configuration](#tcpudp-configuration-example)
 - [Troubleshooting](#troubleshooting)
 - [Benchmarks](#benchmarks)
@@ -100,7 +99,6 @@ whoami:
 # 2. visit https://apps.y.z/whoami
 ```
 
-### Multiple Ports configuration example
 ### Multiple ports configuration example
 
 ```yaml
