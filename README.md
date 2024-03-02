@@ -11,7 +11,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - [How to use](#how-to-use)
 - [Configuration](#configuration)
   - [Single Port Configuration](#single-port-configuration-example)
-  - [Multiple Configuration](#multiple-configuration-example)
+  - [Multiple Ports Configuration](#multiple-ports-configuration-example)
   - [TCP/UDP Configuration](#tcpudp-configuration-example)
 - [Troubleshooting](#troubleshooting)
 - [Benchmarks](#benchmarks)
@@ -26,7 +26,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - HTTP proxy
 - TCP/UDP Proxy (experimental, unable to release port on hot-reload)
 - Auto hot-reload when container start / die / stop.
-- Simple panel to see all reverse proxies and health (visit port :81 of go-proxy `https://*.y.z:81`)
+- Simple panel to see all reverse proxies and health (visit port :8443 of go-proxy `https://*.y.z:8443`)
 
     ![panel screenshot](screenshots/panel.png)
 
@@ -99,7 +99,7 @@ whoami:
 # 2. visit https://apps.y.z/whoami
 ```
 
-### Multiple configuration example
+### Multiple Ports configuration example
 
 ```yaml
 minio:
