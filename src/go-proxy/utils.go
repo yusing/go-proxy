@@ -9,15 +9,18 @@ import (
 )
 
 type Utils struct {
-	PortsInUse map[int]bool
+	PortsInUse      map[int]bool
 	portsInUseMutex sync.Mutex
 }
+
 var utils = &Utils{
-	PortsInUse: make(map[int]bool),
+	PortsInUse:      make(map[int]bool),
 	portsInUseMutex: sync.Mutex{},
 }
 
-func (u *Utils) findFreePort(startingPort int) (int, error) {
+func (u *Utils) findUseFreePort(startingPort int) (int, error) {
+	u.portsInUseMutex.Lock()
+	defer u.portsInUseMutex.Unlock()
 	for port := startingPort; port <= startingPort+100 && port <= 65535; port++ {
 		if u.PortsInUse[port] {
 			continue
@@ -25,31 +28,34 @@ func (u *Utils) findFreePort(startingPort int) (int, error) {
 		addr := fmt.Sprintf(":%d", port)
 		l, err := net.Listen("tcp", addr)
 		if err == nil {
+			u.PortsInUse[port] = true
 			l.Close()
 			return port, nil
 		}
 	}
 	l, err := net.Listen("tcp", ":0")
 	if err == nil {
-		l.Close()
 		// NOTE: may not be after 20000
-		return l.Addr().(*net.TCPAddr).Port, nil
+		port := l.Addr().(*net.TCPAddr).Port
+		u.PortsInUse[port] = true
+		l.Close()
+		return port, nil
 	}
 	return -1, fmt.Errorf("unable to find free port: %v", err)
 }
 
 func (u *Utils) resetPortsInUse() {
 	u.portsInUseMutex.Lock()
-	defer u.portsInUseMutex.Unlock()
 	for port := range u.PortsInUse {
 		u.PortsInUse[port] = false
 	}
+	u.portsInUseMutex.Unlock()
 }
 
-func (u* Utils) markPortInUse(port int) {
+func (u *Utils) markPortInUse(port int) {
 	u.portsInUseMutex.Lock()
-	defer u.portsInUseMutex.Unlock()
 	u.PortsInUse[port] = true
+	u.portsInUseMutex.Unlock()
 }
 
 func (*Utils) healthCheckHttp(targetUrl string) error {
@@ -57,13 +63,13 @@ func (*Utils) healthCheckHttp(targetUrl string) error {
 	// if HEAD is not allowed, try GET
 	resp, err := healthCheckHttpClient.Head(targetUrl)
 	if resp != nil {
-		defer resp.Body.Close()
+		resp.Body.Close()
 	}
 	if err != nil && resp != nil && resp.StatusCode == http.StatusMethodNotAllowed {
 		_, err = healthCheckHttpClient.Get(targetUrl)
 	}
 	if resp != nil {
-		defer resp.Body.Close()
+		resp.Body.Close()
 	}
 	return err
 }
@@ -73,6 +79,6 @@ func (*Utils) healthCheckStream(scheme string, host string) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	conn.Close()
 	return nil
 }

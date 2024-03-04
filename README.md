@@ -26,7 +26,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - HTTP proxy
 - TCP/UDP Proxy (experimental, unable to release port on hot-reload)
 - Auto hot-reload when container start / die / stop.
-- Simple panel to see all reverse proxies and health (visit port :8443 of go-proxy `https://*.y.z:8443`)
+- Simple panel to see all reverse proxies and health (visit port [panel port] of go-proxy `https://*.y.z:[panel port]`)
 
     ![panel screenshot](screenshots/panel.png)
 
@@ -45,7 +45,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 4. Modify the path to your SSL certs. See [Getting SSL Certs](#getting-ssl-certs)
 
-5. Start `go-proxy` with `docker compose up -d`.
+5. Start `go-proxy` with `docker compose up -d` or `make up`.
 
 6. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
 
@@ -59,6 +59,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
     `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
 7. start your docker app, and visit <container_name>.y.z
+
+8. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
 
 ## Configuration
 
@@ -196,14 +198,16 @@ It takes ~ 0.1-0.4MB for each HTTP Proxy, and <2MB for each TCP/UDP Proxy
 
 ## Build it yourself
 
-1. [Install go](https://go.dev/doc/install) if not already
+1. Install [go](https://go.dev/doc/install) and `make` if not already
 
-2. get dependencies with `sh scripts/get.sh`
+2. get dependencies with `make get`
 
-3. build binary with `sh scripts/build.sh`
+3. build binary with `make build`
 
 4. start your container with `docker compose up -d`
 
 ## Getting SSL certs
 
 I personally use `nginx-proxy-manager` to get SSL certs with auto renewal by Cloudflare DNS challenge. You may symlink the certs from `nginx-proxy-manager` to somewhere else, and mount them to `go-proxy`'s `/certs`
+
+[panel port]: 8443

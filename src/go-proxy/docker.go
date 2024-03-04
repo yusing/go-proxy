@@ -18,7 +18,7 @@ import (
 )
 
 type ProxyConfig struct {
-	id	   string
+	id     string
 	Alias  string
 	Scheme string
 	Host   string
@@ -89,7 +89,6 @@ func buildContainerRoute(container types.Container) {
 				imageName := imageSplit[0]
 				_, isKnownImage := imageNamePortMap[imageName]
 				if isKnownImage {
-					log.Printf("[Build] Known image '%s' detected for %s", imageName, container_name)
 					config.Scheme = "tcp"
 				} else {
 					config.Scheme = "http"
@@ -109,7 +108,7 @@ func buildContainerRoute(container types.Container) {
 		}
 		config.Alias = alias
 		config.UpdateId()
-		
+
 		wg.Add(1)
 		go func() {
 			createRoute(&config)
@@ -139,7 +138,7 @@ func buildRoutes() {
 
 func findHTTPRoute(host string, path string) (*HTTPRoute, error) {
 	subdomain := strings.Split(host, ".")[0]
-	routeMap, ok := routes.HTTPRoutes[subdomain]
+	routeMap, ok := routes.HTTPRoutes.TryGet(subdomain)
 	if !ok {
 		return nil, fmt.Errorf("no matching route for subdomain %s", subdomain)
 	}

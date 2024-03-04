@@ -19,6 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	buildRoutes()
 	log.Printf("[Build] built %v reverse proxies", countRoutes())
 	beginListenStreams()
@@ -30,15 +31,21 @@ func main() {
 			filters.Arg("event", "die"), // stop seems like triggering die
 			// filters.Arg("event", "stop"),
 		)
-		msgs, _ := dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
+		msgChan, errChan := dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
 
-		for msg := range msgs {
-			// TODO: handle actor only
-			log.Printf("[Event] %s %s caused rebuild", msg.Action, msg.Actor.Attributes["name"])
-			endListenStreams()
-			buildRoutes()
-			log.Printf("[Build] rebuilt %v reverse proxies", countRoutes())
-			beginListenStreams()
+		for {
+			select {
+			case msg := <-msgChan:
+				// TODO: handle actor only
+				log.Printf("[Event] %s %s caused rebuild", msg.Action, msg.Actor.Attributes["name"])
+				endListenStreams()
+				buildRoutes()
+				log.Printf("[Build] rebuilt %v reverse proxies", countRoutes())
+				beginListenStreams()
+			case err := <-errChan:
+				log.Printf("[Event] %s", err)
+				msgChan, errChan = dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
+			}
 		}
 	}()
 
