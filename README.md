@@ -66,8 +66,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## Known issues
 
-- When a container has replicas, you have to specify `proxy.<alias>.host` to the container_name
-- UDP proxy does not work properly
+None
 
 ## Configuration
 
