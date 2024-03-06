@@ -49,11 +49,11 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		PathMode: config.PathMode,
 	}
 
+	director := proxy.Director
 	proxy.Director = nil
 
 	initRewrite := func(pr *httputil.ProxyRequest) {
-		pr.SetURL(url)
-		pr.SetXForwarded()
+		director(pr.Out)
 	}
 	rewrite := initRewrite
 
@@ -78,7 +78,7 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 			}
 			// disable cache
 			r.Header.Set("Cache-Control", "no-store")
-			
+
 			var err error = nil
 			switch {
 			case strings.HasPrefix(contentType[0], "text/html"):
