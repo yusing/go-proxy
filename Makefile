@@ -13,14 +13,14 @@ quick-restart: # quick restart without restarting the container
 	docker cp bin/go-proxy go-proxy:/app/go-proxy
 	docker cp templates/* go-proxy:/app/templates
 	docker cp entrypoint.sh go-proxy:/app/entrypoint.sh
-	docker exec -d go-proxy bash -c "/app/entrypoint.sh restart"
+	docker exec -d go-proxy bash /app/entrypoint.sh restart
 
 restart:
 	docker kill go-proxy
 	docker compose up -d go-proxy
 
 logs:
-	docker logs -f go-proxy
+	tail -f log/go-proxy.log
 
 get:
 	go get -d -u ./src/go-proxy

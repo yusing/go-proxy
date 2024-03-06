@@ -72,8 +72,8 @@
         function updateHealthStatus() {
             let rows = document.querySelectorAll('tbody tr');
             rows.forEach(row => {
-                let url = row.cells[2].textContent;
-                let cell = row.cells[3]; // Health column cell
+                let url = row.cells[3].textContent;
+                let cell = row.cells[4]; // Health column cell
                 checkHealth(url, cell);
             });
         }
@@ -100,6 +100,7 @@
                         <tr>
                             <th>Alias</th>
                             <th>Path</th>
+                            <th>Path Mode</th>
                             <th>URL</th>
                             <th>Health</th>
                         </tr>
@@ -111,6 +112,7 @@
                         <tr>
                             <td>{{$alias}}</td>
                             <td>{{$path}}</td>
+                            <td>{{$route.PathMode}}</td>
                             <td>{{$route.Url.String}}</td>
                             <td class="align-middle">
                                 <div class="health-circle"></div>

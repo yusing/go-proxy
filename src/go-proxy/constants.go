@@ -46,7 +46,7 @@ const (
 
 const (
 	ProxyPathMode_Forward     = "forward"
-	ProxyPathMode_Sub         = "sub" // TODO: implement
+	ProxyPathMode_Sub         = "sub"
 	ProxyPathMode_RemovedPath = ""
 )
 

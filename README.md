@@ -25,7 +25,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - subdomain matching **(domain name doesn't matter)**
 - path matching
 - HTTP proxy
-- TCP/UDP Proxy (experimental, unable to release port on hot-reload)
+- TCP/UDP Proxy
 - HTTP round robin load balance support (same subdomain and path across containers replicas)
 - Auto hot-reload when container start / die / stop.
 - Simple panel to see all reverse proxies and health (visit port [panel port] of go-proxy `https://*.y.z:[panel port]`)
@@ -97,7 +97,8 @@ However, there are some labels you can manipulate with:
     - forward: path remain unchanged
       1. apps.y.z/webdav -> webdav:80/webdav
       2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
-    - sub: remove path prefix from both URL and HTML attributes (`src`, `href` and `action`)
+    - sub: (experimental) remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
+      e.g. apps.y.z/app1 -> webdav:80, `href="/path/to/file"` -> `href="/app1/path/to/file"`
 
 - `proxy.<alias>.load_balance`: enable load balance
   - allowed: `1`, `true`

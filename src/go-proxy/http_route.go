@@ -65,20 +65,31 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 			initRewrite(pr)
 			// disable compression
 			pr.Out.Header.Set("Accept-Encoding", "identity")
+			// remove path prefix
 			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
 		}
 		route.Proxy.ModifyResponse = func(r *http.Response) error {
 			contentType, ok := r.Header["Content-Type"]
 			if !ok || len(contentType) == 0 {
-				glog.Infof("unknown content type for %s", r.Request.URL.String())
+				if glog.V(3) {
+					glog.Infof("[Path sub] unknown content type for %s", r.Request.URL.String())
+				}
 				return nil
 			}
-			if !strings.HasPrefix(contentType[0], "text/html") {
-				return nil
+			// disable cache
+			r.Header.Set("Cache-Control", "no-store")
+			
+			var err error = nil
+			switch {
+			case strings.HasPrefix(contentType[0], "text/html"):
+				err = utils.respHTMLSubPath(r, config.Path)
+			case strings.HasPrefix(contentType[0], "application/javascript"):
+				err = utils.respJSSubPath(r, config.Path)
+			default:
+				glog.V(4).Infof("[Path sub] unknown content type(s): %s", contentType)
 			}
-			err := utils.respRemovePath(r, config.Path)
 			if err != nil {
-				err = fmt.Errorf("failed to remove path prefix %s: %v", config.Path, err)
+				err = fmt.Errorf("[Path sub] failed to remove path prefix %s: %v", config.Path, err)
 				r.Status = err.Error()
 				r.StatusCode = http.StatusInternalServerError
 			}
@@ -96,7 +107,7 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 			rewrite(pr)
 			r := pr.In
 			glog.Infof("[Request] %s %s%s", r.Method, r.Host, r.URL.Path)
-			glog.V(4).InfoDepthf(1, "Headers: %v", r.Header)
+			glog.V(5).InfoDepthf(1, "Headers: %v", r.Header)
 		}
 	} else {
 		route.Proxy.Rewrite = rewrite
@@ -141,7 +152,6 @@ func httpProxyHandler(w http.ResponseWriter, r *http.Request) {
 			r.URL.Path,
 			err,
 		)
-		glog.Error(err)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

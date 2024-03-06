@@ -19,7 +19,7 @@ services:
     volumes:
       - /path/to/cert.pem:/certs/cert.crt:ro
       - /path/to/privkey.pem:/certs/priv.key:ro
-      - ./go-proxy/logs:/app/log # path to logs
+      - ./log:/app/log # path to logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
     extra_hosts:
       - host.docker.internal:host-gateway # required if you have containers in `host` network_mode

@@ -4,6 +4,7 @@ import (
 	"flag"
 	"net/http"
 	"runtime"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
@@ -48,6 +49,12 @@ func main() {
 				glog.Infof("[Event] %s", err)
 				msgChan, errChan = dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
 			}
+		}
+	}()
+
+	go func() {
+		for range time.Tick(100 * time.Millisecond) {
+			glog.Flush()
 		}
 	}()
 

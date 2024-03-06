@@ -2,3 +2,4 @@ compose.yml
 go-proxy.yml
 bin/go-proxy.bak
 logs/
+log/
