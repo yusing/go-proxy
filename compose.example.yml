@@ -3,9 +3,13 @@ services:
   app:
     build: .
     container_name: go-proxy
+    hostname: go-proxy # set hostname to prevent adding itself to proxy list
     restart: always
-    networks: # also add here
+    networks: # ^also add here
       - default
+    environment:
+      - VERBOSITY=1 # LOG LEVEL (optional, defaults to 1)
+      - DEBUG=1 # (optional enable only for debug)
     ports:
       - 80:80 # http
       - 443:443 # https
@@ -15,14 +19,15 @@ services:
     volumes:
       - /path/to/cert.pem:/certs/cert.crt:ro
       - /path/to/privkey.pem:/certs/priv.key:ro
+      - ./go-proxy/logs:/app/log # path to logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
     extra_hosts:
-      - host.docker.internal:host-gateway
+      - host.docker.internal:host-gateway # required if you have containers in `host` network_mode
     logging:
       driver: 'json-file'
       options:
         max-file: '1'
         max-size: 128k
-networks: # you may add other external networks
+networks: # ^you may add other external networks
   default:
     driver: bridge

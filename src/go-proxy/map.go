@@ -16,19 +16,19 @@ type SafeMapInterface[KT comparable, VT interface{}] interface {
 
 type SafeMap[KT comparable, VT interface{}] struct {
 	SafeMapInterface[KT, VT]
-	m map[KT]VT
-	mutex sync.Mutex
+	m              map[KT]VT
+	mutex          sync.Mutex
 	defaultFactory func() VT
 }
 
-func NewSafeMap[KT comparable, VT interface{}](df... func() VT) *SafeMap[KT, VT] {
+func NewSafeMap[KT comparable, VT interface{}](df ...func() VT) *SafeMap[KT, VT] {
 	if len(df) == 0 {
 		return &SafeMap[KT, VT]{
 			m: make(map[KT]VT),
 		}
 	}
 	return &SafeMap[KT, VT]{
-		m: make(map[KT]VT),
+		m:              make(map[KT]VT),
 		defaultFactory: df[0],
 	}
 }
@@ -54,10 +54,8 @@ func (m *SafeMap[KT, VT]) Get(key KT) VT {
 	return value
 }
 
-func (m *SafeMap[KT, VT]) TryGet(key KT) (VT, bool) {
-	m.mutex.Lock()
+func (m *SafeMap[KT, VT]) UnsafeGet(key KT) (VT, bool) {
 	value, ok := m.m[key]
-	m.mutex.Unlock()
 	return value, ok
 }
 

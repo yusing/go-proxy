@@ -1,28 +1,30 @@
 package main
 
 import (
-	"log"
+	"flag"
 	"net/http"
 	"runtime"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/golang/glog"
 	"golang.org/x/net/context"
 )
 
 func main() {
 	var err error
+	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 
 	buildRoutes()
-	log.Printf("[Build] built %v reverse proxies", countRoutes())
-	beginListenStreams()
+	glog.Infof("[Build] built %v reverse proxies", CountRoutes())
+	BeginListenStreams()
 
 	go func() {
 		filter := filters.NewArgs(
@@ -37,13 +39,13 @@ func main() {
 			select {
 			case msg := <-msgChan:
 				// TODO: handle actor only
-				log.Printf("[Event] %s %s caused rebuild", msg.Action, msg.Actor.Attributes["name"])
-				endListenStreams()
+				glog.Infof("[Event] %s %s caused rebuild", msg.Action, msg.Actor.Attributes["name"])
+				EndListenStreams()
 				buildRoutes()
-				log.Printf("[Build] rebuilt %v reverse proxies", countRoutes())
-				beginListenStreams()
+				glog.Infof("[Build] rebuilt %v reverse proxies", CountRoutes())
+				BeginListenStreams()
 			case err := <-errChan:
-				log.Printf("[Event] %s", err)
+				glog.Infof("[Event] %s", err)
 				msgChan, errChan = dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
 			}
 		}
@@ -53,22 +55,22 @@ func main() {
 	mux.HandleFunc("/", httpProxyHandler)
 
 	go func() {
-		log.Println("Starting HTTP server on port 80")
+		glog.Infoln("Starting HTTP server on port 80")
 		err := http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS))
 		if err != nil {
-			log.Fatal("HTTP server error", err)
+			glog.Fatal("HTTP server error", err)
 		}
 	}()
 	go func() {
-		log.Println("Starting HTTPS panel on port 8443")
+		glog.Infoln("Starting HTTPS panel on port 8443")
 		err := http.ListenAndServeTLS(":8443", "/certs/cert.crt", "/certs/priv.key", http.HandlerFunc(panelHandler))
 		if err != nil {
-			log.Fatal("HTTP server error", err)
+			glog.Fatal("HTTP server error", err)
 		}
 	}()
-	log.Println("Starting HTTPS server on port 443")
+	glog.Infoln("Starting HTTPS server on port 443")
 	err = http.ListenAndServeTLS(":443", "/certs/cert.crt", "/certs/priv.key", mux)
 	if err != nil {
-		log.Fatal("HTTPS Server error: ", err)
+		glog.Fatal("HTTPS Server error: ", err)
 	}
 }

@@ -2,14 +2,13 @@ package main
 
 import (
 	"html/template"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"time"
-)
 
-const templateFile = "/app/templates/panel.html"
+	"github.com/golang/glog"
+)
 
 var healthCheckHttpClient = &http.Client{
 	Timeout: 5 * time.Second,
@@ -72,7 +71,7 @@ func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 
 	url, err := url.Parse(targetUrl)
 	if err != nil {
-		log.Printf("[Panel] failed to parse %s, error: %v", targetUrl, err)
+		glog.Infof("[Panel] failed to parse %s, error: %v", targetUrl, err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

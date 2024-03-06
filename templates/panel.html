@@ -105,16 +105,18 @@
                         </tr>
                     </thead>
                     <tbody>
-                        {{range $alias, $httpRoutes := .HTTPRoutes.Iterator}}
-                        {{range $route := $httpRoutes}}
+                        {{range $alias, $pathPoolMap := .HTTPRoutes.Iterator}}
+                        {{range $path, $lbPool := $pathPoolMap.Iterator}}
+                        {{range $_, $route := $lbPool.Iterator}}
                         <tr>
                             <td>{{$alias}}</td>
-                            <td>{{$route.Path}}</td>
+                            <td>{{$path}}</td>
                             <td>{{$route.Url.String}}</td>
                             <td class="align-middle">
                                 <div class="health-circle"></div>
                             </td> <!-- Health column -->
                         </tr>
+                        {{end}}
                         {{end}}
                         {{end}}
                     </tbody>

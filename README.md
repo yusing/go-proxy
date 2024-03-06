@@ -13,6 +13,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
   - [Single Port Configuration](#single-port-configuration-example)
   - [Multiple Ports Configuration](#multiple-ports-configuration-example)
   - [TCP/UDP Configuration](#tcpudp-configuration-example)
+  - [Load balancing Configuration](#load-balancing-configuration-example)
 - [Troubleshooting](#troubleshooting)
 - [Benchmarks](#benchmarks)
 - [Memory usage](#memory-usage)
@@ -25,6 +26,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - path matching
 - HTTP proxy
 - TCP/UDP Proxy (experimental, unable to release port on hot-reload)
+- HTTP round robin load balance support (same subdomain and path across containers replicas)
 - Auto hot-reload when container start / die / stop.
 - Simple panel to see all reverse proxies and health (visit port [panel port] of go-proxy `https://*.y.z:[panel port]`)
 
@@ -62,6 +64,11 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 8. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
 
+## Known issues
+
+- When a container has replicas, you have to specify `proxy.<alias>.host` to the container_name
+- UDP proxy does not work properly
+
 ## Configuration
 
 With container name, no label needs to be added.
@@ -81,6 +88,19 @@ However, there are some labels you can manipulate with:
     - `targetPort` must be a number, or the predefined names (see [stream.go](src/go-proxy/stream.go#L28))
 - `proxy.<alias>.path`: path matching (for http proxy only)
   - defaults to empty
+- `proxy.<alias>.path_mode`: mode for path handling
+  - defaults to empty
+  - allowed: \<empty>, forward, sub
+    - empty: remove path prefix from URL when proxying
+      1. apps.y.z/webdav -> webdav:80
+      2. apps.y.z./webdav/path/to/file -> webdav:80/path/to/file
+    - forward: path remain unchanged
+      1. apps.y.z/webdav -> webdav:80/webdav
+      2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
+    - sub: remove path prefix from both URL and HTML attributes (`src`, `href` and `action`)
+
+- `proxy.<alias>.load_balance`: enable load balance
+  - allowed: `1`, `true`
 
 ### Single port configuration example
 
@@ -109,9 +129,9 @@ minio:
   container_name: minio
   ...
   labels:
-    proxy.aliases: minio,minio-console
-    proxy.minio.port: 9000
-    proxy.minio-console.port: 9001
+    - proxy.aliases=minio,minio-console
+    - proxy.minio.port=9000
+    - proxy.minio-console.port=9001
 
 # visit https://minio.y.z to access minio
 # visit https://minio-console.y.z/whoami to access minio console
@@ -142,6 +162,18 @@ go-proxy:
     # or 20000-20010:20000-20010/tcp to declare large range at once
 
 # access app-db via <*>.y.z:20000
+```
+
+## Load balancing Configuration Example
+
+```yaml
+nginx:
+  ...
+  deploy:
+    mode: replicated
+    replicas: 3
+  labels:
+    - proxy.nginx.load_balance=1 # allowed: [1, true]
 ```
 
 ## Troubleshooting

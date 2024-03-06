@@ -2,10 +2,9 @@ module github.com/yusing/go-proxy
 
 go 1.21.7
 
-require (
-	github.com/docker/docker v25.0.3+incompatible
-	golang.org/x/text v0.14.0
-)
+require github.com/docker/docker v25.0.3+incompatible
+
+require github.com/golang/glog v1.2.0
 
 require (
 	github.com/containerd/log v0.1.0 // indirect
@@ -13,9 +12,9 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.24.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.24.0 // indirect
-	golang.org/x/mod v0.15.0 // indirect
+	golang.org/x/mod v0.16.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
-	golang.org/x/tools v0.18.0 // indirect
+	golang.org/x/tools v0.19.0 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 )
 
@@ -35,6 +34,6 @@ require (
 	go.opentelemetry.io/otel v1.24.0 // indirect
 	go.opentelemetry.io/otel/metric v1.24.0 // indirect
 	go.opentelemetry.io/otel/trace v1.24.0 // indirect
-	golang.org/x/net v0.21.0
-	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/net v0.22.0
+	golang.org/x/sys v0.18.0 // indirect
 )

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"reflect"
 	"sort"
@@ -12,27 +11,9 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
+	"github.com/golang/glog"
 	"golang.org/x/net/context"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
-
-type ProxyConfig struct {
-	id     string
-	Alias  string
-	Scheme string
-	Host   string
-	Port   string
-	Path   string // http proxy only
-}
-
-func NewProxyConfig() ProxyConfig {
-	return ProxyConfig{}
-}
-
-func (cfg *ProxyConfig) UpdateId() {
-	cfg.id = fmt.Sprintf("%s-%s-%s-%s-%s", cfg.Alias, cfg.Scheme, cfg.Host, cfg.Port, cfg.Path)
-}
 
 var dockerClient *client.Client
 
@@ -54,8 +35,12 @@ func buildContainerRoute(container types.Container) {
 		for label, value := range container.Labels {
 			if strings.HasPrefix(label, prefix) {
 				field := strings.TrimPrefix(label, prefix)
-				field = cases.Title(language.Und, cases.NoLower).String(field)
+				field = utils.snakeToCamel(field)
 				prop := reflect.ValueOf(&config).Elem().FieldByName(field)
+				if prop.Kind() == 0 {
+					glog.Infof("[Build] %s: ignoring unknown field %s", alias, field)
+					continue
+				}
 				prop.Set(reflect.ValueOf(value))
 			}
 		}
@@ -76,6 +61,7 @@ func buildContainerRoute(container types.Container) {
 		}
 		if config.Port == "" {
 			// no ports exposed or specified
+			glog.Infof("[Build] %s has no port exposed", alias)
 			return
 		}
 		if config.Scheme == "" {
@@ -87,7 +73,7 @@ func buildContainerRoute(container types.Container) {
 				imageSplit := strings.Split(container.Image, "/")
 				imageSplit = strings.Split(imageSplit[len(imageSplit)-1], ":")
 				imageName := imageSplit[0]
-				_, isKnownImage := imageNamePortMap[imageName]
+				_, isKnownImage := ImageNamePortMap[imageName]
 				if isKnownImage {
 					config.Scheme = "tcp"
 				} else {
@@ -96,22 +82,37 @@ func buildContainerRoute(container types.Container) {
 			}
 		}
 		if !isValidScheme(config.Scheme) {
-			log.Printf("%s: unsupported scheme: %s, using http", container_name, config.Scheme)
+			glog.Infof("%s: unsupported scheme: %s, using http", container_name, config.Scheme)
 			config.Scheme = "http"
 		}
 		if config.Host == "" {
-			if container.HostConfig.NetworkMode != "host" {
-				config.Host = container_name
-			} else {
+			switch {
+			case container.HostConfig.NetworkMode == "host":
 				config.Host = "host.docker.internal"
+			case config.LoadBalance == "true":
+			case config.LoadBalance == "1":
+				for _, network := range container.NetworkSettings.Networks {
+					config.Host = network.IPAddress
+					break
+				}
+			default:
+				for _, network := range container.NetworkSettings.Networks {
+					for _, alias := range network.Aliases {
+						config.Host = alias
+						break
+					}
+				}
 			}
+		}
+		if config.Host == "" {
+			config.Host = container_name
 		}
 		config.Alias = alias
 		config.UpdateId()
 
 		wg.Add(1)
 		go func() {
-			createRoute(&config)
+			CreateRoute(&config)
 			wg.Done()
 		}()
 	}
@@ -119,10 +120,10 @@ func buildContainerRoute(container types.Container) {
 }
 
 func buildRoutes() {
-	initRoutes()
+	InitRoutes()
 	containerSlice, err := dockerClient.ContainerList(context.Background(), container.ListOptions{})
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -130,22 +131,9 @@ func buildRoutes() {
 	}
 	for _, container := range containerSlice {
 		if container.Names[0] == hostname { // skip self
+			glog.Infof("[Build] Skipping %s", container.Names[0])
 			continue
 		}
 		buildContainerRoute(container)
 	}
-}
-
-func findHTTPRoute(host string, path string) (*HTTPRoute, error) {
-	subdomain := strings.Split(host, ".")[0]
-	routeMap, ok := routes.HTTPRoutes.TryGet(subdomain)
-	if !ok {
-		return nil, fmt.Errorf("no matching route for subdomain %s", subdomain)
-	}
-	for _, route := range routeMap {
-		if strings.HasPrefix(path, route.Path) {
-			return &route, nil
-		}
-	}
-	return nil, fmt.Errorf("no matching route for path %s for subdomain %s", path, subdomain)
 }

@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
+
+	xhtml "golang.org/x/net/html"
 )
 
 type Utils struct {
@@ -80,5 +85,50 @@ func (*Utils) healthCheckStream(scheme string, host string) error {
 		return err
 	}
 	conn.Close()
+	return nil
+}
+
+func (*Utils) snakeToCamel(s string) string {
+	toHyphenCamel := http.CanonicalHeaderKey(strings.ReplaceAll(s, "_", "-"))
+	return strings.ReplaceAll(toHyphenCamel, "-", "")
+}
+
+func htmlNodesSubPath(node *xhtml.Node, path string) {
+	if node.Type == xhtml.ElementNode {
+		for _, attr := range node.Attr {
+			switch attr.Key {
+			case "src": // img, script, etc.
+			case "href": // link
+			case "action": // form
+				if strings.HasPrefix(attr.Val, path) {
+					attr.Val = strings.Replace(attr.Val, path, "", 1)
+				}
+			}
+		}
+	}
+	for c := node.FirstChild; c != nil; c = c.NextSibling {
+		htmlNodesSubPath(c, path)
+	}
+}
+
+func (*Utils) respRemovePath(r *http.Response, path string) error {
+	// remove all path prefix from relative path in script, img, a, ...
+	doc, err := xhtml.Parse(r.Body)
+
+	if err != nil {
+		return err
+	}
+
+	htmlNodesSubPath(doc, path)
+
+	var buf bytes.Buffer
+	err = xhtml.Render(&buf, doc)
+	
+	if err != nil {
+		return err
+	}
+
+	r.Body = io.NopCloser(strings.NewReader(buf.String()))
+
 	return nil
 }
