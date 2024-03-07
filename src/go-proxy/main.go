@@ -17,6 +17,7 @@ func main() {
 	var err error
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	time.Now().Zone()
 
 	dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {

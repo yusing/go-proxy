@@ -21,6 +21,8 @@ services:
       - /path/to/privkey.pem:/certs/priv.key:ro
       - ./log:/app/log # path to logs
       - /var/run/docker.sock:/var/run/docker.sock:ro
+    dns:
+      - 127.0.0.1 # workaround for "lookup: no such host"
     extra_hosts:
       - host.docker.internal:host-gateway # required if you have containers in `host` network_mode
     logging:

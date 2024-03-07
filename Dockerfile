@@ -2,7 +2,7 @@ FROM alpine:latest
 
 LABEL maintainer="yusing@6uo.me"
 
-RUN apk add --no-cache bash
+RUN apk add --no-cache bash tzdata
 RUN mkdir /app
 COPY bin/go-proxy entrypoint.sh /app/
 COPY templates/ /app/templates
