@@ -51,10 +51,10 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 6. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
 
-    In case the network of your container is in subnet `172.16.0.0/12` (bridge),
+    In case the network of your container is in subnet `172.16.0.0/16` (bridge),
     and vpn network is under `100.64.0.0/10` (i.e. tailscale)
 
-    `sudo ufw allow from 172.16.0.0/12 to 100.64.0.0/10`
+    `sudo ufw allow from 172.16.0.0/16 to 100.64.0.0/10`
 
     You can also list CIDRs of all docker bridge networks by:
 
