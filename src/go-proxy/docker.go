@@ -16,6 +16,7 @@ import (
 )
 
 var dockerClient *client.Client
+var defaultHost = os.Getenv("DEFAULT_HOST")
 
 func buildContainerRoute(container types.Container) {
 	var aliases []string
@@ -44,7 +45,12 @@ func buildContainerRoute(container types.Container) {
 				prop.Set(reflect.ValueOf(value))
 			}
 		}
-		if config.Port == "" {
+		if config.Port == "" && defaultHost != "" {
+			for _, port := range container.Ports {
+				config.Port = fmt.Sprintf("%d", port.PublicPort)
+				break	
+			}
+		} else if config.Port == "" {
 			// usually the smaller port is the http one
 			// so make it the last one to be set (if 80 or 8080 are not exposed)
 			sort.Slice(container.Ports, func(i, j int) bool {
@@ -87,6 +93,8 @@ func buildContainerRoute(container types.Container) {
 		}
 		if config.Host == "" {
 			switch {
+			case defaultHost != "":
+				config.Host = defaultHost
 			case container.HostConfig.NetworkMode == "host":
 				config.Host = "host.docker.internal"
 			case config.LoadBalance == "true":

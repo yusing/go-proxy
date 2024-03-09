@@ -2,7 +2,7 @@ module github.com/yusing/go-proxy
 
 go 1.21.7
 
-require github.com/docker/docker v25.0.3+incompatible
+require github.com/docker/docker v25.0.4+incompatible
 
 require github.com/golang/glog v1.2.0
 
