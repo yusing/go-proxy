@@ -18,7 +18,28 @@ type Route interface {
 	RemoveFromRoutes()
 }
 
-var routes = initRoutes()
+func NewRoute(cfg *ProxyConfig) (Route, error) {
+	if isStreamScheme(cfg.Scheme) {
+		id := cfg.GetID()
+		if routes.StreamRoutes.Contains(id) {
+			return nil, fmt.Errorf("duplicated %s stream %s, ignoring", cfg.Scheme, id)
+		}
+		route, err := NewStreamRoute(cfg)
+		if err != nil {
+			return nil, err
+		}
+		routes.StreamRoutes.Set(id, route)
+		return route, nil
+	} else {
+		routes.HTTPRoutes.Ensure(cfg.Alias)
+		route, err := NewHTTPRoute(cfg)
+		if err != nil {
+			return nil, err
+		}
+		routes.HTTPRoutes.Get(cfg.Alias).Add(cfg.Path, route)
+		return route, nil
+	}
+}
 
 func isValidScheme(s string) bool {
 	for _, v := range ValidSchemes {
@@ -45,25 +66,4 @@ func initRoutes() *Routes {
 	return &r
 }
 
-func NewRoute(cfg *ProxyConfig) (Route, error) {
-	if isStreamScheme(cfg.Scheme) {
-		id := cfg.GetID()
-		if routes.StreamRoutes.Contains(id) {
-			return nil, fmt.Errorf("duplicated %s stream %s, ignoring", cfg.Scheme, id)
-		}
-		route, err := NewStreamRoute(cfg)
-		if err != nil {
-			return nil, err
-		}
-		routes.StreamRoutes.Set(id, route)
-		return route, nil
-	} else {
-		routes.HTTPRoutes.Ensure(cfg.Alias)
-		route, err := NewHTTPRoute(cfg)
-		if err != nil {
-			return nil, err
-		}
-		routes.HTTPRoutes.Get(cfg.Alias).Add(cfg.Path, route)
-		return route, nil
-	}
-}
+var routes = initRoutes()

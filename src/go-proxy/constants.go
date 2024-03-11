@@ -1,6 +1,10 @@
 package main
 
-import "time"
+import (
+	"net"
+	"net/http"
+	"time"
+)
 
 var (
 	ImageNamePortMap = map[string]string{
@@ -59,6 +63,19 @@ const (
 	certPath = "certs/cert.crt"
 	keyPath  = "certs/priv.key"
 )
+
+// TODO: default + per proxy
+var transport = &http.Transport{
+	Proxy: http.ProxyFromEnvironment,
+	DialContext: (&net.Dialer{
+		Timeout:   60 * time.Second,
+		KeepAlive: 60 * time.Second,
+	}).DialContext,
+	MaxIdleConns:        1000,
+	MaxIdleConnsPerHost: 1000,
+}
+
+const clientUrlFromEnv = "FROM_ENV"
 
 const configPath = "config.yml"
 

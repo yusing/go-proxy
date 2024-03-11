@@ -25,7 +25,7 @@ func (p *Provider) getFileProxyConfigs() ([]*ProxyConfig, error) {
 
 		for alias, cfg := range configMap {
 			cfg.Alias = alias
-			err = cfg.SetDefault()
+			err = cfg.SetDefaults()
 			if err != nil {
 				return nil, err
 			}

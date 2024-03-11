@@ -63,14 +63,16 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientHos
 		}
 		if config.Port == "" {
 			// no ports exposed or specified
+			p.Logf("Build", "no ports exposed for %s, ignored", container_name)
 			continue
 		}
 		if config.Scheme == "" {
-			if strings.HasSuffix(config.Port, "443") {
+			switch {
+			case strings.HasSuffix(config.Port, "443"):
 				config.Scheme = "https"
-			} else if strings.HasPrefix(container.Image, "sha256:") {
+			case strings.HasPrefix(container.Image, "sha256:"):
 				config.Scheme = "http"
-			} else {
+			default:
 				imageSplit := strings.Split(container.Image, "/")
 				imageSplit = strings.Split(imageSplit[len(imageSplit)-1], ":")
 				imageName := imageSplit[0]
@@ -92,8 +94,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientHos
 				config.Host = clientHost
 			case container.HostConfig.NetworkMode == "host":
 				config.Host = "host.docker.internal"
-			case config.LoadBalance == "true":
-			case config.LoadBalance == "1":
+			case config.LoadBalance == "true", config.LoadBalance == "1":
 				for _, network := range container.NetworkSettings.Networks {
 					config.Host = network.IPAddress
 					break
@@ -186,4 +187,3 @@ func (p *Provider) grWatchDockerChanges() {
 }
 
 // var dockerUrlRegex = regexp.MustCompile(`^(?P<scheme>\w+)://(?P<host>[^:]+)(?P<port>:\d+)?(?P<path>/.*)?$`)
-const clientUrlFromEnv = "FROM_ENV"

@@ -11,7 +11,7 @@ type ProxyConfig struct {
 	Path        string // http proxy only
 	PathMode    string `yaml:"path_mode"` // http proxy only
 
-	provider 	*Provider
+	provider *Provider
 }
 
 func NewProxyConfig(provider *Provider) ProxyConfig {
@@ -21,7 +21,7 @@ func NewProxyConfig(provider *Provider) ProxyConfig {
 }
 
 // used by `GetFileProxyConfigs`
-func (cfg *ProxyConfig) SetDefault() error {
+func (cfg *ProxyConfig) SetDefaults() error {
 	if cfg.Alias == "" {
 		return fmt.Errorf("alias is required")
 	}

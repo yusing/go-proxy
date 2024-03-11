@@ -2,12 +2,10 @@ package main
 
 import (
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/golang/glog"
 )
@@ -18,15 +16,6 @@ type HTTPRoute struct {
 	Path     string
 	PathMode string
 	Proxy    *httputil.ReverseProxy
-}
-
-func isValidProxyPathMode(mode string) bool {
-	switch mode {
-	case ProxyPathMode_Forward, ProxyPathMode_Sub, ProxyPathMode_RemovedPath:
-		return true
-	default:
-		return false
-	}
 }
 
 func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
@@ -124,6 +113,24 @@ func (p *httpLoadBalancePool) Pick() *HTTPRoute {
 	return p.pool[index%len(p.pool)]
 }
 
+func (r *HTTPRoute) RemoveFromRoutes() {
+	routes.HTTPRoutes.Delete(r.Alias)
+}
+
+// dummy implementation for Route interface
+func (r *HTTPRoute) SetupListen()   {}
+func (r *HTTPRoute) Listen()        {}
+func (r *HTTPRoute) StopListening() {}
+
+func isValidProxyPathMode(mode string) bool {
+	switch mode {
+	case ProxyPathMode_Forward, ProxyPathMode_Sub, ProxyPathMode_RemovedPath:
+		return true
+	default:
+		return false
+	}
+}
+
 func redirectToTLS(w http.ResponseWriter, r *http.Request) {
 	// Redirect to the same host but with HTTPS
 	var redirectCode int
@@ -157,24 +164,4 @@ func httpProxyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	route.Proxy.ServeHTTP(w, r)
-}
-
-func (r *HTTPRoute) RemoveFromRoutes() {
-	routes.HTTPRoutes.Delete(r.Alias)
-}
-
-// dummy implementation for Route interface
-func (r *HTTPRoute) SetupListen()   {}
-func (r *HTTPRoute) Listen()        {}
-func (r *HTTPRoute) StopListening() {}
-
-// TODO: default + per proxy
-var transport = &http.Transport{
-	Proxy: http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
-		Timeout:   60 * time.Second,
-		KeepAlive: 60 * time.Second,
-	}).DialContext,
-	MaxIdleConns:        1000,
-	MaxIdleConnsPerHost: 1000,
 }
