@@ -6,7 +6,7 @@ import (
 )
 
 type pathPoolMap struct {
-	*SafeMap[string, *httpLoadBalancePool]
+	SafeMap[string, *httpLoadBalancePool]
 }
 
 func newPathPoolMap() pathPoolMap {
@@ -21,7 +21,8 @@ func (m pathPoolMap) Add(path string, route *HTTPRoute) {
 }
 
 func (m pathPoolMap) FindMatch(pathGot string) (*HTTPRoute, error) {
-	for pathWant, v := range m.m {
+	pool := m.Iterator()
+	for pathWant, v := range pool {
 		if strings.HasPrefix(pathGot, pathWant) {
 			return v.Pick(), nil
 		}

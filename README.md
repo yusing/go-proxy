@@ -22,6 +22,9 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## Features
 
+- auto detect reverse proxies from docker
+- additional reverse proxies from provider yaml file
+- allow multiple docker / file providers by custom `config.yml` file
 - subdomain matching **(domain name doesn't matter)**
 - path matching
 - HTTP proxy
@@ -39,13 +42,13 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## How to use
 
-1. Clone the repo git clone `https://github.com/yusing/go-proxy`
+1. Download and extract the latest release
 
 2. Copy content from [compose.example.yml](compose.example.yml) and create your own `compose.yml`
 
 3. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
 
-4. Modify the path to your SSL certs. See [Getting SSL Certs](#getting-ssl-certs)
+4. (Optional) Mount your SSL certs. See [Getting SSL Certs](#getting-ssl-certs)
 
 5. Start `go-proxy` with `docker compose up -d` or `make up`.
 

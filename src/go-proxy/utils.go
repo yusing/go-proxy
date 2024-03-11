@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"path"
 	"path/filepath"
 	"regexp"
@@ -53,17 +54,15 @@ func (u *Utils) findUseFreePort(startingPort int) (int, error) {
 	return -1, fmt.Errorf("unable to find free port: %v", err)
 }
 
-func (u *Utils) resetPortsInUse() {
-	u.portsInUseMutex.Lock()
-	for port := range u.PortsInUse {
-		u.PortsInUse[port] = false
-	}
-	u.portsInUseMutex.Unlock()
-}
-
 func (u *Utils) markPortInUse(port int) {
 	u.portsInUseMutex.Lock()
 	u.PortsInUse[port] = true
+	u.portsInUseMutex.Unlock()
+}
+
+func (u *Utils) unmarkPortInUse(port int) {
+	u.portsInUseMutex.Lock()
+	delete(u.PortsInUse, port)
 	u.portsInUseMutex.Unlock()
 }
 
@@ -188,4 +187,9 @@ func (*Utils) respJSSubPath(r *http.Response, p string) error {
 
 	r.Body = io.NopCloser(strings.NewReader(js))
 	return nil
+}
+
+func (*Utils) fileOK(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }

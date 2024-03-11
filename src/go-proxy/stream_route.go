@@ -12,9 +12,7 @@ import (
 )
 
 type StreamRoute interface {
-	SetupListen()
-	Listen()
-	StopListening()
+	Route
 	Logf(string, ...interface{})
 	PrintError(error)
 	ListeningUrl() string
@@ -22,6 +20,7 @@ type StreamRoute interface {
 
 	closeListeners()
 	closeChannel()
+	unmarkPort()
 	wait()
 }
 
@@ -29,17 +28,18 @@ type StreamRouteBase struct {
 	Alias           string // to show in panel
 	Type            string
 	ListeningScheme string
-	ListeningPort   string
+	ListeningPort   int
 	TargetScheme    string
 	TargetHost      string
-	TargetPort      string
+	TargetPort      int
 
+	id        string
 	wg        sync.WaitGroup
 	stopChann chan struct{}
 }
 
 func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
-	var streamType string = TCPStreamType
+	var streamType string = StreamType_TCP
 	var srcPort string
 	var dstPort string
 	var srcScheme string
@@ -56,8 +56,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		dstPort = port_split[1]
 	}
 
-	port, hasName := NamePortMap[dstPort]
-	if hasName {
+	if port, hasName := NamePortMap[dstPort]; hasName {
 		dstPort = port
 	}
 
@@ -71,7 +70,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 
 	utils.markPortInUse(srcPortInt)
 
-	_, err = strconv.Atoi(dstPort)
+	dstPortInt, err := strconv.Atoi(dstPort)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"[Build] %s: Unrecognized stream target port %s, ignoring",
@@ -93,11 +92,12 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		Alias:           config.Alias,
 		Type:            streamType,
 		ListeningScheme: srcScheme,
-		ListeningPort:   srcPort,
+		ListeningPort:   srcPortInt,
 		TargetScheme:    dstScheme,
 		TargetHost:      config.Host,
-		TargetPort:      dstPort,
+		TargetPort:      dstPortInt,
 
+		id:        config.GetID(),
 		wg:        sync.WaitGroup{},
 		stopChann: make(chan struct{}),
 	}, nil
@@ -105,9 +105,9 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 
 func NewStreamRoute(config *ProxyConfig) (StreamRoute, error) {
 	switch config.Scheme {
-	case TCPStreamType:
+	case StreamType_TCP:
 		return NewTCPRoute(config)
-	case UDPStreamType:
+	case StreamType_UDP:
 		return NewUDPRoute(config)
 	default:
 		return nil, errors.New("unknown stream type")
@@ -138,24 +138,28 @@ func (route *StreamRouteBase) Logf(format string, v ...interface{}) {
 }
 
 func (route *StreamRouteBase) ListeningUrl() string {
-	return fmt.Sprintf("%s:%s", route.ListeningScheme, route.ListeningPort)
+	return fmt.Sprintf("%s:%v", route.ListeningScheme, route.ListeningPort)
 }
 
 func (route *StreamRouteBase) TargetUrl() string {
-	return fmt.Sprintf("%s://%s:%s", route.TargetScheme, route.TargetHost, route.TargetPort)
+	return fmt.Sprintf("%s://%s:%v", route.TargetScheme, route.TargetHost, route.TargetPort)
 }
 
 func (route *StreamRouteBase) SetupListen() {
-	if route.ListeningPort == "0" {
+	if route.ListeningPort == 0 {
 		freePort, err := utils.findUseFreePort(20000)
 		if err != nil {
 			route.PrintError(err)
 			return
 		}
-		route.ListeningPort = fmt.Sprintf("%d", freePort)
+		route.ListeningPort = freePort
 		route.Logf("Assigned free port %s", route.ListeningPort)
 	}
 	route.Logf("Listening on %s", route.ListeningUrl())
+}
+
+func (route *StreamRouteBase) RemoveFromRoutes() {
+	routes.StreamRoutes.Delete(route.id)
 }
 
 func (route *StreamRouteBase) wait() {
@@ -164,6 +168,10 @@ func (route *StreamRouteBase) wait() {
 
 func (route *StreamRouteBase) closeChannel() {
 	close(route.stopChann)
+}
+
+func (route *StreamRouteBase) unmarkPort() {
+	utils.unmarkPortInUse(route.ListeningPort)
 }
 
 func stopListening(route StreamRoute) {
@@ -176,6 +184,7 @@ func stopListening(route StreamRoute) {
 	go func() {
 		route.wait()
 		close(done)
+		route.unmarkPort()
 	}()
 
 	select {
@@ -186,31 +195,4 @@ func stopListening(route StreamRoute) {
 		route.Logf("timed out waiting for connections")
 		return
 	}
-}
-
-func allStreamsDo(msg string, fn ...func(StreamRoute)) {
-	glog.Infof("[Stream] %s", msg)
-
-	var wg sync.WaitGroup
-
-	for _, route := range routes.StreamRoutes.Iterator() {
-		wg.Add(1)
-		go func(r StreamRoute) {
-			for _, f := range fn {
-				f(r)
-			}
-			wg.Done()
-		}(route)
-	}
-
-	wg.Wait()
-	glog.Infof("[Stream] Finished %s", msg)
-}
-
-func BeginListenStreams() {
-	allStreamsDo("Start", StreamRoute.SetupListen, StreamRoute.Listen)
-}
-
-func EndListenStreams() {
-	allStreamsDo("Stop", StreamRoute.StopListening)
 }

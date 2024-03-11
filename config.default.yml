@@ -1,0 +1,10 @@
+providers:
+  local:
+    kind: docker
+    value: FROM_ENV
+  # provider1:
+  #   kind: file
+  #   value: provider1.yml
+  # provider2:
+  #   kind: file
+  #   value: provider2.yml

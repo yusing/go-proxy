@@ -34,14 +34,14 @@ var (
 )
 
 var (
-	StreamSchemes = []string{TCPStreamType, UDPStreamType} // TODO: support "tcp:udp", "udp:tcp"
+	StreamSchemes = []string{StreamType_TCP, StreamType_UDP} // TODO: support "tcp:udp", "udp:tcp"
 	HTTPSchemes   = []string{"http", "https"}
 	ValidSchemes  = append(StreamSchemes, HTTPSchemes...)
 )
 
 const (
-	UDPStreamType = "udp"
-	TCPStreamType = "tcp"
+	StreamType_UDP = "udp"
+	StreamType_TCP = "tcp"
 )
 
 const (
@@ -50,8 +50,20 @@ const (
 	ProxyPathMode_RemovedPath = ""
 )
 
+const (
+	ProviderKind_Docker = "docker"
+	ProviderKind_File   = "file"
+)
+
+const (
+	certPath = "certs/cert.crt"
+	keyPath  = "certs/priv.key"
+)
+
+const configPath = "config.yml"
+
 const StreamStopListenTimeout = 1 * time.Second
 
-const templateFile = "/app/templates/panel.html"
+const templateFile = "templates/panel.html"
 
 const udpBufferSize = 1500

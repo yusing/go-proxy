@@ -1,0 +1,11 @@
+app: # alias
+  # optional
+  scheme: http
+  # required, proxy target
+  host: 10.0.0.1
+  # optional
+  port: 80
+  # optional, defaults to empty
+  path:
+  # optional
+  path_mode:

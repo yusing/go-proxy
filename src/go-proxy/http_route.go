@@ -13,6 +13,7 @@ import (
 )
 
 type HTTPRoute struct {
+	Alias    string
 	Url      *url.URL
 	Path     string
 	PathMode string
@@ -31,7 +32,6 @@ func isValidProxyPathMode(mode string) bool {
 func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	url, err := url.Parse(fmt.Sprintf("%s://%s:%s", config.Scheme, config.Host, config.Port))
 	if err != nil {
-		glog.Infoln(err)
 		return nil, err
 	}
 
@@ -43,6 +43,7 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	}
 
 	route := &HTTPRoute{
+		Alias:    config.Alias,
 		Url:      url,
 		Path:     config.Path,
 		Proxy:    proxy,
@@ -157,6 +158,15 @@ func httpProxyHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	route.Proxy.ServeHTTP(w, r)
 }
+
+func (r *HTTPRoute) RemoveFromRoutes() {
+	routes.HTTPRoutes.Delete(r.Alias)
+}
+
+// dummy implementation for Route interface
+func (r *HTTPRoute) SetupListen()   {}
+func (r *HTTPRoute) Listen()        {}
+func (r *HTTPRoute) StopListening() {}
 
 // TODO: default + per proxy
 var transport = &http.Transport{

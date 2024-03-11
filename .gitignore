@@ -1,5 +1,7 @@
 compose.yml
 go-proxy.yml
+config.yml
+providers.yml
 bin/go-proxy.bak
 logs/
 log/

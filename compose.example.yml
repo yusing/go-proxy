@@ -3,28 +3,45 @@ services:
   app:
     build: .
     container_name: go-proxy
-    hostname: go-proxy # set hostname to prevent adding itself to proxy list
     restart: always
     networks: # ^also add here
       - default
-    environment:
-      - VERBOSITY=1 # LOG LEVEL (optional, defaults to 1)
-      - DEBUG=1 # (optional enable only for debug)
+    # environment:
+      # - VERBOSITY=1 # LOG LEVEL (optional, defaults to 1)
+      # - DEBUG=1 # (optional, enable only for debug)
     ports:
       - 80:80 # http
-      - 443:443 # https
-      - 8443:8443 # panel
-      - 20000:20100/tcp # tcp (optional, if you have proxy.<app>.scheme == tcp)
-      - 20000:20100/udp # tcp (optional, if you have proxy.<app>.scheme == udp)
+      # - 443:443 # optional, https
+      - 8080:8080 # http panel
+      # - 8443:8443 # optional, https panel
+
+      # optional, if you declared any tcp/udp proxy, set a range you want to use
+      # - 20000:20100/tcp
+      # - 20000:20100/udp
     volumes:
-      - /path/to/cert.pem:/certs/cert.crt:ro
-      - /path/to/privkey.pem:/certs/priv.key:ro
-      - ./log:/app/log # path to logs
+      # if you want https
+      # - /path/to/cert.pem:/app/certs/cert.crt:ro
+      # - /path/to/privkey.pem:/app/certs/priv.key:ro
+
+      # path to logs
+      - ./log:/app/log
+
+      # if you use default config, or declared local docker provider
+      # otherwise comment this line
       - /var/run/docker.sock:/var/run/docker.sock:ro
+
+      # to use custom config
+      # - path/to/config.yml:/app/config.yml
+
+      # mount file provider yaml files
+      # - path/to/provider1.yml:/app/provider1.yml
+      # - path/to/provider2.yml:/app/provider2.yml
+      # etc.
     dns:
       - 127.0.0.1 # workaround for "lookup: no such host"
     extra_hosts:
-      - host.docker.internal:host-gateway # required if you have containers in `host` network_mode
+      # required if you use local docker provider and have containers in `host` network_mode
+      - host.docker.internal:host-gateway
     logging:
       driver: 'json-file'
       options:

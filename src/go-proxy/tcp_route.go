@@ -24,7 +24,7 @@ func NewTCPRoute(config *ProxyConfig) (StreamRoute, error) {
 	if err != nil {
 		return nil, err
 	}
-	if base.TargetScheme != TCPStreamType {
+	if base.TargetScheme != StreamType_TCP {
 		return nil, fmt.Errorf("tcp to %s not yet supported", base.TargetScheme)
 	}
 	return &TCPRoute{
@@ -35,7 +35,7 @@ func NewTCPRoute(config *ProxyConfig) (StreamRoute, error) {
 }
 
 func (route *TCPRoute) Listen() {
-	in, err := net.Listen("tcp", ":"+route.ListeningPort)
+	in, err := net.Listen("tcp", fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
 		route.PrintError(err)
 		return
@@ -97,7 +97,7 @@ func (route *TCPRoute) grHandleConnection(clientConn net.Conn) {
 	ctx, cancel := context.WithTimeout(context.Background(), tcpDialTimeout)
 	defer cancel()
 
-	serverAddr := fmt.Sprintf("%s:%s", route.TargetHost, route.TargetPort)
+	serverAddr := fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort)
 	dialer := &net.Dialer{}
 	serverConn, err := dialer.DialContext(ctx, route.TargetScheme, serverAddr)
 	if err != nil {

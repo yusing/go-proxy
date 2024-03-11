@@ -32,7 +32,7 @@ func NewUDPRoute(config *ProxyConfig) (StreamRoute, error) {
 		return nil, err
 	}
 
-	if base.TargetScheme != UDPStreamType {
+	if base.TargetScheme != StreamType_UDP {
 		return nil, fmt.Errorf("udp to %s not yet supported", base.TargetScheme)
 	}
 
@@ -44,13 +44,13 @@ func NewUDPRoute(config *ProxyConfig) (StreamRoute, error) {
 }
 
 func (route *UDPRoute) Listen() {
-	source, err := net.ListenPacket(route.ListeningScheme, fmt.Sprintf(":%s", route.ListeningPort))
+	source, err := net.ListenPacket(route.ListeningScheme, fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
 		route.PrintError(err)
 		return
 	}
 
-	target, err := net.Dial(route.TargetScheme, fmt.Sprintf("%s:%s", route.TargetHost, route.TargetPort))
+	target, err := net.Dial(route.TargetScheme, fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort))
 	if err != nil {
 		route.PrintError(err)
 		source.Close()
