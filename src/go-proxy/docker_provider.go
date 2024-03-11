@@ -15,7 +15,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (p *Provider) getContainerProxyConfigs(container types.Container, clientHost string) []*ProxyConfig {
+func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP string) []*ProxyConfig {
 	var aliases []string
 
 	cfgs := make([]*ProxyConfig, 0)
@@ -43,7 +43,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientHos
 				prop.Set(reflect.ValueOf(value))
 			}
 		}
-		if config.Port == "" && clientHost != "" {
+		if config.Port == "" && clientIP != "" {
 			for _, port := range container.Ports {
 				config.Port = fmt.Sprintf("%d", port.PublicPort)
 				break
@@ -92,8 +92,8 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientHos
 		}
 		if config.Host == "" {
 			switch {
-			case clientHost != "":
-				config.Host = clientHost
+			case clientIP != "":
+				config.Host = clientIP
 			case container.HostConfig.NetworkMode == "host":
 				config.Host = "host.docker.internal"
 			case config.LoadBalance == "true", config.LoadBalance == "1":
@@ -121,12 +121,12 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientHos
 }
 
 func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
-	var clientHost string
+	var clientIP string
 	var opts []client.Opt
 	var err error
 
 	if p.Value == clientUrlFromEnv {
-		clientHost = ""
+		clientIP = ""
 		opts = []client.Opt{
 			client.WithHostFromEnv(),
 			client.WithAPIVersionNegotiation(),
@@ -136,21 +136,28 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 		if err != nil {
 			return nil, fmt.Errorf("unable to parse docker host url: %v", err)
 		}
-		clientHost = url.Host
+		clientIP = strings.Split(url.Host, ":")[0]
 		helper, err := connhelper.GetConnectionHelper(p.Value)
 		if err != nil {
 			return nil, fmt.Errorf("unexpected error: %v", err)
 		}
-		httpClient := &http.Client{
-			Transport: &http.Transport{
-				DialContext: helper.Dialer,
-			},
-		}
-		opts = []client.Opt{
-			client.WithHTTPClient(httpClient),
-			client.WithHost(helper.Host),
-			client.WithAPIVersionNegotiation(),
-			client.WithDialContext(helper.Dialer),
+		if helper != nil {
+			httpClient := &http.Client{
+				Transport: &http.Transport{
+					DialContext: helper.Dialer,
+				},
+			}
+			opts = []client.Opt{
+				client.WithHTTPClient(httpClient),
+				client.WithHost(helper.Host),
+				client.WithAPIVersionNegotiation(),
+				client.WithDialContext(helper.Dialer),
+			}
+		} else {
+			opts = []client.Opt{
+				client.WithHost(p.Value),
+				client.WithAPIVersionNegotiation(),
+			}
 		}
 	}
 
@@ -167,7 +174,7 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 	cfgs := make([]*ProxyConfig, 0)
 
 	for _, container := range containerSlice {
-		cfgs = append(cfgs, p.getContainerProxyConfigs(container, clientHost)...)
+		cfgs = append(cfgs, p.getContainerProxyConfigs(container, clientIP)...)
 	}
 
 	return cfgs, nil
