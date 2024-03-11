@@ -56,14 +56,14 @@ func (p *Provider) BuildStartRoutes() {
 
 	cfgs, err := p.GetProxyConfigs()
 	if err != nil {
-		p.Logf("Build", "unable to get proxy configs: %v", p.name, err)
+		p.Logf("Build", "unable to get proxy configs: %v", err)
 		return
 	}
 
 	for _, cfg := range cfgs {
 		r, err := NewRoute(cfg)
 		if err != nil {
-			p.Logf("Build", "error creating route %q: %v", p.name, cfg.Alias, err)
+			p.Logf("Build", "error creating route %q: %v", cfg.Alias, err)
 			continue
 		}
 		r.SetupListen()

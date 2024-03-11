@@ -19,12 +19,12 @@ import (
 )
 
 type Utils struct {
-	PortsInUse      map[int]bool
+	portsInUse      map[int]bool
 	portsInUseMutex sync.Mutex
 }
 
 var utils = &Utils{
-	PortsInUse:      make(map[int]bool),
+	portsInUse:      make(map[int]bool),
 	portsInUseMutex: sync.Mutex{},
 }
 
@@ -32,13 +32,13 @@ func (u *Utils) findUseFreePort(startingPort int) (int, error) {
 	u.portsInUseMutex.Lock()
 	defer u.portsInUseMutex.Unlock()
 	for port := startingPort; port <= startingPort+100 && port <= 65535; port++ {
-		if u.PortsInUse[port] {
+		if u.portsInUse[port] {
 			continue
 		}
 		addr := fmt.Sprintf(":%d", port)
 		l, err := net.Listen("tcp", addr)
 		if err == nil {
-			u.PortsInUse[port] = true
+			u.portsInUse[port] = true
 			l.Close()
 			return port, nil
 		}
@@ -47,7 +47,7 @@ func (u *Utils) findUseFreePort(startingPort int) (int, error) {
 	if err == nil {
 		// NOTE: may not be after 20000
 		port := l.Addr().(*net.TCPAddr).Port
-		u.PortsInUse[port] = true
+		u.portsInUse[port] = true
 		l.Close()
 		return port, nil
 	}
@@ -56,13 +56,13 @@ func (u *Utils) findUseFreePort(startingPort int) (int, error) {
 
 func (u *Utils) markPortInUse(port int) {
 	u.portsInUseMutex.Lock()
-	u.PortsInUse[port] = true
+	u.portsInUse[port] = true
 	u.portsInUseMutex.Unlock()
 }
 
 func (u *Utils) unmarkPortInUse(port int) {
 	u.portsInUseMutex.Lock()
-	delete(u.PortsInUse, port)
+	delete(u.portsInUse, port)
 	u.portsInUseMutex.Unlock()
 }
 

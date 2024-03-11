@@ -136,7 +136,7 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 		}
 		clientHost = url.Host
 		opts = []client.Opt{
-			client.WithHost(clientHost),
+			client.WithHost(p.Value),
 			client.WithAPIVersionNegotiation(),
 		}
 	}
