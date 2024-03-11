@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"sort"
 	"strings"
 
+	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/filters"
@@ -135,9 +137,20 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 			return nil, fmt.Errorf("unable to parse docker host url: %v", err)
 		}
 		clientHost = url.Host
+		helper, err := connhelper.GetConnectionHelper(p.Value)
+		if err != nil {
+			return nil, fmt.Errorf("unexpected error: %v", err)
+		}
+		httpClient := &http.Client{
+			Transport: &http.Transport{
+				DialContext: helper.Dialer,
+			},
+		}
 		opts = []client.Opt{
-			client.WithHost(p.Value),
+			client.WithHTTPClient(httpClient),
+			client.WithHost(helper.Host),
 			client.WithAPIVersionNegotiation(),
+			client.WithDialContext(helper.Dialer),
 		}
 	}
 
