@@ -46,7 +46,9 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 		if config.Port == "" && clientIP != "" {
 			for _, port := range container.Ports {
 				config.Port = fmt.Sprintf("%d", port.PublicPort)
-				break
+				if config.Port != "0" {
+					break
+				}
 			}
 		} else if config.Port == "" {
 			// usually the smaller port is the http one
@@ -63,7 +65,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 				}
 			}
 		}
-		if config.Port == "" {
+		if config.Port == "" || config.Port == "0" {
 			// no ports exposed or specified
 			p.Logf("Build", "no ports exposed for %s, ignored", container_name)
 			continue
