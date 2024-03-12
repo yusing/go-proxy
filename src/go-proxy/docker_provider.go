@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
-	"sort"
 	"strings"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -15,6 +14,19 @@ import (
 	"golang.org/x/net/context"
 )
 
+func (p *Provider) setConfigField(c *ProxyConfig, label string, value string, prefix string) error {
+	if strings.HasPrefix(label, prefix) {
+		field := strings.TrimPrefix(label, prefix)
+		field = utils.snakeToCamel(field)
+		prop := reflect.ValueOf(c).Elem().FieldByName(field)
+		if prop.Kind() == 0 {
+			return fmt.Errorf("ignoring unknown field %s", field)
+		}
+		prop.Set(reflect.ValueOf(value))
+	}
+	return nil
+}
+
 func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP string) []*ProxyConfig {
 	var aliases []string
 
@@ -22,50 +34,32 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 
 	container_name := strings.TrimPrefix(container.Names[0], "/")
 	aliases_label, ok := container.Labels["proxy.aliases"]
+
 	if !ok {
 		aliases = []string{container_name}
 	} else {
 		aliases = strings.Split(aliases_label, ",")
 	}
 
+	isRemote := clientIP != ""
+
 	for _, alias := range aliases {
 		config := NewProxyConfig(p)
 		prefix := fmt.Sprintf("proxy.%s.", alias)
 		for label, value := range container.Labels {
-			if strings.HasPrefix(label, prefix) {
-				field := strings.TrimPrefix(label, prefix)
-				field = utils.snakeToCamel(field)
-				prop := reflect.ValueOf(&config).Elem().FieldByName(field)
-				if prop.Kind() == 0 {
-					p.Logf("Build", "ignoring unknown field %s", alias, field)
-					continue
-				}
-				prop.Set(reflect.ValueOf(value))
+			err := p.setConfigField(&config, label, value, prefix)
+			if err != nil {
+				p.Errorf("Build", "%v", err)
+			}
+			err = p.setConfigField(&config, label, value, wildcardPrefix)
+			if err != nil {
+				p.Errorf("Build", "%v", err)
 			}
 		}
-		if config.Port == "" && clientIP != "" {
-			for _, port := range container.Ports {
-				config.Port = fmt.Sprintf("%d", port.PublicPort)
-				if config.Port != "0" {
-					break
-				}
-			}
-		} else if config.Port == "" {
-			// usually the smaller port is the http one
-			// so make it the last one to be set (if 80 or 8080 are not exposed)
-			sort.Slice(container.Ports, func(i, j int) bool {
-				return container.Ports[i].PrivatePort > container.Ports[j].PrivatePort
-			})
-			for _, port := range container.Ports {
-				// set first, but keep trying
-				config.Port = fmt.Sprintf("%d", port.PrivatePort)
-				// until we find 80 or 8080
-				if port.PrivatePort == 80 || port.PrivatePort == 8080 {
-					break
-				}
-			}
+		if config.Port == "" {
+			config.Port = fmt.Sprintf("%d", selectPort(container))
 		}
-		if config.Port == "" || config.Port == "0" {
+		if config.Port == "0" {
 			// no ports exposed or specified
 			p.Logf("Build", "no ports exposed for %s, ignored", container_name)
 			continue
@@ -94,7 +88,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 		}
 		if config.Host == "" {
 			switch {
-			case clientIP != "":
+			case isRemote:
 				config.Host = clientIP
 			case container.HostConfig.NetworkMode == "host":
 				config.Host = "host.docker.internal"
@@ -209,3 +203,24 @@ func (p *Provider) grWatchDockerChanges() {
 }
 
 // var dockerUrlRegex = regexp.MustCompile(`^(?P<scheme>\w+)://(?P<host>[^:]+)(?P<port>:\d+)?(?P<path>/.*)?$`)
+
+func getPublicPort(p types.Port) uint16  { return p.PublicPort }
+func getPrivatePort(p types.Port) uint16 { return p.PrivatePort }
+
+func selectPort(c types.Container) uint16 {
+	if c.HostConfig.NetworkMode == "host" {
+		return selectPortInternal(c, getPrivatePort)
+	}
+	return selectPortInternal(c, getPublicPort)
+}
+
+func selectPortInternal(c types.Container, getPort func(types.Port) uint16) uint16 {
+	for _, p := range c.Ports {
+		if port := getPort(p); port != 0 {
+			return port
+		}
+	}
+	return 0
+}
+
+const wildcardPrefix = "proxy.*"
