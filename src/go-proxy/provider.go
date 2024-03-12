@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/client"
 	"github.com/golang/glog"
@@ -14,8 +15,10 @@ type Provider struct {
 
 	name         string
 	stopWatching chan struct{}
-	routes       SafeMap[string, Route] // id -> Route
+	routes       map[string]Route // id -> Route
 	dockerClient *client.Client
+	mutex        sync.Mutex
+	lastUpdate   time.Time
 }
 
 func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
@@ -30,16 +33,27 @@ func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
 	}
 }
 
+func (p *Provider) needUpdate() bool {
+	return p.lastUpdate.Add(1 * time.Second).Before(time.Now())
+}
+
 func (p *Provider) StopAllRoutes() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.needUpdate() {
+		return
+	}
+
 	close(p.stopWatching)
 	if p.dockerClient != nil {
 		p.dockerClient.Close()
 	}
 
 	var wg sync.WaitGroup
-	wg.Add(p.routes.Size())
+	wg.Add(len(p.routes))
 
-	for _, route := range p.routes.Iterator() {
+	for _, route := range p.routes {
 		go func(r Route) {
 			r.StopListening()
 			r.RemoveFromRoutes()
@@ -47,12 +61,20 @@ func (p *Provider) StopAllRoutes() {
 		}(route)
 	}
 	wg.Wait()
-	p.routes = NewSafeMap[string, Route]()
+	p.routes = make(map[string]Route)
 }
 
 func (p *Provider) BuildStartRoutes() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+
+	if !p.needUpdate() {
+		return
+	}
+
+	p.lastUpdate = time.Now()
 	p.stopWatching = make(chan struct{})
-	p.routes = NewSafeMap[string, Route]()
+	p.routes = make(map[string]Route)
 
 	cfgs, err := p.GetProxyConfigs()
 	if err != nil {
@@ -68,10 +90,10 @@ func (p *Provider) BuildStartRoutes() {
 		}
 		r.SetupListen()
 		r.Listen()
-		p.routes.Set(cfg.GetID(), r)
+		p.routes[cfg.GetID()] = r
 	}
 	p.WatchChanges()
-	p.Logf("Build", "built %d routes", p.routes.Size())
+	p.Logf("Build", "built %d routes", len(p.routes))
 }
 
 func (p *Provider) WatchChanges() {
@@ -86,14 +108,14 @@ func (p *Provider) WatchChanges() {
 	}
 }
 
-func (p* Provider) Logf(t string, s string, args ...interface{}) {
-	glog.Infof("[%s] %s provider %q: " + s, append([]interface{}{t, p.Kind, p.name}, args...)...)
+func (p *Provider) Logf(t string, s string, args ...interface{}) {
+	glog.Infof("[%s] %s provider %q: "+s, append([]interface{}{t, p.Kind, p.name}, args...)...)
 }
 
-func (p* Provider) Errorf(t string, s string, args ...interface{}) {
-	glog.Errorf("[%s] %s provider %q: " + s, append([]interface{}{t, p.Kind, p.name}, args...)...)
+func (p *Provider) Errorf(t string, s string, args ...interface{}) {
+	glog.Errorf("[%s] %s provider %q: "+s, append([]interface{}{t, p.Kind, p.name}, args...)...)
 }
 
-func (p* Provider) Warningf(t string, s string, args ...interface{}) {
-	glog.Warningf("[%s] %s provider %q: " + s, append([]interface{}{t, p.Kind, p.name}, args...)...)
+func (p *Provider) Warningf(t string, s string, args ...interface{}) {
+	glog.Warningf("[%s] %s provider %q: "+s, append([]interface{}{t, p.Kind, p.name}, args...)...)
 }
