@@ -223,4 +223,4 @@ func selectPortInternal(c types.Container, getPort func(types.Port) uint16) uint
 	return 0
 }
 
-const wildcardPrefix = "proxy.*"
+const wildcardPrefix = "proxy.*."
