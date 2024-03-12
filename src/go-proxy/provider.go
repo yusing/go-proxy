@@ -40,12 +40,13 @@ func (p *Provider) needUpdate() bool {
 func (p *Provider) StopAllRoutes() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-
-	if !p.needUpdate() {
+	
+	if p.stopWatching == nil {
 		return
 	}
 
 	close(p.stopWatching)
+	p.stopWatching = nil
 	if p.dockerClient != nil {
 		p.dockerClient.Close()
 	}
@@ -73,7 +74,6 @@ func (p *Provider) BuildStartRoutes() {
 	}
 
 	p.lastUpdate = time.Now()
-	p.stopWatching = make(chan struct{})
 	p.routes = make(map[string]Route)
 
 	cfgs, err := p.GetProxyConfigs()
@@ -94,6 +94,7 @@ func (p *Provider) BuildStartRoutes() {
 	}
 	p.WatchChanges()
 	p.Logf("Build", "built %d routes", len(p.routes))
+	p.stopWatching = make(chan struct{})
 }
 
 func (p *Provider) WatchChanges() {
