@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/docker/docker/client"
 	"github.com/golang/glog"
@@ -18,7 +17,6 @@ type Provider struct {
 	routes       map[string]Route // id -> Route
 	dockerClient *client.Client
 	mutex        sync.Mutex
-	lastUpdate   time.Time
 }
 
 func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
@@ -31,10 +29,6 @@ func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
 		// this line should never be reached
 		return nil, fmt.Errorf("unknown provider kind %q", p.Kind)
 	}
-}
-
-func (p *Provider) needUpdate() bool {
-	return p.lastUpdate.Add(1 * time.Second).Before(time.Now())
 }
 
 func (p *Provider) StopAllRoutes() {
@@ -69,11 +63,6 @@ func (p *Provider) BuildStartRoutes() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if !p.needUpdate() {
-		return
-	}
-
-	p.lastUpdate = time.Now()
 	p.routes = make(map[string]Route)
 
 	cfgs, err := p.GetProxyConfigs()

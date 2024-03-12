@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
@@ -69,6 +70,7 @@ func (p *Provider) grWatchFileChanges() {
 				p.StopAllRoutes()
 			}
 		case err := <-watcher.Errors:
+			time.Sleep(100 * time.Millisecond)
 			p.Errorf("Watcher", "File watcher error: %s", p.name, err)
 		}
 	}

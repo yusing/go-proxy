@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -197,6 +198,7 @@ func (p *Provider) grWatchDockerChanges() {
 			p.BuildStartRoutes()
 		case err := <-errChan:
 			p.Logf("Event", "error %s", err)
+			time.Sleep(100 * time.Millisecond)
 			msgChan, errChan = p.dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
 		}
 	}
