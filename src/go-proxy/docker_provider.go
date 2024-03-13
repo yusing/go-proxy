@@ -193,7 +193,7 @@ func (p *Provider) grWatchDockerChanges() {
 			return
 		case msg := <-msgChan:
 			// TODO: handle actor only
-			p.Logf("Event", "%s %s caused rebuild", msg.Action, msg.Actor.Attributes["name"])
+			p.Logf("Event", "container %s %s caused rebuild", msg.Actor.Attributes["name"], msg.Action)
 			p.StopAllRoutes()
 			p.BuildStartRoutes()
 		case err := <-errChan:

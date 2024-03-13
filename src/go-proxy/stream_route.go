@@ -153,7 +153,7 @@ func (route *StreamRouteBase) SetupListen() {
 			return
 		}
 		route.ListeningPort = freePort
-		route.Logf("Assigned free port %s", route.ListeningPort)
+		route.Logf("Assigned free port %v", route.ListeningPort)
 	}
 	route.Logf("Listening on %s", route.ListeningUrl())
 }

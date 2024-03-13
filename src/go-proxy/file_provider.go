@@ -62,16 +62,16 @@ func (p *Provider) grWatchFileChanges() {
 			}
 			switch {
 			case event.Has(fsnotify.Write):
-				p.Logf("Watcher", "file change detected", p.name)
+				p.Logf("Watcher", "file change detected")
 				p.StopAllRoutes()
 				p.BuildStartRoutes()
 			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
-				p.Logf("Watcher", "file renamed / deleted", p.name)
+				p.Logf("Watcher", "file renamed / deleted")
 				p.StopAllRoutes()
 			}
 		case err := <-watcher.Errors:
 			time.Sleep(100 * time.Millisecond)
-			p.Errorf("Watcher", "File watcher error: %s", p.name, err)
+			p.Errorf("Watcher", "File watcher error: %s", err)
 		}
 	}
 }

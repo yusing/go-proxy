@@ -34,7 +34,7 @@ func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
 func (p *Provider) StopAllRoutes() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	
+
 	if p.stopWatching == nil {
 		return
 	}
