@@ -64,7 +64,7 @@ func (p *Provider) grWatchFileChanges() {
 			case event.Has(fsnotify.Write):
 				p.Logf("Watcher", "file change detected")
 				p.StopAllRoutes()
-				p.BuildStartRoutes()
+				p.StartAllRoutes()
 			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
 				p.Logf("Watcher", "file renamed / deleted")
 				p.StopAllRoutes()

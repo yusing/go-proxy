@@ -195,7 +195,7 @@ func (p *Provider) grWatchDockerChanges() {
 			// TODO: handle actor only
 			p.Logf("Event", "container %s %s caused rebuild", msg.Actor.Attributes["name"], msg.Action)
 			p.StopAllRoutes()
-			p.BuildStartRoutes()
+			p.StartAllRoutes()
 		case err := <-errChan:
 			p.Logf("Event", "error %s", err)
 			time.Sleep(100 * time.Millisecond)

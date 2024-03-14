@@ -31,6 +31,18 @@ func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
 	}
 }
 
+func StartAllRoutes() {
+	var wg sync.WaitGroup
+	wg.Add(len(config.Providers))
+	for _, p := range config.Providers {
+		go func(p *Provider) {
+			p.StartAllRoutes()
+			wg.Done()
+		}(p)
+	}
+	wg.Wait()
+}
+
 func (p *Provider) StopAllRoutes() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
@@ -59,7 +71,7 @@ func (p *Provider) StopAllRoutes() {
 	p.routes = make(map[string]Route)
 }
 
-func (p *Provider) BuildStartRoutes() {
+func (p *Provider) StartAllRoutes() {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 

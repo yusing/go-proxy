@@ -4,7 +4,6 @@ import (
 	"flag"
 	"net/http"
 	"runtime"
-	"sync"
 	"time"
 
 	"github.com/golang/glog"
@@ -12,7 +11,6 @@ import (
 
 func main() {
 	var err error
-	var wg sync.WaitGroup
 
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -27,15 +25,7 @@ func main() {
 		glog.Fatal("unable to read config: ", err)
 	}
 
-	wg.Add(len(config.Providers))
-	for _, p := range config.Providers {
-		go func(p *Provider) {
-			p.BuildStartRoutes()
-			wg.Done()
-		}(p)
-	}
-	wg.Wait()
-
+	StartAllRoutes()
 	go ListenConfigChanges()
 
 	mux := http.NewServeMux()

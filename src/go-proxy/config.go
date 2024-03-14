@@ -64,6 +64,7 @@ func ListenConfigChanges() {
 				if err != nil {
 					glog.Fatalf("[Config] unable to read config: %v", err)
 				}
+				StartAllRoutes()
 			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
 				glog.Fatalf("[Config] file renamed / deleted")
 			}
