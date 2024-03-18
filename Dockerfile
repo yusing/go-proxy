@@ -10,7 +10,8 @@ COPY config.default.yml /app/config.yml
 
 RUN chmod +x /app/go-proxy /app/entrypoint.sh
 ENV DOCKER_HOST unix:///var/run/docker.sock
-ENV VERBOSITY=1
+ENV GOPROXY_DEBUG 0
+ENV GOPROXY_REDIRECT_HTTP 1
 
 EXPOSE 80
 EXPOSE 443
