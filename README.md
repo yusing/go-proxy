@@ -220,20 +220,21 @@ Remote benchmark (client running wrk and `go-proxy` server are different devices
 - Direct connection
 
   ```shell
-  root@yusing-pc:~# wrk -t 10 -c 200 -d 30s --latency http://10.0.100.1/bench
-  Running 30s test @ http://10.0.100.1/bench
+  root@yusing-pc:~# wrk -t 10 -c 200 -d 10s -H "Host: bench.6uo.me" --latency http://10.0.100.3:8003/bench
+  Running 10s test @ http://10.0.100.3:8003/bench
     10 threads and 200 connections
     Thread Stats   Avg      Stdev     Max   +/- Stdev
-      Latency     4.34ms    1.16ms  22.76ms   85.77%
-      Req/Sec     4.63k   435.14     5.47k    90.07%
+      Latency    94.75ms  199.92ms   1.68s    91.27%
+      Req/Sec     4.24k     1.79k   18.79k    72.13%
     Latency Distribution
-      50%    3.95ms
-      75%    4.71ms
-      90%    5.68ms
-      99%    8.61ms
-    1383812 requests in 30.02s, 166.28MB read
-  Requests/sec:  46100.87
-  Transfer/sec:      5.54MB
+      50%    1.14ms
+      75%  120.23ms
+      90%  245.63ms
+      99%    1.03s
+    423444 requests in 10.10s, 50.88MB read
+    Socket errors: connect 0, read 0, write 0, timeout 29
+  Requests/sec:  41926.32
+  Transfer/sec:      5.04MB
   ```
 
 - With reverse proxy
