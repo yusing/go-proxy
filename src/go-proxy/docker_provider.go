@@ -162,7 +162,7 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 		return nil, fmt.Errorf("unable to create docker client: %v", err)
 	}
 
-	containerSlice, err := p.dockerClient.ContainerList(context.Background(), container.ListOptions{})
+	containerSlice, err := p.dockerClient.ContainerList(context.Background(), container.ListOptions{All: true})
 	if err != nil {
 		return nil, fmt.Errorf("unable to list containers: %v", err)
 	}

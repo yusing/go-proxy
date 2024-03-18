@@ -52,20 +52,22 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		}),
 	}
 
+	var rewriteBegin = proxy.Rewrite
 	var rewrite func(*ProxyRequest)
+	var modifyResponse func(*http.Response) error
 
 	switch {
 	case config.Path == "", config.PathMode == ProxyPathMode_Forward:
-		rewrite = proxy.Rewrite
+		rewrite = rewriteBegin
 	case config.PathMode == ProxyPathMode_Sub:
 		rewrite = func(pr *ProxyRequest) {
-			proxy.Rewrite(pr)
+			rewriteBegin(pr)
 			// disable compression
 			pr.Out.Header.Set("Accept-Encoding", "identity")
 			// remove path prefix
 			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
 		}
-		route.Proxy.ModifyResponse = func(r *http.Response) error {
+		modifyResponse = func(r *http.Response) error {
 			contentType, ok := r.Header["Content-Type"]
 			if !ok || len(contentType) == 0 {
 				route.l.Debug("unknown content type for ", r.Request.URL.String())
@@ -93,7 +95,7 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		}
 	default:
 		rewrite = func(pr *ProxyRequest) {
-			proxy.Rewrite(pr)
+			rewriteBegin(pr)
 			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
 		}
 	}
@@ -101,7 +103,16 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	if logLevel == logrus.DebugLevel {
 		route.Proxy.Rewrite = func(pr *ProxyRequest) {
 			rewrite(pr)
+			route.l.Debug("Request URL: ", pr.In.Host, pr.In.URL.Path)
 			route.l.Debug("Request headers: ", pr.In.Header)
+		}
+		route.Proxy.ModifyResponse = func(r *http.Response) error {
+			route.l.Debug("Response URL: ", r.Request.URL.String())
+			route.l.Debug("Response headers: ", r.Header)
+			if modifyResponse != nil {
+				return modifyResponse(r)
+			}
+			return nil
 		}
 	} else {
 		route.Proxy.Rewrite = rewrite

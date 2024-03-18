@@ -21,7 +21,6 @@ func main() {
 		DisableColors: false,
 		FullTimestamp: true,
 	})
-
 	InitFSWatcher()
 	InitDockerWatcher()
 

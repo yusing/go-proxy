@@ -37,7 +37,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
   ![panel screenshot](screenshots/panel.png)
 
-## How to use (docker)
+## How to use
 
 1. Download and extract the latest release (or clone the repository if you want to try out experimental features)
 
