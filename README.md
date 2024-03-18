@@ -276,22 +276,40 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
   Transfer/sec:     80.94MB
   ```
 
-- With reverse proxy
+- With `go-proxy` reverse proxy
   ```
-  root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s --latency http://bench.6uo.me/bench
-  Running 10s test @ http://bench.6uo.me/bench
+  root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s -H "Host: bench.6uo.me" --latency http://10.0.1.7/bench
+  Running 10s test @ http://10.0.1.7/bench
     10 threads and 200 connections
     Thread Stats   Avg      Stdev     Max   +/- Stdev
-      Latency     1.78ms    5.49ms 117.53ms   99.00%
-      Req/Sec    16.31k     2.30k   21.01k    86.69%
+      Latency     1.23ms    0.96ms  11.43ms   72.09%
+      Req/Sec    17.48k     1.76k   21.48k    70.20%
     Latency Distribution
-      50%    1.12ms
-      75%    1.88ms
-      90%    2.80ms
-      99%    7.27ms
-    1634774 requests in 10.10s, 196.44MB read
-  Requests/sec: 161858.70
-  Transfer/sec:     19.45MB
+      50%    0.98ms
+      75%    1.76ms
+      90%    2.54ms
+      99%    4.24ms
+    1739079 requests in 10.01s, 208.97MB read
+  Requests/sec: 173779.44
+  Transfer/sec:     20.88MB
+  ```
+
+- With `traefik-v3`
+  ```
+  root@traefik-benchmark:~# wrk -t10 -c200 -d10s -H "Host: benchmark.whoami" --latency http://127.0.0.1:8000/bench
+  Running 10s test @ http://127.0.0.1:8000/bench
+    10 threads and 200 connections
+    Thread Stats   Avg      Stdev     Max   +/- Stdev
+      Latency     2.81ms   10.36ms 180.26ms   98.57%
+      Req/Sec    11.35k     1.74k   13.76k    85.54%
+    Latency Distribution
+      50%    1.59ms
+      75%    2.27ms
+      90%    3.17ms
+      99%   37.91ms
+    1125723 requests in 10.01s, 109.50MB read
+  Requests/sec: 112499.59
+  Transfer/sec:     10.94MB
   ```
 
 ## Memory usage
