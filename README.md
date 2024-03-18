@@ -8,8 +8,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 - [Key Points](#key-points)
 - [How to use](#how-to-use)
-  - [Binary] (#binary)
-  - [Docker] (#docker)
+  - [Binary](#binary)
+  - [Docker](#docker)
 - [Configuration](#configuration)
   - [Single Port Configuration](#single-port-configuration-example)
   - [Multiple Ports Configuration](#multiple-ports-configuration-example)
