@@ -1,6 +1,6 @@
 # go-proxy
 
-A simple auto docker reverse proxy for home use. **Written in *Go***
+A simple auto docker reverse proxy for home use. **Written in _Go_**
 
 In the examples domain `x.y.z` is used, replace them with your domain
 
@@ -40,29 +40,41 @@ In the examples domain `x.y.z` is used, replace them with your domain
 ## How to use (docker)
 
 1. Download and extract the latest release (or clone the repository if you want to try out experimental features)
+
 2. Copy `config.example.yml` to `config.yml` and modify the content to fit your needs
+
 3. Do the same for `providers.example.yml`
+
 4. See [Binary](#binary) or [docker](#docker)
 
 ### Binary
-  1. (Optional) Prepare your certificates in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+
+1. (Optional) Prepare your certificates in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+
+
     - cert / chain / fullchain: ./certs/cert.crt
     - private key: ./certs/priv.key
-  2. run the binary `bin/go-proxy`
-  3. enjoy
+
+2. run the binary `bin/go-proxy`
+
+3. enjoy
 
 ### Docker
-  1. Copy content from [compose.example.yml](compose.example.yml) and create your own `compose.yml`
 
-  2. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
+1. Copy content from [compose.example.yml](compose.example.yml) and create your own `compose.yml`
 
-  3. (Optional) Mount your SSL certs to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+2. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
+
+3. (Optional) Mount your SSL certs to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+
+
     - cert / chain / fullchain -> /app/certs/cert.crt
     - private key -> /app/certs/priv.key
 
-  4. Start `go-proxy` with `docker compose up -d` or `make up`.
+4. Start `go-proxy` with `docker compose up -d` or `make up`.
 
-  5. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
+5. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
+
 
     In case the network of your container is in subnet `172.16.0.0/16` (bridge),
     and vpn network is under `100.64.0.0/10` (i.e. tailscale)
@@ -73,9 +85,9 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
     `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
-  6. start your docker app, and visit <container_name>.y.z
+6. start your docker app, and visit <container_name>.y.z
 
-  7. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
+7. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
 
 ## Known issues
 
