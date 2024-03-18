@@ -52,8 +52,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 1. (Optional) Prepare your certificates in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
 
 
-    - cert / chain / fullchain: ./certs/cert.crt
-    - private key: ./certs/priv.key
+    - cert / chain / fullchain: `./certs/cert.crt`
+    - private key: `./certs/priv.key`
 
 2. run the binary `bin/go-proxy`
 
@@ -68,8 +68,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 3. (Optional) Mount your SSL certs to enable https. See [Getting SSL Certs](#getting-ssl-certs)
 
 
-    - cert / chain / fullchain -> /app/certs/cert.crt
-    - private key -> /app/certs/priv.key
+    - cert / chain / fullchain -> `/app/certs/cert.crt`
+    - private key -> `/app/certs/priv.key`
 
 4. Start `go-proxy` with `docker compose up -d` or `make up`.
 
@@ -296,7 +296,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
 
 ## Memory usage
 
-It takes ~ 0.1-0.4MB for each HTTP Proxy, and <2MB for each TCP/UDP Proxy
+It takes ~30 MB for 50 proxy entries
 
 ## Build it yourself
 
@@ -310,6 +310,6 @@ It takes ~ 0.1-0.4MB for each HTTP Proxy, and <2MB for each TCP/UDP Proxy
 
 ## Getting SSL certs
 
-I personally use `nginx-proxy-manager` to get SSL certs with auto renewal by Cloudflare DNS challenge. You may symlink the certs from `nginx-proxy-manager` to somewhere else, and mount them to `go-proxy`'s `/certs`
+I personally use `nginx-proxy-manager` to get SSL certs with auto renewal by Cloudflare DNS challenge. You may symlink the certs from `nginx-proxy-manager` to `certs/` folder relative to project root. (For docker) mount them to `go-proxy`'s `/app/certs`
 
 [panel port]: 8443
