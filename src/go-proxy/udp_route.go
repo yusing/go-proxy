@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 	"sync"
+
+	"github.com/sirupsen/logrus"
 )
 
 type UDPRoute struct {
@@ -46,13 +48,13 @@ func NewUDPRoute(config *ProxyConfig) (StreamRoute, error) {
 func (route *UDPRoute) Listen() {
 	source, err := net.ListenPacket(route.ListeningScheme, fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
-		route.PrintError(err)
+		route.l.Error(err)
 		return
 	}
 
 	target, err := net.Dial(route.TargetScheme, fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort))
 	if err != nil {
-		route.PrintError(err)
+		route.l.Error(err)
 		source.Close()
 		return
 	}
@@ -93,7 +95,7 @@ func (route *UDPRoute) grAcceptConnections() {
 		default:
 			conn, err := route.accept()
 			if err != nil {
-				route.PrintError(err)
+				route.l.Error(err)
 				continue
 			}
 			route.connChan <- conn
@@ -112,7 +114,7 @@ func (route *UDPRoute) grHandleConnections() {
 			go func() {
 				err := route.handleConnection(conn)
 				if err != nil {
-					route.PrintError(err)
+					route.l.Error(err)
 				}
 			}()
 		}
@@ -133,8 +135,16 @@ func (route *UDPRoute) handleConnection(conn *UDPConn) error {
 		route.connMapMutex.Unlock()
 	}
 
+	var forwarder func(*UDPConn, net.Conn) error
+
+	if logLevel == logrus.DebugLevel {
+		forwarder = route.forwardReceivedDebug
+	} else {
+		forwarder = route.forwardReceivedReal
+	}
+
 	// initiate connection to target
-	err = route.forwardReceived(conn, route.targetConn)
+	err = forwarder(conn, route.targetConn)
 	if err != nil {
 		return err
 	}
@@ -150,7 +160,7 @@ func (route *UDPRoute) handleConnection(conn *UDPConn) error {
 				return err
 			}
 			// forward to source
-			err = route.forwardReceived(conn, srcConn)
+			err = forwarder(conn, srcConn)
 			if err != nil {
 				return err
 			}
@@ -160,7 +170,7 @@ func (route *UDPRoute) handleConnection(conn *UDPConn) error {
 				continue
 			}
 			// forward to target
-			err = route.forwardReceived(conn, route.targetConn)
+			err = forwarder(conn, route.targetConn)
 			if err != nil {
 				return err
 			}
@@ -209,13 +219,7 @@ func (route *UDPRoute) readFrom(src net.Conn, buffer []byte) (*UDPConn, error) {
 	}, nil
 }
 
-func (route *UDPRoute) forwardReceived(receivedConn *UDPConn, dest net.Conn) error {
-	route.Logf(
-		"forwarding %d bytes %s -> %s",
-		receivedConn.nReceived,
-		receivedConn.remoteAddr.String(),
-		dest.RemoteAddr().String(),
-	)
+func (route *UDPRoute) forwardReceivedReal(receivedConn *UDPConn, dest net.Conn) error {
 	nWritten, err := dest.Write(receivedConn.bytesReceived)
 
 	if nWritten != receivedConn.nReceived {
@@ -223,4 +227,13 @@ func (route *UDPRoute) forwardReceived(receivedConn *UDPConn, dest net.Conn) err
 	}
 
 	return err
+}
+
+func (route *UDPRoute) forwardReceivedDebug(receivedConn *UDPConn, dest net.Conn) error {
+	route.l.WithField("size", receivedConn.nReceived).Debugf(
+		"forwarding from %s to %s",
+		receivedConn.remoteAddr.String(),
+		dest.RemoteAddr().String(),
+	)
+	return route.forwardReceivedReal(receivedConn, dest)
 }

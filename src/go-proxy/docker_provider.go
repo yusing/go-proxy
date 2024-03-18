@@ -5,12 +5,10 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
-	"time"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"golang.org/x/net/context"
 )
@@ -45,16 +43,17 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 	isRemote := clientIP != ""
 
 	for _, alias := range aliases {
+		l := p.l.WithField("container", container_name).WithField("alias", alias)
 		config := NewProxyConfig(p)
 		prefix := fmt.Sprintf("proxy.%s.", alias)
 		for label, value := range container.Labels {
 			err := p.setConfigField(&config, label, value, prefix)
 			if err != nil {
-				p.Errorf("Build", "%v", err)
+				l.Error(err)
 			}
 			err = p.setConfigField(&config, label, value, wildcardPrefix)
 			if err != nil {
-				p.Errorf("Build", "%v", err)
+				l.Error(err)
 			}
 		}
 		if config.Port == "" {
@@ -62,7 +61,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 		}
 		if config.Port == "0" {
 			// no ports exposed or specified
-			p.Logf("Build", "no ports exposed for %s, ignored", container_name)
+			l.Info("no ports exposed, ignored")
 			continue
 		}
 		if config.Scheme == "" {
@@ -84,7 +83,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 			}
 		}
 		if !isValidScheme(config.Scheme) {
-			p.Warningf("Build", "unsupported scheme: %s, using http", container_name, config.Scheme)
+			l.Warnf("unsupported scheme: %s, using http", config.Scheme)
 			config.Scheme = "http"
 		}
 		if config.Host == "" {
@@ -175,33 +174,6 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 	}
 
 	return cfgs, nil
-}
-
-func (p *Provider) grWatchDockerChanges() {
-	p.stopWatching = make(chan struct{})
-
-	filter := filters.NewArgs(
-		filters.Arg("type", "container"),
-		filters.Arg("event", "start"),
-		filters.Arg("event", "die"), // 'stop' already triggering 'die'
-	)
-	msgChan, errChan := p.dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
-
-	for {
-		select {
-		case <-p.stopWatching:
-			return
-		case msg := <-msgChan:
-			// TODO: handle actor only
-			p.Logf("Event", "container %s %s caused rebuild", msg.Actor.Attributes["name"], msg.Action)
-			p.StopAllRoutes()
-			p.StartAllRoutes()
-		case err := <-errChan:
-			p.Logf("Event", "error %s", err)
-			time.Sleep(100 * time.Millisecond)
-			msgChan, errChan = p.dockerClient.Events(context.Background(), types.EventsOptions{Filters: filter})
-		}
-	}
 }
 
 // var dockerUrlRegex = regexp.MustCompile(`^(?P<scheme>\w+)://(?P<host>[^:]+)(?P<port>:\d+)?(?P<path>/.*)?$`)

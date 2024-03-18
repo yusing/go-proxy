@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 var healthCheckHttpClient = &http.Client{
@@ -32,6 +30,7 @@ func panelHandler(w http.ResponseWriter, r *http.Request) {
 		panelCheckTargetHealth(w, r)
 		return
 	default:
+		palog.Errorf("%s not found", r.URL.Path)
 		http.NotFound(w, r)
 		return
 	}
@@ -46,12 +45,22 @@ func panelIndex(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.ParseFiles(templateFile)
 
 	if err != nil {
+		palog.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	err = tmpl.Execute(w, &routes)
+	type allRoutes struct {
+		HTTPRoutes   HTTPRoutes
+		StreamRoutes StreamRoutes
+	}
+
+	err = tmpl.Execute(w, allRoutes{
+		HTTPRoutes:   httpRoutes,
+		StreamRoutes: streamRoutes,
+	})
 	if err != nil {
+		palog.Error(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
@@ -71,7 +80,7 @@ func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 
 	url, err := url.Parse(targetUrl)
 	if err != nil {
-		glog.Infof("[Panel] failed to parse %s, error: %v", targetUrl, err)
+		palog.Infof("failed to parse url %q, error: %v", targetUrl, err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

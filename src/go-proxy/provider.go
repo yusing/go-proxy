@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"github.com/docker/docker/client"
-	"github.com/golang/glog"
+	"github.com/sirupsen/logrus"
 )
 
 type Provider struct {
@@ -13,111 +13,75 @@ type Provider struct {
 	Value string
 
 	name         string
-	stopWatching chan struct{}
+	watcher      Watcher
 	routes       map[string]Route // id -> Route
 	dockerClient *client.Client
 	mutex        sync.Mutex
+	l logrus.FieldLogger
 }
 
-func (p *Provider) GetProxyConfigs() ([]*ProxyConfig, error) {
+func (p *Provider) Setup() error {
+	var cfgs []*ProxyConfig
+	var err error
+
+	p.l = prlog.WithFields(logrus.Fields{"kind": p.Kind, "name": p.name})
+
 	switch p.Kind {
 	case ProviderKind_Docker:
-		return p.getDockerProxyConfigs()
+		cfgs, err = p.getDockerProxyConfigs()
+		p.watcher = NewDockerWatcher(p.dockerClient, p.ReloadRoutes)
 	case ProviderKind_File:
-		return p.getFileProxyConfigs()
+		cfgs, err = p.getFileProxyConfigs()
+		p.watcher = NewFileWatcher(p.Value, p.ReloadRoutes, p.StopAllRoutes)
 	default:
 		// this line should never be reached
-		return nil, fmt.Errorf("unknown provider kind %q", p.Kind)
-	}
-}
-
-func StartAllRoutes() {
-	var wg sync.WaitGroup
-	wg.Add(len(config.Providers))
-	for _, p := range config.Providers {
-		go func(p *Provider) {
-			p.StartAllRoutes()
-			wg.Done()
-		}(p)
-	}
-	wg.Wait()
-}
-
-func (p *Provider) StopAllRoutes() {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	if p.stopWatching == nil {
-		return
+		return fmt.Errorf("unknown provider kind")
 	}
 
-	close(p.stopWatching)
-	p.stopWatching = nil
-	if p.dockerClient != nil {
-		p.dockerClient.Close()
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(p.routes))
-
-	for _, route := range p.routes {
-		go func(r Route) {
-			r.StopListening()
-			r.RemoveFromRoutes()
-			wg.Done()
-		}(route)
-	}
-	wg.Wait()
-	p.routes = make(map[string]Route)
-}
-
-func (p *Provider) StartAllRoutes() {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
-
-	p.routes = make(map[string]Route)
-
-	cfgs, err := p.GetProxyConfigs()
 	if err != nil {
-		p.Logf("Build", "unable to get proxy configs: %v", err)
-		return
+		return err
 	}
+	p.l.Infof("loaded %d proxy configurations", len(cfgs))
 
 	for _, cfg := range cfgs {
 		r, err := NewRoute(cfg)
 		if err != nil {
-			p.Logf("Build", "error creating route %q: %v", cfg.Alias, err)
+			p.l.Errorf("error creating route %s: %v", cfg.Alias, err)
 			continue
 		}
 		r.SetupListen()
 		r.Listen()
 		p.routes[cfg.GetID()] = r
 	}
-	p.WatchChanges()
-	p.Logf("Build", "built %d routes", len(p.routes))
-	p.stopWatching = make(chan struct{})
+	return nil
 }
 
-func (p *Provider) WatchChanges() {
-	switch p.Kind {
-	case ProviderKind_Docker:
-		go p.grWatchDockerChanges()
-	case ProviderKind_File:
-		go p.grWatchFileChanges()
-	default:
-		// this line should never be reached
-		p.Errorf("unknown provider kind %q", p.Kind)
+func (p *Provider) StartAllRoutes() {
+	p.routes = make(map[string]Route)
+	err := p.Setup()
+	if err != nil {
+		p.l.Error(err)
+		return
 	}
+	p.watcher.Start()
 }
 
-func (p *Provider) Logf(t string, s string, args ...interface{}) {
-	glog.Infof("[%s] %s provider %q: "+s, append([]interface{}{t, p.Kind, p.name}, args...)...)
+func (p *Provider) StopAllRoutes() {
+	p.watcher.Stop()
+	p.dockerClient = nil
+
+	ParallelForEachValue(p.routes, func(r Route) {
+		r.StopListening()
+		r.RemoveFromRoutes()
+	})
+
+	p.routes = make(map[string]Route)
 }
 
-func (p *Provider) Errorf(t string, s string, args ...interface{}) {
-	glog.Errorf("[%s] %s provider %q: "+s, append([]interface{}{t, p.Kind, p.name}, args...)...)
-}
+func (p *Provider) ReloadRoutes() {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
-func (p *Provider) Warningf(t string, s string, args ...interface{}) {
-	glog.Warningf("[%s] %s provider %q: "+s, append([]interface{}{t, p.Kind, p.name}, args...)...)
+	p.StopAllRoutes()
+	p.StartAllRoutes()
 }

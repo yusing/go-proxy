@@ -8,15 +8,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/sirupsen/logrus"
 )
 
 type StreamRoute interface {
 	Route
-	Logf(string, ...interface{})
-	PrintError(error)
 	ListeningUrl() string
 	TargetUrl() string
+	Logger() logrus.FieldLogger
 
 	closeListeners()
 	closeChannel()
@@ -36,6 +35,7 @@ type StreamRouteBase struct {
 	id        string
 	wg        sync.WaitGroup
 	stopChann chan struct{}
+	l         logrus.FieldLogger
 }
 
 func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
@@ -47,8 +47,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 
 	port_split := strings.Split(config.Port, ":")
 	if len(port_split) != 2 {
-		glog.Infof(`[Build] %s: Invalid stream port %s, `+
-			`assuming it's targetPort`, config.Alias, config.Port)
+		cfgl.Warnf("Invalid port %s, assuming it is target port", config.Port)
 		srcPort = "0"
 		dstPort = config.Port
 	} else {
@@ -63,8 +62,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 	srcPortInt, err := strconv.Atoi(srcPort)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"[Build] %s: Unrecognized stream source port %s, ignoring",
-			config.Alias, srcPort,
+			"invalid stream source port %s, ignoring", srcPort,
 		)
 	}
 
@@ -73,8 +71,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 	dstPortInt, err := strconv.Atoi(dstPort)
 	if err != nil {
 		return nil, fmt.Errorf(
-			"[Build] %s: Unrecognized stream target port %s, ignoring",
-			config.Alias, dstPort,
+			"invalid stream target port %s, ignoring", dstPort,
 		)
 	}
 
@@ -100,6 +97,11 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		id:        config.GetID(),
 		wg:        sync.WaitGroup{},
 		stopChann: make(chan struct{}),
+		l: srlog.WithFields(logrus.Fields{
+			"alias": config.Alias,
+			"src":   fmt.Sprintf("%s://:%d", srcScheme, srcPortInt),
+			"dst":   fmt.Sprintf("%s://%s:%d", dstScheme, config.Host, dstPortInt),
+		}),
 	}, nil
 }
 
@@ -114,29 +116,6 @@ func NewStreamRoute(config *ProxyConfig) (StreamRoute, error) {
 	}
 }
 
-func (route *StreamRouteBase) PrintError(err error) {
-	if err == nil {
-		return
-	}
-	glog.Errorf("[%s -> %s] %s: %v",
-		route.ListeningScheme,
-		route.TargetScheme,
-		route.Alias,
-		err,
-	)
-}
-
-func (route *StreamRouteBase) Logf(format string, v ...interface{}) {
-	glog.Infof("[%s -> %s] %s: "+format,
-		append([]interface{}{
-			route.ListeningScheme,
-			route.TargetScheme,
-			route.Alias},
-			v...,
-		)...,
-	)
-}
-
 func (route *StreamRouteBase) ListeningUrl() string {
 	return fmt.Sprintf("%s:%v", route.ListeningScheme, route.ListeningPort)
 }
@@ -145,21 +124,25 @@ func (route *StreamRouteBase) TargetUrl() string {
 	return fmt.Sprintf("%s://%s:%v", route.TargetScheme, route.TargetHost, route.TargetPort)
 }
 
+func (route *StreamRouteBase) Logger() logrus.FieldLogger {
+	return route.l
+}
+
 func (route *StreamRouteBase) SetupListen() {
 	if route.ListeningPort == 0 {
 		freePort, err := utils.findUseFreePort(20000)
 		if err != nil {
-			route.PrintError(err)
+			route.l.Error(err)
 			return
 		}
 		route.ListeningPort = freePort
-		route.Logf("Assigned free port %v", route.ListeningPort)
+		route.l.Info("Assigned free port", route.ListeningPort)
 	}
-	route.Logf("Listening on %s", route.ListeningUrl())
+	route.l.Info("Listening on", route.ListeningUrl())
 }
 
 func (route *StreamRouteBase) RemoveFromRoutes() {
-	routes.StreamRoutes.Delete(route.id)
+	streamRoutes.Delete(route.id)
 }
 
 func (route *StreamRouteBase) wait() {
@@ -175,7 +158,8 @@ func (route *StreamRouteBase) unmarkPort() {
 }
 
 func stopListening(route StreamRoute) {
-	route.Logf("Stopping listening")
+	l := route.Logger()
+	l.Debug("Stopping listening")
 	route.closeChannel()
 	route.closeListeners()
 
@@ -189,10 +173,10 @@ func stopListening(route StreamRoute) {
 
 	select {
 	case <-done:
-		route.Logf("Stopped listening")
+		l.Info("Stopped listening")
 		return
 	case <-time.After(StreamStopListenTimeout):
-		route.Logf("timed out waiting for connections")
+		l.Error("timed out waiting for connections")
 		return
 	}
 }

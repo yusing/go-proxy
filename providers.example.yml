@@ -9,3 +9,5 @@ app: # alias
   path:
   # optional
   path_mode:
+  # optional
+  notlsverify: false

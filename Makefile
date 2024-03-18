@@ -4,7 +4,7 @@ all: build quick-restart logs
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux go build -o bin/go-proxy src/go-proxy/*.go
+	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go
 
 up:
 	docker compose up -d --build go-proxy

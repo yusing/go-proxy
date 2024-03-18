@@ -7,8 +7,8 @@ services:
     networks: # ^also add here
       - default
     # environment:
-      # - VERBOSITY=1 # LOG LEVEL (optional, defaults to 1)
-      # - DEBUG=1 # (optional, enable only for debug)
+      # - GOPROXY_DEBUG=1 # (optional, enable only for debug)
+      # - GOPROXY_REDIRECT_HTTP=0 # (optional, uncomment to disable http redirect (http -> https))
     ports:
       - 80:80 # http
       # - 443:443 # optional, https

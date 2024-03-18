@@ -3,73 +3,95 @@ package main
 import (
 	"fmt"
 	"os"
+	"sync"
 
-	"github.com/fsnotify/fsnotify"
-	"github.com/golang/glog"
 	"gopkg.in/yaml.v3"
 )
 
-type Config struct {
-	Providers map[string]*Provider `yaml:",flow"`
+// commented out if unused
+type Config interface {
+	// Load() error
+	MustLoad()
+	// MustReload()
+	// Reload() error
+	StartProviders()
+	StopProviders()
+	WatchChanges()
+	StopWatching()
 }
 
-var config *Config
+func NewConfig() Config {
+	cfg := &config{}
+	cfg.watcher = NewFileWatcher(
+		configPath,
+		cfg.MustReload,        // OnChange
+		func() { os.Exit(1) }, // OnDelete
+	)
+	return cfg
+}
 
-func ReadConfig() (*Config, error) {
-	config := Config{}
+func (cfg *config) Load() error {
+	cfg.mutex.Lock()
+	defer cfg.mutex.Unlock()
+
+	// unload if any
+	if cfg.Providers != nil {
+		for _, p := range cfg.Providers {
+			p.StopAllRoutes()
+		}
+	}
+	cfg.Providers = make(map[string]*Provider)
+
 	data, err := os.ReadFile(configPath)
-
 	if err != nil {
-		return nil, fmt.Errorf("unable to read config file: %v", err)
+		return fmt.Errorf("unable to read config file: %v", err)
 	}
 
-	err = yaml.Unmarshal(data, &config)
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse config file: %v", err)
+	if err = yaml.Unmarshal(data, &cfg); err != nil {
+		return fmt.Errorf("unable to parse config file: %v", err)
 	}
 
-	for name, p := range config.Providers {
+	for name, p := range cfg.Providers {
 		p.name = name
 	}
 
-	return &config, nil
+	return nil
 }
 
-func ListenConfigChanges() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		glog.Errorf("[Config] unable to create file watcher: %v", err)
+func (cfg *config) MustLoad() {
+	if err := cfg.Load(); err != nil {
+		cfgl.Fatal(err)
 	}
-	defer watcher.Close()
+}
 
-	if err = watcher.Add(configPath); err != nil {
-		glog.Errorf("[Config] unable to watch file: %v", err)
-		return
-	}
+func (cfg *config) Reload() error {
+	return cfg.Load()
+}
 
-	for {
-		select {
-		case event, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-			switch {
-			case event.Has(fsnotify.Write):
-				glog.Infof("[Config] file change detected")
-				for _, p := range config.Providers {
-					p.StopAllRoutes()
-				}
-				config, err = ReadConfig()
-				if err != nil {
-					glog.Fatalf("[Config] unable to read config: %v", err)
-				}
-				StartAllRoutes()
-			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
-				glog.Fatalf("[Config] file renamed / deleted")
-			}
-		case err := <-watcher.Errors:
-			glog.Errorf("[Config] File watcher error: %s", err)
-		}
-	}
+func (cfg *config) MustReload() {
+	cfg.MustLoad()
+}
+
+func (cfg *config) StartProviders() {
+	// Providers have their own mutex, no lock needed
+	ParallelForEachValue(cfg.Providers, (*Provider).StartAllRoutes)
+}
+
+func (cfg *config) StopProviders() {
+	// Providers have their own mutex, no lock needed
+	ParallelForEachValue(cfg.Providers, (*Provider).StopAllRoutes)
+}
+
+func (cfg *config) WatchChanges() {
+	cfg.watcher.Start()
+}
+
+func (cfg *config) StopWatching() {
+	cfg.watcher.Stop()
+}
+
+type config struct {
+	Providers map[string]*Provider `yaml:",flow"`
+	watcher   Watcher
+	mutex     sync.Mutex
 }

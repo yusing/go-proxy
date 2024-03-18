@@ -8,6 +8,7 @@ type ProxyConfig struct {
 	Host        string
 	Port        string
 	LoadBalance string // docker provider only
+	NoTLSVerify bool   // http proxy only
 	Path        string // http proxy only
 	PathMode    string `yaml:"path_mode"` // http proxy only
 

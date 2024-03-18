@@ -2,14 +2,7 @@ package main
 
 import (
 	"fmt"
-	"sync"
 )
-
-type Routes struct {
-	HTTPRoutes   SafeMap[string, pathPoolMap] // alias -> (path -> routes)
-	StreamRoutes SafeMap[string, StreamRoute] // id    -> target
-	Mutex        sync.Mutex
-}
 
 type Route interface {
 	SetupListen()
@@ -21,22 +14,22 @@ type Route interface {
 func NewRoute(cfg *ProxyConfig) (Route, error) {
 	if isStreamScheme(cfg.Scheme) {
 		id := cfg.GetID()
-		if routes.StreamRoutes.Contains(id) {
+		if streamRoutes.Contains(id) {
 			return nil, fmt.Errorf("duplicated %s stream %s, ignoring", cfg.Scheme, id)
 		}
 		route, err := NewStreamRoute(cfg)
 		if err != nil {
 			return nil, err
 		}
-		routes.StreamRoutes.Set(id, route)
+		streamRoutes.Set(id, route)
 		return route, nil
 	} else {
-		routes.HTTPRoutes.Ensure(cfg.Alias)
+		httpRoutes.Ensure(cfg.Alias)
 		route, err := NewHTTPRoute(cfg)
 		if err != nil {
 			return nil, err
 		}
-		routes.HTTPRoutes.Get(cfg.Alias).Add(cfg.Path, route)
+		httpRoutes.Get(cfg.Alias).Add(cfg.Path, route)
 		return route, nil
 	}
 }
@@ -59,11 +52,7 @@ func isStreamScheme(s string) bool {
 	return false
 }
 
-func initRoutes() *Routes {
-	r := Routes{}
-	r.HTTPRoutes = NewSafeMap[string](newPathPoolMap)
-	r.StreamRoutes = NewSafeMap[string, StreamRoute]()
-	return &r
-}
+// id    -> target
+type StreamRoutes = SafeMap[string, StreamRoute]
 
-var routes = initRoutes()
+var streamRoutes = NewSafeMap[string, StreamRoute]()

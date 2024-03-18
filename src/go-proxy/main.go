@@ -3,10 +3,12 @@ package main
 import (
 	"flag"
 	"net/http"
+	"os"
+	"os/signal"
 	"runtime"
-	"time"
+	"syscall"
 
-	"github.com/golang/glog"
+	log "github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -15,59 +17,65 @@ func main() {
 	flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	go func() {
-		for range time.Tick(100 * time.Millisecond) {
-			glog.Flush()
-		}
-	}()
+	log.SetFormatter(&log.TextFormatter{
+		ForceColors:   true,
+		DisableColors: false,
+		FullTimestamp: true,
+	})
 
-	if config, err = ReadConfig(); err != nil {
-		glog.Fatal("unable to read config: ", err)
-	}
+	InitFSWatcher()
+	InitDockerWatcher()
 
-	StartAllRoutes()
-	go ListenConfigChanges()
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", httpProxyHandler)
+	cfg := NewConfig()
+	cfg.MustLoad()
+	cfg.StartProviders()
+	cfg.WatchChanges()
 
 	var certAvailable = utils.fileOK(certPath) && utils.fileOK(keyPath)
 
 	go func() {
-		glog.Infoln("starting http server on port 80")
-		if certAvailable {
+		log.Info("starting http server on port 80")
+		if certAvailable && redirectHTTP {
 			err = http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS))
 		} else {
-			err = http.ListenAndServe(":80", mux)
+			err = http.ListenAndServe(":80", http.HandlerFunc(httpProxyHandler))
 		}
 		if err != nil {
-			glog.Fatal("HTTP server error", err)
+			log.Fatal("HTTP server error: ", err)
 		}
 	}()
 	go func() {
-		glog.Infoln("starting http panel on port 8080")
+		log.Infof("starting http panel on port 8080")
 		err := http.ListenAndServe(":8080", http.HandlerFunc(panelHandler))
 		if err != nil {
-			glog.Fatal("HTTP server error", err)
+			log.Warning("HTTP panel error: ", err)
 		}
 	}()
 
 	if certAvailable {
 		go func() {
-			glog.Infoln("starting https panel on port 8443")
-			err := http.ListenAndServeTLS(":8443", certPath, keyPath, http.HandlerFunc(panelHandler))
+			log.Info("starting https server on port 443")
+			err = http.ListenAndServeTLS(":443", certPath, keyPath, http.HandlerFunc(httpProxyHandler))
 			if err != nil {
-				glog.Fatal("http server error", err)
+				log.Fatal("https server error: ", err)
 			}
 		}()
 		go func() {
-			glog.Infoln("starting https server on port 443")
-			err = http.ListenAndServeTLS(":443", certPath, keyPath, mux)
+			log.Info("starting https panel on port 8443")
+			err := http.ListenAndServeTLS(":8443", certPath, keyPath, http.HandlerFunc(panelHandler))
 			if err != nil {
-				glog.Fatal("https server error: ", err)
+				log.Warning("http panel error: ", err)
 			}
 		}()
 	}
 
-	<-make(chan struct{})
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT)
+	signal.Notify(sig, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGHUP)
+
+	<-sig
+	cfg.StopProviders()
+	close(fsWatcherStop)
+	close(dockerWatcherStop)
 }

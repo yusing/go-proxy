@@ -3,9 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
-	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"gopkg.in/yaml.v3"
 )
 
@@ -37,41 +35,5 @@ func (p *Provider) getFileProxyConfigs() ([]*ProxyConfig, error) {
 		return nil, fmt.Errorf("file not found: %s", path)
 	} else {
 		return nil, err
-	}
-}
-
-func (p *Provider) grWatchFileChanges() {
-	watcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		p.Errorf("Watcher", "unable to create file watcher: %v", err)
-	}
-	defer watcher.Close()
-
-	if err = watcher.Add(p.Value); err != nil {
-		p.Errorf("Watcher", "unable to watch file %q: %v", p.Value, err)
-		return
-	}
-
-	for {
-		select {
-		case <-p.stopWatching:
-			return
-		case event, ok := <-watcher.Events:
-			if !ok {
-				return
-			}
-			switch {
-			case event.Has(fsnotify.Write):
-				p.Logf("Watcher", "file change detected")
-				p.StopAllRoutes()
-				p.StartAllRoutes()
-			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
-				p.Logf("Watcher", "file renamed / deleted")
-				p.StopAllRoutes()
-			}
-		case err := <-watcher.Errors:
-			time.Sleep(100 * time.Millisecond)
-			p.Errorf("Watcher", "File watcher error: %s", err)
-		}
 	}
 }

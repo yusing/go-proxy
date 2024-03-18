@@ -1,9 +1,13 @@
 package main
 
 import (
+	"crypto/tls"
 	"net"
 	"net/http"
+	"os"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -75,6 +79,12 @@ var transport = &http.Transport{
 	MaxIdleConnsPerHost: 1000,
 }
 
+var transportNoTLS = func() *http.Transport {
+	var clone = transport.Clone()
+	clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	return clone
+}()
+
 const clientUrlFromEnv = "FROM_ENV"
 
 const configPath = "config.yml"
@@ -84,3 +94,13 @@ const StreamStopListenTimeout = 1 * time.Second
 const templateFile = "templates/panel.html"
 
 const udpBufferSize = 1500
+
+var logLevel = func() logrus.Level {
+	switch os.Getenv("GOPROXY_DEBUG") {
+	case "1", "true":
+		logrus.SetLevel(logrus.DebugLevel)
+	}
+	return logrus.GetLevel()
+}()
+
+var redirectHTTP = os.Getenv("GOPROXY_REDIRECT_HTTP") != "0" && os.Getenv("GOPROXY_REDIRECT_HTTP") != "false"

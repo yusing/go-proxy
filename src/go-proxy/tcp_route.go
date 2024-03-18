@@ -7,8 +7,6 @@ import (
 	"net"
 	"sync"
 	"time"
-
-	"github.com/golang/glog"
 )
 
 const tcpDialTimeout = 5 * time.Second
@@ -37,7 +35,7 @@ func NewTCPRoute(config *ProxyConfig) (StreamRoute, error) {
 func (route *TCPRoute) Listen() {
 	in, err := net.Listen("tcp", fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
-		route.PrintError(err)
+		route.l.Error(err)
 		return
 	}
 	route.listener = in
@@ -68,7 +66,7 @@ func (route *TCPRoute) grAcceptConnections() {
 		default:
 			conn, err := route.listener.Accept()
 			if err != nil {
-				route.PrintError(err)
+				route.l.Error(err)
 				continue
 			}
 			route.connChan <- conn
@@ -101,7 +99,7 @@ func (route *TCPRoute) grHandleConnection(clientConn net.Conn) {
 	dialer := &net.Dialer{}
 	serverConn, err := dialer.DialContext(ctx, route.TargetScheme, serverAddr)
 	if err != nil {
-		glog.Infof("[Stream Dial] %v", err)
+		route.l.WithField("stage", "dial").Infof("%v", err)
 		return
 	}
 	route.tcpPipe(clientConn, serverConn)
@@ -118,13 +116,13 @@ func (route *TCPRoute) tcpPipe(src net.Conn, dest net.Conn) {
 
 	go func() {
 		_, err := io.Copy(src, dest)
-		route.PrintError(err)
+		route.l.Error(err)
 		close()
 		wg.Done()
 	}()
 	go func() {
 		_, err := io.Copy(dest, src)
-		route.PrintError(err)
+		route.l.Error(err)
 		close()
 		wg.Done()
 	}()

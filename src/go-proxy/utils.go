@@ -14,7 +14,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/golang/glog"
+	"github.com/sirupsen/logrus"
 	xhtml "golang.org/x/net/html"
 )
 
@@ -111,10 +111,9 @@ func tryAppendPathPrefixImpl(pOrig, pAppend string) string {
 
 var tryAppendPathPrefix func(string, string) string
 var _ = func() int {
-	if glog.V(4) {
+	if logLevel == logrus.DebugLevel {
 		tryAppendPathPrefix = func(s1, s2 string) string {
 			replaced := tryAppendPathPrefixImpl(s1, s2)
-			glog.Infof("[Path sub] %s -> %s", s1, replaced)
 			return replaced
 		}
 	} else {
