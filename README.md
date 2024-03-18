@@ -101,6 +101,7 @@ However, there are some labels you can manipulate with:
 
 - `proxy.aliases`: comma separated aliases for subdomain matching
   - defaults to `container_name`
+- `proxy.*.<field>`: wildcard config for all aliases
 - `proxy.<alias>.scheme`: container port protocol (`http` or `https`)
   - defaults to `http`
 - `proxy.<alias>.host`: proxy host
