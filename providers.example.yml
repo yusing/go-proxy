@@ -1,4 +1,4 @@
-app: # alias
+app: # matching `app.y.z`
   # optional
   scheme: http
   # required, proxy target
@@ -11,3 +11,5 @@ app: # alias
   path_mode:
   # optional
   notlsverify: false
+# app2:
+#   ...
