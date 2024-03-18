@@ -69,29 +69,34 @@ const (
 )
 
 // TODO: default + per proxy
-var transport = &http.Transport{
-	Proxy: http.ProxyFromEnvironment,
-	DialContext: (&net.Dialer{
-		Timeout:   60 * time.Second,
-		KeepAlive: 60 * time.Second,
-	}).DialContext,
-	MaxIdleConns:        1000,
-	MaxIdleConnsPerHost: 1000,
-}
+var (
+	transport = &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   60 * time.Second,
+			KeepAlive: 60 * time.Second,
+		}).DialContext,
+		MaxIdleConns:        1000,
+		MaxIdleConnsPerHost: 1000,
+	}
 
-var transportNoTLS = func() *http.Transport {
-	var clone = transport.Clone()
-	clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	return clone
-}()
+	transportNoTLS = func() *http.Transport {
+		var clone = transport.Clone()
+		clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		return clone
+	}()
+)
+
+const wildcardLabelPrefix = "proxy.*."
 
 const clientUrlFromEnv = "FROM_ENV"
 
-const configPath = "config.yml"
+const (
+	configPath   = "config.yml"
+	templatePath = "templates/panel.html"
+)
 
 const StreamStopListenTimeout = 1 * time.Second
-
-const templateFile = "templates/panel.html"
 
 const udpBufferSize = 1500
 

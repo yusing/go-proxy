@@ -136,9 +136,9 @@ func (route *StreamRouteBase) SetupListen() {
 			return
 		}
 		route.ListeningPort = freePort
-		route.l.Info("Assigned free port", route.ListeningPort)
+		route.l.Info("Assigned free port ", route.ListeningPort)
 	}
-	route.l.Info("Listening on", route.ListeningUrl())
+	route.l.Info("Listening on ", route.ListeningUrl())
 }
 
 func (route *StreamRouteBase) RemoveFromRoutes() {

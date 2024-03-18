@@ -42,7 +42,7 @@ func panelIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpl, err := template.ParseFiles(templateFile)
+	tmpl, err := template.ParseFiles(templatePath)
 
 	if err != nil {
 		palog.Error(err)

@@ -20,3 +20,10 @@ func (p *httpLoadBalancePool) Add(route *HTTPRoute) {
 func (p *httpLoadBalancePool) Iterator() []*HTTPRoute {
 	return p.pool
 }
+
+func (p *httpLoadBalancePool) Pick() *HTTPRoute {
+	// round-robin
+	index := int(p.curentIndex.Load())
+	defer p.curentIndex.Add(1)
+	return p.pool[index%len(p.pool)]
+}

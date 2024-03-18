@@ -135,6 +135,8 @@ func watchFiles() {
 	defer fsWatcher.Close()
 	for {
 		select {
+		case <-fsWatcherStop:
+			return
 		case event, ok := <-fsWatcher.Events:
 			if !ok {
 				wlog.Error("file watcher channel closed")
@@ -174,7 +176,7 @@ func (w *dockerWatcher) watch() {
 		case <-w.stop:
 			return
 		case msg := <-msgChan:
-			w.l.Info("container", msg.Actor.Attributes["name"], msg.Action)
+			w.l.Infof("container %s %s", msg.Actor.Attributes["name"], msg.Action)
 			w.onChange()
 		case err := <-errChan:
 			w.l.Errorf("%s, retrying in 1s", err)

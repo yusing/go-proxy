@@ -1,7 +1,6 @@
 package main
 
 import (
-	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,7 +13,7 @@ import (
 func main() {
 	var err error
 
-	flag.Parse()
+	// flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	log.SetFormatter(&log.TextFormatter{
@@ -46,7 +45,7 @@ func main() {
 	}()
 	go func() {
 		log.Infof("starting http panel on port 8080")
-		err := http.ListenAndServe(":8080", http.HandlerFunc(panelHandler))
+		err = http.ListenAndServe(":8080", http.HandlerFunc(panelHandler))
 		if err != nil {
 			log.Warning("HTTP panel error: ", err)
 		}
@@ -75,6 +74,7 @@ func main() {
 	signal.Notify(sig, syscall.SIGHUP)
 
 	<-sig
+	cfg.StopWatching()
 	cfg.StopProviders()
 	close(fsWatcherStop)
 	close(dockerWatcherStop)

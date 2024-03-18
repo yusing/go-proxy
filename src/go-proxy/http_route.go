@@ -68,7 +68,7 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		route.Proxy.ModifyResponse = func(r *http.Response) error {
 			contentType, ok := r.Header["Content-Type"]
 			if !ok || len(contentType) == 0 {
-				route.l.Debug("unknown content type for", r.Request.URL.String())
+				route.l.Debug("unknown content type for ", r.Request.URL.String())
 				return nil
 			}
 			// disable cache
@@ -108,13 +108,6 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	}
 
 	return route, nil
-}
-
-func (p *httpLoadBalancePool) Pick() *HTTPRoute {
-	// round-robin
-	index := int(p.curentIndex.Load())
-	defer p.curentIndex.Add(1)
-	return p.pool[index%len(p.pool)]
 }
 
 func (r *HTTPRoute) RemoveFromRoutes() {

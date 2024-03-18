@@ -51,7 +51,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 			if err != nil {
 				l.Error(err)
 			}
-			err = p.setConfigField(&config, label, value, wildcardPrefix)
+			err = p.setConfigField(&config, label, value, wildcardLabelPrefix)
 			if err != nil {
 				l.Error(err)
 			}
@@ -196,5 +196,3 @@ func selectPortInternal(c types.Container, getPort func(types.Port) uint16) uint
 	}
 	return 0
 }
-
-const wildcardPrefix = "proxy.*."
