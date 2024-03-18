@@ -239,20 +239,21 @@ Remote benchmark (client running wrk and `go-proxy` server are different devices
 - With reverse proxy
 
   ```shell
-  root@yusing-pc:~# wrk -t 10 -c 200 -d 30s --latency http://bench.6uo.me/bench
-  Running 30s test @ http://bench.6uo.me/bench
+  root@yusing-pc:~# wrk -t 10 -c 200 -d 10s -H "Host: bench.6uo.me" --latency http://10.0.1.7/bench
+  Running 10s test @ http://10.0.1.7/bench
     10 threads and 200 connections
     Thread Stats   Avg      Stdev     Max   +/- Stdev
-      Latency     4.50ms    1.44ms  27.53ms   86.48%
-      Req/Sec     4.48k   375.00     5.12k    84.73%
+      Latency    79.35ms  169.79ms   1.69s    92.55%
+      Req/Sec     4.27k     1.90k   19.61k    75.81%
     Latency Distribution
-      50%    4.09ms
-      75%    5.06ms
-      90%    6.03ms
-      99%    9.41ms
-    1338996 requests in 30.01s, 160.90MB read
-  Requests/sec:  44616.36
-  Transfer/sec:      5.36MB
+      50%    1.12ms
+      75%  105.66ms
+      90%  200.22ms
+      99%  814.59ms
+    409836 requests in 10.10s, 49.25MB read
+    Socket errors: connect 0, read 0, write 0, timeout 18
+  Requests/sec:  40581.61
+  Transfer/sec:      4.88MB
   ```
 
 Local benchmark (client running wrk and `go-proxy` server are under same proxmox host but different LXCs)
