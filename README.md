@@ -1,6 +1,6 @@
 # go-proxy
 
-A simple auto docker reverse proxy for home use. \*Written in **Go\***
+A simple auto docker reverse proxy for home use. **Written in *Go***
 
 In the examples domain `x.y.z` is used, replace them with your domain
 
