@@ -10,41 +10,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-/**
-A small mod on net/http/httputil.ReverseProxy
-
-Before mod:
-root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s --latency http://bench.6uo.me/bench
-Running 10s test @ http://bench.6uo.me/bench
-  10 threads and 200 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     3.02ms    4.34ms 102.70ms   94.90%
-    Req/Sec     8.06k     1.17k    9.99k    79.86%
-  Latency Distribution
-     50%    2.38ms
-     75%    4.00ms
-     90%    5.93ms
-     99%   11.90ms
-  808813 requests in 10.10s, 78.68MB read
-Requests/sec:  80079.47
-Transfer/sec:      7.79MB
-
-After mod:
-root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s --latency http://bench.6uo.me/bench
-Running 10s test @ http://bench.6uo.me/bench
-  10 threads and 200 connections
-  Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.77ms    5.64ms 118.14ms   99.07%
-    Req/Sec    16.59k     2.22k   19.65k    87.30%
-  Latency Distribution
-     50%    1.11ms
-     75%    1.85ms
-     90%    2.74ms
-     99%    6.68ms
-  1665286 requests in 10.10s, 200.11MB read
-Requests/sec: 164880.11
-Transfer/sec:     19.81MB
-**/
 type HTTPRoute struct {
 	Alias    string
 	Url      *url.URL
