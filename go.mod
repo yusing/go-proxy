@@ -4,7 +4,7 @@ go 1.21.7
 
 require (
 	github.com/docker/cli v25.0.4+incompatible
-	github.com/docker/docker v25.0.4+incompatible
+	github.com/docker/docker v25.0.5+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/net v0.22.0
