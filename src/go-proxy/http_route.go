@@ -103,12 +103,12 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	if logLevel == logrus.DebugLevel {
 		route.Proxy.Rewrite = func(pr *ProxyRequest) {
 			rewrite(pr)
-			route.l.Debug("Request URL: ", pr.In.Host, pr.In.URL.Path)
-			route.l.Debug("Request headers: ", pr.In.Header)
+			route.l.Debug("request URL: ", pr.In.Host, pr.In.URL.Path)
+			route.l.Debug("request headers: ", pr.In.Header)
 		}
 		route.Proxy.ModifyResponse = func(r *http.Response) error {
-			route.l.Debug("Response URL: ", r.Request.URL.String())
-			route.l.Debug("Response headers: ", r.Header)
+			route.l.Debug("response URL: ", r.Request.URL.String())
+			route.l.Debug("response headers: ", r.Header)
 			if modifyResponse != nil {
 				return modifyResponse(r)
 			}
@@ -121,14 +121,10 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	return route, nil
 }
 
-func (r *HTTPRoute) RemoveFromRoutes() {
+func (r *HTTPRoute) Start() {}
+func (r *HTTPRoute) Stop() {
 	httpRoutes.Delete(r.Alias)
 }
-
-// dummy implementation for Route interface
-func (r *HTTPRoute) SetupListen()   {}
-func (r *HTTPRoute) Listen()        {}
-func (r *HTTPRoute) StopListening() {}
 
 func isValidProxyPathMode(mode string) bool {
 	switch mode {

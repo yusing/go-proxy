@@ -5,10 +5,8 @@ import (
 )
 
 type Route interface {
-	SetupListen()
-	Listen()
-	StopListening()
-	RemoveFromRoutes()
+	Start()
+	Stop()
 }
 
 func NewRoute(cfg *ProxyConfig) (Route, error) {

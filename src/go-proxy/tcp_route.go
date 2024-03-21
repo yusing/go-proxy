@@ -32,7 +32,8 @@ func NewTCPRoute(config *ProxyConfig) (StreamRoute, error) {
 	}, nil
 }
 
-func (route *TCPRoute) Listen() {
+func (route *TCPRoute) Start() {
+	route.setupListen()
 	in, err := net.Listen("tcp", fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
 		route.l.Error(err)
@@ -44,8 +45,9 @@ func (route *TCPRoute) Listen() {
 	go route.grHandleConnections()
 }
 
-func (route *TCPRoute) StopListening() {
+func (route *TCPRoute) Stop() {
 	stopListening(route)
+	streamRoutes.Delete(route.id)
 }
 
 func (route *TCPRoute) closeListeners() {

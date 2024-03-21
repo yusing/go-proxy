@@ -38,7 +38,7 @@ func panelHandler(w http.ResponseWriter, r *http.Request) {
 
 func panelIndex(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
@@ -67,7 +67,7 @@ func panelIndex(w http.ResponseWriter, r *http.Request) {
 
 func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodHead {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 

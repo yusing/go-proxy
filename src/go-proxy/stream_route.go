@@ -47,7 +47,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 
 	port_split := strings.Split(config.Port, ":")
 	if len(port_split) != 2 {
-		cfgl.Warnf("Invalid port %s, assuming it is target port", config.Port)
+		cfgl.Warnf("invalid port %s, assuming it is target port", config.Port)
 		srcPort = "0"
 		dstPort = config.Port
 	} else {
@@ -96,7 +96,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 
 		id:        config.GetID(),
 		wg:        sync.WaitGroup{},
-		stopChann: make(chan struct{}),
+		stopChann: make(chan struct{}, 1),
 		l: srlog.WithFields(logrus.Fields{
 			"alias": config.Alias,
 			"src":   fmt.Sprintf("%s://:%d", srcScheme, srcPortInt),
@@ -128,7 +128,7 @@ func (route *StreamRouteBase) Logger() logrus.FieldLogger {
 	return route.l
 }
 
-func (route *StreamRouteBase) SetupListen() {
+func (route *StreamRouteBase) setupListen() {
 	if route.ListeningPort == 0 {
 		freePort, err := utils.findUseFreePort(20000)
 		if err != nil {
@@ -136,13 +136,10 @@ func (route *StreamRouteBase) SetupListen() {
 			return
 		}
 		route.ListeningPort = freePort
-		route.l.Info("Assigned free port ", route.ListeningPort)
+		route.l.Info("listening on free port ", route.ListeningPort)
+		return
 	}
-	route.l.Info("Listening on ", route.ListeningUrl())
-}
-
-func (route *StreamRouteBase) RemoveFromRoutes() {
-	streamRoutes.Delete(route.id)
+	route.l.Info("listening on ", route.ListeningUrl())
 }
 
 func (route *StreamRouteBase) wait() {
@@ -159,12 +156,14 @@ func (route *StreamRouteBase) unmarkPort() {
 
 func stopListening(route StreamRoute) {
 	l := route.Logger()
-	l.Debug("Stopping listening")
+	l.Debug("stopping listening")
+
+	// close channel -> wait -> close listeners
+
 	route.closeChannel()
-	route.closeListeners()
 
 	done := make(chan struct{})
-
+	
 	go func() {
 		route.wait()
 		close(done)
@@ -173,10 +172,10 @@ func stopListening(route StreamRoute) {
 
 	select {
 	case <-done:
-		l.Info("Stopped listening")
-		return
+		l.Info("stopped listening")
 	case <-time.After(StreamStopListenTimeout):
 		l.Error("timed out waiting for connections")
-		return
 	}
+
+	route.closeListeners()
 }

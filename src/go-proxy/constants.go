@@ -96,7 +96,7 @@ const (
 	templatePath = "templates/panel.html"
 )
 
-const StreamStopListenTimeout = 1 * time.Second
+const StreamStopListenTimeout = 2 * time.Second
 
 const udpBufferSize = 1500
 

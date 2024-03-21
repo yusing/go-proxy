@@ -35,24 +35,24 @@ func (cfg *config) Load() error {
 	defer cfg.mutex.Unlock()
 
 	// unload if any
-	if cfg.Providers != nil {
-		for _, p := range cfg.Providers {
-			p.StopAllRoutes()
-		}
-	}
-	cfg.Providers = make(map[string]*Provider)
+	cfg.StopProviders()
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("unable to read config file: %v", err)
 	}
 
+	cfg.Providers = make(map[string]*Provider)
 	if err = yaml.Unmarshal(data, &cfg); err != nil {
 		return fmt.Errorf("unable to parse config file: %v", err)
 	}
 
 	for name, p := range cfg.Providers {
-		p.name = name
+		err := p.Init(name)
+		if err != nil {
+			cfgl.Errorf("failed to initialize provider %q %v", name, err)
+			cfg.Providers[name] = nil
+		}
 	}
 
 	return nil
@@ -73,13 +73,18 @@ func (cfg *config) MustReload() {
 }
 
 func (cfg *config) StartProviders() {
+	if cfg.Providers == nil {
+		cfgl.Fatal("providers not loaded")
+	}
 	// Providers have their own mutex, no lock needed
 	ParallelForEachValue(cfg.Providers, (*Provider).StartAllRoutes)
 }
 
 func (cfg *config) StopProviders() {
-	// Providers have their own mutex, no lock needed
-	ParallelForEachValue(cfg.Providers, (*Provider).StopAllRoutes)
+	if cfg.Providers != nil {
+		// Providers have their own mutex, no lock needed
+		ParallelForEachValue(cfg.Providers, (*Provider).StopAllRoutes)
+	}
 }
 
 func (cfg *config) WatchChanges() {

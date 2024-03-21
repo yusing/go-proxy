@@ -45,7 +45,9 @@ func NewUDPRoute(config *ProxyConfig) (StreamRoute, error) {
 	}, nil
 }
 
-func (route *UDPRoute) Listen() {
+func (route *UDPRoute) Start() {
+	route.setupListen()
+
 	source, err := net.ListenPacket(route.ListeningScheme, fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
 		route.l.Error(err)
@@ -67,22 +69,24 @@ func (route *UDPRoute) Listen() {
 	go route.grHandleConnections()
 }
 
-func (route *UDPRoute) StopListening() {
+func (route *UDPRoute) Stop() {
 	stopListening(route)
+	streamRoutes.Delete(route.id)
 }
 
 func (route *UDPRoute) closeListeners() {
 	if route.listeningConn != nil {
 		route.listeningConn.Close()
+		route.listeningConn = nil
 	}
 	if route.targetConn != nil {
 		route.targetConn.Close()
+		route.targetConn = nil
 	}
-	route.listeningConn = nil
-	route.targetConn = nil
 	for _, conn := range route.connMap {
 		conn.(*net.UDPConn).Close() // TODO: change on non udp target
 	}
+	route.connMap = make(map[net.Addr]net.Conn)
 }
 
 func (route *UDPRoute) grAcceptConnections() {

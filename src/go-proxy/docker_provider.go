@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/api/types"
@@ -61,7 +62,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 		}
 		if config.Port == "0" {
 			// no ports exposed or specified
-			l.Info("no ports exposed, ignored")
+			l.Debugf("no ports exposed, ignored")
 			continue
 		}
 		if config.Scheme == "" {
@@ -116,26 +117,17 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 	return cfgs
 }
 
-func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
-	var clientIP string
-	var opts []client.Opt
-	var err error
-
+func (p *Provider) getDockerClient() (*client.Client, error) {
+	var dockerOpts []client.Opt
 	if p.Value == clientUrlFromEnv {
-		clientIP = ""
-		opts = []client.Opt{
+		dockerOpts = []client.Opt{
 			client.WithHostFromEnv(),
 			client.WithAPIVersionNegotiation(),
 		}
 	} else {
-		url, err := client.ParseHostURL(p.Value)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse docker host url: %v", err)
-		}
-		clientIP = strings.Split(url.Host, ":")[0]
 		helper, err := connhelper.GetConnectionHelper(p.Value)
 		if err != nil {
-			return nil, fmt.Errorf("unexpected error: %v", err)
+			p.l.Fatal("unexpected error: ", err)
 		}
 		if helper != nil {
 			httpClient := &http.Client{
@@ -143,26 +135,44 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 					DialContext: helper.Dialer,
 				},
 			}
-			opts = []client.Opt{
+			dockerOpts = []client.Opt{
 				client.WithHTTPClient(httpClient),
 				client.WithHost(helper.Host),
 				client.WithAPIVersionNegotiation(),
 				client.WithDialContext(helper.Dialer),
 			}
 		} else {
-			opts = []client.Opt{
+			dockerOpts = []client.Opt{
 				client.WithHost(p.Value),
 				client.WithAPIVersionNegotiation(),
 			}
 		}
 	}
+	return client.NewClientWithOpts(dockerOpts...)
+}
 
-	p.dockerClient, err = client.NewClientWithOpts(opts...)
+func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
+	var clientIP string
+
+	if p.Value == clientUrlFromEnv {
+		clientIP = ""
+	} else {
+		url, err := client.ParseHostURL(p.Value)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse docker host url: %v", err)
+		}
+		clientIP = strings.Split(url.Host, ":")[0]
+	}
+
+	dockerClient, err := p.getDockerClient()
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to create docker client: %v", err)
 	}
 
-	containerSlice, err := p.dockerClient.ContainerList(context.Background(), container.ListOptions{All: true})
+	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
+	containerSlice, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
+	
 	if err != nil {
 		return nil, fmt.Errorf("unable to list containers: %v", err)
 	}

@@ -39,14 +39,14 @@ func main() {
 			err = http.ListenAndServe(":80", http.HandlerFunc(httpProxyHandler))
 		}
 		if err != nil {
-			log.Fatal("HTTP server error: ", err)
+			log.Fatal("http server error: ", err)
 		}
 	}()
 	go func() {
 		log.Infof("starting http panel on port 8080")
 		err = http.ListenAndServe(":8080", http.HandlerFunc(panelHandler))
 		if err != nil {
-			log.Warning("HTTP panel error: ", err)
+			log.Warning("http panel error: ", err)
 		}
 	}()
 
@@ -75,6 +75,6 @@ func main() {
 	<-sig
 	cfg.StopWatching()
 	cfg.StopProviders()
-	close(fsWatcherStop)
-	close(dockerWatcherStop)
+	StopFSWatcher()
+	StopDockerWatcher()
 }
