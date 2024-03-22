@@ -11,6 +11,9 @@ In the examples domain `x.y.z` is used, replace them with your domain
   - [Binary](#binary)
   - [Docker](#docker)
 - [Configuration](#configuration)
+  - [Labels](#labels)
+  - [Environment Variables](#environment-variables)
+- [Examples](#examples)
   - [Single Port Configuration](#single-port-configuration-example)
   - [Multiple Ports Configuration](#multiple-ports-configuration-example)
   - [TCP/UDP Configuration](#tcpudp-configuration-example)
@@ -51,9 +54,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 1. (Optional) Prepare your certificates in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
 
-
-    - cert / chain / fullchain: `./certs/cert.crt`
-    - private key: `./certs/priv.key`
+   - cert / chain / fullchain: `./certs/cert.crt`
+   - private key: `./certs/priv.key`
 
 2. run the binary `bin/go-proxy`
 
@@ -67,23 +69,21 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 3. (Optional) Mount your SSL certs to enable https. See [Getting SSL Certs](#getting-ssl-certs)
 
-
-    - cert / chain / fullchain -> `/app/certs/cert.crt`
-    - private key -> `/app/certs/priv.key`
+   - cert / chain / fullchain -> `/app/certs/cert.crt`
+   - private key -> `/app/certs/priv.key`
 
 4. Start `go-proxy` with `docker compose up -d` or `make up`.
 
 5. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
 
+   In case the network of your container is in subnet `172.16.0.0/16` (bridge),
+   and vpn network is under `100.64.0.0/10` (i.e. tailscale)
 
-    In case the network of your container is in subnet `172.16.0.0/16` (bridge),
-    and vpn network is under `100.64.0.0/10` (i.e. tailscale)
+   `sudo ufw allow from 172.16.0.0/16 to 100.64.0.0/10`
 
-    `sudo ufw allow from 172.16.0.0/16 to 100.64.0.0/10`
+   You can also list CIDRs of all docker bridge networks by:
 
-    You can also list CIDRs of all docker bridge networks by:
-
-    `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
+   `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
 6. start your docker app, and visit <container_name>.y.z
 
@@ -95,9 +95,9 @@ None
 
 ## Configuration
 
-With container name, no label needs to be added.
+With container name, most of the time no label needs to be added.
 
-However, there are some labels you can manipulate with:
+### Labels
 
 - `proxy.aliases`: comma separated aliases for subdomain matching
   - defaults to `container_name`
@@ -130,6 +130,13 @@ However, there are some labels you can manipulate with:
 
 - `proxy.<alias>.load_balance`: enable load balance
   - allowed: `1`, `true`
+
+### Environment variables
+
+- `GOPROXY_DEBUG`: set to `1` or `true` to enable debug behaviors (i.e. output, etc.)
+- `GOPROXY_REDIRECT_HTTP`: set to `0` or `false` to disable http to https redirect (only when certs are located)
+
+## Examples
 
 ### Single port configuration example
 
@@ -279,6 +286,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
   ```
 
 - With `go-proxy` reverse proxy
+
   ```
   root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s -H "Host: bench.6uo.me" --latency http://10.0.1.7/bench
   Running 10s test @ http://10.0.1.7/bench
