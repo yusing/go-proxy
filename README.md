@@ -371,7 +371,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
 
 ## Memory usage
 
-It takes ~30 MB for 50 proxy entries
+It takes ~13 MB for 50 proxy entries
 
 ## Build it yourself
 
