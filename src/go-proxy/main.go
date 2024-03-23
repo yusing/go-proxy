@@ -53,7 +53,6 @@ func main() {
 			}
 		}
 		aclog.Infof("certificate will be expired at %v and get renewed", autoCertProvider.GetExpiry())
-
 	}
 	proxyServer = NewServer(
 		"proxy",

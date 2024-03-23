@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"os"
+	"path"
 	"sync"
 	"time"
 
@@ -162,22 +163,6 @@ func (p *AutoCertProviderBase) ObtainCert() error {
 	return nil
 }
 
-func (p *AutoCertProviderBase) saveCert(cert *certificate.Resource) error {
-	err := os.WriteFile(keyFileDefault, cert.PrivateKey, 0600) // -rw-------
-	if err != nil {
-		return err
-	}
-	err = os.WriteFile(certFileDefault, cert.Certificate, 0644) // -rw-r--r--
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (p *AutoCertProviderBase) needRenew() bool {
-	return p.expiry.Before(time.Now().Add(24 * time.Hour))
-}
-
 func (p *AutoCertProviderBase) LoadCert() bool {
 	cert, err := tls.LoadX509KeyPair(certFileDefault, keyFileDefault)
 	if err != nil {
@@ -190,6 +175,26 @@ func (p *AutoCertProviderBase) LoadCert() bool {
 	p.tlsCert = &cert
 	p.expiry = x509Cert.NotAfter
 	return true
+}
+
+func (p *AutoCertProviderBase) saveCert(cert *certificate.Resource) error {
+	err := os.MkdirAll(path.Dir(certFileDefault), 0644)
+	if err != nil {
+		return fmt.Errorf("unable to create cert directory: %v", err)
+	}
+	err = os.WriteFile(keyFileDefault, cert.PrivateKey, 0600) // -rw-------
+	if err != nil {
+		return fmt.Errorf("unable to write key file: %v", err)
+	}
+	err = os.WriteFile(certFileDefault, cert.Certificate, 0644) // -rw-r--r--
+	if err != nil {
+		return fmt.Errorf("unable to write cert file: %v", err)
+	}
+	return nil
+}
+
+func (p *AutoCertProviderBase) needRenew() bool {
+	return p.expiry.Before(time.Now().Add(24 * time.Hour))
 }
 
 type AutoCertCFProvider struct {
