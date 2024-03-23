@@ -40,6 +40,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - HTTP round robin load balance support (same subdomain and path across different hosts)
 - Auto hot-reload on container start / die / stop or config changes.
 - Simple panel to see all reverse proxies and health (visit port [panel port] of go-proxy `https://*.y.z:[panel port]`)
+
   - you can customize it by modifying [templates/panel.html](templates/panel.html)
 
   ![panel screenshot](screenshots/panel.png)
@@ -56,10 +57,16 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ### Binary
 
-1. (Optional) Prepare your wildcard (`*.y.z`) SSL cert in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+1. (Optional) enabled HTTPS
 
-   - cert / chain / fullchain: `./certs/cert.crt`
-   - private key: `./certs/priv.key`
+   - Use autocert feature by completing `autocert` in `config.yml`
+
+   - Use existing certificate
+
+     Prepare your wildcard (`*.y.z`) SSL cert in `certs/`
+
+     - cert / chain / fullchain: `./certs/cert.crt`
+     - private key: `./certs/priv.key`
 
 2. run the binary `bin/go-proxy`
 
@@ -71,10 +78,25 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 2. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
 
-3. (Optional) Mount your wildcard (`*.y.z`) SSL cert to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+3. (Optional) enable HTTPS
 
-   - cert / chain / fullchain -> `/app/certs/cert.crt`
-   - private key -> `/app/certs/priv.key`
+   - Use autocert feature
+
+     1. mount `./certs` to `/app/certs`
+     ```yaml
+     go-proxy:
+      ...
+      volumes:
+        - ./certs:/app/certs
+     ```
+     2. complete `autocert` in `config.yml`
+
+   - Use existing certificate
+
+     Mount your wildcard (`*.y.z`) SSL cert to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+
+     - cert / chain / fullchain -> `/app/certs/cert.crt`
+     - private key -> `/app/certs/priv.key`
 
 4. Start `go-proxy` with `docker compose up -d` or `make up`.
 
@@ -151,6 +173,7 @@ See [providers.example.yml](providers.example.yml)
 ### Supported cert providers
 
 - Cloudflare
+
   ```yaml
   autocert:
     ...

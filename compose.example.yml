@@ -19,15 +19,14 @@ services:
       # - 20000:20100/tcp
       # - 20000:20100/udp
     volumes:
-      # if you want https
+      # use existing certificate
       # - /path/to/cert.pem:/app/certs/cert.crt:ro
       # - /path/to/privkey.pem:/app/certs/priv.key:ro
 
-      # path to logs
-      - ./log:/app/log
+      # use autocert feature
+      # - ./certs:/app/certs
 
-      # if you use default config, or declared local docker provider
-      # otherwise comment this line
+      # if local docker provider is used (by default)
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
       # to use custom config

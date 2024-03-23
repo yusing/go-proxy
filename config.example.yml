@@ -11,12 +11,12 @@ providers:
     kind: docker
     # for value format, see https://docs.docker.com/reference/cli/dockerd/
     value: FROM_ENV
-  remote1:
-    kind: docker
-    value: ssh://user@10.0.1.1
-  remote2:
-    kind: docker
-    value: tcp://10.0.1.1:2375
+  # remote1:
+  #   kind: docker
+  #   value: ssh://user@10.0.1.1
+  # remote2:
+  #   kind: docker
+  #   value: tcp://10.0.1.1:2375
   # provider1:
   #   kind: file
   #   value: provider1.yml

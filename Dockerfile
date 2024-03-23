@@ -6,7 +6,7 @@ RUN apk add --no-cache bash tzdata
 RUN mkdir /app
 COPY bin/go-proxy entrypoint.sh /app/
 COPY templates/ /app/templates
-COPY config.default.yml /app/config.yml
+COPY config.example.yml /app/config.yml
 
 RUN chmod +x /app/go-proxy /app/entrypoint.sh
 ENV DOCKER_HOST unix:///var/run/docker.sock
