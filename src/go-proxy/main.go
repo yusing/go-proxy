@@ -7,65 +7,79 @@ import (
 	"runtime"
 	"syscall"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
-	var err error
-
 	// flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	log.SetFormatter(&log.TextFormatter{
+	logrus.SetFormatter(&logrus.TextFormatter{
 		ForceColors:   true,
 		DisableColors: false,
 		FullTimestamp: true,
 	})
-	InitFSWatcher()
-	InitDockerWatcher()
 
 	cfg := NewConfig()
 	cfg.MustLoad()
+
+	autoCertProvider, err := cfg.GetAutoCertProvider()
+
+	if err != nil {
+		aclog.Warn(err)
+		autoCertProvider = nil
+	}
+
+	var httpProxyHandler http.Handler
+	var httpPanelHandler http.Handler
+
+	var proxyServer *Server
+	var panelServer *Server
+
+	if redirectHTTP {
+		httpProxyHandler = http.HandlerFunc(redirectToTLSHandler)
+		httpPanelHandler = http.HandlerFunc(redirectToTLSHandler)
+	} else {
+		httpProxyHandler = http.HandlerFunc(proxyHandler)
+		httpPanelHandler = http.HandlerFunc(panelHandler)
+	}
+
+	if autoCertProvider != nil {
+		ok := autoCertProvider.LoadCert()
+		if !ok {
+			err := autoCertProvider.ObtainCert()
+			if err != nil {
+				aclog.Fatal("error obtaining certificate ", err)
+			}
+		}
+		aclog.Infof("certificate will be expired at %v and get renewed", autoCertProvider.GetExpiry())
+
+	}
+	proxyServer = NewServer(
+		"proxy",
+		autoCertProvider,
+		":80",
+		httpProxyHandler,
+		":443",
+		http.HandlerFunc(proxyHandler),
+	)
+	panelServer = NewServer(
+		"panel",
+		autoCertProvider,
+		":8080",
+		httpPanelHandler,
+		":8443",
+		http.HandlerFunc(panelHandler),
+	)
+
+	proxyServer.Start()
+	panelServer.Start()
+
+	InitFSWatcher()
+	InitDockerWatcher()
+
 	cfg.StartProviders()
 	cfg.WatchChanges()
-
-	var certAvailable = utils.fileOK(certPath) && utils.fileOK(keyPath)
-
-	go func() {
-		log.Info("starting http server on port 80")
-		if certAvailable && redirectHTTP {
-			err = http.ListenAndServe(":80", http.HandlerFunc(redirectToTLS))
-		} else {
-			err = http.ListenAndServe(":80", http.HandlerFunc(httpProxyHandler))
-		}
-		if err != nil {
-			log.Fatal("http server error: ", err)
-		}
-	}()
-	go func() {
-		log.Infof("starting http panel on port 8080")
-		err = http.ListenAndServe(":8080", http.HandlerFunc(panelHandler))
-		if err != nil {
-			log.Warning("http panel error: ", err)
-		}
-	}()
-
-	if certAvailable {
-		go func() {
-			log.Info("starting https server on port 443")
-			err = http.ListenAndServeTLS(":443", certPath, keyPath, http.HandlerFunc(httpProxyHandler))
-			if err != nil {
-				log.Fatal("https server error: ", err)
-			}
-		}()
-		go func() {
-			log.Info("starting https panel on port 8443")
-			err := http.ListenAndServeTLS(":8443", certPath, keyPath, http.HandlerFunc(panelHandler))
-			if err != nil {
-				log.Warning("http panel error: ", err)
-			}
-		}()
-	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
@@ -74,7 +88,9 @@ func main() {
 
 	<-sig
 	cfg.StopWatching()
-	cfg.StopProviders()
 	StopFSWatcher()
 	StopDockerWatcher()
+	cfg.StopProviders()
+	panelServer.Stop()
+	proxyServer.Stop()
 }

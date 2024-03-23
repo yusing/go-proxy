@@ -63,11 +63,6 @@ const (
 	ProviderKind_File   = "file"
 )
 
-const (
-	certPath = "certs/cert.crt"
-	keyPath  = "certs/priv.key"
-)
-
 // TODO: default + per proxy
 var (
 	transport = &http.Transport{
@@ -92,11 +87,13 @@ const wildcardLabelPrefix = "proxy.*."
 const clientUrlFromEnv = "FROM_ENV"
 
 const (
-	configPath   = "config.yml"
-	templatePath = "templates/panel.html"
+	certFileDefault = "certs/cert.crt"
+	keyFileDefault  = "certs/priv.key"
+	configPath      = "config.yml"
+	templatePath    = "templates/panel.html"
 )
 
-const StreamStopListenTimeout = 2 * time.Second
+const StreamStopListenTimeout = 1 * time.Second
 
 const udpBufferSize = 1500
 

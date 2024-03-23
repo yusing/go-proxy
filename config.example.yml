@@ -1,0 +1,25 @@
+# uncomment to use autocert
+# autocert:
+#   email: "user@y.z" # email for acme certificate
+#   domains:
+#     - "*.y.z" # domain for acme certificate, use wild card to allow all subdomains
+#   provider: cloudflare
+#   options:
+#     auth_token: "YOUR_ZONE_API_TOKEN"
+providers:
+  local:
+    kind: docker
+    # for value format, see https://docs.docker.com/reference/cli/dockerd/
+    value: FROM_ENV
+  remote1:
+    kind: docker
+    value: ssh://user@10.0.1.1
+  remote2:
+    kind: docker
+    value: tcp://10.0.1.1:2375
+  # provider1:
+  #   kind: file
+  #   value: provider1.yml
+  # provider2:
+  #   kind: file
+  #   value: provider2.yml

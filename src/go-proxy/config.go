@@ -12,6 +12,7 @@ import (
 type Config interface {
 	// Load() error
 	MustLoad()
+	GetAutoCertProvider() (AutoCertProvider, error)
 	// MustReload()
 	// Reload() error
 	StartProviders()
@@ -64,6 +65,10 @@ func (cfg *config) MustLoad() {
 	}
 }
 
+func (cfg *config) GetAutoCertProvider() (AutoCertProvider, error) {
+	return cfg.AutoCert.GetProvider()
+}
+
 func (cfg *config) Reload() error {
 	return cfg.Load()
 }
@@ -97,6 +102,7 @@ func (cfg *config) StopWatching() {
 
 type config struct {
 	Providers map[string]*Provider `yaml:",flow"`
+	AutoCert  AutoCertConfig       `yaml:",flow"`
 	watcher   Watcher
 	mutex     sync.Mutex
 }

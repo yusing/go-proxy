@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"sync"
@@ -91,7 +92,7 @@ func (*Utils) healthCheckStream(scheme, host string) error {
 	return nil
 }
 
-func (*Utils) snakeToCamel(s string) string {
+func (*Utils) snakeToPascal(s string) string {
 	toHyphenCamel := http.CanonicalHeaderKey(strings.ReplaceAll(s, "_", "-"))
 	return strings.ReplaceAll(toHyphenCamel, "-", "")
 }
@@ -191,4 +192,14 @@ func (*Utils) respJSSubPath(r *http.Response, p string) error {
 func (*Utils) fileOK(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func SetFieldFromSnake[T interface{}, VT interface{}](obj *T, field string, value VT) error {
+	field = utils.snakeToPascal(field)
+	prop := reflect.ValueOf(obj).Elem().FieldByName(field)
+	if prop.Kind() == 0 {
+		return fmt.Errorf("unknown field %s", field)
+	}
+	prop.Set(reflect.ValueOf(value))
+	return nil
 }

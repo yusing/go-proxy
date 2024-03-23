@@ -13,6 +13,9 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - [Configuration](#configuration)
   - [Labels](#labels)
   - [Environment Variables](#environment-variables)
+  - [Config File](#config-file)
+  - [Provider File](#provider-file)
+  - [Supported Cert Providers](#supported-cert-providers)
 - [Examples](#examples)
   - [Single Port Configuration](#single-port-configuration-example)
   - [Multiple Ports Configuration](#multiple-ports-configuration-example)
@@ -22,7 +25,6 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - [Benchmarks](#benchmarks)
 - [Memory usage](#memory-usage)
 - [Build it yourself](#build-it-yourself)
-- [Getting SSL certs](#getting-ssl-certs)
 
 ## Key Points
 
@@ -30,6 +32,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - auto detect reverse proxies from docker
 - additional reverse proxies from provider yaml file
 - allow multiple docker / file providers by custom `config.yml` file
+- auto certificate obtaining and renewal (See [Config File](#config-file) and [Supported Cert Providers](#supported-cert-providers))
 - subdomain matching **(domain name doesn't matter)**
 - path matching
 - HTTP proxy
@@ -37,6 +40,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - HTTP round robin load balance support (same subdomain and path across different hosts)
 - Auto hot-reload on container start / die / stop or config changes.
 - Simple panel to see all reverse proxies and health (visit port [panel port] of go-proxy `https://*.y.z:[panel port]`)
+  - you can customize it by modifying [templates/panel.html](templates/panel.html)
 
   ![panel screenshot](screenshots/panel.png)
 
@@ -52,7 +56,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ### Binary
 
-1. (Optional) Prepare your certificates in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+1. (Optional) Prepare your wildcard (`*.y.z`) SSL cert in `certs/` to enable https. See [Getting SSL Certs](#getting-ssl-certs)
 
    - cert / chain / fullchain: `./certs/cert.crt`
    - private key: `./certs/priv.key`
@@ -67,7 +71,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 2. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
 
-3. (Optional) Mount your SSL certs to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+3. (Optional) Mount your wildcard (`*.y.z`) SSL cert to enable https. See [Getting SSL Certs](#getting-ssl-certs)
 
    - cert / chain / fullchain -> `/app/certs/cert.crt`
    - private key -> `/app/certs/priv.key`
@@ -110,8 +114,8 @@ With container name, most of the time no label needs to be added.
   - http/https: defaults to first expose port (declared in `Dockerfile` or `docker-compose.yml`)
   - tcp/udp: is in format of `[<listeningPort>:]<targetPort>`
     - when `listeningPort` is omitted (not suggested), a free port will be used automatically.
-    - `targetPort` must be a number, or the predefined names (see [stream.go](src/go-proxy/stream.go#L28))
-- `no_tls_verify`: whether skip tls verify when scheme is https
+    - `targetPort` must be a number, or the predefined names (see [constants.go:14](src/go-proxy/constants.go#L14))
+- `proxy.<alias>.no_tls_verify`: whether skip tls verify when scheme is https
   - defaults to false
 - `proxy.<alias>.path`: path matching (for http proxy only)
   - defaults to empty
@@ -135,6 +139,26 @@ With container name, most of the time no label needs to be added.
 
 - `GOPROXY_DEBUG`: set to `1` or `true` to enable debug behaviors (i.e. output, etc.)
 - `GOPROXY_REDIRECT_HTTP`: set to `0` or `false` to disable http to https redirect (only when certs are located)
+
+### Config File
+
+See [config.example.yml](config.example.yml)
+
+### Provider File
+
+See [providers.example.yml](providers.example.yml)
+
+### Supported cert providers
+
+- Cloudflare
+  ```yaml
+  autocert:
+    ...
+    options:
+      auth_token: "YOUR_ZONE_API_TOKEN"
+  ```
+
+  Follow [this guide](https://cloudkul.com/blog/automcatic-renew-and-generate-ssl-on-your-website-using-lego-client/) to create a new token with `Zone.DNS` read and edit permissions
 
 ## Examples
 
@@ -334,10 +358,6 @@ It takes ~30 MB for 50 proxy entries
 
 3. build binary with `make build`
 
-4. start your container with `docker compose up -d`
-
-## Getting SSL certs
-
-I personally use `nginx-proxy-manager` to get SSL certs with auto renewal by Cloudflare DNS challenge. You may symlink the certs from `nginx-proxy-manager` to `certs/` folder relative to project root. (For docker) mount them to `go-proxy`'s `/app/certs`
+4. start your container with `make up` (docker) or `bin/go-proxy` (binary)
 
 [panel port]: 8443

@@ -135,7 +135,7 @@ func isValidProxyPathMode(mode string) bool {
 	}
 }
 
-func redirectToTLS(w http.ResponseWriter, r *http.Request) {
+func redirectToTLSHandler(w http.ResponseWriter, r *http.Request) {
 	// Redirect to the same host but with HTTPS
 	var redirectCode int
 	if r.Method == http.MethodGet {
@@ -155,7 +155,7 @@ func findHTTPRoute(host string, path string) (*HTTPRoute, error) {
 	return nil, fmt.Errorf("no matching route for subdomain %s", subdomain)
 }
 
-func httpProxyHandler(w http.ResponseWriter, r *http.Request) {
+func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	route, err := findHTTPRoute(r.Host, r.URL.Path)
 	if err != nil {
 		err = fmt.Errorf("request failed %s %s%s, error: %v",

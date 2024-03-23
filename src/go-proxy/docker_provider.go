@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"reflect"
 	"strings"
 	"time"
 
@@ -17,12 +16,7 @@ import (
 func (p *Provider) setConfigField(c *ProxyConfig, label string, value string, prefix string) error {
 	if strings.HasPrefix(label, prefix) {
 		field := strings.TrimPrefix(label, prefix)
-		field = utils.snakeToCamel(field)
-		prop := reflect.ValueOf(c).Elem().FieldByName(field)
-		if prop.Kind() == 0 {
-			return fmt.Errorf("ignoring unknown field %s", field)
-		}
-		prop.Set(reflect.ValueOf(value))
+		SetFieldFromSnake(c, field, value)
 	}
 	return nil
 }
@@ -172,7 +166,7 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	containerSlice, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to list containers: %v", err)
 	}
