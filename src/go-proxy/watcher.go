@@ -127,12 +127,12 @@ func InitFSWatcher() {
 func InitDockerWatcher() {
 	// stop all docker client on watcher stop
 	go func() {
-		defer dockerWatcherWg.Done()
 		<-dockerWatcherStop
 		ParallelForEachValue(
 			dockerWatchMap.Iterator(),
 			(*dockerWatcher).Dispose,
 		)
+		dockerWatcherWg.Done()
 	}()
 }
 

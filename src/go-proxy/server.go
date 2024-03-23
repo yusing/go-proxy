@@ -79,11 +79,13 @@ func (s *Server) Stop() {
 	if s.httpStarted {
 		errHTTP := s.http.Shutdown(ctx)
 		s.handleErr("http", errHTTP)
+		s.httpStarted = false
 	}
 
 	if s.httpsStarted {
 		errHTTPS := s.https.Shutdown(ctx)
 		s.handleErr("https", errHTTPS)
+		s.httpsStarted = false
 	}
 }
 

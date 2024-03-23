@@ -11,7 +11,6 @@ import (
 )
 
 func main() {
-	// flag.Parse()
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	logrus.SetFormatter(&logrus.TextFormatter{
@@ -52,7 +51,10 @@ func main() {
 				aclog.Fatal("error obtaining certificate ", err)
 			}
 		}
-		aclog.Infof("certificate will be expired at %v and get renewed", autoCertProvider.GetExpiry())
+		for name, expiry := range autoCertProvider.GetExpiries() {
+			aclog.Infof("certificate %q: expire on %v", name, expiry)
+		}
+		go autoCertProvider.ScheduleRenewal()
 	}
 	proxyServer = NewServer(
 		"proxy",
@@ -86,9 +88,8 @@ func main() {
 	signal.Notify(sig, syscall.SIGHUP)
 
 	<-sig
-	cfg.StopWatching()
-	StopFSWatcher()
-	StopDockerWatcher()
+	// cfg.StopWatching()
+	
 	cfg.StopProviders()
 	panelServer.Stop()
 	proxyServer.Stop()
