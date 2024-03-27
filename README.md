@@ -86,7 +86,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 3. (Optional) enable HTTPS
 
-   - Use autocert feature by completing `autocert` section in `config/config.yml`
+   - Use autocert feature by completing `autocert` section in `config/config.yml` and mount `certs/` to `/app/certs` in order to store obtained certs
 
    - Use existing certificate by mount your wildcard (`*.y.z`) SSL cert
 
@@ -131,13 +131,15 @@ Modify `.vscode/settings.json` to fit your needs
 
 ## Configuration
 
-With container name, most of the time no label needs to be added.
+With container name, no label needs to be added *(most of the time)*.
 
 ### Labels (docker)
 
+See [compose.example.yml](compose.example.yml) for more
+
 - `proxy.aliases`: comma separated aliases for subdomain matching
 
-  - default: `container_name`
+  - default: container name
 
 - `proxy.*.<field>`: wildcard label for all aliases
 
