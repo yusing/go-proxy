@@ -6,52 +6,58 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## Table of content
 
-- [Key Points](#key-points)
-- [How to use](#how-to-use)
-  - [Binary](#binary)
-  - [Docker](#docker)
-- [Configuration](#configuration)
-  - [Labels](#labels)
-  - [Environment Variables](#environment-variables)
-  - [Config File](#config-file)
-  - [Provider File](#provider-file)
-  - [Supported Cert Providers](#supported-cert-providers)
-- [Examples](#examples)
-  - [Single Port Configuration](#single-port-configuration-example)
-  - [Multiple Ports Configuration](#multiple-ports-configuration-example)
-  - [TCP/UDP Configuration](#tcpudp-configuration-example)
-  - [Load balancing Configuration](#load-balancing-configuration-example)
-- [Troubleshooting](#troubleshooting)
-- [Benchmarks](#benchmarks)
-- [Memory usage](#memory-usage)
-- [Build it yourself](#build-it-yourself)
+- [go-proxy](#go-proxy)
+  - [Table of content](#table-of-content)
+  - [Key Points](#key-points)
+  - [How to use](#how-to-use)
+    - [Binary](#binary)
+    - [Docker](#docker)
+  - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
+  - [Configuration](#configuration)
+    - [Labels (docker)](#labels-docker)
+    - [Environment variables](#environment-variables)
+    - [Config File](#config-file)
+      - [Fields](#fields)
+      - [Provider Kinds](#provider-kinds)
+    - [Provider File](#provider-file)
+    - [Supported DNS Challenge Providers](#supported-dns-challenge-providers)
+  - [Examples](#examples)
+    - [Single port configuration example](#single-port-configuration-example)
+    - [Multiple ports configuration example](#multiple-ports-configuration-example)
+    - [TCP/UDP configuration example](#tcpudp-configuration-example)
+  - [Load balancing Configuration Example](#load-balancing-configuration-example)
+  - [Troubleshooting](#troubleshooting)
+  - [Benchmarks](#benchmarks)
+  - [Known issues](#known-issues)
+  - [Memory usage](#memory-usage)
+  - [Build it yourself](#build-it-yourself)
 
 ## Key Points
 
-- fast, nearly no performance penalty for end users when comparing to direct IP connections (See [benchmarks](#benchmarks))
-- auto detect reverse proxies from docker
-- additional reverse proxies from provider yaml file
-- allow multiple docker / file providers by custom `config.yml` file
-- auto certificate obtaining and renewal (See [Config File](#config-file) and [Supported Cert Providers](#supported-cert-providers))
-- subdomain matching **(domain name doesn't matter)**
-- path matching
-- HTTP proxy
-- TCP/UDP Proxy
-- HTTP round robin load balance support (same subdomain and path across different hosts)
-- Auto hot-reload on container start / die / stop or config changes.
-- Simple panel to see all reverse proxies and health (visit port [panel port] of go-proxy `https://*.y.z:[panel port]`)
-
-  - you can customize it by modifying [templates/panel.html](templates/panel.html)
+- Fast (See [benchmarks](#benchmarks))
+- Auto certificate obtaining and renewal (See [Config File](#config-file) and [Supported DNS Challenge Providers](#supported-dns-challenge-providers))
+- Auto detect reverse proxies from docker
+- Custom proxy entries with `config.yml` and additional provider files
+- Subdomain matching + Path matching **(domain name doesn't matter)**
+- HTTP(s) proxy + TCP/UDP Proxy
+- HTTP(s) round robin load balance support (same subdomain and path across different hosts)
+- Auto hot-reload on container `start` / `die` / `stop` or config file changes
+- Simple panel to see all reverse proxies and health available on port [panel_port_http] (http) and port [panel_port_https] (https)
 
   ![panel screenshot](screenshots/panel.png)
+- Config editor to edit config and provider files with validation
+
+  **Validate and save file with Ctrl+S**
+
+  ![config editor screenshot](screenshots/config_editor.png)
 
 ## How to use
 
 1. Download and extract the latest release (or clone the repository if you want to try out experimental features)
 
-2. Copy `config.example.yml` to `config.yml` and modify the content to fit your needs
+2. Copy `config.example.yml` to `config/config.yml` and modify the content to fit your needs
 
-3. Do the same for `providers.example.yml`
+3. (Optional) write your own `config/providers.yml` from `providers.example.yml`
 
 4. See [Binary](#binary) or [docker](#docker)
 
@@ -83,17 +89,19 @@ In the examples domain `x.y.z` is used, replace them with your domain
    - Use autocert feature
 
      1. mount `./certs` to `/app/certs`
-     ```yaml
-     go-proxy:
-      ...
-      volumes:
-        - ./certs:/app/certs
-     ```
+
+        ```yaml
+        go-proxy:
+          ...
+          volumes:
+            - ./certs:/app/certs
+        ```
+
      2. complete `autocert` in `config.yml`
 
    - Use existing certificate
 
-     Mount your wildcard (`*.y.z`) SSL cert to enable https. See [Getting SSL Certs](#getting-ssl-certs)
+     Mount your wildcard (`*.y.z`) SSL cert to enable https.
 
      - cert / chain / fullchain -> `/app/certs/cert.crt`
      - private key -> `/app/certs/priv.key`
@@ -115,46 +123,68 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 7. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
 
-## Known issues
+## Use JSON Schema in VSCode
 
-None
+Modify `.vscode/settings.json` to fit your needs
+
+```json
+{
+    "yaml.schemas": {
+        "https://gitbuh.com/yusing/go-proxy/schema/config.schema.json": [
+            "config.example.yml",
+            "config.yml"
+        ],
+        "https://gitbuh.com/yusing/go-proxy/schema/providers.schema.json": [
+            "providers.example.yml",
+            "*.providers.yml",
+        ]
+    }
+}
+```
 
 ## Configuration
 
 With container name, most of the time no label needs to be added.
 
-### Labels
+### Labels (docker)
 
 - `proxy.aliases`: comma separated aliases for subdomain matching
-  - defaults to `container_name`
-- `proxy.*.<field>`: wildcard config for all aliases
-- `proxy.<alias>.scheme`: container port protocol (`http` or `https`)
-  - defaults to `http`
-- `proxy.<alias>.host`: proxy host
-  - defaults to `container_name`
-- `proxy.<alias>.port`: proxy port
-  - http/https: defaults to first expose port (declared in `Dockerfile` or `docker-compose.yml`)
-  - tcp/udp: is in format of `[<listeningPort>:]<targetPort>`
-    - when `listeningPort` is omitted (not suggested), a free port will be used automatically.
-    - `targetPort` must be a number, or the predefined names (see [constants.go:14](src/go-proxy/constants.go#L14))
-- `proxy.<alias>.no_tls_verify`: whether skip tls verify when scheme is https
-  - defaults to false
-- `proxy.<alias>.path`: path matching (for http proxy only)
-  - defaults to empty
-- `proxy.<alias>.path_mode`: mode for path handling
 
-  - defaults to empty
-  - allowed: \<empty>, forward, sub
-    - empty: remove path prefix from URL when proxying
+  - default: `container_name`
+
+- `proxy.*.<field>`: wildcard label for all aliases
+
+Below labels has a **`proxy.<alias>`** prefix (i.e. `proxy.nginx.scheme: http`)
+
+- `scheme`: proxy protocol
+  - default: `http`
+  - allowed: `http`, `https`, `tcp`, `udp`
+- `host`: proxy host
+  - default: `container_name`
+- `port`: proxy port
+  - default: first expose port (declared in `Dockerfile` or `docker-compose.yml`)
+  - `http(s)`: number in range og `0 - 65535`
+  - `tcp/udp`: `[<listeningPort>:]<targetPort>`
+    - `listeningPort`: number, when it is omitted (not suggested), a free port starting from 20000 will be used.
+    - `targetPort`: number, or predefined names (see [constants.go:14](src/go-proxy/constants.go#L14))
+- `no_tls_verify`: whether skip tls verify when scheme is https
+  - default: `false`
+- `path`: proxy path _(http(s) proxy only)_
+  - default: empty
+- `path_mode`: mode for path handling
+
+  - default: empty
+  - allowed: empty, `forward`, `sub`
+    - `empty`: remove path prefix from URL when proxying
       1. apps.y.z/webdav -> webdav:80
       2. apps.y.z./webdav/path/to/file -> webdav:80/path/to/file
-    - forward: path remain unchanged
+    - `forward`: path remain unchanged
       1. apps.y.z/webdav -> webdav:80/webdav
       2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
-    - sub: (experimental) remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
-      e.g. apps.y.z/app1 -> webdav:80, `href="/path/to/file"` -> `href="/app1/path/to/file"`
+    - `sub`: (experimental) remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
+      e.g. apps.y.z/app1 -> webdav:80, `href="/app1/path/to/file"` -> `href="/path/to/file"`
 
-- `proxy.<alias>.load_balance`: enable load balance
+- `load_balance`: enable load balance (docker only)
   - allowed: `1`, `true`
 
 ### Environment variables
@@ -164,22 +194,45 @@ With container name, most of the time no label needs to be added.
 
 ### Config File
 
-See [config.example.yml](config.example.yml)
+See [config.example.yml](config.example.yml) for more
+
+#### Fields
+
+- `autocert`: autocert configuration
+
+  - `email`: ACME Email
+  - `domains`: a list of domains for cert registration
+  - `provider`: DNS Challenge provider, see [Supported DNS Challenge Providers](#supported-dns-challenge-providers)
+  - `options`: provider specific options
+
+- `providers`: reverse proxy providers configuration
+  - `kind`: provider kind (string), see [Provider Kinds](#provider-kinds)
+  - `value`: provider specific value
+
+#### Provider Kinds
+
+- `docker`: load reverse proxies from docker
+
+  values:
+
+  - `FROM_ENV`: value from environment
+  - full url to docker host (i.e. `tcp://host:2375`)
+
+- `file`: load reverse proxies from provider file
+
+  value: relative path of file to `config/`
 
 ### Provider File
 
-See [providers.example.yml](providers.example.yml)
+Fields are same as [docker labels](#labels-docker) starting from `scheme`
 
-### Supported cert providers
+See [providers.example.yml](providers.example.yml) for examples
+
+### Supported DNS Challenge Providers
 
 - Cloudflare
 
-  ```yaml
-  autocert:
-    ...
-    options:
-      auth_token: "YOUR_ZONE_API_TOKEN"
-  ```
+  - `auth_token`: your zone API token
 
   Follow [this guide](https://cloudkul.com/blog/automcatic-renew-and-generate-ssl-on-your-website-using-lego-client/) to create a new token with `Zone.DNS` read and edit permissions
 
@@ -315,7 +368,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
 
 - Direct connection
 
-  ```
+  ```shell
   root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s --latency http://10.0.100.1/bench
   Running 10s test @ http://10.0.100.1/bench
     10 threads and 200 connections
@@ -334,7 +387,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
 
 - With `go-proxy` reverse proxy
 
-  ```
+  ```shell
   root@http-benchmark-client:~# wrk -t 10 -c 200 -d 10s -H "Host: bench.6uo.me" --latency http://10.0.1.7/bench
   Running 10s test @ http://10.0.1.7/bench
     10 threads and 200 connections
@@ -352,7 +405,8 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
   ```
 
 - With `traefik-v3`
-  ```
+
+  ```shell
   root@traefik-benchmark:~# wrk -t10 -c200 -d10s -H "Host: benchmark.whoami" --latency http://127.0.0.1:8000/bench
   Running 10s test @ http://127.0.0.1:8000/bench
     10 threads and 200 connections
@@ -369,18 +423,25 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
   Transfer/sec:     10.94MB
   ```
 
+## Known issues
+
+None
+
 ## Memory usage
 
 It takes ~13 MB for 50 proxy entries
 
 ## Build it yourself
 
-1. Install [go](https://go.dev/doc/install) and `make` if not already
+1. Install / Upgrade [go (>=1.22)](https://go.dev/doc/install) and `make` if not already
 
-2. get dependencies with `make get`
+2. Clear cache if you have built this before (go < 1.22) with `go clean -cache`
 
-3. build binary with `make build`
+3. get dependencies with `make get`
 
-4. start your container with `make up` (docker) or `bin/go-proxy` (binary)
+4. build binary with `make build`
 
-[panel port]: 8443
+5. start your container with `make up` (docker) or `bin/go-proxy` (binary)
+
+[panel_port_http]: 8080
+[panel_port_https]: 8443

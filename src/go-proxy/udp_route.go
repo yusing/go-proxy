@@ -17,8 +17,6 @@ type UDPRoute struct {
 
 	listeningConn *net.UDPConn
 	targetConn    *net.UDPConn
-
-	connChan chan *UDPConn
 }
 
 type UDPConn struct {
@@ -35,99 +33,60 @@ func NewUDPRoute(config *ProxyConfig) (StreamRoute, error) {
 	}
 
 	if base.TargetScheme != StreamType_UDP {
-		return nil, fmt.Errorf("udp to %s not yet supported", base.TargetScheme)
+		return nil, NewNestedError("unsupported").Subjectf("udp->%s", base.TargetScheme)
 	}
 
-	return &UDPRoute{
+	base.StreamImpl = &UDPRoute{
 		StreamRouteBase: base,
 		connMap:         make(map[net.Addr]net.Conn),
-		connChan:        make(chan *UDPConn),
-	}, nil
+	}
+	return base, nil
 }
 
-func (route *UDPRoute) Start() {
-	route.setupListen()
-
+func (route *UDPRoute) Setup() error {
 	source, err := net.ListenPacket(route.ListeningScheme, fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
-		route.l.Error(err)
-		return
+		return err
 	}
 
 	target, err := net.Dial(route.TargetScheme, fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort))
 	if err != nil {
-		route.l.Error(err)
 		source.Close()
-		return
+		return err
 	}
 
 	route.listeningConn = source.(*net.UDPConn)
 	route.targetConn = target.(*net.UDPConn)
-
-	route.wg.Add(2)
-	go route.grAcceptConnections()
-	go route.grHandleConnections()
+	return nil
 }
 
-func (route *UDPRoute) Stop() {
-	stopListening(route)
-	streamRoutes.Delete(route.id)
+func (route *UDPRoute) Accept() (interface{}, error) {
+	in := route.listeningConn
+
+	buffer := make([]byte, udpBufferSize)
+	nRead, srcAddr, err := in.ReadFromUDP(buffer)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if nRead == 0 {
+		return nil, io.ErrShortBuffer
+	}
+
+	conn := &UDPConn{
+		remoteAddr:    srcAddr,
+		buffer:        buffer,
+		bytesReceived: buffer[:nRead],
+		nReceived:     nRead,
+	}
+	return conn, nil
 }
 
-func (route *UDPRoute) closeListeners() {
-	if route.listeningConn != nil {
-		route.listeningConn.Close()
-		route.listeningConn = nil
-	}
-	if route.targetConn != nil {
-		route.targetConn.Close()
-		route.targetConn = nil
-	}
-	for _, conn := range route.connMap {
-		conn.(*net.UDPConn).Close() // TODO: change on non udp target
-	}
-	route.connMap = make(map[net.Addr]net.Conn)
-}
-
-func (route *UDPRoute) grAcceptConnections() {
-	defer route.wg.Done()
-
-	for {
-		select {
-		case <-route.stopChann:
-			return
-		default:
-			conn, err := route.accept()
-			if err != nil {
-				route.l.Error(err)
-				continue
-			}
-			route.connChan <- conn
-		}
-	}
-}
-
-func (route *UDPRoute) grHandleConnections() {
-	defer route.wg.Done()
-
-	for {
-		select {
-		case <-route.stopChann:
-			return
-		case conn := <-route.connChan:
-			go func() {
-				err := route.handleConnection(conn)
-				if err != nil {
-					route.l.Error(err)
-				}
-			}()
-		}
-	}
-}
-
-func (route *UDPRoute) handleConnection(conn *UDPConn) error {
+func (route *UDPRoute) HandleConnection(c interface{}) error {
 	var err error
 
+	conn := c.(*UDPConn)
 	srcConn, ok := route.connMap[conn.remoteAddr]
 	if !ok {
 		route.connMapMutex.Lock()
@@ -155,7 +114,7 @@ func (route *UDPRoute) handleConnection(conn *UDPConn) error {
 
 	for {
 		select {
-		case <-route.stopChann:
+		case <-route.stopCh:
 			return nil
 		default:
 			// receive from target
@@ -182,26 +141,19 @@ func (route *UDPRoute) handleConnection(conn *UDPConn) error {
 	}
 }
 
-func (route *UDPRoute) accept() (*UDPConn, error) {
-	in := route.listeningConn
-
-	buffer := make([]byte, udpBufferSize)
-	nRead, srcAddr, err := in.ReadFromUDP(buffer)
-
-	if err != nil {
-		return nil, err
+func (route *UDPRoute) CloseListeners() {
+	if route.listeningConn != nil {
+		route.listeningConn.Close()
+		route.listeningConn = nil
 	}
-
-	if nRead == 0 {
-		return nil, io.ErrShortBuffer
+	if route.targetConn != nil {
+		route.targetConn.Close()
+		route.targetConn = nil
 	}
-
-	return &UDPConn{
-			remoteAddr:    srcAddr,
-			buffer:        buffer,
-			bytesReceived: buffer[:nRead],
-			nReceived:     nRead},
-		nil
+	for _, conn := range route.connMap {
+		conn.(*net.UDPConn).Close() // TODO: change on non udp target
+	}
+	route.connMap = make(map[net.Addr]net.Conn)
 }
 
 func (route *UDPRoute) readFrom(src net.Conn, buffer []byte) (*UDPConn, error) {

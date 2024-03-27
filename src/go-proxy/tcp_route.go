@@ -3,94 +3,50 @@ package main
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
-	"sync"
 	"time"
 )
 
 const tcpDialTimeout = 5 * time.Second
 
+type Pipes []*BidirectionalPipe
+
 type TCPRoute struct {
 	*StreamRouteBase
 	listener net.Listener
-	connChan chan net.Conn
 }
 
 func NewTCPRoute(config *ProxyConfig) (StreamRoute, error) {
 	base, err := newStreamRouteBase(config)
 	if err != nil {
-		return nil, err
+		return nil, NewNestedErrorFrom(err).Subject(config.Alias)
 	}
 	if base.TargetScheme != StreamType_TCP {
-		return nil, fmt.Errorf("tcp to %s not yet supported", base.TargetScheme)
+		return nil, NewNestedError("unsupported").Subjectf("tcp -> %s", base.TargetScheme)
 	}
-	return &TCPRoute{
+	base.StreamImpl = &TCPRoute{
 		StreamRouteBase: base,
 		listener:        nil,
-		connChan:        make(chan net.Conn),
-	}, nil
+	}
+	return base, nil
 }
 
-func (route *TCPRoute) Start() {
-	route.setupListen()
+func (route *TCPRoute) Setup() error {
 	in, err := net.Listen("tcp", fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
-		route.l.Error(err)
-		return
+		return err
 	}
 	route.listener = in
-	route.wg.Add(2)
-	go route.grAcceptConnections()
-	go route.grHandleConnections()
+	return nil
 }
 
-func (route *TCPRoute) Stop() {
-	stopListening(route)
-	streamRoutes.Delete(route.id)
+func (route *TCPRoute) Accept() (interface{}, error) {
+	return route.listener.Accept()
 }
 
-func (route *TCPRoute) closeListeners() {
-	if route.listener == nil {
-		return
-	}
-	route.listener.Close()
-	route.listener = nil
-}
+func (route *TCPRoute) HandleConnection(c interface{}) error {
+	clientConn := c.(net.Conn)
 
-func (route *TCPRoute) grAcceptConnections() {
-	defer route.wg.Done()
-
-	for {
-		select {
-		case <-route.stopChann:
-			return
-		default:
-			conn, err := route.listener.Accept()
-			if err != nil {
-				route.l.Error(err)
-				continue
-			}
-			route.connChan <- conn
-		}
-	}
-}
-
-func (route *TCPRoute) grHandleConnections() {
-	defer route.wg.Done()
-
-	for {
-		select {
-		case <-route.stopChann:
-			return
-		case conn := <-route.connChan:
-			route.wg.Add(1)
-			go route.grHandleConnection(conn)
-		}
-	}
-}
-
-func (route *TCPRoute) grHandleConnection(clientConn net.Conn) {
 	defer clientConn.Close()
 	defer route.wg.Done()
 
@@ -99,34 +55,28 @@ func (route *TCPRoute) grHandleConnection(clientConn net.Conn) {
 
 	serverAddr := fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort)
 	dialer := &net.Dialer{}
+
 	serverConn, err := dialer.DialContext(ctx, route.TargetScheme, serverAddr)
 	if err != nil {
-		route.l.WithField("stage", "dial").Infof("%v", err)
-		return
+		return err
 	}
-	route.tcpPipe(clientConn, serverConn)
+
+	pipeCtx, pipeCancel := context.WithCancel(context.Background())
+	go func() {
+		<-route.stopCh
+		pipeCancel()
+	}()
+	pipe := NewBidirectionalPipe(pipeCtx, clientConn, serverConn)
+	pipe.Start()
+	pipe.Wait()
+	pipe.Close()
+	return nil
 }
 
-func (route *TCPRoute) tcpPipe(src net.Conn, dest net.Conn) {
-	close := func() {
-		src.Close()
-		dest.Close()
+func (route *TCPRoute) CloseListeners() {
+	if route.listener == nil {
+		return
 	}
-
-	var wg sync.WaitGroup
-	wg.Add(2) // Number of goroutines
-
-	go func() {
-		_, err := io.Copy(src, dest)
-		route.l.Error(err)
-		close()
-		wg.Done()
-	}()
-	go func() {
-		_, err := io.Copy(dest, src)
-		route.l.Error(err)
-		close()
-		wg.Done()
-	}()
-	wg.Wait()
+	route.listener.Close()
+	route.listener = nil
 }

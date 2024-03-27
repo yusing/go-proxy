@@ -1,39 +1,54 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"path"
 
 	"gopkg.in/yaml.v3"
 )
 
-func (p *Provider) getFileProxyConfigs() ([]*ProxyConfig, error) {
-	path := p.Value
+func (p *Provider) GetFilePath() string {
+	return path.Join(configBasePath, p.Value)
+}
 
-	if _, err := os.Stat(path); err == nil {
-		data, err := os.ReadFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("unable to read config file %q: %v", path, err)
-		}
-		configMap := make(map[string]ProxyConfig, 0)
-		configs := make([]*ProxyConfig, 0)
-		err = yaml.Unmarshal(data, &configMap)
-		if err != nil {
-			return nil, fmt.Errorf("unable to parse config file %q: %v", path, err)
-		}
-
-		for alias, cfg := range configMap {
-			cfg.Alias = alias
-			err = cfg.SetDefaults()
-			if err != nil {
-				return nil, err
-			}
-			configs = append(configs, &cfg)
-		}
-		return configs, nil
-	} else if !os.IsNotExist(err) {
-		return nil, fmt.Errorf("file not found: %s", path)
-	} else {
-		return nil, err
+func (p *Provider) ValidateFile() (ProxyConfigSlice, error) {
+	path := p.GetFilePath()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, NewNestedError("unable to read providers file").Subject(path).With(err)
 	}
+	result, err := ValidateFileContent(data)
+	if err != nil {
+		return nil, NewNestedError(err.Error()).Subject(path)
+	}
+	return result, nil
+}
+
+func ValidateFileContent(data []byte) (ProxyConfigSlice, error) {
+	configMap := make(ProxyConfigMap, 0)
+	if err := yaml.Unmarshal(data, &configMap); err != nil {
+		return nil, NewNestedError("invalid yaml").With(err)
+	}
+
+	ne := NewNestedError("errors in providers")
+
+	configs := make(ProxyConfigSlice, len(configMap))
+	i := 0
+	for alias, cfg := range configMap {
+		cfg.Alias = alias
+		if err := cfg.SetDefaults(); err != nil {
+			ne.ExtraError(err)
+		} else {
+			configs[i] = cfg
+		}
+		i++
+	}
+
+	if err := validateYaml(providersSchema, data); err != nil {
+		ne.ExtraError(err)
+	}
+	if ne.HasExtras() {
+		return nil, ne
+	}
+	return configs, nil
 }

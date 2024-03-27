@@ -21,9 +21,10 @@ type HTTPRoute struct {
 }
 
 func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
-	url, err := url.Parse(fmt.Sprintf("%s://%s:%s", config.Scheme, config.Host, config.Port))
+	u := fmt.Sprintf("%s://%s:%s", config.Scheme, config.Host, config.Port)
+	url, err := url.Parse(u)
 	if err != nil {
-		return nil, err
+		return nil, NewNestedErrorf("invalid url").Subject(u).With(err)
 	}
 
 	var tr *http.Transport
@@ -34,10 +35,6 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	}
 
 	proxy := NewSingleHostReverseProxy(url, tr)
-
-	if !isValidProxyPathMode(config.PathMode) {
-		return nil, fmt.Errorf("invalid path mode: %s", config.PathMode)
-	}
 
 	route := &HTTPRoute{
 		Alias:    config.Alias,
@@ -59,6 +56,11 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	switch {
 	case config.Path == "", config.PathMode == ProxyPathMode_Forward:
 		rewrite = rewriteBegin
+	case config.PathMode == ProxyPathMode_RemovedPath:
+		rewrite = func(pr *ProxyRequest) {
+			rewriteBegin(pr)
+			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
+		}
 	case config.PathMode == ProxyPathMode_Sub:
 		rewrite = func(pr *ProxyRequest) {
 			rewriteBegin(pr)
@@ -67,37 +69,9 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 			// remove path prefix
 			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
 		}
-		modifyResponse = func(r *http.Response) error {
-			contentType, ok := r.Header["Content-Type"]
-			if !ok || len(contentType) == 0 {
-				route.l.Debug("unknown content type for ", r.Request.URL.String())
-				return nil
-			}
-			// disable cache
-			r.Header.Set("Cache-Control", "no-store")
-
-			var err error = nil
-			switch {
-			case strings.HasPrefix(contentType[0], "text/html"):
-				err = utils.respHTMLSubPath(r, config.Path)
-			case strings.HasPrefix(contentType[0], "application/javascript"):
-				err = utils.respJSSubPath(r, config.Path)
-			default:
-				route.l.Debug("unknown content type(s): ", contentType)
-			}
-			if err != nil {
-				err = fmt.Errorf("failed to remove path prefix %s: %v", config.Path, err)
-				route.l.WithField("action", "path_sub").Error(err)
-				r.Status = err.Error()
-				r.StatusCode = http.StatusInternalServerError
-			}
-			return err
-		}
+		modifyResponse = config.pathSubModResp
 	default:
-		rewrite = func(pr *ProxyRequest) {
-			rewriteBegin(pr)
-			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
-		}
+		return nil, NewNestedError("invalid path mode").Subject(config.PathMode)
 	}
 
 	if logLevel == logrus.DebugLevel {
@@ -121,18 +95,11 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 	return route, nil
 }
 
-func (r *HTTPRoute) Start() {}
+func (r *HTTPRoute) Start() {
+	// dummy
+}
 func (r *HTTPRoute) Stop() {
 	httpRoutes.Delete(r.Alias)
-}
-
-func isValidProxyPathMode(mode string) bool {
-	switch mode {
-	case ProxyPathMode_Forward, ProxyPathMode_Sub, ProxyPathMode_RemovedPath:
-		return true
-	default:
-		return false
-	}
 }
 
 func redirectToTLSHandler(w http.ResponseWriter, r *http.Request) {
@@ -152,26 +119,44 @@ func findHTTPRoute(host string, path string) (*HTTPRoute, error) {
 	if ok {
 		return routeMap.FindMatch(path)
 	}
-	return nil, fmt.Errorf("no matching route for subdomain %s", subdomain)
+	return nil, NewNestedError("no matching route for subdomain").Subject(subdomain)
 }
 
 func proxyHandler(w http.ResponseWriter, r *http.Request) {
 	route, err := findHTTPRoute(r.Host, r.URL.Path)
 	if err != nil {
-		err = fmt.Errorf("request failed %s %s%s, error: %v",
-			r.Method,
-			r.Host,
-			r.URL.Path,
-			err,
-		)
+		http.Error(w, "404 Not Found", http.StatusNotFound)
+		err = NewNestedError("request failed").
+			Subjectf("%s %s%s", r.Method, r.Host, r.URL.Path).
+			With(err)
 		logrus.Error(err)
-		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 	route.Proxy.ServeHTTP(w, r)
 }
 
-// alias -> (path -> routes)
-type HTTPRoutes = SafeMap[string, *pathPoolMap]
+func (config *ProxyConfig) pathSubModResp(r *http.Response) error {
+	contentType, ok := r.Header["Content-Type"]
+	if !ok || len(contentType) == 0 {
+		return nil
+	}
+	// disable cache
+	r.Header.Set("Cache-Control", "no-store")
 
-var httpRoutes HTTPRoutes = NewSafeMap[string](newPathPoolMap)
+	var err error = nil
+	switch {
+	case strings.HasPrefix(contentType[0], "text/html"):
+		err = utils.respHTMLSubPath(r, config.Path)
+	case strings.HasPrefix(contentType[0], "application/javascript"):
+		err = utils.respJSSubPath(r, config.Path)
+	}
+	if err != nil {
+		err = NewNestedError("failed to remove path prefix").Subject(config.Path).With(err)
+	}
+	return err
+}
+
+// alias -> (path -> routes)
+type HTTPRoutes = SafeMap[string, pathPoolMap]
+
+var httpRoutes HTTPRoutes = NewSafeMapOf[HTTPRoutes](newPathPoolMap)

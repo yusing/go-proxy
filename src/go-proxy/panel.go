@@ -1,87 +1,53 @@
 package main
 
 import (
+	"errors"
 	"html/template"
-	"net"
 	"net/http"
 	"net/url"
-	"time"
+	"os"
+	"path"
 )
 
-var healthCheckHttpClient = &http.Client{
-	Timeout: 5 * time.Second,
-	Transport: &http.Transport{
-		Proxy:             http.ProxyFromEnvironment,
-		DisableKeepAlives: true,
-		ForceAttemptHTTP2: true,
-		DialContext: (&net.Dialer{
-			Timeout:   5 * time.Second,
-			KeepAlive: 5 * time.Second,
-		}).DialContext,
-	},
+var panelHandler = panelRouter()
+
+func panelRouter() *http.ServeMux {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", panelServeFile)
+	mux.HandleFunc("GET /{file}", panelServeFile)
+	mux.HandleFunc("GET /panel/", panelPage)
+	mux.HandleFunc("GET /panel/{file}", panelServeFile)
+	mux.HandleFunc("HEAD /checkhealth", panelCheckTargetHealth)
+	mux.HandleFunc("GET /config_editor/", panelConfigEditor)
+	mux.HandleFunc("GET /config_editor/{file}", panelServeFile)
+	mux.HandleFunc("GET /config/{file}", panelConfigGet)
+	mux.HandleFunc("PUT /config/{file}", panelConfigUpdate)
+	mux.HandleFunc("POST /reload", configReload)
+	mux.HandleFunc("GET /codemirror/", panelServeFile)
+	return mux
 }
 
-func panelHandler(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Path {
-	case "/":
-		panelIndex(w, r)
-		return
-	case "/checkhealth":
-		panelCheckTargetHealth(w, r)
-		return
-	default:
-		palog.Errorf("%s not found", r.URL.Path)
-		http.NotFound(w, r)
-		return
-	}
-}
-
-func panelIndex(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	tmpl, err := template.ParseFiles(templatePath)
-
-	if err != nil {
-		palog.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	type allRoutes struct {
+func panelPage(w http.ResponseWriter, r *http.Request) {
+	resp := struct {
 		HTTPRoutes   HTTPRoutes
 		StreamRoutes StreamRoutes
-	}
+	}{httpRoutes, streamRoutes}
 
-	err = tmpl.Execute(w, allRoutes{
-		HTTPRoutes:   httpRoutes,
-		StreamRoutes: streamRoutes,
-	})
-	if err != nil {
-		palog.Error(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
+	panelRenderFile(w, r, panelTemplatePath, resp)
 }
 
 func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodHead {
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	targetUrl := r.URL.Query().Get("target")
 
 	if targetUrl == "" {
-		http.Error(w, "target is required", http.StatusBadRequest)
+		panelHandleErr(w, r, errors.New("target is required"), http.StatusBadRequest)
 		return
 	}
 
 	url, err := url.Parse(targetUrl)
 	if err != nil {
-		palog.Infof("failed to parse url %q, error: %v", targetUrl, err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		err = NewNestedError("failed to parse url").Subject(targetUrl).With(err)
+		panelHandleErr(w, r, err, http.StatusBadRequest)
 		return
 	}
 	scheme := url.Scheme
@@ -97,4 +63,82 @@ func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}
+}
+
+func panelConfigEditor(w http.ResponseWriter, r *http.Request) {
+	cfgFiles := make([]string, 0)
+	cfgFiles = append(cfgFiles, path.Base(configPath))
+	for _, p := range cfg.(*config).m.Providers {
+		if p.Kind != ProviderKind_File {
+			continue
+		}
+		cfgFiles = append(cfgFiles, p.Value)
+	}
+
+	panelRenderFile(w, r, configEditorTemplatePath, cfgFiles)
+}
+
+func panelConfigGet(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, path.Join(configBasePath, r.PathValue("file")))
+}
+
+func panelConfigUpdate(w http.ResponseWriter, r *http.Request) {
+	p := r.PathValue("file")
+	content := make([]byte, r.ContentLength)
+	_, err := r.Body.Read(content)
+	if err != nil {
+		panelHandleErr(w, r, NewNestedError("unable to read request body").Subject(p).With(err))
+		return
+	}
+	if p == path.Base(configPath) {
+		err = ValidateConfig(content)
+	} else {
+		_, err = ValidateFileContent(content)
+	}
+	if err != nil {
+		panelHandleErr(w, r, err)
+		return
+	}
+	err = os.WriteFile(path.Join(configBasePath, p), content, 0644)
+	if err != nil {
+		panelHandleErr(w, r, NewNestedError("unable to write config file").With(err))
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func panelServeFile(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, path.Join(templatesBasePath, r.URL.Path))
+}
+
+func panelRenderFile(w http.ResponseWriter, r *http.Request, f string, data any) {
+	tmpl, err := template.ParseFiles(f)
+	if err != nil {
+		panelHandleErr(w, r, NewNestedError("unable to parse template").With(err))
+		return
+	}
+
+	err = tmpl.Execute(w, data)
+	if err != nil {
+		panelHandleErr(w, r, NewNestedError("unable to render template").With(err))
+	}
+}
+
+func configReload(w http.ResponseWriter, r *http.Request) {
+	err := cfg.Reload()
+	if err != nil {
+		panelHandleErr(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func panelHandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
+	err = NewNestedErrorFrom(err).Subjectf("%s %s", r.Method, r.URL)
+	palog.Error(err)
+	if len(code) > 0 {
+		http.Error(w, err.Error(), code[0])
+		return
+	}
+	http.Error(w, err.Error(), http.StatusInternalServerError)
 }

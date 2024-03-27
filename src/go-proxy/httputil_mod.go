@@ -474,7 +474,7 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 
-	// NOTE: changing this line extremely improve throughput 
+	// NOTE: changing this line extremely improve throughput
 	// err = p.copyResponse(rw, res.Body, p.flushInterval(res))
 	_, err = io.Copy(rw, res.Body)
 	if err != nil {

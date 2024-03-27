@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/santhosh-tekuri/jsonschema"
 	"github.com/sirupsen/logrus"
 )
 
@@ -80,6 +81,19 @@ var (
 		clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		return clone
 	}()
+
+	healthCheckHttpClient = &http.Client{
+		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			Proxy:             http.ProxyFromEnvironment,
+			DisableKeepAlives: true,
+			ForceAttemptHTTP2: true,
+			DialContext: (&net.Dialer{
+				Timeout:   5 * time.Second,
+				KeepAlive: 5 * time.Second,
+			}).DialContext,
+		},
+	}
 )
 
 const wildcardLabelPrefix = "proxy.*."
@@ -87,13 +101,43 @@ const wildcardLabelPrefix = "proxy.*."
 const clientUrlFromEnv = "FROM_ENV"
 
 const (
-	certFileDefault = "certs/cert.crt"
-	keyFileDefault  = "certs/priv.key"
-	configPath      = "config.yml"
-	templatePath    = "templates/panel.html"
+	certBasePath    = "certs/"
+	certFileDefault = certBasePath + "cert.crt"
+	keyFileDefault  = certBasePath + "priv.key"
+
+	configBasePath = "config/"
+	configPath     = configBasePath + "config.yml"
+
+	templatesBasePath        = "templates/"
+	panelTemplatePath        = templatesBasePath + "panel/index.html"
+	configEditorTemplatePath = templatesBasePath + "config_editor/index.html"
+
+	schemaBasePath      = "schema/"
+	configSchemaPath    = schemaBasePath + "config.schema.json"
+	providersSchemaPath = schemaBasePath + "providers.schema.json"
 )
 
-const StreamStopListenTimeout = 1 * time.Second
+var (
+	configSchema    *jsonschema.Schema
+	providersSchema *jsonschema.Schema
+	_               = func() *jsonschema.Compiler {
+		c := jsonschema.NewCompiler()
+		c.Draft = jsonschema.Draft7
+		var err error
+		if configSchema, err = c.Compile(configSchemaPath); err != nil {
+			panic(err)
+		}
+		if providersSchema, err = c.Compile(providersSchemaPath); err != nil {
+			panic(err)
+		}
+		return c
+	}()
+)
+
+const (
+	streamStopListenTimeout = 1 * time.Second
+	streamDialTimeout       = 3 * time.Second
+)
 
 const udpBufferSize = 1500
 
@@ -105,4 +149,4 @@ var logLevel = func() logrus.Level {
 	return logrus.GetLevel()
 }()
 
-var redirectHTTP = os.Getenv("GOPROXY_REDIRECT_HTTP") != "0" && os.Getenv("GOPROXY_REDIRECT_HTTP") != "false"
+var redirectToHTTPS = os.Getenv("GOPROXY_REDIRECT_HTTP") != "0" && os.Getenv("GOPROXY_REDIRECT_HTTP") != "false"

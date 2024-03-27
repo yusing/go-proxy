@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"os"
 	"path"
 	"sync"
@@ -26,10 +25,10 @@ type ProviderGenerator = func(ProviderOptions) (challenge.Provider, error)
 type CertExpiries = map[string]time.Time
 
 type AutoCertConfig struct {
-	Email    string
-	Domains  []string `yaml:",flow"`
-	Provider string
-	Options  ProviderOptions `yaml:",flow"`
+	Email    string          `json:"email"`
+	Domains  []string        `yaml:",flow" json:"domains"`
+	Provider string          `json:"provider"`
+	Options  ProviderOptions `yaml:",flow" json:"options"`
 }
 
 type AutoCertUser struct {
@@ -53,25 +52,35 @@ type AutoCertProvider interface {
 	GetName() string
 	GetExpiries() CertExpiries
 	LoadCert() bool
-	ObtainCert() error
+	ObtainCert() NestedErrorLike
 	RenewalOn() time.Time
 	ScheduleRenewal()
 }
 
 func (cfg AutoCertConfig) GetProvider() (AutoCertProvider, error) {
+	ne := NewNestedError("invalid autocert config")
+
 	if len(cfg.Domains) == 0 {
-		return nil, fmt.Errorf("no domains specified")
+		ne.Extra("no domains specified")
 	}
 	if cfg.Provider == "" {
-		return nil, fmt.Errorf("no provider specified")
+		ne.Extra("no provider specified")
 	}
 	if cfg.Email == "" {
-		return nil, fmt.Errorf("no email specified")
+		ne.Extra("no email specified")
+	}
+	gen, ok := providersGenMap[cfg.Provider]
+	if !ok {
+		ne.Extraf("unknown provider: %s", cfg.Provider)
+	}
+	if ne.HasExtras() {
+		return nil, ne
 	}
 
+	ne = NewNestedError("unable to create provider")
 	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
-		return nil, fmt.Errorf("unable to generate private key: %v", err)
+		return nil, ne.With(NewNestedError("unable to generate private key").With(err))
 	}
 	user := &AutoCertUser{
 		Email: cfg.Email,
@@ -81,7 +90,7 @@ func (cfg AutoCertConfig) GetProvider() (AutoCertProvider, error) {
 	legoCfg.Certificate.KeyType = certcrypto.RSA2048
 	legoClient, err := lego.NewClient(legoCfg)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create lego client: %v", err)
+		return nil, ne.With(NewNestedError("unable to create lego client").With(err))
 	}
 	base := &autoCertProvider{
 		name:    cfg.Provider,
@@ -90,17 +99,13 @@ func (cfg AutoCertConfig) GetProvider() (AutoCertProvider, error) {
 		legoCfg: legoCfg,
 		client:  legoClient,
 	}
-	gen, ok := providersGenMap[cfg.Provider]
-	if !ok {
-		return nil, fmt.Errorf("unknown provider: %s", cfg.Provider)
-	}
 	legoProvider, err := gen(cfg.Options)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create provider: %v", err)
+		return nil, ne.With(err)
 	}
 	err = legoClient.Challenge.SetDNS01Provider(legoProvider)
 	if err != nil {
-		return nil, fmt.Errorf("unable to set challenge provider: %v", err)
+		return nil, ne.With(NewNestedError("unable to set challenge provider").With(err))
 	}
 	return base, nil
 }
@@ -119,7 +124,7 @@ type autoCertProvider struct {
 
 func (p *autoCertProvider) GetCert(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	if p.tlsCert == nil {
-		aclog.Fatal("no certificate available")
+		return nil, NewNestedError("no certificate available")
 	}
 	return p.tlsCert, nil
 }
@@ -132,12 +137,14 @@ func (p *autoCertProvider) GetExpiries() CertExpiries {
 	return p.certExpiries
 }
 
-func (p *autoCertProvider) ObtainCert() error {
+func (p *autoCertProvider) ObtainCert() NestedErrorLike {
+	ne := NewNestedError("failed to obtain certificate")
+
 	client := p.client
 	if p.user.Registration == nil {
 		reg, err := client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
 		if err != nil {
-			return err
+			return ne.With(NewNestedError("failed to register account").With(err))
 		}
 		p.user.Registration = reg
 	}
@@ -147,19 +154,19 @@ func (p *autoCertProvider) ObtainCert() error {
 	}
 	cert, err := client.Certificate.Obtain(req)
 	if err != nil {
-		return err
+		return ne.With(err)
 	}
 	err = p.saveCert(cert)
 	if err != nil {
-		return err
+		return ne.With(NewNestedError("failed to save certificate").With(err))
 	}
 	tlsCert, err := tls.X509KeyPair(cert.Certificate, cert.PrivateKey)
 	if err != nil {
-		return err
+		return ne.With(NewNestedError("failed to parse obtained certificate").With(err))
 	}
 	expiries, err := getCertExpiries(&tlsCert)
 	if err != nil {
-		return err
+		return ne.With(NewNestedError("failed to get certificate expiry").With(err))
 	}
 	p.tlsCert = &tlsCert
 	p.certExpiries = expiries
@@ -205,18 +212,18 @@ func (p *autoCertProvider) ScheduleRenewal() {
 	}
 }
 
-func (p *autoCertProvider) saveCert(cert *certificate.Resource) error {
+func (p *autoCertProvider) saveCert(cert *certificate.Resource) NestedErrorLike {
 	err := os.MkdirAll(path.Dir(certFileDefault), 0644)
 	if err != nil {
-		return fmt.Errorf("unable to create cert directory: %v", err)
+		return NewNestedError("unable to create cert directory").With(err)
 	}
 	err = os.WriteFile(keyFileDefault, cert.PrivateKey, 0600) // -rw-------
 	if err != nil {
-		return fmt.Errorf("unable to write key file: %v", err)
+		return NewNestedError("unable to write key file").With(err)
 	}
 	err = os.WriteFile(certFileDefault, cert.Certificate, 0644) // -rw-r--r--
 	if err != nil {
-		return fmt.Errorf("unable to write cert file: %v", err)
+		return NewNestedError("unable to write cert file").With(err)
 	}
 	return nil
 }
@@ -225,18 +232,18 @@ func (p *autoCertProvider) needRenewal() bool {
 	return time.Now().After(p.RenewalOn())
 }
 
-func (p *autoCertProvider) renewIfNeeded() error {
+func (p *autoCertProvider) renewIfNeeded() NestedErrorLike {
 	if !p.needRenewal() {
 		return nil
 	}
 
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
-	
+
 	if !p.needRenewal() {
 		return nil
 	}
-	
+
 	trials := 0
 	for {
 		err := p.ObtainCert()
@@ -245,14 +252,17 @@ func (p *autoCertProvider) renewIfNeeded() error {
 		}
 		trials++
 		if trials > 3 {
-			return fmt.Errorf("unable to renew certificate: %v after 3 trials", err)
+			return NewNestedError("failed to renew certificate after 3 trials").With(err)
 		}
 		aclog.Errorf("failed to renew certificate: %v, trying again in 5 seconds", err)
 		time.Sleep(5 * time.Second)
 	}
 }
 
-func providerGenerator[CT interface{}, PT challenge.Provider](defaultCfg func() *CT, newProvider func(*CT) (PT, error)) ProviderGenerator {
+func providerGenerator[CT any, PT challenge.Provider](
+	defaultCfg func() *CT,
+	newProvider func(*CT) (PT, error),
+) ProviderGenerator {
 	return func(opt ProviderOptions) (challenge.Provider, error) {
 		cfg := defaultCfg()
 		err := setOptions(cfg, opt)
@@ -272,7 +282,7 @@ func getCertExpiries(cert *tls.Certificate) (CertExpiries, error) {
 	for _, cert := range cert.Certificate {
 		x509Cert, err := x509.ParseCertificate(cert)
 		if err != nil {
-			return nil, err
+			return nil, NewNestedError("unable to parse certificate").With(err)
 		}
 		if x509Cert.IsCA {
 			continue
@@ -284,9 +294,9 @@ func getCertExpiries(cert *tls.Certificate) (CertExpiries, error) {
 
 func setOptions[T interface{}](cfg *T, opt ProviderOptions) error {
 	for k, v := range opt {
-		err := SetFieldFromSnake(cfg, k, v)
+		err := setFieldFromSnake(cfg, k, v)
 		if err != nil {
-			return err
+			return NewNestedError("unable to set option").Subject(k).With(err)
 		}
 	}
 	return nil

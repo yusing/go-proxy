@@ -1,0 +1,60 @@
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font: 14px !important;
+  font-family: monospace !important;
+}
+.container {
+  display: flex;
+}
+.navigation-header {
+  color: #f8f8f2 !important;
+  padding-left: 2em;
+  display: block;
+}
+.file-navigation {
+  width: 250px;
+  height: auto;
+  overflow-y: auto;
+  background: #282a36 !important;
+}
+.file-navigation ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.file-navigation li {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+.file-navigation a {
+  color: #f8f8f2 !important;
+  text-decoration: none;
+  padding-left: 4em;
+  padding-right: 4em;
+  display: block;
+}
+.active {
+  font-weight: bold;
+  background: rgba(255, 255, 255, 0.1);
+}
+.unselectable {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+.CodeMirror * {
+  font-size: 14px !important;
+}
+.CodeMirror pre {
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+#config-editor {
+  flex-grow: 1;
+}

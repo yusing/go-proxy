@@ -5,8 +5,8 @@ import "sync"
 type safeMap[KT comparable, VT interface{}] struct {
 	SafeMap[KT, VT]
 	m              map[KT]VT
-	mutex          sync.Mutex
 	defaultFactory func() VT
+	sync.RWMutex
 }
 
 type SafeMap[KT comparable, VT interface{}] interface {
@@ -22,7 +22,7 @@ type SafeMap[KT comparable, VT interface{}] interface {
 	Iterator() map[KT]VT
 }
 
-func NewSafeMap[KT comparable, VT interface{}](df ...func() VT) SafeMap[KT, VT] {
+func NewSafeMapOf[T SafeMap[KT, VT], KT comparable, VT interface{}](df ...func() VT) SafeMap[KT, VT] {
 	if len(df) == 0 {
 		return &safeMap[KT, VT]{
 			m: make(map[KT]VT),
@@ -35,23 +35,23 @@ func NewSafeMap[KT comparable, VT interface{}](df ...func() VT) SafeMap[KT, VT] 
 }
 
 func (m *safeMap[KT, VT]) Set(key KT, value VT) {
-	m.mutex.Lock()
+	m.Lock()
 	m.m[key] = value
-	m.mutex.Unlock()
+	m.Unlock()
 }
 
 func (m *safeMap[KT, VT]) Ensure(key KT) {
-	m.mutex.Lock()
+	m.Lock()
 	if _, ok := m.m[key]; !ok {
 		m.m[key] = m.defaultFactory()
 	}
-	m.mutex.Unlock()
+	m.Unlock()
 }
 
 func (m *safeMap[KT, VT]) Get(key KT) VT {
-	m.mutex.Lock()
+	m.RLock()
 	value := m.m[key]
-	m.mutex.Unlock()
+	m.RUnlock()
 	return value
 }
 
@@ -61,37 +61,36 @@ func (m *safeMap[KT, VT]) UnsafeGet(key KT) (VT, bool) {
 }
 
 func (m *safeMap[KT, VT]) Delete(key KT) {
-	m.mutex.Lock()
+	m.Lock()
 	delete(m.m, key)
-	m.mutex.Unlock()
+	m.Unlock()
 }
 
 func (m *safeMap[KT, VT]) Clear() {
-	m.mutex.Lock()
+	m.Lock()
 	m.m = make(map[KT]VT)
-	m.mutex.Unlock()
+	m.Unlock()
 }
 
 func (m *safeMap[KT, VT]) Size() int {
-	m.mutex.Lock()
-	size := len(m.m)
-	m.mutex.Unlock()
-	return size
+	m.RLock()
+	defer m.RUnlock()
+	return len(m.m)
 }
 
 func (m *safeMap[KT, VT]) Contains(key KT) bool {
-	m.mutex.Lock()
+	m.RLock()
 	_, ok := m.m[key]
-	m.mutex.Unlock()
+	m.RUnlock()
 	return ok
 }
 
 func (m *safeMap[KT, VT]) ForEach(fn func(key KT, value VT)) {
-	m.mutex.Lock()
+	m.RLock()
 	for k, v := range m.m {
 		fn(k, v)
 	}
-	m.mutex.Unlock()
+	m.RUnlock()
 }
 
 func (m *safeMap[KT, VT]) Iterator() map[KT]VT {

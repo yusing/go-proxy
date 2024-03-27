@@ -1,3 +1,13 @@
 {
-    "go.inferGopath": false
+    "go.inferGopath": false,
+    "yaml.schemas": {
+        "https://gitbuh.com/yusing/go-proxy/schema/config.schema.json": [
+            "config.example.yml",
+            "config.yml"
+        ],
+        "https://gitbuh.com/yusing/go-proxy/schema/providers.schema.json": [
+            "providers.example.yml",
+            "*.providers.yml",
+        ]
+    }
 }

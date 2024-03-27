@@ -1,0 +1,168 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "go-proxy providers file",
+  "patternProperties": {
+    "^[a-zA-Z0-9_-]+$": {
+      "title": "Proxy entry",
+      "type": "object",
+      "properties": {
+        "scheme": {
+          "title": "Proxy scheme (http, https, tcp, udp)",
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": ["http", "https", "tcp", "udp"]
+            },
+            {
+              "type": "null",
+              "description": "HTTP proxy"
+            }
+          ]
+        },
+        "host": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "ipv4",
+              "description": "Proxy to ipv4 address"
+            },
+            {
+              "type": "string",
+              "format": "ipv6",
+              "description": "Proxy to ipv6 address"
+            },
+            {
+              "type": "string",
+              "format": "hostname",
+              "description": "Proxy to hostname"
+            }
+          ],
+          "title": "Proxy host (ipv4 / ipv6 / hostname)"
+        },
+        "port": {
+          "title": "Proxy port"
+        },
+        "path": {},
+        "path_mode": {},
+        "no_tls_verify": {
+          "description": "Disable TLS verification for https proxy",
+          "type": "boolean"
+        }
+      },
+      "required": ["host"],
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "properties": {
+                  "scheme": {
+                    "enum": ["http", "https"]
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "scheme": {
+                    "not": true
+                  }
+                }
+              },
+              {
+                "properties": {
+                  "scheme": {
+                    "type": "null"
+                  }
+                }
+              }
+            ]
+          },
+          "then": {
+            "properties": {
+              "port": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]{1,5}$",
+                    "minimum": 1,
+                    "maximum": 65535,
+                    "markdownDescription": "Proxy port from **1** to **65535**",
+                    "patternErrorMessage": "'port' must be a number"
+                  },
+                  {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 65535
+                  }
+                ]
+              },
+              "path": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Proxy path"
+                  },
+                  {
+                    "type": "null",
+                    "description": "No proxy path"
+                  }
+                ]
+              },
+              "path_mode": {
+                "anyOf": [
+                  {
+                    "description": "Proxy path mode (forward, sub, empty)",
+                    "type": "string",
+                    "enum": ["", "forward", "sub"]
+                  },
+                  {
+                    "description": "Default proxy path mode (sub)",
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "port": {
+                "markdownDescription": "`listening port`:`target port | service type`",
+                "type": "string",
+                "pattern": "^[0-9]+\\:[0-9a-z]+$",
+                "patternErrorMessage": "'port' must be in the format of '<listening port>:<target port | service type>'"
+              },
+              "path": {
+                "not": true
+              },
+              "path_mode": {
+                "not": true
+              }
+            },
+            "required": ["port"]
+          }
+        },
+        {
+          "if": {
+            "not": {
+              "properties": {
+                "scheme": {
+                  "const": "https"
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "no_tls_verify": {
+                "not": true
+              }
+            }
+          }
+        }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

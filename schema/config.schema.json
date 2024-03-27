@@ -1,0 +1,123 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "go-proxy config file",
+  "properties": {
+    "autocert": {
+      "title": "Autocert configuration",
+      "type": "object",
+      "properties": {
+        "email": {
+          "description": "ACME Email",
+          "type": "string",
+          "pattern": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
+          "patternErrorMessage": "Invalid email"
+        },
+        "domains": {
+          "description": "Cert Domains",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "provider": {
+          "description": "DNS Challenge Provider",
+          "type": "string",
+          "enum": ["cloudflare"]
+        },
+        "options": {
+          "description": "Provider specific options",
+          "type": "object",
+          "properties": {
+            "auth_token": {
+              "description": "Cloudflare API Token with Zone Scope",
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": ["email", "domains", "provider", "options"],
+      "anyOf": [
+        {
+          "properties": {
+            "provider": {
+              "const": "cloudflare"
+            },
+            "options": {
+              "required": ["auth_token"]
+            }
+          }
+        }
+      ]
+    },
+    "providers": {
+      "title": "Proxy providers configuration",
+      "type": "object",
+      "patternProperties": {
+        "^[a-zA-Z0-9_-]+$": {
+          "description": "Proxy provider",
+          "type": "object",
+          "properties": {
+            "kind": {
+              "description": "Proxy provider kind",
+              "type": "string",
+              "enum": ["docker", "file"]
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": ["kind", "value"],
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "kind": {
+                    "const": "docker"
+                  }
+                }
+              },
+              "then": {
+                "if": {
+                  "properties": {
+                    "value": {
+                      "const": "FROM_ENV"
+                    }
+                  }
+                },
+                "then": {
+                  "properties": {
+                    "value": {
+                      "description": "use docker client from environment"
+                    }
+                  }
+                },
+                "else": {
+                  "properties": {
+                    "value": {
+                      "description": "docker client URL",
+                      "examples": [
+                        "unix:///var/run/docker.sock",
+                        "tcp://127.0.0.1:2375",
+                        "ssh://user@host:port"
+                      ]
+                    }
+                  }
+                }
+              },
+              "else": {
+                "properties": {
+                  "value": {
+                    "description": "file path"
+                  }
+                }
+              }
+            }
+          ]
+        }
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -29,13 +29,8 @@ services:
       # if local docker provider is used (by default)
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
-      # to use custom config
-      # - path/to/config.yml:/app/config.yml
-
-      # mount file provider yaml files
-      # - path/to/provider1.yml:/app/provider1.yml
-      # - path/to/provider2.yml:/app/provider2.yml
-      # etc.
+      # to use custom config and providers
+      # - ./config:/app/config
     dns:
       - 127.0.0.1 # workaround for "lookup: no such host"
     extra_hosts:

@@ -16,46 +16,54 @@ import (
 func (p *Provider) setConfigField(c *ProxyConfig, label string, value string, prefix string) error {
 	if strings.HasPrefix(label, prefix) {
 		field := strings.TrimPrefix(label, prefix)
-		SetFieldFromSnake(c, field, value)
+		if err := setFieldFromSnake(c, field, value); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP string) []*ProxyConfig {
+func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP string) ProxyConfigSlice {
 	var aliases []string
 
-	cfgs := make([]*ProxyConfig, 0)
+	cfgs := make(ProxyConfigSlice, 0)
 
-	container_name := strings.TrimPrefix(container.Names[0], "/")
-	aliases_label, ok := container.Labels["proxy.aliases"]
+	containerName := strings.TrimPrefix(container.Names[0], "/")
+	aliasesLabel, ok := container.Labels["proxy.aliases"]
 
 	if !ok {
-		aliases = []string{container_name}
+		aliases = []string{containerName}
 	} else {
-		aliases = strings.Split(aliases_label, ",")
+		aliases = strings.Split(aliasesLabel, ",")
 	}
 
 	isRemote := clientIP != ""
 
+	ne := NewNestedError("invalid label config").Subjectf("container %s", containerName)
+	defer func() {
+		if ne.HasExtras() {
+			p.l.Error(ne)
+		}
+	}()
+
 	for _, alias := range aliases {
-		l := p.l.WithField("container", container_name).WithField("alias", alias)
+		l := p.l.WithField("container", containerName).WithField("alias", alias)
 		config := NewProxyConfig(p)
 		prefix := fmt.Sprintf("proxy.%s.", alias)
 		for label, value := range container.Labels {
 			err := p.setConfigField(&config, label, value, prefix)
 			if err != nil {
-				l.Error(err)
+				ne.ExtraError(NewNestedErrorFrom(err).Subjectf("alias %s", alias))
 			}
 			err = p.setConfigField(&config, label, value, wildcardLabelPrefix)
 			if err != nil {
-				l.Error(err)
+				ne.ExtraError(NewNestedErrorFrom(err).Subjectf("alias %s", alias))
 			}
 		}
 		if config.Port == "" {
 			config.Port = fmt.Sprintf("%d", selectPort(container))
 		}
 		if config.Port == "0" {
-			// no ports exposed or specified
 			l.Debugf("no ports exposed, ignored")
 			continue
 		}
@@ -102,11 +110,11 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 			}
 		}
 		if config.Host == "" {
-			config.Host = container_name
+			config.Host = containerName
 		}
 		config.Alias = alias
 
-		cfgs = append(cfgs, &config)
+		cfgs = append(cfgs, config)
 	}
 	return cfgs
 }
@@ -145,7 +153,7 @@ func (p *Provider) getDockerClient() (*client.Client, error) {
 	return client.NewClientWithOpts(dockerOpts...)
 }
 
-func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
+func (p *Provider) getDockerProxyConfigs() (ProxyConfigSlice, error) {
 	var clientIP string
 
 	if p.Value == clientUrlFromEnv {
@@ -153,7 +161,7 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 	} else {
 		url, err := client.ParseHostURL(p.Value)
 		if err != nil {
-			return nil, fmt.Errorf("unable to parse docker host url: %v", err)
+			return nil, NewNestedError("invalid host url").Subject(p.Value).With(err)
 		}
 		clientIP = strings.Split(url.Host, ":")[0]
 	}
@@ -161,17 +169,17 @@ func (p *Provider) getDockerProxyConfigs() ([]*ProxyConfig, error) {
 	dockerClient, err := p.getDockerClient()
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to create docker client: %v", err)
+		return nil, NewNestedError("unable to create docker client").With(err)
 	}
 
 	ctx, _ := context.WithTimeout(context.Background(), 3*time.Second)
 	containerSlice, err := dockerClient.ContainerList(ctx, container.ListOptions{All: true})
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to list containers: %v", err)
+		return nil, NewNestedError("unable to list containers").With(err)
 	}
 
-	cfgs := make([]*ProxyConfig, 0)
+	cfgs := make(ProxyConfigSlice, 0)
 
 	for _, container := range containerSlice {
 		cfgs = append(cfgs, p.getContainerProxyConfigs(container, clientIP)...)

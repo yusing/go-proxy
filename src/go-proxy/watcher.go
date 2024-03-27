@@ -26,6 +26,7 @@ type watcherBase struct {
 	kind     string // for log / error output
 	onChange func()
 	l        logrus.FieldLogger
+	sync.Mutex
 }
 
 type fileWatcher struct {
@@ -66,6 +67,8 @@ func NewDockerWatcher(c *client.Client, onChange func()) Watcher {
 }
 
 func (w *fileWatcher) Start() {
+	w.Lock()
+	defer w.Unlock()
 	if fsWatcher == nil {
 		return
 	}
@@ -78,6 +81,8 @@ func (w *fileWatcher) Start() {
 }
 
 func (w *fileWatcher) Stop() {
+	w.Lock()
+	defer w.Unlock()
 	if fsWatcher == nil {
 		return
 	}
@@ -93,12 +98,16 @@ func (w *fileWatcher) Dispose() {
 }
 
 func (w *dockerWatcher) Start() {
+	w.Lock()
+	defer w.Unlock()
 	dockerWatchMap.Set(w.name, w)
 	w.wg.Add(1)
 	go w.watch()
 }
 
 func (w *dockerWatcher) Stop() {
+	w.Lock()
+	defer w.Unlock()
 	if w.stopCh == nil {
 		return
 	}
@@ -124,31 +133,22 @@ func InitFSWatcher() {
 	go watchFiles()
 }
 
-func InitDockerWatcher() {
-	// stop all docker client on watcher stop
-	go func() {
-		<-dockerWatcherStop
-		ParallelForEachValue(
-			dockerWatchMap.Iterator(),
-			(*dockerWatcher).Dispose,
-		)
-		dockerWatcherWg.Done()
-	}()
-}
-
 func StopFSWatcher() {
 	close(fsWatcherStop)
 	fsWatcherWg.Wait()
 }
 
 func StopDockerWatcher() {
-	close(dockerWatcherStop)
-	dockerWatcherWg.Wait()
+	ParallelForEachValue(
+		dockerWatchMap.Iterator(),
+		(*dockerWatcher).Dispose,
+	)
 }
 
 func watchFiles() {
 	defer fsWatcher.Close()
 	defer fsWatcherWg.Done()
+
 	for {
 		select {
 		case <-fsWatcherStop:
@@ -197,23 +197,33 @@ func (w *dockerWatcher) watch() {
 			w.l.Infof("container %s %s", msg.Actor.Attributes["name"], msg.Action)
 			go w.onChange()
 		case err := <-errChan:
-			w.l.Errorf("%s, retrying in 1s", err)
+			switch {
+			case client.IsErrConnectionFailed(err):
+				w.l.Error(NewNestedError("connection failed").Subject(w.name))
+			case client.IsErrNotFound(err):
+				w.l.Error(NewNestedError("endpoint not found").Subject(w.name))
+			default:
+				w.l.Error(NewNestedErrorFrom(err).Subject(w.name))
+			}
 			time.Sleep(1 * time.Second)
 			msgChan, errChan = listen()
 		}
 	}
 }
 
+type (
+	FileWatcherMap   = SafeMap[string, *fileWatcher]
+	DockerWatcherMap = SafeMap[string, *dockerWatcher]
+)
+
 var fsWatcher *fsnotify.Watcher
 var (
-	fileWatchMap   = NewSafeMap[string, *fileWatcher]()
-	dockerWatchMap = NewSafeMap[string, *dockerWatcher]()
+	fileWatchMap   FileWatcherMap   = NewSafeMapOf[FileWatcherMap]()
+	dockerWatchMap DockerWatcherMap = NewSafeMapOf[DockerWatcherMap]()
 )
 var (
-	fsWatcherStop     = make(chan struct{}, 1)
-	dockerWatcherStop = make(chan struct{}, 1)
+	fsWatcherStop = make(chan struct{}, 1)
 )
 var (
-	fsWatcherWg     sync.WaitGroup
-	dockerWatcherWg sync.WaitGroup
+	fsWatcherWg sync.WaitGroup
 )

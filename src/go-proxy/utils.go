@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -13,10 +14,11 @@ import (
 	"regexp"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/santhosh-tekuri/jsonschema"
 	"github.com/sirupsen/logrus"
 	xhtml "golang.org/x/net/html"
+	"gopkg.in/yaml.v3"
 )
 
 type Utils struct {
@@ -52,7 +54,7 @@ func (u *Utils) findUseFreePort(startingPort int) (int, error) {
 		l.Close()
 		return port, nil
 	}
-	return -1, fmt.Errorf("unable to find free port: %v", err)
+	return -1, NewNestedError("unable to find free port").With(err)
 }
 
 func (u *Utils) markPortInUse(port int) {
@@ -84,7 +86,7 @@ func (*Utils) healthCheckHttp(targetUrl string) error {
 }
 
 func (*Utils) healthCheckStream(scheme, host string) error {
-	conn, err := net.DialTimeout(scheme, host, 5*time.Second)
+	conn, err := net.DialTimeout(scheme, host, streamDialTimeout)
 	if err != nil {
 		return err
 	}
@@ -194,12 +196,37 @@ func (*Utils) fileOK(path string) bool {
 	return err == nil
 }
 
-func SetFieldFromSnake[T interface{}, VT interface{}](obj *T, field string, value VT) error {
+func setFieldFromSnake[T interface{}, VT interface{}](obj *T, field string, value VT) error {
 	field = utils.snakeToPascal(field)
 	prop := reflect.ValueOf(obj).Elem().FieldByName(field)
 	if prop.Kind() == 0 {
-		return fmt.Errorf("unknown field %s", field)
+		return NewNestedError("unknown field").Subject(field)
 	}
 	prop.Set(reflect.ValueOf(value))
+	return nil
+}
+
+func validateYaml(schema *jsonschema.Schema, data []byte) error {
+	var i interface{}
+
+	err := yaml.Unmarshal(data, &i)
+	if err != nil {
+		return NewNestedError("unable to unmarshal yaml").With(err)
+	}
+
+	m, err := json.Marshal(i)
+	if err != nil {
+		return NewNestedError("unable to marshal json").With(err)
+	}
+
+	err = schema.Validate(bytes.NewReader(m))
+	if err != nil {
+		valErr := err.(*jsonschema.ValidationError)
+		ne := NewNestedError("validation error")
+		for _, e := range valErr.Causes {
+			ne.ExtraError(e)
+		}
+		return ne
+	}
 	return nil
 }

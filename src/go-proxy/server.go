@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"log"
 	"net/http"
 	"time"
 
@@ -20,35 +21,66 @@ type Server struct {
 	httpsStarted bool
 }
 
-func NewServer(name string, provider AutoCertProvider, httpAddr string, httpHandler http.Handler, httpsAddr string, httpsHandler http.Handler) *Server {
-	if provider != nil {
+type ServerOptions struct {
+	Name            string
+	HTTPAddr        string
+	HTTPSAddr       string
+	CertProvider    AutoCertProvider
+	RedirectToHTTPS bool
+	Handler         http.Handler
+}
+
+type LogrusWrapper struct {
+	l *logrus.Entry
+}
+
+func (l LogrusWrapper) Write(b []byte) (int, error) {
+	return l.l.Logger.WriterLevel(logrus.ErrorLevel).Write(b)
+}
+
+func NewServer(opt ServerOptions) *Server {
+	var httpHandler http.Handler
+	if opt.RedirectToHTTPS {
+		httpHandler = http.HandlerFunc(redirectToTLSHandler)
+	} else {
+		httpHandler = opt.Handler
+	}
+	logger := log.Default()
+	logger.SetOutput(LogrusWrapper{
+		logrus.WithFields(logrus.Fields{"component": "server", "name": opt.Name}),
+	})
+	if opt.CertProvider != nil {
 		return &Server{
-			Name:         name,
-			CertProvider: provider,
+			Name:         opt.Name,
+			CertProvider: opt.CertProvider,
 			http: &http.Server{
-				Addr:    httpAddr,
-				Handler: httpHandler,
+				Addr:     opt.HTTPAddr,
+				Handler:  httpHandler,
+				ErrorLog: logger,
 			},
 			https: &http.Server{
-				Addr:    httpsAddr,
-				Handler: httpsHandler,
+				Addr:     opt.HTTPSAddr,
+				Handler:  opt.Handler,
+				ErrorLog: logger,
 				TLSConfig: &tls.Config{
-					GetCertificate: provider.GetCert,
+					GetCertificate: opt.CertProvider.GetCert,
 				},
 			},
 		}
 	}
 	return &Server{
-		Name:     name,
+		Name:     opt.Name,
 		KeyFile:  keyFileDefault,
 		CertFile: certFileDefault,
 		http: &http.Server{
-			Addr:    httpAddr,
-			Handler: httpHandler,
+			Addr:     opt.HTTPAddr,
+			Handler:  httpHandler,
+			ErrorLog: logger,
 		},
 		https: &http.Server{
-			Addr:    httpsAddr,
-			Handler: httpsHandler,
+			Addr:     opt.HTTPSAddr,
+			Handler:  opt.Handler,
+			ErrorLog: logger,
 		},
 	}
 }

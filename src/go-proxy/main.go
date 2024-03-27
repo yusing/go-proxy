@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,45 +11,45 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+var cfg Config
+
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+
+	var verifyOnly bool 
+	flag.BoolVar(&verifyOnly, "verify", false, "verify config without starting server")
+	flag.Parse()
 
 	logrus.SetFormatter(&logrus.TextFormatter{
 		ForceColors:   true,
 		DisableColors: false,
 		FullTimestamp: true,
+		TimestampFormat: "01-02 15:04:05",
 	})
 
-	cfg := NewConfig()
+	cfg = NewConfig(configPath)
 	cfg.MustLoad()
+
+	if verifyOnly {
+		logrus.Printf("config OK")
+		return
+	}
 
 	autoCertProvider, err := cfg.GetAutoCertProvider()
 
 	if err != nil {
 		aclog.Warn(err)
-		autoCertProvider = nil
+		autoCertProvider = nil // TODO: remove, it is expected to be nil if error is not nil, but it is not for now
 	}
-
-	var httpProxyHandler http.Handler
-	var httpPanelHandler http.Handler
 
 	var proxyServer *Server
 	var panelServer *Server
 
-	if redirectHTTP {
-		httpProxyHandler = http.HandlerFunc(redirectToTLSHandler)
-		httpPanelHandler = http.HandlerFunc(redirectToTLSHandler)
-	} else {
-		httpProxyHandler = http.HandlerFunc(proxyHandler)
-		httpPanelHandler = http.HandlerFunc(panelHandler)
-	}
-
 	if autoCertProvider != nil {
 		ok := autoCertProvider.LoadCert()
 		if !ok {
-			err := autoCertProvider.ObtainCert()
-			if err != nil {
-				aclog.Fatal("error obtaining certificate ", err)
+			if ne := autoCertProvider.ObtainCert(); ne != nil {
+				aclog.Fatal(ne)
 			}
 		}
 		for name, expiry := range autoCertProvider.GetExpiries() {
@@ -56,28 +57,27 @@ func main() {
 		}
 		go autoCertProvider.ScheduleRenewal()
 	}
-	proxyServer = NewServer(
-		"proxy",
-		autoCertProvider,
-		":80",
-		httpProxyHandler,
-		":443",
-		http.HandlerFunc(proxyHandler),
-	)
-	panelServer = NewServer(
-		"panel",
-		autoCertProvider,
-		":8080",
-		httpPanelHandler,
-		":8443",
-		http.HandlerFunc(panelHandler),
-	)
+	proxyServer = NewServer(ServerOptions{
+		Name:            "proxy",
+		CertProvider:    autoCertProvider,
+		HTTPAddr:        ":80",
+		HTTPSAddr:       ":443",
+		Handler:         http.HandlerFunc(proxyHandler),
+		RedirectToHTTPS: redirectToHTTPS,
+	})
+	panelServer = NewServer(ServerOptions{
+		Name:            "panel",
+		CertProvider:    autoCertProvider,
+		HTTPAddr:        ":8080",
+		HTTPSAddr:       ":8443",
+		Handler:         panelHandler,
+		RedirectToHTTPS: redirectToHTTPS,
+	})
 
 	proxyServer.Start()
 	panelServer.Start()
 
 	InitFSWatcher()
-	InitDockerWatcher()
 
 	cfg.StartProviders()
 	cfg.WatchChanges()
@@ -89,7 +89,8 @@ func main() {
 
 	<-sig
 	// cfg.StopWatching()
-	
+	StopFSWatcher()
+	StopDockerWatcher()
 	cfg.StopProviders()
 	panelServer.Stop()
 	proxyServer.Stop()

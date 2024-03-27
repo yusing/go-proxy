@@ -1,11 +1,11 @@
 # uncomment to use autocert
-# autocert:
-#   email: "user@y.z" # email for acme certificate
-#   domains:
-#     - "*.y.z" # domain for acme certificate, use wild card to allow all subdomains
-#   provider: cloudflare
-#   options:
-#     auth_token: "YOUR_ZONE_API_TOKEN"
+autocert: # (optional, if you need autocert feature)
+  email: "user@domain.com" # (required) email for acme certificate
+  domains: # (required)
+    - "*.y.z" # domain for acme certificate, use wild card to allow all subdomains
+  provider: cloudflare # (required) dns challenge provider (string)
+  options: # provider specific options
+    auth_token: "YOUR_ZONE_API_TOKEN"
 providers:
   local:
     kind: docker

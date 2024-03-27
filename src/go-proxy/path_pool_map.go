@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"strings"
 )
 
@@ -9,10 +8,8 @@ type pathPoolMap struct {
 	SafeMap[string, *httpLoadBalancePool]
 }
 
-func newPathPoolMap() *pathPoolMap {
-	return &pathPoolMap{
-		NewSafeMap[string](NewHTTPLoadBalancePool),
-	}
+func newPathPoolMap() pathPoolMap {
+	return pathPoolMap{NewSafeMapOf[pathPoolMap](NewHTTPLoadBalancePool)}
 }
 
 func (m pathPoolMap) Add(path string, route *HTTPRoute) {
@@ -20,11 +17,11 @@ func (m pathPoolMap) Add(path string, route *HTTPRoute) {
 	m.Get(path).Add(route)
 }
 
-func (m pathPoolMap) FindMatch(pathGot string) (*HTTPRoute, error) {
+func (m pathPoolMap) FindMatch(pathGot string) (*HTTPRoute, NestedErrorLike) {
 	for pathWant, v := range m.Iterator() {
 		if strings.HasPrefix(pathGot, pathWant) {
 			return v.Pick(), nil
 		}
 	}
-	return nil, fmt.Errorf("no matching route for path %s", pathGot)
+	return nil, NewNestedError("no matching path").Subject(pathGot)
 }

@@ -1,15 +1,25 @@
-app: # matching `app.y.z`
-  # optional
-  scheme: http
+example: # matching `app.y.z`
+  # optional, defaults to http
+  scheme:
   # required, proxy target
   host: 10.0.0.1
-  # optional
+  # optional, defaults to 80 for http, 443 for https
   port: 80
   # optional, defaults to empty
   path:
-  # optional
+  # optional, defaults to sub
   path_mode:
-  # optional
-  notlsverify: false
-# app2:
-#   ...
+  # optional (https only)
+  # no_tls_verify: false
+app1: # matching `app1.y.z` -> http://x.y.z
+  host: x.y.z
+app2: # `app2` has no effect for tcp / udp, but still has to be unique across files
+  scheme: tcp
+  host: 10.0.0.2
+  port: 20000:tcp
+app3: # matching `app3.y.z` -> https://10.0.0.1/app3
+  scheme: https
+  host: 10.0.0.1
+  path: /app3
+  path_mode: forward
+  no_tls_verify: false

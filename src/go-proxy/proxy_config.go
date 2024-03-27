@@ -3,17 +3,20 @@ package main
 import "fmt"
 
 type ProxyConfig struct {
-	Alias       string
-	Scheme      string
-	Host        string
-	Port        string
-	LoadBalance string // docker provider only
-	NoTLSVerify bool   // http proxy only
-	Path        string // http proxy only
-	PathMode    string `yaml:"path_mode"` // http proxy only
+	Alias       string `yaml:"-" json:"-"`
+	Scheme      string `yaml:"scheme" json:"scheme"`
+	Host        string `yaml:"host" json:"host"`
+	Port        string `yaml:"port" json:"port"`
+	LoadBalance string `yaml:"-" json:"-"`                         // docker provider only
+	NoTLSVerify bool   `yaml:"no_tls_verify" json:"no_tls_verify"` // http proxy only
+	Path        string `yaml:"path" json:"path"`                   // http proxy only
+	PathMode    string `yaml:"path_mode" json:"path_mode"`         // http proxy only
 
 	provider *Provider
 }
+
+type ProxyConfigMap = map[string]ProxyConfig
+type ProxyConfigSlice = []ProxyConfig
 
 func NewProxyConfig(provider *Provider) ProxyConfig {
 	return ProxyConfig{
@@ -23,17 +26,29 @@ func NewProxyConfig(provider *Provider) ProxyConfig {
 
 // used by `GetFileProxyConfigs`
 func (cfg *ProxyConfig) SetDefaults() error {
+	err := NewNestedError("invalid proxy config").Subject(cfg.Alias)
+
 	if cfg.Alias == "" {
-		return fmt.Errorf("alias is required")
+		err.Extra("alias is required")
 	}
 	if cfg.Scheme == "" {
 		cfg.Scheme = "http"
 	}
 	if cfg.Host == "" {
-		return fmt.Errorf("host is required for %q", cfg.Alias)
+		err.Extra("host is required")
 	}
 	if cfg.Port == "" {
-		cfg.Port = "80"
+		switch cfg.Scheme {
+		case "http":
+			cfg.Port = "80"
+		case "https":
+			cfg.Port = "443"
+		default:
+			err.Extraf("port is required for %s scheme", cfg.Scheme)
+		}
+	}
+	if err.HasExtras() {
+		return err
 	}
 	return nil
 }
