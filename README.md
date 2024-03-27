@@ -71,8 +71,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
      Prepare your wildcard (`*.y.z`) SSL cert in `certs/`
 
-     - cert / chain / fullchain: `./certs/cert.crt`
-     - private key: `./certs/priv.key`
+     - cert / chain / fullchain: `certs/cert.crt`
+     - private key: `certs/priv.key`
 
 2. run the binary `bin/go-proxy`
 
@@ -86,22 +86,9 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 3. (Optional) enable HTTPS
 
-   - Use autocert feature
+   - Use autocert feature by completing `autocert` section in `config/config.yml`
 
-     1. mount `./certs` to `/app/certs`
-
-        ```yaml
-        go-proxy:
-          ...
-          volumes:
-            - ./certs:/app/certs
-        ```
-
-     2. complete `autocert` in `config.yml`
-
-   - Use existing certificate
-
-     Mount your wildcard (`*.y.z`) SSL cert to enable https.
+   - Use existing certificate by mount your wildcard (`*.y.z`) SSL cert
 
      - cert / chain / fullchain -> `/app/certs/cert.crt`
      - private key -> `/app/certs/priv.key`
@@ -235,6 +222,46 @@ See [providers.example.yml](providers.example.yml) for examples
   - `auth_token`: your zone API token
 
   Follow [this guide](https://cloudkul.com/blog/automcatic-renew-and-generate-ssl-on-your-website-using-lego-client/) to create a new token with `Zone.DNS` read and edit permissions
+
+To add more provider support (**CloudDNS** as an example):
+
+1. Fork this repo, modify [autocert.go](src/go-proxy/autocert.go#L305)
+
+    ```go
+    var providersGenMap = map[string]ProviderGenerator{
+      "cloudflare": providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
+      // add here, i.e.
+      "clouddns": providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
+    }
+    ```
+
+2. Go to [https://go-acme.github.io/lego/dns/clouddns](https://go-acme.github.io/lego/dns/clouddns/) and check for required config
+
+3. Build `go-proxy` with `make build`
+
+4. Set required config in `config.yml` `autocert` -> `options` section
+
+    ```shell
+    # From https://go-acme.github.io/lego/dns/clouddns/
+    CLOUDDNS_CLIENT_ID=bLsdFAks23429841238feb177a572aX \
+    CLOUDDNS_EMAIL=you@example.com \
+    CLOUDDNS_PASSWORD=b9841238feb177a84330f \
+    lego --email you@example.com --dns clouddns --domains my.example.org run
+    ```
+
+    Should turn into:
+
+    ```yaml
+    autocert:
+      ...
+      options:
+        client_id: bLsdFAks23429841238feb177a572aX
+        email: you@example.com
+        password: b9841238feb177a84330f
+    ```
+
+5. Run and test if it works
+6. Commit and create pull request
 
 ## Examples
 
@@ -429,7 +456,7 @@ None
 
 ## Memory usage
 
-It takes ~13 MB for 50 proxy entries
+It takes ~15 MB for 50 proxy entries
 
 ## Build it yourself
 
