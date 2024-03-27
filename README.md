@@ -130,11 +130,11 @@ Modify `.vscode/settings.json` to fit your needs
 ```json
 {
     "yaml.schemas": {
-        "https://gitbuh.com/yusing/go-proxy/schema/config.schema.json": [
+        "https://github.com/yusing/go-proxy/raw/main/schema/config.schema.json": [
             "config.example.yml",
             "config.yml"
         ],
-        "https://gitbuh.com/yusing/go-proxy/schema/providers.schema.json": [
+        "https://github.com/yusing/go-proxy/raw/main/schema/providers.schema.json": [
             "providers.example.yml",
             "*.providers.yml",
         ]
