@@ -40,6 +40,7 @@ func (l LogrusWrapper) Write(b []byte) (int, error) {
 
 func NewServer(opt ServerOptions) *Server {
 	var httpHandler http.Handler
+	var s *Server
 	if opt.RedirectToHTTPS {
 		httpHandler = http.HandlerFunc(redirectToTLSHandler)
 	} else {
@@ -50,7 +51,7 @@ func NewServer(opt ServerOptions) *Server {
 		logrus.WithFields(logrus.Fields{"component": "server", "name": opt.Name}),
 	})
 	if opt.CertProvider != nil {
-		return &Server{
+		s = &Server{
 			Name:         opt.Name,
 			CertProvider: opt.CertProvider,
 			http: &http.Server{
@@ -68,7 +69,7 @@ func NewServer(opt ServerOptions) *Server {
 			},
 		}
 	}
-	return &Server{
+	s = &Server{
 		Name:     opt.Name,
 		KeyFile:  keyFileDefault,
 		CertFile: certFileDefault,
@@ -83,6 +84,10 @@ func NewServer(opt ServerOptions) *Server {
 			ErrorLog: logger,
 		},
 	}
+	if !s.certsOK() {
+		s.http.Handler = opt.Handler
+	}
+	return s
 }
 
 func (s *Server) Start() {
@@ -95,7 +100,7 @@ func (s *Server) Start() {
 		}()
 	}
 
-	if s.https != nil && (s.CertProvider != nil || utils.fileOK(s.CertFile) && utils.fileOK(s.KeyFile)) {
+	if s.https != nil && (s.CertProvider != nil || s.certsOK()) {
 		s.httpsStarted = true
 		logrus.Printf("starting https %s server on %s", s.Name, s.https.Addr)
 		go func() {
@@ -128,4 +133,8 @@ func (s *Server) handleErr(scheme string, err error) {
 	default:
 		logrus.Fatalf("failed to start %s %s server: %v", scheme, s.Name, err)
 	}
+}
+
+func (s *Server) certsOK() bool {
+	return utils.fileOK(s.CertFile) && utils.fileOK(s.KeyFile)
 }
