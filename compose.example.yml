@@ -1,18 +1,15 @@
 version: '3'
 services:
   app:
-    build: .
+    image: ghcr.io/yusing/go-proxy:latest
     container_name: go-proxy
     restart: always
     networks: # ^also add here
       - default
-    # environment:
-      # - GOPROXY_DEBUG=1 # (optional, enable only for debug)
-      # - GOPROXY_REDIRECT_HTTP=0 # (optional, uncomment to disable http redirect (http -> https))
     ports:
-      - 80:80 # http
-      # - 443:443 # optional, https
+      - 80:80 # http proxy
       - 8080:8080 # http panel
+      # - 443:443 # optional, https proxy
       # - 8443:8443 # optional, https panel
 
       # optional, if you declared any tcp/udp proxy, set a range you want to use

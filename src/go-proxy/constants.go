@@ -175,3 +175,8 @@ var logLevel = func() logrus.Level {
 	}
 	return logrus.GetLevel()
 }()
+
+var isRunningAsService = func() bool {
+	v := os.Getenv("IS_SYSTEMD")
+	return v == "1"
+}()

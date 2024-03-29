@@ -1,9 +1,8 @@
 compose.yml
 
-config/**
-
-bin/go-proxy.bak
-
+config/
+certs/
+bin/
 templates/codemirror/
 
 logs/

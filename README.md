@@ -10,8 +10,6 @@ In the examples domain `x.y.z` is used, replace them with your domain
   - [Table of content](#table-of-content)
   - [Key Points](#key-points)
   - [How to use](#how-to-use)
-    - [Binary](#binary)
-    - [Docker](#docker)
   - [Command-line args](#command-line-args)
     - [Commands](#commands)
   - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
@@ -44,83 +42,30 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - Subdomain matching + Path matching **(domain name doesn't matter)**
 - HTTP(s) proxy + TCP/UDP Proxy (UDP is _experimental_)
 - HTTP(s) round robin load balance support (same subdomain and path across different hosts)
-- Simple panel to see all reverse proxies and health available on port 8080 (http) and port 8443 (https)
+- Web UI on port 8080 (http) and port 8443 (https)
 
-  ![panel screenshot](screenshots/panel.png)
+  - a simple panel to see all reverse proxies and health
 
-- Config editor to edit config and provider files with validation
+    ![panel screenshot](screenshots/panel.png)
 
-  **Validate and save file with Ctrl+S**
+  - a config editor to edit config and provider files with validation
 
-  ![config editor screenshot](screenshots/config_editor.png)
+    **Validate and save file with Ctrl+S**
+
+    ![config editor screenshot](screenshots/config_editor.png)
 
 ## How to use
 
-1. Clone the repository `git clone https://github.com/yusing/go-proxy && cd go-proxy`
-
-2. Call `make setup` to init config file, provider file, and docker compose file
-
-3. Point your domain (i.e `y.z`) to your machine's IP address
+1. Setup DNS Records to your machine's IP address
 
    - A Record: `*.y.z` -> `10.0.10.1`
    - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
 
-4. Start `go-proxy` (see [Binary](#binary) or [docker](#docker))
+2. Start `go-proxy` (see [Binary](docs/binary.md) or [docker](docs/docker.md))
 
-5. (Optional) `make setup-codemirror` in case you use the web config editor
-
-6. Start editing config files
-    - with text editor (i.e. Visual Studio Code)
-    - with web config editor by navigate to `ip:8080`
-
-### Binary
-
-1. (Optional) enabled HTTPS
-
-   - Use autocert feature by completing `autocert` in `config.yml`
-
-   - Use existing certificate
-
-     Prepare your wildcard (`*.y.z`) SSL cert in `certs/`
-
-     - cert / chain / fullchain: `certs/cert.crt`
-     - private key: `certs/priv.key`
-
-2. run the binary `bin/go-proxy`
-
-3. enjoy
-
-### Docker
-
-1. Copy content from [compose.example.yml](compose.example.yml) and create your own `compose.yml`
-
-2. Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
-
-3. (Optional) enable HTTPS
-
-   - Use autocert feature by completing `autocert` section in `config/config.yml` and mount `certs/` to `/app/certs` in order to store obtained certs
-
-   - Use existing certificate by mount your wildcard (`*.y.z`) SSL cert
-
-     - cert / chain / fullchain -> `/app/certs/cert.crt`
-     - private key -> `/app/certs/priv.key`
-
-4. Start `go-proxy` with `docker compose up -d` or `make up`.
-
-5. (Optional) If you are using ufw with vpn that drop all inbound traffic except vpn, run below to allow docker containers to connect to `go-proxy`
-
-   In case the network of your container is in subnet `172.16.0.0/16` (bridge),
-   and vpn network is under `100.64.0.0/10` (i.e. tailscale)
-
-   `sudo ufw allow from 172.16.0.0/16 to 100.64.0.0/10`
-
-   You can also list CIDRs of all docker bridge networks by:
-
-   `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
-
-6. start your docker app, and visit <container_name>.y.z
-
-7. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
+3. Start editing config files
+   - with text editor (i.e. Visual Studio Code)
+   - or with web config editor by navigate to `ip:8080`
 
 ## Command-line args
 
@@ -130,7 +75,12 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 - empty: start proxy server
 - validate: validate config and exit
-- reload: force reload config and exit
+- reload: trigger a force reload of config
+
+Examples:
+
+- Binary: `go-proxy reload`
+- Docker: `docker exec -it go-proxy /app/go-proxy reload`
 
 ## Use JSON Schema in VSCode
 
@@ -165,7 +115,7 @@ See [compose.example.yml](compose.example.yml) for more
 
 - `proxy.*.<field>`: wildcard label for all aliases
 
-Below labels has a **`proxy.<alias>`** prefix (i.e. `proxy.nginx.scheme: http`)
+Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
 
 - `scheme`: proxy protocol
   - default: `http`
@@ -201,7 +151,6 @@ Below labels has a **`proxy.<alias>`** prefix (i.e. `proxy.nginx.scheme: http`)
 ### Environment variables
 
 - `GOPROXY_DEBUG`: set to `1` or `true` to enable debug behaviors (i.e. output, etc.)
-- `GOPROXY_REDIRECT_HTTP`: set to `0` or `false` to disable http to https redirect (only when certs are located)
 
 ### Config File
 
@@ -226,7 +175,7 @@ See [config.example.yml](config.example.yml) for more
 
   values:
 
-  - `FROM_ENV`: value from environment
+  - `FROM_ENV`: value from environment (`DOCKER_HOST`)
   - full url to docker host (i.e. `tcp://host:2375`)
 
 - `file`: load reverse proxies from provider file
@@ -247,45 +196,7 @@ See [providers.example.yml](providers.example.yml) for examples
 
   Follow [this guide](https://cloudkul.com/blog/automcatic-renew-and-generate-ssl-on-your-website-using-lego-client/) to create a new token with `Zone.DNS` read and edit permissions
 
-To add more provider support (**CloudDNS** as an example):
-
-1. Fork this repo, modify [autocert.go](src/go-proxy/autocert.go#L305)
-
-   ```go
-   var providersGenMap = map[string]ProviderGenerator{
-     "cloudflare": providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
-     // add here, i.e.
-     "clouddns": providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
-   }
-   ```
-
-2. Go to [https://go-acme.github.io/lego/dns/clouddns](https://go-acme.github.io/lego/dns/clouddns/) and check for required config
-
-3. Build `go-proxy` with `make build`
-
-4. Set required config in `config.yml` `autocert` -> `options` section
-
-   ```shell
-   # From https://go-acme.github.io/lego/dns/clouddns/
-   CLOUDDNS_CLIENT_ID=bLsdFAks23429841238feb177a572aX \
-   CLOUDDNS_EMAIL=you@example.com \
-   CLOUDDNS_PASSWORD=b9841238feb177a84330f \
-   lego --email you@example.com --dns clouddns --domains my.example.org run
-   ```
-
-   Should turn into:
-
-   ```yaml
-   autocert:
-     ...
-     options:
-       client_id: bLsdFAks23429841238feb177a572aX
-       email: you@example.com
-       password: b9841238feb177a84330f
-   ```
-
-5. Run and test if it works
-6. Commit and create pull request
+To add more provider support, see [this](docs/add_dns_provider.md)
 
 ## Examples
 
@@ -345,7 +256,7 @@ go-proxy:
   ports:
     - 80:80
     ...
-    - 20000:20000/tcp
+    - <your desired port>:20000/tcp
     # or 20000-20010:20000-20010/tcp to declare large range at once
 
 # access app-db via <*>.y.z:20000
