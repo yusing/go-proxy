@@ -5,7 +5,7 @@ BIN_URL="${REPO_URL}/releases/download/${VERSION}/go-proxy"
 SRC_URL="${REPO_URL}/archive/refs/tags/${VERSION}.tar.gz"
 APP_ROOT="/opt/go-proxy/${VERSION}"
 
-if [ -z "$VERSION" || "$VERSION" = "latest" ]; then
+if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
     VERSION_URL="${REPO_URL}/raw/main/version.txt"
     VERSION=$(wget -qO- "$VERSION_URL")
 fi
