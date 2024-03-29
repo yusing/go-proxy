@@ -42,6 +42,14 @@ var (
 	}()
 )
 
+var wellKnownHTTPPorts = map[uint16]bool{
+	80:   true,
+	8000: true,
+	8008: true, // alternative HTTP port
+	8080: true,
+	3000: true, // adguardhome, gogs, etc
+}
+
 var (
 	StreamSchemes = []string{StreamType_TCP, StreamType_UDP} // TODO: support "tcp:udp", "udp:tcp"
 	HTTPSchemes   = []string{"http", "https"}
@@ -92,6 +100,7 @@ var (
 				Timeout:   5 * time.Second,
 				KeepAlive: 5 * time.Second,
 			}).DialContext,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 )

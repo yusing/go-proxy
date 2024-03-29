@@ -202,9 +202,19 @@ func selectPort(c *types.Container) uint16 {
 
 func selectPortInternal(c *types.Container, getPort func(types.Port) uint16) uint16 {
 	for _, p := range c.Ports {
+		if isWellKnownHTTPPort(p.PrivatePort) {
+			return getPort(p)
+		}
+	}
+	for _, p := range c.Ports {
 		if port := getPort(p); port != 0 {
 			return port
 		}
 	}
 	return 0
+}
+
+func isWellKnownHTTPPort(port uint16) bool {
+	_, ok := wellKnownHTTPPorts[port]
+	return ok
 }
