@@ -100,6 +100,10 @@ WorkingDirectory=${APP_ROOT}
 Environment="IS_SYSTEMD=1"
 Restart=on-failure
 RestartSec=1s
+KillMode=process
+KillSignal=SIGINT
+TimeoutStartSec=5s
+TimeoutStopSec=5s
 [Install]
 WantedBy=multi-user.target
 EOF
