@@ -44,8 +44,8 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		PathMode: config.PathMode,
 		l: hrlog.WithFields(logrus.Fields{
 			"alias":     config.Alias,
-			"path":      config.Path,
-			"path_mode": config.PathMode,
+			// "path":      config.Path,
+			// "path_mode": config.PathMode,
 		}),
 	}
 
@@ -157,6 +157,6 @@ func (config *ProxyConfig) pathSubModResp(r *http.Response) error {
 }
 
 // alias -> (path -> routes)
-type HTTPRoutes = SafeMap[string, pathPoolMap]
+type HTTPRoutes SafeMap[string, pathPoolMap]
 
 var httpRoutes HTTPRoutes = NewSafeMapOf[HTTPRoutes](newPathPoolMap)

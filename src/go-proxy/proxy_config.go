@@ -15,8 +15,8 @@ type ProxyConfig struct {
 	provider *Provider
 }
 
-type ProxyConfigMap = map[string]ProxyConfig
-type ProxyConfigSlice = []ProxyConfig
+type ProxyConfigMap map[string]ProxyConfig
+type ProxyConfigSlice []ProxyConfig
 
 func NewProxyConfig(provider *Provider) ProxyConfig {
 	return ProxyConfig{

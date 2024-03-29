@@ -31,11 +31,11 @@ type ServerOptions struct {
 }
 
 type LogrusWrapper struct {
-	l *logrus.Entry
+	*logrus.Entry
 }
 
 func (l LogrusWrapper) Write(b []byte) (int, error) {
-	return l.l.Logger.WriterLevel(logrus.ErrorLevel).Write(b)
+	return l.Logger.WriterLevel(logrus.ErrorLevel).Write(b)
 }
 
 func NewServer(opt ServerOptions) *Server {

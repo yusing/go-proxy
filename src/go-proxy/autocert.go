@@ -21,9 +21,9 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 )
 
-type ProviderOptions = map[string]string
-type ProviderGenerator = func(ProviderOptions) (challenge.Provider, error)
-type CertExpiries = map[string]time.Time
+type ProviderOptions map[string]string
+type ProviderGenerator func(ProviderOptions) (challenge.Provider, error)
+type CertExpiries map[string]time.Time
 
 type AutoCertConfig struct {
 	Email    string          `json:"email"`

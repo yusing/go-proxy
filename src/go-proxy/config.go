@@ -3,12 +3,14 @@ package main
 import (
 	"os"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
 
 // commented out if unused
 type Config interface {
+	Value() configModel
 	// Load() error
 	MustLoad()
 	GetAutoCertProvider() (AutoCertProvider, error)
@@ -21,7 +23,13 @@ type Config interface {
 }
 
 func NewConfig(path string) Config {
-	cfg := &config{reader: &FileReader{Path: path}}
+	cfg := &config{
+		m: &configModel{
+			TimeoutShutdown: 3 * time.Second,
+			RedirectToHTTPS: false,
+		},
+		reader: &FileReader{Path: path},
+	}
 	cfg.watcher = NewFileWatcher(
 		path,
 		cfg.MustReload,        // OnChange
@@ -33,6 +41,10 @@ func NewConfig(path string) Config {
 func ValidateConfig(data []byte) error {
 	cfg := &config{reader: &ByteReader{data}}
 	return cfg.Load()
+}
+
+func (cfg *config) Value() configModel {
+	return *cfg.m
 }
 
 func (cfg *config) Load(reader ...Reader) error {
@@ -170,12 +182,14 @@ func (cfg *config) StopWatching() {
 }
 
 type configModel struct {
-	Providers map[string]*Provider `yaml:",flow" json:"providers"`
-	AutoCert  AutoCertConfig       `yaml:",flow" json:"autocert"`
+	Providers       map[string]*Provider `yaml:",flow" json:"providers"`
+	AutoCert        AutoCertConfig       `yaml:",flow" json:"autocert"`
+	TimeoutShutdown time.Duration        `yaml:"timeout_shutdown" json:"timeout_shutdown"`
+	RedirectToHTTPS bool                 `yaml:"redirect_to_https" json:"redirect_to_https"`
 }
 
 type config struct {
-	m *configModel	
+	m *configModel
 
 	reader              Reader
 	watcher             Watcher

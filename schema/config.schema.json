@@ -117,7 +117,17 @@
           ]
         }
       }
+    },
+    "timeout_shutdown": {
+      "title": "Shutdown timeout (in seconds)",
+      "type": "integer",
+      "minimum": 0
+    },
+    "redirect_to_https": {
+      "title": "Redirect to HTTPS",
+      "type": "boolean"
     }
   },
-  "additionalProperties": false
+  "additionalProperties": false,
+  "required": ["providers"]
 }

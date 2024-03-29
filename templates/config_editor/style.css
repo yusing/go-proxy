@@ -36,6 +36,10 @@ body {
   padding-right: 4em;
   display: block;
 }
+#new-file {
+  color: #f8f8f2 !important;
+  font-weight: bold;
+}
 .active {
   font-weight: bold;
   background: rgba(255, 255, 255, 0.1);

@@ -45,10 +45,8 @@ type StreamRouteBase struct {
 
 func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 	var streamType string = StreamType_TCP
-	var srcPort string
-	var dstPort string
-	var srcScheme string
-	var dstScheme string
+	var srcPort, dstPort string
+	var srcScheme, dstScheme string
 
 	portSplit := strings.Split(config.Port, ":")
 	if len(portSplit) != 2 {
@@ -101,8 +99,8 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		started: false,
 		l: srlog.WithFields(logrus.Fields{
 			"alias": config.Alias,
-			"src":   fmt.Sprintf("%s://:%d", srcScheme, srcPortInt),
-			"dst":   fmt.Sprintf("%s://%s:%d", dstScheme, config.Host, dstPortInt),
+			// "src":   fmt.Sprintf("%s://:%d", srcScheme, srcPortInt),
+			// "dst":   fmt.Sprintf("%s://%s:%d", dstScheme, config.Host, dstPortInt),
 		}),
 	}, nil
 }

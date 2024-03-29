@@ -12,6 +12,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
   - [How to use](#how-to-use)
     - [Binary](#binary)
     - [Docker](#docker)
+  - [Command-line args](#command-line-args)
+    - [Commands](#commands)
   - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
   - [Configuration](#configuration)
     - [Labels (docker)](#labels-docker)
@@ -37,14 +39,15 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - Fast (See [benchmarks](#benchmarks))
 - Auto certificate obtaining and renewal (See [Config File](#config-file) and [Supported DNS Challenge Providers](#supported-dns-challenge-providers))
 - Auto detect reverse proxies from docker
+- Auto hot-reload on container `start` / `die` / `stop` or config file changes
 - Custom proxy entries with `config.yml` and additional provider files
 - Subdomain matching + Path matching **(domain name doesn't matter)**
-- HTTP(s) proxy + TCP/UDP Proxy
+- HTTP(s) proxy + TCP/UDP Proxy (UDP is _experimental_)
 - HTTP(s) round robin load balance support (same subdomain and path across different hosts)
-- Auto hot-reload on container `start` / `die` / `stop` or config file changes
-- Simple panel to see all reverse proxies and health available on port [panel_port_http] (http) and port [panel_port_https] (https)
+- Simple panel to see all reverse proxies and health available on port 8080 (http) and port 8443 (https)
 
   ![panel screenshot](screenshots/panel.png)
+
 - Config editor to edit config and provider files with validation
 
   **Validate and save file with Ctrl+S**
@@ -53,13 +56,20 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## How to use
 
-1. Download and extract the latest release (or clone the repository if you want to try out experimental features)
+1. Download and extract the latest release (or clone the repository)
 
-2. Copy `config.example.yml` to `config/config.yml` and modify the content to fit your needs
+2. Call `make init-config` to init config file and provider file
 
-3. (Optional) write your own `config/providers.yml` from `providers.example.yml`
+3. Point your domain (i.e `y.z`) to your machine's IP address
 
-4. See [Binary](#binary) or [docker](#docker)
+   - A Record: `*.y.z` -> `10.0.10.1`
+   - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+
+4. Start `go-proxy` (see [Binary](#binary) or [docker](#docker))
+
+5. Start editing config files
+    - with text editor (i.e. Visual Studio Code)
+    - with web config editor by navigate to `ip:8080`
 
 ### Binary
 
@@ -110,28 +120,38 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 7. check the logs with `docker compose logs` or `make logs` to see if there is any error, check panel at [panel port] for active proxies
 
+## Command-line args
+
+`go-proxy [command]`
+
+### Commands
+
+- empty: start proxy server
+- validate: validate config and exit
+- reload: force reload config and exit
+
 ## Use JSON Schema in VSCode
 
 Modify `.vscode/settings.json` to fit your needs
 
 ```json
 {
-    "yaml.schemas": {
-        "https://github.com/yusing/go-proxy/raw/main/schema/config.schema.json": [
-            "config.example.yml",
-            "config.yml"
-        ],
-        "https://github.com/yusing/go-proxy/raw/main/schema/providers.schema.json": [
-            "providers.example.yml",
-            "*.providers.yml",
-        ]
-    }
+  "yaml.schemas": {
+    "https://github.com/yusing/go-proxy/raw/main/schema/config.schema.json": [
+      "config.example.yml",
+      "config.yml"
+    ],
+    "https://github.com/yusing/go-proxy/raw/main/schema/providers.schema.json": [
+      "providers.example.yml",
+      "*.providers.yml"
+    ]
+  }
 }
 ```
 
 ## Configuration
 
-With container name, no label needs to be added *(most of the time)*.
+With container name, no label needs to be added _(most of the time)_.
 
 ### Labels (docker)
 
@@ -229,13 +249,13 @@ To add more provider support (**CloudDNS** as an example):
 
 1. Fork this repo, modify [autocert.go](src/go-proxy/autocert.go#L305)
 
-    ```go
-    var providersGenMap = map[string]ProviderGenerator{
-      "cloudflare": providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
-      // add here, i.e.
-      "clouddns": providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
-    }
-    ```
+   ```go
+   var providersGenMap = map[string]ProviderGenerator{
+     "cloudflare": providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
+     // add here, i.e.
+     "clouddns": providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
+   }
+   ```
 
 2. Go to [https://go-acme.github.io/lego/dns/clouddns](https://go-acme.github.io/lego/dns/clouddns/) and check for required config
 
@@ -243,24 +263,24 @@ To add more provider support (**CloudDNS** as an example):
 
 4. Set required config in `config.yml` `autocert` -> `options` section
 
-    ```shell
-    # From https://go-acme.github.io/lego/dns/clouddns/
-    CLOUDDNS_CLIENT_ID=bLsdFAks23429841238feb177a572aX \
-    CLOUDDNS_EMAIL=you@example.com \
-    CLOUDDNS_PASSWORD=b9841238feb177a84330f \
-    lego --email you@example.com --dns clouddns --domains my.example.org run
-    ```
+   ```shell
+   # From https://go-acme.github.io/lego/dns/clouddns/
+   CLOUDDNS_CLIENT_ID=bLsdFAks23429841238feb177a572aX \
+   CLOUDDNS_EMAIL=you@example.com \
+   CLOUDDNS_PASSWORD=b9841238feb177a84330f \
+   lego --email you@example.com --dns clouddns --domains my.example.org run
+   ```
 
-    Should turn into:
+   Should turn into:
 
-    ```yaml
-    autocert:
-      ...
-      options:
-        client_id: bLsdFAks23429841238feb177a572aX
-        email: you@example.com
-        password: b9841238feb177a84330f
-    ```
+   ```yaml
+   autocert:
+     ...
+     options:
+       client_id: bLsdFAks23429841238feb177a572aX
+       email: you@example.com
+       password: b9841238feb177a84330f
+   ```
 
 5. Run and test if it works
 6. Commit and create pull request
@@ -471,6 +491,3 @@ It takes ~15 MB for 50 proxy entries
 4. build binary with `make build`
 
 5. start your container with `make up` (docker) or `bin/go-proxy` (binary)
-
-[panel_port_http]: 8080
-[panel_port_https]: 8443

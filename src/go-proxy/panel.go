@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -68,7 +69,7 @@ func panelCheckTargetHealth(w http.ResponseWriter, r *http.Request) {
 func panelConfigEditor(w http.ResponseWriter, r *http.Request) {
 	cfgFiles := make([]string, 0)
 	cfgFiles = append(cfgFiles, path.Base(configPath))
-	for _, p := range cfg.(*config).m.Providers {
+	for _, p := range cfg.Value().Providers {
 		if p.Kind != ProviderKind_File {
 			continue
 		}
@@ -99,12 +100,20 @@ func panelConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		panelHandleErr(w, r, err)
 		return
 	}
-	err = os.WriteFile(path.Join(configBasePath, p), content, 0644)
+	p = path.Join(configBasePath, p)
+	_, err = os.Stat(p)
+	exists := !errors.Is(err, os.ErrNotExist)
+	err = os.WriteFile(p, content, 0644)
 	if err != nil {
 		panelHandleErr(w, r, NewNestedError("unable to write config file").With(err))
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+	if !exists {
+		w.Write([]byte(fmt.Sprintf("Config file %s created, remember to add it to config.yml!", p)))
+		return
+	}
+	w.Write([]byte(fmt.Sprintf("Config file %s updated", p)))
 }
 
 func panelServeFile(w http.ResponseWriter, r *http.Request) {

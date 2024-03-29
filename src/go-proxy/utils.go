@@ -94,6 +94,18 @@ func (*Utils) healthCheckStream(scheme, host string) error {
 	return nil
 }
 
+func (*Utils) reloadServer() error {
+	resp, err := healthCheckHttpClient.Post("http://localhost:8080/reload", "", nil)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return NewNestedError("server reload failed").Subjectf("%d", resp.StatusCode)
+	}
+	return nil
+}
+
 func (*Utils) snakeToPascal(s string) string {
 	toHyphenCamel := http.CanonicalHeaderKey(strings.ReplaceAll(s, "_", "-"))
 	return strings.ReplaceAll(toHyphenCamel, "-", "")

@@ -11,25 +11,43 @@ let editor = CodeMirror(editorElement, {
   tabSize: 2
 });
 
-function loadFile(fileName) {
-  if (fileName === undefined) {
+function setCurrentFile(filename) {
+  let old_nav_item = document.getElementById(`file-${currentFile}`);
+  if (old_nav_item !== null) {
+    old_nav_item.classList.remove("active");
+  }
+  currentFile = filename;
+  document.title = `${currentFile} - Config Editor`;
+  let new_nav_item = document.getElementById(`file-${currentFile}`);
+  if (new_nav_item === null) {
+    new_file_btn = document.getElementById("new-file");
+    file_list = document.getElementById("file-list");
+    new_nav_item = document.createElement("li");
+    new_nav_item.id = `file-${currentFile}`;
+    new_nav_item.innerHTML = `<a class="unselectable">${currentFile}</a>`;
+    file_list.insertBefore(new_nav_item, new_file_btn);
+  }
+  new_nav_item.classList.add("active");
+}
+
+function loadFile(filename) {
+  if (filename === undefined) {
+    return;
+  }
+  if (filename === '+') {
+    newFile();
     return;
   }
   let req = new XMLHttpRequest();
-  req.open("GET", `/config/${fileName}`, true);
+  req.open("GET", `/config/${filename}`, true);
   req.onreadystatechange = function () {
     if (req.readyState == 4) {
       if (req.status == 200) {
-        let old_nav_item = document.getElementById(`file-${currentFile}`);
-        old_nav_item.classList.remove("active");
         editor.setValue(req.responseText);
-        currentFile = fileName;
-        let new_nav_item = document.getElementById(`file-${currentFile}`);
-        new_nav_item.classList.add("active");
-        document.title = `${currentFile} - Config Editor`;
+        setCurrentFile(filename);
         console.log(`loaded ${currentFile}`);
       } else {
-        let msg = `Failed to load ${fileName}: ` + req.responseText;
+        let msg = `Failed to load ${filename}: ` + req.responseText;
         alert(msg);
         console.log(msg);
       }
@@ -46,12 +64,33 @@ function saveFile(filename, content) {
   req.onreadystatechange = function () {
     if (req.readyState == 4) {
       if (req.status == 200) {
-        alert("Saved " + filename);
+        alert(req.responseText);
       } else {
-        alert("Error: " + req.responseText);
+        alert("Error:\n" + req.responseText);
       }
     }
   };
+}
+
+function newFile() {
+  let filename = prompt("Enter filename:");
+  if (filename === undefined || filename === "") {
+    alert("File name cannot be empty");
+    return;
+  }
+  if (!filename.endsWith(".yml") && !filename.endsWith(".yaml")) {
+    alert("File name must end with .yml or .yaml");
+    return;
+  }
+  let files = document.getElementById("file-list").children;
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].id === `file-${filename}`) {
+      alert("File already exists");
+      return;
+    }
+  }
+  editor.setValue("");
+  setCurrentFile(filename);
 }
 
 editor.setSize("100wh", "100vh");

@@ -1,14 +1,16 @@
 {
     "go.inferGopath": false,
     "yaml.schemas": {
-        "https://github.com/yusing/go-proxy/raw/main/schema/config.schema.json": [
-            "config.example.yml",
-            "config.yml",
-            "file:///config/workspace/go-proxy/config.example.yml"
-        ],
+        // "https://github.com/yusing/go-proxy/raw/main/schema/config.schema.json": [
+        //     "config.example.yml",
+        //     "config.yml"
+        // ],
         "https://github.com/yusing/go-proxy/raw/main/schema/providers.schema.json": [
             "providers.example.yml",
             "*.providers.yml"
+        ],
+        "file:///config/workspace/go-proxy/schema/config.schema.json": [
+            "file:///config/workspace/go-proxy/config.example.yml"
         ]
     }
 }

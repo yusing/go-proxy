@@ -148,5 +148,3 @@ var logLevel = func() logrus.Level {
 	}
 	return logrus.GetLevel()
 }()
-
-var redirectToHTTPS = os.Getenv("GOPROXY_REDIRECT_HTTP") != "0" && os.Getenv("GOPROXY_REDIRECT_HTTP") != "false"

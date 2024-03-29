@@ -89,7 +89,7 @@ func (w *fileWatcher) Stop() {
 	fileWatchMap.Delete(w.path)
 	err := fsWatcher.Remove(w.path)
 	if err != nil {
-		w.l.WithField("action", "stop").Error(err)
+		w.l.Error(err)
 	}
 }
 

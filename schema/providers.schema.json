@@ -1,7 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
   "title": "go-proxy providers file",
+  "anyOf": [
+    {
+      "type":"object"
+    },
+    {
+      "type":"null"
+    }
+  ],
   "patternProperties": {
     "^[a-zA-Z0-9_-]+$": {
       "title": "Proxy entry",

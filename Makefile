@@ -2,18 +2,17 @@
 
 all: build quick-restart logs
 
+init-config:
+	mkdir -p config certs
+	[ -f config/config.yml ] || cp config.example.yml config/config.yml
+	[ -f config/providers.yml ] || touch config/providers.yml
+
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go
 
 up:
 	docker compose up -d --build go-proxy
-
-quick-restart: # quick restart without restarting the container
-	docker cp bin/go-proxy go-proxy:/app/go-proxy
-	docker cp templates/* go-proxy:/app/templates
-	docker cp entrypoint.sh go-proxy:/app/entrypoint.sh
-	docker exec -d go-proxy bash /app/entrypoint.sh restart
 
 restart:
 	docker kill go-proxy
