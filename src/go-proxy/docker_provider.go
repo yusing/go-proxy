@@ -23,7 +23,7 @@ func (p *Provider) setConfigField(c *ProxyConfig, label string, value string, pr
 	return nil
 }
 
-func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP string) ProxyConfigSlice {
+func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP string) ProxyConfigSlice {
 	var aliases []string
 
 	cfgs := make(ProxyConfigSlice, 0)
@@ -61,7 +61,7 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 			}
 		}
 		if config.Port == "" {
-			config.Port = fmt.Sprintf("%d", selectPort(&container))
+			config.Port = fmt.Sprintf("%d", selectPort(container))
 		}
 		if config.Port == "0" {
 			l.Infof("no ports exposed, ignored")
@@ -74,10 +74,8 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 			case strings.HasPrefix(container.Image, "sha256:"):
 				config.Scheme = "http"
 			default:
-				imageSplit := strings.Split(container.Image, "/")
-				imageSplit = strings.Split(imageSplit[len(imageSplit)-1], ":")
-				imageName := imageSplit[0]
-				_, isKnownImage := ImageNamePortMap[imageName]
+				imageName := getImageName(container)
+				_, isKnownImage := ImageNamePortMapTCP[imageName]
 				if isKnownImage {
 					config.Scheme = "tcp"
 				} else {
@@ -182,13 +180,18 @@ func (p *Provider) getDockerProxyConfigs() (ProxyConfigSlice, error) {
 	cfgs := make(ProxyConfigSlice, 0)
 
 	for _, container := range containerSlice {
-		cfgs = append(cfgs, p.getContainerProxyConfigs(container, clientIP)...)
+		cfgs = append(cfgs, p.getContainerProxyConfigs(&container, clientIP)...)
 	}
 
 	return cfgs, nil
 }
 
 // var dockerUrlRegex = regexp.MustCompile(`^(?P<scheme>\w+)://(?P<host>[^:]+)(?P<port>:\d+)?(?P<path>/.*)?$`)
+func getImageName(c *types.Container) string {
+	imageSplit := strings.Split(c.Image, "/")
+	imageSplit = strings.Split(imageSplit[len(imageSplit)-1], ":")
+	return imageSplit[0]
+}
 
 func getPublicPort(p types.Port) uint16  { return p.PublicPort }
 func getPrivatePort(p types.Port) uint16 { return p.PrivatePort }
@@ -201,11 +204,22 @@ func selectPort(c *types.Container) uint16 {
 }
 
 func selectPortInternal(c *types.Container, getPort func(types.Port) uint16) uint16 {
+	imageName := getImageName(c)
+	// if is known image -> use known port
+	if port, isKnown := ImageNamePortMapHTTP[imageName]; isKnown {
+		for _, p := range c.Ports {
+			if p.PrivatePort == port {
+				return getPort(p)
+			}
+		}
+	}
+	// if it has known http port -> use it
 	for _, p := range c.Ports {
 		if isWellKnownHTTPPort(p.PrivatePort) {
 			return getPort(p)
 		}
 	}
+	// if it has any port -> use it
 	for _, p := range c.Ports {
 		if port := getPort(p); port != 0 {
 			return port

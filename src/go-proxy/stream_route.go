@@ -58,7 +58,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		dstPort = portSplit[1]
 	}
 
-	if port, hasName := NamePortMap[dstPort]; hasName {
+	if port, hasName := NamePortMapTCP[dstPort]; hasName {
 		dstPort = port
 	}
 

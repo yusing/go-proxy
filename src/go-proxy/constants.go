@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ImageNamePortMap = map[string]string{
+	ImageNamePortMapTCP = map[string]string{
 		"postgres":  "5432",
 		"mysql":     "3306",
 		"mariadb":   "3306",
@@ -22,7 +22,7 @@ var (
 		"rabbitmq":  "5672",
 		"mongo":     "27017",
 	}
-	ExtraNamePortMap = map[string]string{
+	ExtraNamePortMapTCP = map[string]string{
 		"dns":  "53",
 		"ssh":  "22",
 		"ftp":  "21",
@@ -30,24 +30,42 @@ var (
 		"pop3": "110",
 		"imap": "143",
 	}
-	NamePortMap = func() map[string]string {
+	NamePortMapTCP = func() map[string]string {
 		m := make(map[string]string)
-		for k, v := range ImageNamePortMap {
+		for k, v := range ImageNamePortMapTCP {
 			m[k] = v
 		}
-		for k, v := range ExtraNamePortMap {
+		for k, v := range ExtraNamePortMapTCP {
 			m[k] = v
 		}
 		return m
 	}()
 )
 
+var ImageNamePortMapHTTP = map[string]uint16{
+	"nginx":               80,
+	"httpd":               80,
+	"adguardhome":         3000,
+	"gogs":                3000,
+	"gitea":               3000,
+	"portainer":           9000,
+	"portainer-ce":        9000,
+	"home-assistant":      8123,
+	"homebridge":          8581,
+	"uptime-kuma":         3001,
+	"changedetection.io":  3000,
+	"prometheus":          9090,
+	"grafana":             3000,
+	"dockge":              5001,
+	"nginx-proxy-manager": 81,
+}
+
 var wellKnownHTTPPorts = map[uint16]bool{
 	80:   true,
 	8000: true,
-	8008: true, // alternative HTTP port
+	8008: true,
 	8080: true,
-	3000: true, // adguardhome, gogs, etc
+	3000: true,
 }
 
 var (
