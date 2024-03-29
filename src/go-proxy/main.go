@@ -20,11 +20,16 @@ func main() {
 	args := getArgs()
 
 	if isRunningAsService {
-		logrus.SetFormatter(&logrus.JSONFormatter{})
+		logrus.SetFormatter(&logrus.TextFormatter{
+			DisableColors:    true,
+			DisableTimestamp: true,
+			DisableSorting:   true,
+		})
 	} else {
 		logrus.SetFormatter(&logrus.TextFormatter{
 			ForceColors:     true,
 			DisableColors:   false,
+			DisableSorting:  true,
 			FullTimestamp:   true,
 			TimestampFormat: "01-02 15:04:05",
 		})
