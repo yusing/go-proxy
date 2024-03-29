@@ -8,10 +8,7 @@ jobs:
   build_and_push:
     runs-on: ubuntu-latest
     steps:
-      - name: Get the version
-        uses: actions/checkout@v3
-        id: get_version
       - name: Build and Push Container to ghcr.io
         uses: GlueOps/github-actions-build-push-containers@v0.3.7
         with:
-          tags: latest,${{ steps.get_version.outputs.VERSION }}
+          tags: latest,${{ github.ref_name }}

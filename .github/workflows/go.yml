@@ -25,6 +25,6 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v2
         with:
-          path: bin/go-proxy
+          files: bin/go-proxy
     #- name: Test
     #  run: go test -v ./...
