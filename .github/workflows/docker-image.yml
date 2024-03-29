@@ -2,17 +2,16 @@ name: Docker Image CI
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-
+    tags:
+      - "*.*.*"
 jobs:
-
-  build:
-
+  build_and_push:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag go-proxy:$(date +%s) --tag go-proxy:0.4 --tag go-proxy:latest
+      - name: Get the version
+        uses: actions/checkout@v3
+        id: get_version
+      - name: Build and Push Container to ghcr.io
+        uses: GlueOps/github-actions-build-push-containers@v0.3.7
+        with:
+          tags: latest,${{ steps.get_version.outputs.VERSION }}
