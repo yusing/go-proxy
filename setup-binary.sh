@@ -1,6 +1,5 @@
 #!/bin/sh
 set -e
-VERSION=$1
 BASE_URL="https://github.com/yusing/go-proxy/releases/download/${VERSION}"
 APP_ROOT="/opt/go-proxy/${VERSION}"
 

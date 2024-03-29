@@ -13,7 +13,7 @@
    - Create required directories
    - Setup `config.yml` and `compose.yml`
 
-3. Verify folder structure
+3. Verify folder structure and then `cd go-proxy`
 
     ```plain
     go-proxy
