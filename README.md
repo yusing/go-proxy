@@ -58,7 +58,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 1. Download and extract the latest release (or clone the repository)
 
-2. Call `make init-config` to init config file and provider file
+2. Call `make setup` to init config file, provider file, and docker compose file
 
 3. Point your domain (i.e `y.z`) to your machine's IP address
 

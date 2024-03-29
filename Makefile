@@ -2,11 +2,12 @@
 
 all: build quick-restart logs
 
-init-config:
+setup:
 	mkdir -p config certs
 	[ -f config/config.yml ] || cp config.example.yml config/config.yml
 	[ -f config/providers.yml ] || touch config/providers.yml
-
+	[ -f compose.yml ] || cp compose.example.yml compose.yml
+	
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go
