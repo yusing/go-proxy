@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
-BASE_URL="https://github.com/yusing/go-proxy/releases/download/${VERSION}"
+REPO_URL=https://github.com/yusing/go-proxy
+BIN_URL="${REPO_URL}/releases/download/${VERSION}/go-proxy"
+SRC_URL="${REPO_URL}/archive/refs/tags/${VERSION}.tar.gz"
 APP_ROOT="/opt/go-proxy/${VERSION}"
 
 if [ -z "$VERSION" ]; then
@@ -28,7 +30,7 @@ fi
 dl_source() {
     cd /tmp
     echo "Downloading go-proxy source ${VERSION}"
-    wget -c "${BASE_URL}.tar.gz" -O go-proxy.tar.gz 2>&1
+    wget -c "${SRC_URL}" -O go-proxy.tar.gz 2>&1
     echo "Done"
     if [ $? -gt 0 ]; then
         echo "Source download failed, check your internet connection and version number"
@@ -47,7 +49,7 @@ dl_source() {
 dl_binary() {
     mkdir -p bin
     echo "Downloading go-proxy binary ${VERSION}"
-    wget -c "${BASE_URL}/go-proxy" -O bin/go-proxy 2>&1
+    wget -c "${BIN_URL}" -O bin/go-proxy 2>&1
     if [ $? -gt 0 ]; then
         echo "Binary download failed, check your internet connection and version number"
         exit 1
