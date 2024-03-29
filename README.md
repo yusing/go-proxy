@@ -56,7 +56,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## How to use
 
-1. Download and extract the latest release (or clone the repository)
+1. Clone the repository `git clone https://github.com/yusing/go-proxy && cd go-proxy`
 
 2. Call `make setup` to init config file, provider file, and docker compose file
 
