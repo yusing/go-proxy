@@ -13,11 +13,11 @@ build:
 	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go
 
 up:
-	docker compose up -d --build go-proxy
+	docker compose up -d --build app
 
 restart:
 	docker kill go-proxy
-	docker compose up -d go-proxy
+	docker compose up -d app
 
 logs:
 	tail -f log/go-proxy.log
