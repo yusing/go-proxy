@@ -42,6 +42,7 @@ dl_source() {
         echo "failed to untar go-proxy.tar.gz"
         exit 1
     fi
+    mkdir -p $(dirname $APP_ROOT)
     mv "go-proxy-${VERSION}" $APP_ROOT
     cd $APP_ROOT
     echo "Done"
