@@ -61,10 +61,10 @@ func (p *Provider) getContainerProxyConfigs(container types.Container, clientIP 
 			}
 		}
 		if config.Port == "" {
-			config.Port = fmt.Sprintf("%d", selectPort(container))
+			config.Port = fmt.Sprintf("%d", selectPort(&container))
 		}
 		if config.Port == "0" {
-			l.Debugf("no ports exposed, ignored")
+			l.Infof("no ports exposed, ignored")
 			continue
 		}
 		if config.Scheme == "" {
@@ -193,14 +193,14 @@ func (p *Provider) getDockerProxyConfigs() (ProxyConfigSlice, error) {
 func getPublicPort(p types.Port) uint16  { return p.PublicPort }
 func getPrivatePort(p types.Port) uint16 { return p.PrivatePort }
 
-func selectPort(c types.Container) uint16 {
+func selectPort(c *types.Container) uint16 {
 	if c.HostConfig.NetworkMode == "host" {
-		return selectPortInternal(c, getPrivatePort)
+		return selectPortInternal(c, getPublicPort)
 	}
-	return selectPortInternal(c, getPublicPort)
+	return selectPortInternal(c, getPrivatePort)
 }
 
-func selectPortInternal(c types.Container, getPort func(types.Port) uint16) uint16 {
+func selectPortInternal(c *types.Container, getPort func(types.Port) uint16) uint16 {
 	for _, p := range c.Ports {
 		if port := getPort(p); port != 0 {
 			return port
