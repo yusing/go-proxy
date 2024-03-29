@@ -19,12 +19,16 @@ func main() {
 
 	args := getArgs()
 
-	logrus.SetFormatter(&logrus.TextFormatter{
-		ForceColors:     true,
-		DisableColors:   false,
-		FullTimestamp:   true,
-		TimestampFormat: "01-02 15:04:05",
-	})
+	if isRunningAsService {
+		logrus.SetFormatter(&logrus.JSONFormatter{})
+	} else {
+		logrus.SetFormatter(&logrus.TextFormatter{
+			ForceColors:     true,
+			DisableColors:   false,
+			FullTimestamp:   true,
+			TimestampFormat: "01-02 15:04:05",
+		})
+	}
 
 	if args.Command == CommandReload {
 		err := utils.reloadServer()

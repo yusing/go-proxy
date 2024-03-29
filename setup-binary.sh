@@ -91,11 +91,15 @@ mkdir -p /etc/systemd/system
 cat <<EOF > /etc/systemd/system/go-proxy.service
 [Unit]
 Description=go-proxy reverse proxy
-After=network.target
+After=network-online.target
+Wants=network-online.target systemd-networkd-wait-online.service
 [Service]
 Type=simple
 ExecStart=${APP_ROOT}/bin/go-proxy
 WorkingDirectory=${APP_ROOT}
+Environment="IS_SYSTEMD=1"
+Restart=on-failure
+RestartSec=1s
 [Install]
 WantedBy=multi-user.target
 EOF

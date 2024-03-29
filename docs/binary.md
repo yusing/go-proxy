@@ -22,6 +22,8 @@
 
 3. Start editing config files in `http://<ip>:8080`
 
+4. Check logs / status with `systemctl status go-proxy`
+
 ## Setup (alternative method)
 
 1. Download the latest release and extract somewhere
