@@ -1,3 +1,0 @@
-[submodule "templates/codemirror"]
-	path = templates/codemirror
-	url = https://github.com/codemirror/codemirror5.git

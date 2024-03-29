@@ -67,7 +67,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 4. Start `go-proxy` (see [Binary](#binary) or [docker](#docker))
 
-5. (Optional) `git submodule update --init` in case you use web config editor
+5. (Optional) `make setup-codemirror` in case you use the web config editor
 
 6. Start editing config files
     - with text editor (i.e. Visual Studio Code)

@@ -7,7 +7,13 @@ setup:
 	[ -f config/config.yml ] || cp config.example.yml config/config.yml
 	[ -f config/providers.yml ] || touch config/providers.yml
 	[ -f compose.yml ] || cp compose.example.yml compose.yml
-	
+
+setup-codemirror:
+	wget https://codemirror.net/5/codemirror.zip
+	unzip codemirror.zip
+	rm codemirror.zip
+	mv codemirror-* templates/codemirror
+
 build:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go

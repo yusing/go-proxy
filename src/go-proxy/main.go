@@ -37,8 +37,6 @@ func main() {
 	cfg = NewConfig(configPath)
 	cfg.MustLoad()
 
-	logrus.Info(cfg.Value())
-
 	if args.Command == CommandValidate {
 		logrus.Printf("config OK")
 		return

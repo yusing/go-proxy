@@ -4,5 +4,7 @@ config/**
 
 bin/go-proxy.bak
 
+templates/codemirror/
+
 logs/
 log/
