@@ -24,10 +24,6 @@ type Config interface {
 
 func NewConfig(path string) Config {
 	cfg := &config{
-		m: &configModel{
-			TimeoutShutdown: 3 * time.Second,
-			RedirectToHTTPS: false,
-		},
 		reader: &FileReader{Path: path},
 	}
 	cfg.watcher = NewFileWatcher(
@@ -60,7 +56,7 @@ func (cfg *config) Load(reader ...Reader) error {
 		return NewNestedError("unable to read config file").With(err)
 	}
 
-	model := &configModel{}
+	model := defaultConfig()
 	if err := yaml.Unmarshal(data, model); err != nil {
 		return NewNestedError("unable to parse config file").With(err)
 	}
@@ -186,6 +182,13 @@ type configModel struct {
 	AutoCert        AutoCertConfig       `yaml:",flow" json:"autocert"`
 	TimeoutShutdown time.Duration        `yaml:"timeout_shutdown" json:"timeout_shutdown"`
 	RedirectToHTTPS bool                 `yaml:"redirect_to_https" json:"redirect_to_https"`
+}
+
+func defaultConfig() *configModel {
+	return &configModel{
+		TimeoutShutdown: 3 * time.Second,
+		RedirectToHTTPS: false,
+	}
 }
 
 type config struct {

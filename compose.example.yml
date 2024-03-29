@@ -22,7 +22,7 @@ services:
       - ./config:/app/config
 
       # if local docker provider is used
-      # - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       
       # use existing certificate
       # - /path/to/cert.pem:/app/certs/cert.crt:ro
