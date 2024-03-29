@@ -42,6 +42,7 @@ dl_source() {
         echo "failed to untar go-proxy.tar.gz"
         exit 1
     fi
+    rm go-proxy.tar.gz
     mkdir -p $(dirname $APP_ROOT)
     mv "go-proxy-${VERSION}" $APP_ROOT
     cd $APP_ROOT
@@ -89,12 +90,12 @@ systemctl-failed() {
 mkdir -p /etc/systemd/system
 cat <<EOF > /etc/systemd/system/go-proxy.service
 [Unit]
-Description=go-proxy
+Description=go-proxy reverse proxy
 After=network.target
 [Service]
 Type=simple
-ExecStart=/opt/go-proxy/bin/go-proxy
-WorkingDirectory=/opt/go-proxy
+ExecStart=${APP_ROOT}/bin/go-proxy
+WorkingDirectory=${APP_ROOT}
 [Install]
 WantedBy=multi-user.target
 EOF
