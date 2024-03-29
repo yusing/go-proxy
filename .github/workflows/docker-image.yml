@@ -3,7 +3,7 @@ name: Docker Image CI
 on:
   push:
     tags:
-      - "*.*.*"
+      - "*"
 jobs:
   build_and_push:
     runs-on: ubuntu-latest

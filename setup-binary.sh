@@ -5,9 +5,9 @@ BIN_URL="${REPO_URL}/releases/download/${VERSION}/go-proxy"
 SRC_URL="${REPO_URL}/archive/refs/tags/${VERSION}.tar.gz"
 APP_ROOT="/opt/go-proxy/${VERSION}"
 
-if [ -z "$VERSION" ]; then
-    echo "You must specify a version"
-    exit 1
+if [ -z "$VERSION" || "$VERSION" = "latest" ]; then
+    VERSION_URL="${REPO_URL}/raw/main/version.txt"
+    VERSION=$(wget -qO- "$VERSION_URL")
 fi
 
 if [ -d "$APP_ROOT" ]; then
@@ -66,7 +66,7 @@ setup() {
         exit 1
     fi
     # SETUP_CODEMIRROR = 1
-    if [ "$SETUP_CODEMIRROR" = "1" ]; then
+    if [ "$SETUP_CODEMIRROR" != "0" ]; then
         make setup-codemirror || echo "make setup-codemirror failed, ignored"
     fi
 }

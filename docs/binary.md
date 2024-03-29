@@ -6,9 +6,22 @@
 
 2. Run setup script
 
+   To specitfy a version _(optional)_
+
    ```shell
-   export VERSION=latest
-   export SETUP_CODEMIRROR=1 # set to 0 if you don't need web config editor
+   export VERSION=latest # will be resolved into real version number
+   export VERSION=<version>
+   ```
+
+   If you don't need web config editor
+
+   ```shell
+   export SETUP_CODEMIRROR=0
+   ```
+
+   Setup:
+
+   ```shell
    wget -qO- https://6uo.me/go-proxy-setup-binary | sudo bash
    ```
 
