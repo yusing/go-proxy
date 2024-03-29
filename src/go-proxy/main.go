@@ -39,7 +39,7 @@ func main() {
 
 	logrus.Info(cfg.Value())
 
-	if args.Command == CommandVerify {
+	if args.Command == CommandValidate {
 		logrus.Printf("config OK")
 		return
 	}

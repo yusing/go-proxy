@@ -11,12 +11,12 @@ type Args struct {
 }
 
 const (
-	CommandStart  = ""
-	CommandVerify = "verify"
-	CommandReload = "reload"
+	CommandStart    = ""
+	CommandValidate = "validate"
+	CommandReload   = "reload"
 )
 
-var ValidCommands = []string{CommandStart, CommandVerify, CommandReload}
+var ValidCommands = []string{CommandStart, CommandValidate, CommandReload}
 
 func getArgs() Args {
 	var args Args
