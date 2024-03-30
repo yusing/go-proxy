@@ -19,6 +19,12 @@
    export SETUP_CODEMIRROR=0
    ```
 
+   Setup
+
+   ```shell
+   wget -qO- https://6uo.me/go-proxy-setup-docker | sudo bash
+   ```
+
    What it does:
 
    - Download source file and binary into /opt/go-proxy/$VERSION
