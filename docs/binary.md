@@ -2,7 +2,7 @@
 
 ## Setup
 
-1. Install `make` and `wget` if not already
+1. Install `bash`, `make` and `wget` if not already
 
 2. Run setup script
 
@@ -17,12 +17,6 @@
 
    ```shell
    export SETUP_CODEMIRROR=0
-   ```
-
-   Setup:
-
-   ```shell
-   wget -qO- https://6uo.me/go-proxy-setup-binary | sudo bash
    ```
 
    What it does:
