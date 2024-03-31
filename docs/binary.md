@@ -22,7 +22,7 @@
    Setup
 
    ```shell
-   wget -qO- https://6uo.me/go-proxy-setup-docker | sudo bash
+   wget -qO- https://6uo.me/go-proxy-setup-binary | sudo bash
    ```
 
    What it does:
