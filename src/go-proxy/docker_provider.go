@@ -61,7 +61,7 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 			}
 		}
 		if config.Port == "" {
-			config.Port = fmt.Sprintf("%d", selectPort(container))
+			config.Port = fmt.Sprintf("%d", selectPort(container, isRemote))
 		}
 		if config.Port == "0" {
 			l.Infof("no ports exposed, ignored")
@@ -196,8 +196,8 @@ func getImageName(c *types.Container) string {
 func getPublicPort(p types.Port) uint16  { return p.PublicPort }
 func getPrivatePort(p types.Port) uint16 { return p.PrivatePort }
 
-func selectPort(c *types.Container) uint16 {
-	if c.HostConfig.NetworkMode == "host" {
+func selectPort(c *types.Container, isRemote bool) uint16 {
+	if isRemote || c.HostConfig.NetworkMode == "host" {
 		return selectPortInternal(c, getPublicPort)
 	}
 	return selectPortInternal(c, getPrivatePort)
