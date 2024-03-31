@@ -200,6 +200,8 @@ To add more provider support, see [this](docs/add_dns_provider.md)
 
 ## Examples
 
+See [docker.md](docs/docker.md#docker-compose-example) for complete examples
+
 ### Single port configuration example
 
 ```yaml

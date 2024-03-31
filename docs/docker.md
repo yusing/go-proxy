@@ -61,3 +61,64 @@
     You can also list CIDRs of all docker bridge networks by:
 
     `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
+
+## Docker compose example
+
+```yaml
+volumes:
+  adg-work:
+  adg-conf:
+  mc-data:
+services:
+    adg:
+        image: adguard/adguardhome
+        restart: unless-stopped
+        labels:
+        - proxy.aliases=adg,adg-dns,adg-setup
+        - proxy.adg.port=80
+        - proxy.adg-setup.port=3000
+        - proxy.adg-dns.scheme=udp
+        - proxy.adg-dns.port=20000:dns
+        volumes:
+        - adg-work:/opt/adguardhome/work
+        - adg-conf:/opt/adguardhome/conf
+    mc:
+        image: itzg/minecraft-server
+        tty: true
+        stdin_open: true
+        container_name: mc
+        restart: unless-stopped
+        labels:
+        - proxy.mc.scheme=tcp
+        - proxy.mc.port=20001:25565
+        environment:
+        EULA: "TRUE"
+        volumes:
+        - mc-data:/data
+    go-proxy:
+        image: ghcr.io/yusing/go-proxy
+        container_name: go-proxy
+        restart: always
+        ports:
+        - 80:80 # http
+        - 443:443 # optional, https
+        - 8080:8080 # http panel
+        - 8443:8443 # optional, https panel
+
+        - 53:20000/udp # adguardhome
+        - 25565:20001/tcp # minecraft
+        volumes:
+        - ./config:/app/config
+        - /var/run/docker.sock:/var/run/docker.sock:ro
+        labels:
+        - proxy.aliases=gp
+        - proxy.panel.port=8080
+```
+
+### Services URLs
+
+- `gp.yourdomain.com`: go-proxy web panel
+- `adg-setup.yourdomain.com`: adguard setup (first time running)
+- `adg.yourdomain.com`: adguard dashboard
+- `yourdomain.com:53`: adguard dns
+- `yourdomain.com:25565`: minecraft server
