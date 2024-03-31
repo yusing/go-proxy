@@ -387,7 +387,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
 
 ## Known issues
 
-None
+UDP proxy does not work for PalWorld Dedicated Server
 
 ## Memory usage
 
