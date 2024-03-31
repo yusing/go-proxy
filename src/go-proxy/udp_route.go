@@ -26,21 +26,11 @@ type UDPConn struct {
 	nReceived     int
 }
 
-func NewUDPRoute(config *ProxyConfig) (StreamRoute, error) {
-	base, err := newStreamRouteBase(config)
-	if err != nil {
-		return nil, err
-	}
-
-	if base.TargetScheme != StreamType_UDP {
-		return nil, NewNestedError("unsupported").Subjectf("udp->%s", base.TargetScheme)
-	}
-
-	base.StreamImpl = &UDPRoute{
+func NewUDPRoute(base *StreamRouteBase) StreamImpl {
+	return &UDPRoute{
 		StreamRouteBase: base,
 		connMap:         make(map[net.Addr]net.Conn),
 	}
-	return base, nil
 }
 
 func (route *UDPRoute) Setup() error {
@@ -83,7 +73,7 @@ func (route *UDPRoute) Accept() (interface{}, error) {
 	return conn, nil
 }
 
-func (route *UDPRoute) HandleConnection(c interface{}) error {
+func (route *UDPRoute) Handle(c interface{}) error {
 	var err error
 
 	conn := c.(*UDPConn)

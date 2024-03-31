@@ -83,6 +83,10 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		dstScheme = config.Scheme
 	}
 
+	if srcScheme != dstScheme {
+		return nil, NewNestedError("unsupported").Subjectf("%v -> %v", srcScheme, dstScheme)
+	}
+
 	return &StreamRouteBase{
 		Alias:           config.Alias,
 		Type:            streamType,
@@ -106,14 +110,19 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 }
 
 func NewStreamRoute(config *ProxyConfig) (StreamRoute, error) {
+	base, err := newStreamRouteBase(config)
+	if err != nil {
+		return nil, err
+	}
 	switch config.Scheme {
 	case StreamType_TCP:
-		return NewTCPRoute(config)
+		base.StreamImpl = NewTCPRoute(base)
 	case StreamType_UDP:
-		return NewUDPRoute(config)
+		base.StreamImpl = NewUDPRoute(base)
 	default:
 		return nil, NewNestedError("invalid stream type").Subject(config.Scheme)
 	}
+	return base, nil
 }
 
 func (route *StreamRouteBase) ListeningUrl() string {

@@ -16,19 +16,11 @@ type TCPRoute struct {
 	listener net.Listener
 }
 
-func NewTCPRoute(config *ProxyConfig) (StreamRoute, error) {
-	base, err := newStreamRouteBase(config)
-	if err != nil {
-		return nil, NewNestedErrorFrom(err).Subject(config.Alias)
-	}
-	if base.TargetScheme != StreamType_TCP {
-		return nil, NewNestedError("unsupported").Subjectf("tcp -> %s", base.TargetScheme)
-	}
-	base.StreamImpl = &TCPRoute{
+func NewTCPRoute(base *StreamRouteBase) StreamImpl {
+	return &TCPRoute{
 		StreamRouteBase: base,
 		listener:        nil,
 	}
-	return base, nil
 }
 
 func (route *TCPRoute) Setup() error {
@@ -44,7 +36,7 @@ func (route *TCPRoute) Accept() (interface{}, error) {
 	return route.listener.Accept()
 }
 
-func (route *TCPRoute) HandleConnection(c interface{}) error {
+func (route *TCPRoute) Handle(c interface{}) error {
 	clientConn := c.(net.Conn)
 
 	defer clientConn.Close()
