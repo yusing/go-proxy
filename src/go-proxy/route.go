@@ -15,7 +15,6 @@ func NewRoute(cfg *ProxyConfig) (Route, error) {
 		if err != nil {
 			return nil, NewNestedErrorFrom(err).Subject(cfg.Alias)
 		}
-		streamRoutes.Set(id, route)
 		return route, nil
 	} else {
 		httpRoutes.Ensure(cfg.Alias)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -14,12 +15,15 @@ type Pipes []*BidirectionalPipe
 type TCPRoute struct {
 	*StreamRouteBase
 	listener net.Listener
+	pipe     Pipes
+	mu       sync.Mutex
 }
 
 func NewTCPRoute(base *StreamRouteBase) StreamImpl {
 	return &TCPRoute{
 		StreamRouteBase: base,
 		listener:        nil,
+		pipe:            make(Pipes, 0),
 	}
 }
 
@@ -40,7 +44,6 @@ func (route *TCPRoute) Handle(c interface{}) error {
 	clientConn := c.(net.Conn)
 
 	defer clientConn.Close()
-	defer route.wg.Done()
 
 	ctx, cancel := context.WithTimeout(context.Background(), tcpDialTimeout)
 	defer cancel()
@@ -58,11 +61,12 @@ func (route *TCPRoute) Handle(c interface{}) error {
 		<-route.stopCh
 		pipeCancel()
 	}()
+
+	route.mu.Lock()
 	pipe := NewBidirectionalPipe(pipeCtx, clientConn, serverConn)
-	pipe.Start()
-	pipe.Wait()
-	pipe.Close()
-	return nil
+	route.pipe = append(route.pipe, pipe)
+	route.mu.Unlock()
+	return pipe.Start()
 }
 
 func (route *TCPRoute) CloseListeners() {
@@ -71,4 +75,9 @@ func (route *TCPRoute) CloseListeners() {
 	}
 	route.listener.Close()
 	route.listener = nil
+	for _, pipe := range route.pipe {
+		if err := pipe.Stop(); err != nil {
+			route.l.Error(err)
+		}
+	}
 }

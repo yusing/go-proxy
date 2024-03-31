@@ -1,52 +1,55 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
 	"sync"
-
-	"github.com/sirupsen/logrus"
 )
 
 type UDPRoute struct {
 	*StreamRouteBase
 
-	connMap      map[net.Addr]net.Conn
+	connMap      UDPConnMap
 	connMapMutex sync.Mutex
 
 	listeningConn *net.UDPConn
-	targetConn    *net.UDPConn
+	targetAddr    *net.UDPAddr
 }
 
 type UDPConn struct {
-	remoteAddr    net.Addr
-	buffer        []byte
-	bytesReceived []byte
-	nReceived     int
+	src *net.UDPConn
+	dst *net.UDPConn
+	*BidirectionalPipe
 }
+
+type UDPConnMap map[net.Addr]*UDPConn
 
 func NewUDPRoute(base *StreamRouteBase) StreamImpl {
 	return &UDPRoute{
 		StreamRouteBase: base,
-		connMap:         make(map[net.Addr]net.Conn),
+		connMap:         make(UDPConnMap),
 	}
 }
 
 func (route *UDPRoute) Setup() error {
-	source, err := net.ListenPacket(route.ListeningScheme, fmt.Sprintf(":%v", route.ListeningPort))
+	laddr, err := net.ResolveUDPAddr(route.ListeningScheme, fmt.Sprintf(":%v", route.ListeningPort))
 	if err != nil {
 		return err
 	}
-
-	target, err := net.Dial(route.TargetScheme, fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort))
+	source, err := net.ListenUDP(route.ListeningScheme, laddr)
+	if err != nil {
+		return err
+	}
+	raddr, err := net.ResolveUDPAddr(route.TargetScheme, fmt.Sprintf("%s:%v", route.TargetHost, route.TargetPort))
 	if err != nil {
 		source.Close()
 		return err
 	}
 
-	route.listeningConn = source.(*net.UDPConn)
-	route.targetConn = target.(*net.UDPConn)
+	route.listeningConn = source
+	route.targetAddr = raddr
 	return nil
 }
 
@@ -64,71 +67,39 @@ func (route *UDPRoute) Accept() (interface{}, error) {
 		return nil, io.ErrShortBuffer
 	}
 
-	conn := &UDPConn{
-		remoteAddr:    srcAddr,
-		buffer:        buffer,
-		bytesReceived: buffer[:nRead],
-		nReceived:     nRead,
-	}
-	return conn, nil
-}
+	conn, ok := route.connMap[srcAddr]
 
-func (route *UDPRoute) Handle(c interface{}) error {
-	var err error
-
-	conn := c.(*UDPConn)
-	srcConn, ok := route.connMap[conn.remoteAddr]
 	if !ok {
 		route.connMapMutex.Lock()
-		srcConn, err = net.DialUDP("udp", nil, conn.remoteAddr.(*net.UDPAddr))
+		srcConn, err := net.DialUDP("udp", nil, srcAddr)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		route.connMap[conn.remoteAddr] = srcConn
+		dstConn, err := net.DialUDP("udp", nil, route.targetAddr)
+		if err != nil {
+			srcConn.Close()
+			return nil, err
+		}
+		pipeCtx, pipeCancel := context.WithCancel(context.Background())
+		go func() {
+			<-route.stopCh
+			pipeCancel()
+		}()
+		conn = &UDPConn{
+			srcConn,
+			dstConn,
+			NewBidirectionalPipe(pipeCtx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
+		}
+		route.connMap[srcAddr] = conn
 		route.connMapMutex.Unlock()
 	}
 
-	var forwarder func(*UDPConn, net.Conn) error
+	_, err = conn.dst.Write(buffer[:nRead])
+	return conn, err
+}
 
-	if logLevel == logrus.DebugLevel {
-		forwarder = route.forwardReceivedDebug
-	} else {
-		forwarder = route.forwardReceivedReal
-	}
-
-	// initiate connection to target
-	err = forwarder(conn, route.targetConn)
-	if err != nil {
-		return err
-	}
-
-	for {
-		select {
-		case <-route.stopCh:
-			return nil
-		default:
-			// receive from target
-			conn, err = route.readFrom(route.targetConn, conn.buffer)
-			if err != nil {
-				return err
-			}
-			// forward to source
-			err = forwarder(conn, srcConn)
-			if err != nil {
-				return err
-			}
-			// read from source
-			conn, err = route.readFrom(srcConn, conn.buffer)
-			if err != nil {
-				continue
-			}
-			// forward to target
-			err = forwarder(conn, route.targetConn)
-			if err != nil {
-				return err
-			}
-		}
-	}
+func (route *UDPRoute) Handle(c interface{}) error {
+	return c.(*UDPConn).Start()
 }
 
 func (route *UDPRoute) CloseListeners() {
@@ -136,50 +107,28 @@ func (route *UDPRoute) CloseListeners() {
 		route.listeningConn.Close()
 		route.listeningConn = nil
 	}
-	if route.targetConn != nil {
-		route.targetConn.Close()
-		route.targetConn = nil
-	}
 	for _, conn := range route.connMap {
-		conn.(*net.UDPConn).Close() // TODO: change on non udp target
+		if err := conn.dst.Close(); err != nil {
+			route.l.Error(err)
+		}
 	}
-	route.connMap = make(map[net.Addr]net.Conn)
+	route.connMap = make(UDPConnMap)
 }
 
-func (route *UDPRoute) readFrom(src net.Conn, buffer []byte) (*UDPConn, error) {
-	nRead, err := src.Read(buffer)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if nRead == 0 {
-		return nil, io.ErrShortBuffer
-	}
-
-	return &UDPConn{
-		remoteAddr:    src.RemoteAddr(),
-		buffer:        buffer,
-		bytesReceived: buffer[:nRead],
-		nReceived:     nRead,
-	}, nil
+type sourceRWCloser struct {
+	server *net.UDPConn
+	target *net.UDPConn
 }
 
-func (route *UDPRoute) forwardReceivedReal(receivedConn *UDPConn, dest net.Conn) error {
-	nWritten, err := dest.Write(receivedConn.bytesReceived)
-
-	if nWritten != receivedConn.nReceived {
-		err = io.ErrShortWrite
-	}
-
-	return err
+func (w sourceRWCloser) Read(p []byte) (int, error) {
+	n, _, err := w.target.ReadFrom(p)
+	return n, err
 }
 
-func (route *UDPRoute) forwardReceivedDebug(receivedConn *UDPConn, dest net.Conn) error {
-	route.l.WithField("size", receivedConn.nReceived).Debugf(
-		"forwarding from %s to %s",
-		receivedConn.remoteAddr.String(),
-		dest.RemoteAddr().String(),
-	)
-	return route.forwardReceivedReal(receivedConn, dest)
+func (w sourceRWCloser) Write(p []byte) (int, error) {
+	return w.server.WriteToUDP(p, w.target.RemoteAddr().(*net.UDPAddr)) // TODO: support non udp
+}
+
+func (w sourceRWCloser) Close() error {
+	return w.target.Close()
 }

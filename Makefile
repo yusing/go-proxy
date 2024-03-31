@@ -11,6 +11,7 @@ setup-codemirror:
 	wget https://codemirror.net/5/codemirror.zip
 	unzip codemirror.zip
 	rm codemirror.zip
+	mkdir -p templates
 	mv codemirror-* templates/codemirror
 
 build:
@@ -35,6 +36,6 @@ udp-server:
 		-p 9999:9999/udp \
 		--label proxy.test-udp.scheme=udp \
 		--label proxy.test-udp.port=20003:9999 \
-		--network data_default \
+		--network host \
 		--name test-udp \
 		$$(docker build -q -f udp-test-server.Dockerfile .)

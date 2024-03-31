@@ -143,6 +143,7 @@ func (route *StreamRouteBase) Start() {
 		route.l.Errorf("failed to setup: %v", err)
 		return
 	}
+	streamRoutes.Set(route.id, route)
 	route.started = true
 	route.wg.Add(2)
 	go route.grAcceptConnections()
