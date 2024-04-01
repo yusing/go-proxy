@@ -10,6 +10,10 @@ In the examples domain `x.y.z` is used, replace them with your domain
   - [Table of content](#table-of-content)
   - [Key Points](#key-points)
   - [How to use](#how-to-use)
+  - [Tested Services](#tested-services)
+    - [HTTP/HTTPs Reverse Proxy](#httphttps-reverse-proxy)
+    - [TCP Proxy](#tcp-proxy)
+    - [UDP Proxy](#udp-proxy)
   - [Command-line args](#command-line-args)
     - [Commands](#commands)
   - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
@@ -40,7 +44,7 @@ In the examples domain `x.y.z` is used, replace them with your domain
 - Auto hot-reload on container `start` / `die` / `stop` or config file changes
 - Custom proxy entries with `config.yml` and additional provider files
 - Subdomain matching + Path matching **(domain name doesn't matter)**
-- HTTP(s) proxy + TCP/UDP Proxy (UDP is _experimental_)
+- HTTP(s) reverse proxy + TCP/UDP Proxy
 - HTTP(s) round robin load balance support (same subdomain and path across different hosts)
 - Web UI on port 8080 (http) and port 8443 (https)
 
@@ -66,6 +70,26 @@ In the examples domain `x.y.z` is used, replace them with your domain
 3. Start editing config files
    - with text editor (i.e. Visual Studio Code)
    - or with web config editor by navigate to `ip:8080`
+
+## Tested Services
+
+### HTTP/HTTPs Reverse Proxy
+
+- nginx
+- minio
+- AdguardHome Dashboard
+- etc.
+
+### TCP Proxy
+
+- Minecraft server
+- PostgreSQL
+- MariaDB
+
+### UDP Proxy
+
+- Adguardhome DNS
+- Palworld Dedicated Server
 
 ## Command-line args
 
@@ -392,7 +416,7 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
 
 ## Known issues
 
-UDP proxy does not work for PalWorld Dedicated Server
+None
 
 ## Memory usage
 
