@@ -138,13 +138,14 @@ func (route *StreamRouteBase) Logger() logrus.FieldLogger {
 }
 
 func (route *StreamRouteBase) Start() {
+	route.wg.Wait()
 	route.ensurePort()
 	if err := route.Setup(); err != nil {
 		route.l.Errorf("failed to setup: %v", err)
 		return
 	}
-	streamRoutes.Set(route.id, route)
 	route.started = true
+	streamRoutes.Set(route.id, route)
 	route.wg.Add(2)
 	go route.grAcceptConnections()
 	go route.grHandleConnections()
@@ -230,3 +231,8 @@ func (route *StreamRouteBase) grHandleConnections() {
 		}
 	}
 }
+
+// id    -> target
+type StreamRoutes SafeMap[string, StreamRoute]
+
+var streamRoutes StreamRoutes = NewSafeMapOf[StreamRoutes]()

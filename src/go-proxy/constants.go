@@ -168,6 +168,8 @@ const (
 
 const udpBufferSize = 1500
 
+var isHostNetworkMode = os.Getenv("GOPROXY_HOST_NETWORK") == "1"
+
 var logLevel = func() logrus.Level {
 	switch os.Getenv("GOPROXY_DEBUG") {
 	case "1", "true":

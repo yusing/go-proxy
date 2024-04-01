@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,16 +38,14 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 		aliases = strings.Split(aliasesLabel, ",")
 	}
 
+	if clientIP == "" && isHostNetworkMode {
+		clientIP = "127.0.0.1"
+	}
 	isRemote := clientIP != ""
 
-	ne := NewNestedError("invalid label config").Subjectf("container %s", containerName)
-	defer func() {
-		if ne.HasExtras() {
-			p.l.Error(ne)
-		}
-	}()
-
 	for _, alias := range aliases {
+		ne := NewNestedError("invalid label config").Subjectf("container %s", containerName)
+
 		l := p.l.WithField("container", containerName).WithField("alias", alias)
 		config := NewProxyConfig(p)
 		prefix := fmt.Sprintf("proxy.%s.", alias)
@@ -84,9 +83,23 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 			}
 		}
 		if !isValidScheme(config.Scheme) {
-			l.Warnf("unsupported scheme: %s, using http", config.Scheme)
-			config.Scheme = "http"
+			ne.Extra("unsupported scheme").Subject(config.Scheme)
 		}
+
+		if isRemote && strings.HasPrefix(config.Port, "*") {
+			var err error
+			// find matching port
+			srcPort := config.Port[1:]
+			config.Port, err = findMatchingContainerPort(container,srcPort)
+			if err != nil {
+				ne.ExtraError(NewNestedErrorFrom(err).Subjectf("alias %s", alias))
+			}
+			if isStreamScheme(config.Scheme) {
+				config.Port = fmt.Sprintf("%s:%s", srcPort, config.Port)
+			}
+		}
+		
+		
 		if config.Host == "" {
 			switch {
 			case isRemote:
@@ -112,6 +125,10 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 		}
 		config.Alias = alias
 
+		if ne.HasExtras() {
+			l.Error(ne)
+			continue
+		}
 		cfgs = append(cfgs, config)
 	}
 	return cfgs
@@ -201,6 +218,21 @@ func selectPort(c *types.Container, isRemote bool) uint16 {
 		return selectPortInternal(c, getPublicPort)
 	}
 	return selectPortInternal(c, getPrivatePort)
+}
+
+// used when isRemote is true
+func findMatchingContainerPort(c *types.Container, ps string) (string, error) {
+	p, err := strconv.Atoi(ps)
+	if err != nil {
+		return "", err
+	}
+	pWant := uint16(p)
+	for _, pGot := range c.Ports {
+		if pGot.PrivatePort == pWant {
+			return fmt.Sprintf("%d", pGot.PublicPort), nil
+		}
+	}
+	return "", fmt.Errorf("port %d not found", p)
 }
 
 func selectPortInternal(c *types.Container, getPort func(types.Port) uint16) uint16 {

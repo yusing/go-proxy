@@ -44,8 +44,3 @@ func isStreamScheme(s string) bool {
 	}
 	return false
 }
-
-// id    -> target
-type StreamRoutes SafeMap[string, StreamRoute]
-
-var streamRoutes StreamRoutes = NewSafeMapOf[StreamRoutes]()

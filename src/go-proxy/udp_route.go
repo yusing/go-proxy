@@ -24,7 +24,7 @@ type UDPConn struct {
 	*BidirectionalPipe
 }
 
-type UDPConnMap map[net.Addr]*UDPConn
+type UDPConnMap map[string]*UDPConn
 
 func NewUDPRoute(base *StreamRouteBase) StreamImpl {
 	return &UDPRoute{
@@ -67,30 +67,33 @@ func (route *UDPRoute) Accept() (interface{}, error) {
 		return nil, io.ErrShortBuffer
 	}
 
-	conn, ok := route.connMap[srcAddr]
+	key := srcAddr.String()
+	conn, ok := route.connMap[key]
 
 	if !ok {
 		route.connMapMutex.Lock()
-		srcConn, err := net.DialUDP("udp", nil, srcAddr)
-		if err != nil {
-			return nil, err
+		if conn, ok = route.connMap[key]; !ok {
+			srcConn, err := net.DialUDP("udp", nil, srcAddr)
+			if err != nil {
+				return nil, err
+			}
+			dstConn, err := net.DialUDP("udp", nil, route.targetAddr)
+			if err != nil {
+				srcConn.Close()
+				return nil, err
+			}
+			pipeCtx, pipeCancel := context.WithCancel(context.Background())
+			go func() {
+				<-route.stopCh
+				pipeCancel()
+			}()
+			conn = &UDPConn{
+				srcConn,
+				dstConn,
+				NewBidirectionalPipe(pipeCtx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
+			}
+			route.connMap[key] = conn
 		}
-		dstConn, err := net.DialUDP("udp", nil, route.targetAddr)
-		if err != nil {
-			srcConn.Close()
-			return nil, err
-		}
-		pipeCtx, pipeCancel := context.WithCancel(context.Background())
-		go func() {
-			<-route.stopCh
-			pipeCancel()
-		}()
-		conn = &UDPConn{
-			srcConn,
-			dstConn,
-			NewBidirectionalPipe(pipeCtx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
-		}
-		route.connMap[srcAddr] = conn
 		route.connMapMutex.Unlock()
 	}
 
@@ -108,8 +111,11 @@ func (route *UDPRoute) CloseListeners() {
 		route.listeningConn = nil
 	}
 	for _, conn := range route.connMap {
+		if err := conn.src.Close(); err != nil {
+			route.l.Errorf("error closing src conn: %w", err)
+		}
 		if err := conn.dst.Close(); err != nil {
-			route.l.Error(err)
+			route.l.Error("error closing dst conn: %w", err)
 		}
 	}
 	route.connMap = make(UDPConnMap)
@@ -117,18 +123,9 @@ func (route *UDPRoute) CloseListeners() {
 
 type sourceRWCloser struct {
 	server *net.UDPConn
-	target *net.UDPConn
-}
-
-func (w sourceRWCloser) Read(p []byte) (int, error) {
-	n, _, err := w.target.ReadFrom(p)
-	return n, err
+	*net.UDPConn
 }
 
 func (w sourceRWCloser) Write(p []byte) (int, error) {
-	return w.server.WriteToUDP(p, w.target.RemoteAddr().(*net.UDPAddr)) // TODO: support non udp
-}
-
-func (w sourceRWCloser) Close() error {
-	return w.target.Close()
+	return w.server.WriteToUDP(p, w.RemoteAddr().(*net.UDPAddr)) // TODO: support non udp
 }

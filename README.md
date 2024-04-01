@@ -107,7 +107,9 @@ With container name, no label needs to be added _(most of the time)_.
 
 ### Labels (docker)
 
-See [compose.example.yml](compose.example.yml) for more
+See [docker.md](docs/docker.md#docker-compose-example) for examples
+
+When `go-proxy` is running in `host` network mode, see [here](docs/docker.md#docker-compose-example-host-network) for extra instructions
 
 - `proxy.aliases`: comma separated aliases for subdomain matching
 
@@ -145,12 +147,13 @@ Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
     - `sub`: (experimental) remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
       e.g. apps.y.z/app1 -> webdav:80, `href="/app1/path/to/file"` -> `href="/path/to/file"`
 
-- `load_balance`: enable load balance (docker only)
+- `load_balance`: _(Docker only)_ enable load balance
   - allowed: `1`, `true`
 
 ### Environment variables
 
 - `GOPROXY_DEBUG`: set to `1` or `true` to enable debug behaviors (i.e. output, etc.)
+- `GOPROXY_HOST_NETWORK`: _(Docker only)_ set to `1` when `network_mode: host`
 
 ### Config File
 
