@@ -8,13 +8,7 @@ jobs:
   build_and_push:
     runs-on: ubuntu-latest
     steps:
-    - name: Set tags (latest)
-      if: "!endsWith(github.ref, '-dev')"
-      run: echo "::set-output name=tag::latest,${{ github.ref_name }}"
-    - name: Set tags (dev)
-      if: "endsWith(github.ref, '-dev')"
-      run: echo "::set-output name=tag::dev,${{ github.ref_name }}"
-    - name: Build and Push Container to ghcr.io
-      uses: GlueOps/github-actions-build-push-containers@v0.3.7
-      with:
-        tags: ${{ steps.build_and_push.outputs.tag }}
+      - name: Build and Push Container to ghcr.io
+        uses: GlueOps/github-actions-build-push-containers@v0.3.7
+        with:
+          tags: latest,${{ github.ref_name }}
