@@ -22,7 +22,6 @@ func NewRoute(cfg *ProxyConfig) (Route, error) {
 		if err != nil {
 			return nil, NewNestedErrorFrom(err).Subject(cfg.Alias)
 		}
-		httpRoutes.Get(cfg.Alias).Add(cfg.Path, route)
 		return route, nil
 	}
 }

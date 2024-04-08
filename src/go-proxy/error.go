@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -45,6 +46,10 @@ func NewNestedErrorf(format string, args ...any) NestedErrorLike {
 func NewNestedErrorFrom(err error) NestedErrorLike {
 	if err == nil {
 		panic("cannot convert nil error to NestedError")
+	}
+	errUnwrap := errors.Unwrap(err)
+	if errUnwrap != nil {
+		return NewNestedErrorFrom(errUnwrap)
 	}
 	return NewNestedError(err.Error())
 }
@@ -92,23 +97,23 @@ func (ne *NestedError) Level() int {
 	return ne.level
 }
 
-func (ef *NestedError) Error() string {
+func (ne *NestedError) Error() string {
 	var buf strings.Builder
-	ef.writeToSB(&buf, "")
+	ne.writeToSB(&buf, ne.level, "")
 	return buf.String()
 }
 
-func (ef *NestedError) HasInner() bool {
-	return ef.inner != nil
+func (ne *NestedError) HasInner() bool {
+	return ne.inner != nil
 }
 
-func (ef *NestedError) HasExtras() bool {
-	return len(ef.extras) > 0
+func (ne *NestedError) HasExtras() bool {
+	return len(ne.extras) > 0
 }
 
-func (ef *NestedError) With(inner error) NestedErrorLike {
-	ef.Lock()
-	defer ef.Unlock()
+func (ne *NestedError) With(inner error) NestedErrorLike {
+	ne.Lock()
+	defer ne.Unlock()
 
 	var in *NestedError
 
@@ -116,79 +121,75 @@ func (ef *NestedError) With(inner error) NestedErrorLike {
 	case NestedErrorLike:
 		in = t.copy()
 	default:
-		in = &NestedError{extras: []string{t.Error()}}
+		in = &NestedError{message: t.Error()}
 	}
-	if ef.inner == nil {
-		ef.inner = in
+	if ne.inner == nil {
+		ne.inner = in
 	} else {
-		ef.inner.ExtraError(in)
+		ne.inner.ExtraError(in)
 	}
-	root := ef
+	root := ne
 	for root.inner != nil {
 		root.inner.level = root.level + 1
 		root = root.inner
 	}
-	return ef
+	return ne
 }
 
-func (ef *NestedError) addLevel(level int) NestedErrorLike {
-	ef.level += level
-	if ef.inner != nil {
-		ef.inner.addLevel(level)
+func (ne *NestedError) addLevel(level int) NestedErrorLike {
+	ne.level += level
+	if ne.inner != nil {
+		ne.inner.addLevel(level)
 	}
-	return ef
+	return ne
 }
 
-func (ef *NestedError) copy() *NestedError {
+func (ne *NestedError) copy() *NestedError {
 	var inner *NestedError
-	if ef.inner != nil {
-		inner = ef.inner.copy()
+	if ne.inner != nil {
+		inner = ne.inner.copy()
 	}
 	return &NestedError{
-		subject: ef.subject,
-		message: ef.message,
-		extras:  ef.extras,
+		subject: ne.subject,
+		message: ne.message,
+		extras:  ne.extras,
 		inner:   inner,
-		level:   ef.level,
 	}
 }
 
-func (ef *NestedError) writeIndents(sb *strings.Builder, level int) {
+func (ne *NestedError) writeIndents(sb *strings.Builder, level int) {
 	for i := 0; i < level; i++ {
 		sb.WriteString("  ")
 	}
 }
 
-func (ef *NestedError) writeToSB(sb *strings.Builder, prefix string) {
-	ef.writeIndents(sb, ef.level)
+func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
+	ne.writeIndents(sb, level)
 	sb.WriteString(prefix)
 
-	if ef.subject != "" {
-		sb.WriteRune('"')
-		sb.WriteString(ef.subject)
-		sb.WriteRune('"')
-		if ef.message != "" {
-			sb.WriteString(":\n")
-		} else {
-			sb.WriteRune('\n')
+	if ne.subject != "" {
+		sb.WriteString(ne.subject)
+		if ne.message != "" {
+			sb.WriteString(": ")
 		}
 	}
-	if ef.message != "" {
-		ef.writeIndents(sb, ef.level)
-		sb.WriteString(ef.message)
-		sb.WriteRune('\n')
+	if ne.message != "" {
+		sb.WriteString(ne.message)
 	}
-	for _, l := range ef.extras {
-		l = strings.TrimSpace(l)
+	if ne.HasExtras() || ne.HasInner() {
+		sb.WriteString(":\n")
+	}
+	level += 1
+	for _, l := range ne.extras {
 		if l == "" {
 			continue
 		}
-		ef.writeIndents(sb, ef.level)
+		ne.writeIndents(sb, level)
 		sb.WriteString("- ")
 		sb.WriteString(l)
 		sb.WriteRune('\n')
 	}
-	if ef.inner != nil {
-		ef.inner.writeToSB(sb, "- ")
+	if ne.inner != nil {
+		ne.inner.writeToSB(sb, level, "- ")
 	}
 }

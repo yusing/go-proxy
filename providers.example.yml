@@ -1,16 +1,26 @@
 example: # matching `app.y.z`
   # optional, defaults to http
-  scheme:
+  scheme: http
   # required, proxy target
   host: 10.0.0.1
   # optional, defaults to 80 for http, 443 for https
-  port: 80
+  port: "80"
   # optional, defaults to empty
   path:
-  # optional, defaults to sub
+  # optional, defaults to empty
   path_mode:
   # optional (https only)
   # no_tls_verify: false
+  # optional headers to set / override (http(s) only)
+  set_headers:
+    HEADER_A:
+      - VALUE_1
+      - VALUE_2
+    HEADER_B: [VALUE_3]
+  # optional headers to hide (http(s) only)
+  hide_headers:
+    - HEADER_C
+    - HEADER_D
 app1: # matching `app1.y.z` -> http://x.y.z
   host: x.y.z
 app2: # `app2` has no effect for tcp / udp, but still has to be unique across files
@@ -23,3 +33,6 @@ app3: # matching `app3.y.z` -> https://10.0.0.1/app3
   path: /app3
   path_mode: forward
   no_tls_verify: false
+  set_headers:
+    X-Forwarded-Proto: [https]
+    X-Forwarded-Host: [app3.y.z]

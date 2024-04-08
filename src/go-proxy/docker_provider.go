@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -14,20 +15,15 @@ import (
 	"golang.org/x/net/context"
 )
 
-func (p *Provider) setConfigField(c *ProxyConfig, label string, value string, prefix string) error {
-	if strings.HasPrefix(label, prefix) {
-		field := strings.TrimPrefix(label, prefix)
-		if err := setFieldFromSnake(c, field, value); err != nil {
-			return err
-		}
-	}
-	return nil
+func setConfigField(pl *ProxyLabel, c *ProxyConfig) error {
+	return setFieldFromSnake(c, pl.Field, pl.Value)
 }
 
-func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP string) ProxyConfigSlice {
+func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP string) (ProxyConfigSlice, error) {
 	var aliases []string
 
 	cfgs := make(ProxyConfigSlice, 0)
+	cfgMap := make(map[string]*ProxyConfig)
 
 	containerName := strings.TrimPrefix(container.Names[0], "/")
 	aliasesLabel, ok := container.Labels["proxy.aliases"]
@@ -35,7 +31,8 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 	if !ok {
 		aliases = []string{containerName}
 	} else {
-		aliases = strings.Split(aliasesLabel, ",")
+		v, _ := commaSepParser(aliasesLabel)
+		aliases = v.([]string)
 	}
 
 	if clientIP == "" && isHostNetworkMode {
@@ -44,21 +41,42 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 	isRemote := clientIP != ""
 
 	for _, alias := range aliases {
-		ne := NewNestedError("invalid label config").Subjectf("container %s", containerName)
+		cfgMap[alias] = &ProxyConfig{}
+	}
 
-		l := p.l.WithField("container", containerName).WithField("alias", alias)
-		config := NewProxyConfig(p)
-		prefix := fmt.Sprintf("proxy.%s.", alias)
-		for label, value := range container.Labels {
-			err := p.setConfigField(&config, label, value, prefix)
-			if err != nil {
-				ne.ExtraError(NewNestedErrorFrom(err).Subjectf("alias %s", alias))
+	ne := NewNestedError("these labels have errors").Subject(containerName)
+
+	for label, value := range container.Labels {
+		pl, err := parseProxyLabel(label, value)
+		if err != nil {
+			if !errors.Is(err, errNotProxyLabel) {
+				ne.ExtraError(NewNestedErrorFrom(err).Subject(label))
 			}
-			err = p.setConfigField(&config, label, value, wildcardLabelPrefix)
-			if err != nil {
-				ne.ExtraError(NewNestedErrorFrom(err).Subjectf("alias %s", alias))
-			}
+			continue
 		}
+		if pl.Alias == wildcardAlias {
+			for alias := range cfgMap {
+				pl.Alias = alias
+				err = setConfigField(pl, cfgMap[alias])
+				if err != nil {
+					ne.ExtraError(NewNestedErrorFrom(err).Subject(pl.Alias))
+				}
+			}
+			continue
+		}
+		config, ok := cfgMap[pl.Alias]
+		if !ok {
+			ne.ExtraError(NewNestedError("unknown alias").Subject(pl.Alias))
+			continue
+		}
+		err = setConfigField(pl, config)
+		if err != nil {
+			ne.ExtraError(NewNestedErrorFrom(err).Subject(pl.Alias))
+		}
+	}
+
+	for alias, config := range cfgMap {
+		l := p.l.WithField("alias", alias)
 		if config.Port == "" {
 			config.Port = fmt.Sprintf("%d", selectPort(container, isRemote))
 		}
@@ -70,8 +88,6 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 			switch {
 			case strings.HasSuffix(config.Port, "443"):
 				config.Scheme = "https"
-			case strings.HasPrefix(container.Image, "sha256:"):
-				config.Scheme = "http"
 			default:
 				imageName := getImageName(container)
 				_, isKnownImage := ImageNamePortMapTCP[imageName]
@@ -90,7 +106,7 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 			var err error
 			// find matching port
 			srcPort := config.Port[1:]
-			config.Port, err = findMatchingContainerPort(container,srcPort)
+			config.Port, err = findMatchingContainerPort(container, srcPort)
 			if err != nil {
 				ne.ExtraError(NewNestedErrorFrom(err).Subjectf("alias %s", alias))
 			}
@@ -98,8 +114,7 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 				config.Port = fmt.Sprintf("%s:%s", srcPort, config.Port)
 			}
 		}
-		
-		
+
 		if config.Host == "" {
 			switch {
 			case isRemote:
@@ -126,12 +141,15 @@ func (p *Provider) getContainerProxyConfigs(container *types.Container, clientIP
 		config.Alias = alias
 
 		if ne.HasExtras() {
-			l.Error(ne)
 			continue
 		}
-		cfgs = append(cfgs, config)
+		cfgs = append(cfgs, *config)
 	}
-	return cfgs
+
+	if ne.HasExtras() {
+		return nil, ne
+	}
+	return cfgs, nil
 }
 
 func (p *Provider) getDockerClient() (*client.Client, error) {
@@ -196,8 +214,19 @@ func (p *Provider) getDockerProxyConfigs() (ProxyConfigSlice, error) {
 
 	cfgs := make(ProxyConfigSlice, 0)
 
+	ne := NewNestedError("these containers have errors")
 	for _, container := range containerSlice {
-		cfgs = append(cfgs, p.getContainerProxyConfigs(&container, clientIP)...)
+		ccfgs, err := p.getContainerProxyConfigs(&container, clientIP)
+		if err != nil {
+			ne.ExtraError(err)
+			continue
+		}
+		cfgs = append(cfgs, ccfgs...)
+	}
+
+	if ne.HasExtras() {
+		// print but ignore
+		p.l.Error(ne)
 	}
 
 	return cfgs, nil

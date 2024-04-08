@@ -1,4 +1,24 @@
-# Getting started with `go-proxy` docker container
+# Docker container guide
+
+## Table of content
+
+<!-- TOC -->
+
+- [Table of content](#table-of-content)
+- [Setup](#setup)
+- [Labels](#labels)
+- [Labels (docker specific)](#labels-docker-specific)
+- [Troubleshooting](#troubleshooting)
+- [Docker compose examples](#docker-compose-examples)
+  - [Local docker provider in bridge network](#local-docker-provider-in-bridge-network)
+  - [Remote docker provider](#remote-docker-provider)
+    - [Explaination](#explaination)
+    - [Remote setup](#remote-setup)
+    - [Proxy setup](#proxy-setup)
+  - [Local docker provider in host network](#local-docker-provider-in-host-network)
+    - [Proxy setup](#proxy-setup)
+  - [Services URLs for above examples](#services-urls-for-above-examples)
+  <!-- /TOC -->
 
 ## Setup
 
@@ -46,6 +66,77 @@
 
 7. Start editing config files in `http://<ip>:8080`
 
+[🔼Back to top](#table-of-content)
+
+## Labels
+
+- `proxy.aliases`: comma separated aliases for subdomain matching
+
+  - default: container name
+
+- `proxy.*.<field>`: wildcard label for all aliases
+
+Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
+
+- `scheme`: proxy protocol
+  - default: `http`
+  - allowed: `http`, `https`, `tcp`, `udp`
+- `host`: proxy host
+  - default: `container_name`
+- `port`: proxy port
+  - default: first expose port (declared in `Dockerfile` or `docker-compose.yml`)
+  - `http(s)`: number in range og `0 - 65535`
+  - `tcp/udp`: `[<listeningPort>:]<targetPort>`
+    - `listeningPort`: number, when it is omitted (not suggested), a free port starting from 20000 will be used.
+    - `targetPort`: number, or predefined names (see [constants.go:14](src/go-proxy/constants.go#L14))
+- `no_tls_verify`: whether skip tls verify when scheme is https
+  - default: `false`
+- `path`: proxy path _(http(s) proxy only)_
+  - default: empty
+- `path_mode`: mode for path handling
+
+  - default: empty
+  - allowed: empty, `forward`, `sub`
+
+    - `empty`: remove path prefix from URL when proxying
+      1. apps.y.z/webdav -> webdav:80
+      2. apps.y.z./webdav/path/to/file -> webdav:80/path/to/file
+    - `forward`: path remain unchanged
+      1. apps.y.z/webdav -> webdav:80/webdav
+      2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
+    - `sub`: **(experimental)** remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
+      e.g. apps.y.z/app1 -> webdav:80, `href="/app1/path/to/file"` -> `href="/path/to/file"`
+
+  - `set_headers`: a list of header to set, (key:value, one by line)
+
+    Duplicated keys will be treated as multiple-value headers
+
+    ```yaml
+    labels:
+      - |
+        proxy.app.set_headers=
+        X-Custom-Header1: value1
+        X-Custom-Header1: value2
+        X-Custom-Header2: value2
+    ```
+
+  - `hide_headers`: comma seperated list of headers to hide
+
+[🔼Back to top](#table-of-content)
+
+## Labels (docker specific)
+
+Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.app.headers.hide: X-Powered-By,X-Custom-Header`)
+
+- `headers.set.<header>`: value of header to set
+
+- `headers.hide`: comma seperated list of headers to hide
+
+- `load_balance`: enable load balance
+  - allowed: `1`, `true`
+
+[🔼Back to top](#table-of-content)
+
 ## Troubleshooting
 
 - Firewall issues
@@ -64,7 +155,11 @@
 
   `docker network inspect $(docker network ls | awk '$3 == "bridge" { print $1}') | jq -r '.[] | .Name + " " + .IPAM.Config[0].Subnet' -`
 
-## Docker compose example (bridge network)
+[🔼Back to top](#table-of-content)
+
+## Docker compose examples
+
+### Local docker provider in bridge network
 
 ```yaml
 volumes:
@@ -136,28 +231,19 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     labels:
       - proxy.aliases=gp
-      - proxy.panel.port=8080
+      - proxy.gp.port=8080
 ```
 
-### Services URLs
+[🔼Back to top](#table-of-content)
 
-- `gp.yourdomain.com`: go-proxy web panel
-- `adg-setup.yourdomain.com`: adguard setup (first time setup)
-- `adg.yourdomain.com`: adguard dashboard
-- `nginx.yourdomain.com`: nginx
-- `yourdomain.com:53`: adguard dns
-- `yourdomain.com:25565`: minecraft server
-- `yourdomain.com:8211`: palworld server
+### Remote docker provider
 
-## Docker compose example (host network)
+#### Explaination
 
-### Notice
+- Expose container ports to random port in remote host
+- Use container port with an asterisk sign **(\*)** before to find remote port automatically
 
-When `go-proxy` is running in `host` network mode, you must:
-
-- set `GOPROXY_HOST_NETWORK=1`
-- map ports to host explicitly
-- add an asterisk sign **(*)** before `port` number under `labels`
+#### Remote setup
 
 ```yaml
 volumes:
@@ -170,7 +256,7 @@ services:
   adg:
     image: adguard/adguardhome
     restart: unless-stopped
-    ports: # map random ports to container ports
+    ports: # map container ports
       - 80
       - 3000
       - 53/udp
@@ -224,19 +310,62 @@ services:
       - 80
     volumes:
       - nginx:/usr/share/nginx/html
-  go-proxy:
-    image: ghcr.io/yusing/go-proxy
-    container_name: go-proxy
-    restart: always
-    network_mode: host # no port mapping needed for host network mode
-    environment:
-      - GOPROXY_HOST_NETWORK=1 # required for host network mode
-    volumes:
-      - ./config:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-    labels:
-      - proxy.aliases=gp
-      - proxy.panel.port=808
 ```
 
-**Same services URLs as [`bridge`](#services-urls) example!**
+[🔼Back to top](#table-of-content)
+
+#### Proxy setup
+
+```yaml
+go-proxy:
+  image: ghcr.io/yusing/go-proxy
+  container_name: go-proxy
+  restart: always
+  network_mode: host
+  volumes:
+    - ./config:/app/config
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  labels:
+    - proxy.aliases=gp
+    - proxy.gp.port=8080
+```
+
+[🔼Back to top](#table-of-content)
+
+### Local docker provider in host network
+
+Mostly as remote docker setup, see [remote setup](#remote-setup)
+
+With `GOPROXY_HOST_NETWORK=1` to treat it as remote docker provider
+
+#### Proxy setup
+
+```yaml
+go-proxy:
+  image: ghcr.io/yusing/go-proxy
+  container_name: go-proxy
+  restart: always
+  network_mode: host
+  environment: # this part is needed for local docker in host mode
+    - GOPROXY_HOST_NETWORK=1
+  volumes:
+    - ./config:/app/config
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  labels:
+    - proxy.aliases=gp
+    - proxy.gp.port=8080
+```
+
+[🔼Back to top](#table-of-content)
+
+### Services URLs for above examples
+
+- `gp.yourdomain.com`: go-proxy web panel
+- `adg-setup.yourdomain.com`: adguard setup (first time setup)
+- `adg.yourdomain.com`: adguard dashboard
+- `nginx.yourdomain.com`: nginx
+- `yourdomain.com:53`: adguard dns
+- `yourdomain.com:25565`: minecraft server
+- `yourdomain.com:8211`: palworld server
+
+[🔼Back to top](#table-of-content)

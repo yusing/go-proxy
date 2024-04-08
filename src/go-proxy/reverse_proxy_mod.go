@@ -1,6 +1,6 @@
 package main
 
-// A small mod on net/http/httputils
+// A small mod on net/http/httputil/reverseproxy.go
 // that doubled the performance
 
 import (
@@ -8,14 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
 	"strings"
-	"time"
 
 	"golang.org/x/net/http/httpguts"
 )
@@ -39,16 +37,16 @@ type ProxyRequest struct {
 //
 // SetURL rewrites the outbound Host header to match the target's host.
 // To preserve the inbound request's Host header (the default behavior
-// of [NewSingleHostReverseProxy]):
+// of [NewReverseProxy]):
 //
 //	rewriteFunc := func(r *httputil.ProxyRequest) {
 //		r.SetURL(url)
 //		r.Out.Host = r.In.Host
 //	}
-func (r *ProxyRequest) SetURL(target *url.URL) {
-	rewriteRequestURL(r.Out, target)
-	r.Out.Host = ""
-}
+// func (r *ProxyRequest) SetURL(target *url.URL) {
+// 	rewriteRequestURL(r.Out, target)
+// 	r.Out.Host = ""
+// }
 
 // SetXForwarded sets the X-Forwarded-For, X-Forwarded-Host, and
 // X-Forwarded-Proto headers of the outbound request.
@@ -132,17 +130,17 @@ type ReverseProxy struct {
 	// recognizes a response as a streaming response, or
 	// if its ContentLength is -1; for such responses, writes
 	// are flushed to the client immediately.
-	FlushInterval time.Duration
+	// FlushInterval time.Duration
 
 	// ErrorLog specifies an optional logger for errors
 	// that occur when attempting to proxy the request.
 	// If nil, logging is done via the log package's standard logger.
-	ErrorLog *log.Logger
+	// ErrorLog *log.Logger
 
 	// BufferPool optionally specifies a buffer pool to
 	// get byte slices for use by io.CopyBuffer when
 	// copying HTTP response bodies.
-	BufferPool BufferPool
+	// BufferPool BufferPool
 
 	// ModifyResponse is an optional function that modifies the
 	// Response from the backend. It is called if the backend
@@ -203,18 +201,18 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 	return a.Path + b.Path, apath + bpath
 }
 
-// NewSingleHostReverseProxy returns a new [ReverseProxy] that routes
+// NewReverseProxy returns a new [ReverseProxy] that routes
 // URLs to the scheme, host, and base path provided in target. If the
 // target's path is "/base" and the incoming request was for "/dir",
 // the target request will be for /base/dir.
 //
-// NewSingleHostReverseProxy does not rewrite the Host header.
+// NewReverseProxy does not rewrite the Host header.
 //
 // To customize the ReverseProxy behavior beyond what
-// NewSingleHostReverseProxy provides, use ReverseProxy directly
+// NewReverseProxy provides, use ReverseProxy directly
 // with a Rewrite function. The ProxyRequest SetURL method
 // may be used to route the outbound request. (Note that SetURL,
-// unlike NewSingleHostReverseProxy, rewrites the Host header
+// unlike NewReverseProxy, rewrites the Host header
 // of the outbound request by default.)
 //
 //	proxy := &ReverseProxy{
@@ -223,9 +221,34 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 //			r.Out.Host = r.In.Host // if desired
 //		},
 //	}
-func NewSingleHostReverseProxy(target *url.URL, transport *http.Transport) *ReverseProxy {
+func NewReverseProxy(target *url.URL, transport *http.Transport, config *ProxyConfig) *ReverseProxy {
+	// check on init rather than on request
+	var setHeaders = func(r *http.Request) {}
+	var hideHeaders = func(r *http.Request) {}
+	if len(config.SetHeaders) > 0 {
+		setHeaders = func(r *http.Request) {
+			h := config.SetHeaders.Clone()
+			for k, vv := range h {
+				if k == "Host" {
+					r.Host = vv[0]
+				} else {
+					r.Header[k] = vv
+				}
+			}
+		}
+	}
+	if len(config.HideHeaders) > 0 {
+		hideHeaders = func(r *http.Request) {
+			for _, k := range config.HideHeaders {
+				r.Header.Del(k)
+			}
+		}
+	}
 	return &ReverseProxy{Rewrite: func(pr *ProxyRequest) {
 		rewriteRequestURL(pr.Out, target)
+		pr.SetXForwarded()
+		setHeaders(pr.Out)
+		hideHeaders(pr.Out)
 	}, Transport: transport}
 }
 
@@ -380,7 +403,7 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// Strip client-provided forwarding headers.
 	// The Rewrite func may use SetXForwarded to set new values
 	// for these or copy the previous values from the inbound request.
-	// outreq.Header.Del("Forwarded")
+	outreq.Header.Del("Forwarded")
 	// outreq.Header.Del("X-Forwarded-For")
 	// outreq.Header.Del("X-Forwarded-Host")
 	// outreq.Header.Del("X-Forwarded-Proto")
@@ -388,29 +411,27 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// NOTE: removed
 	// Remove unparsable query parameters from the outbound request.
 	// outreq.URL.RawQuery = cleanQueryParams(outreq.URL.RawQuery)
-
 	pr := &ProxyRequest{
 		In:  req,
 		Out: outreq,
 	}
-	pr.SetXForwarded() // NOTE: added
 	p.Rewrite(pr)
 	outreq = pr.Out
 	// NOTE: removed
 	// } else {
-	// 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-	// 		// If we aren't the first proxy retain prior
-	// 		// X-Forwarded-For information as a comma+space
-	// 		// separated list and fold multiple headers into one.
-	// 		prior, ok := outreq.Header["X-Forwarded-For"]
-	// 		omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
-	// 		if len(prior) > 0 {
-	// 			clientIP = strings.Join(prior, ", ") + ", " + clientIP
-	// 		}
-	// 		if !omit {
-	// 			outreq.Header.Set("X-Forwarded-For", clientIP)
-	// 		}
+	// if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+	// 	// If we aren't the first proxy retain prior
+	// 	// X-Forwarded-For information as a comma+space
+	// 	// separated list and fold multiple headers into one.
+	// 	prior, ok := outreq.Header["X-Forwarded-For"]
+	// 	omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
+	// 	if len(prior) > 0 {
+	// 		clientIP = strings.Join(prior, ", ") + ", " + clientIP
 	// 	}
+	// 	if !omit {
+	// 		outreq.Header.Set("X-Forwarded-For", clientIP)
+	// 	}
+	// }
 	// }
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
@@ -637,11 +658,11 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 // }
 
 func (p *ReverseProxy) logf(format string, args ...any) {
-	if p.ErrorLog != nil {
-		p.ErrorLog.Printf(format, args...)
-	} else {
-		hrlog.Printf(format, args...)
-	}
+	// if p.ErrorLog != nil {
+	// 	p.ErrorLog.Printf(format, args...)
+	// } else {
+	hrlog.Errorf(format, args...)
+	// }
 }
 
 // NOTE: removed

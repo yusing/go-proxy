@@ -1,8 +1,6 @@
 package main
 
 import (
-	"sync"
-
 	"github.com/sirupsen/logrus"
 )
 
@@ -10,15 +8,17 @@ type Provider struct {
 	Kind  string `json:"kind"` // docker, file
 	Value string `json:"value"`
 
-	watcher Watcher
-	routes  map[string]Route // id -> Route
-	mutex   sync.Mutex
-	l       logrus.FieldLogger
+	watcher     Watcher
+	routes      map[string]Route // id -> Route
+	l           logrus.FieldLogger
+	reloadReqCh chan struct{}
 }
 
 // Init is called after LoadProxyConfig
 func (p *Provider) Init(name string) error {
-	p.l = prlog.WithFields(logrus.Fields{"kind": p.Kind, "name": name})
+	p.l = logrus.WithField("provider", name)
+	p.reloadReqCh = make(chan struct{}, 1)
+
 	defer p.initWatcher()
 
 	if err := p.loadProxyConfig(); err != nil {
@@ -40,16 +40,23 @@ func (p *Provider) StopAllRoutes() {
 }
 
 func (p *Provider) ReloadRoutes() {
-	p.mutex.Lock()
-	defer p.mutex.Unlock()
+	select {
+	case p.reloadReqCh <- struct{}{}:
+		defer func() {
+			<-p.reloadReqCh
+		}()
 
-	p.StopAllRoutes()
-	err := p.loadProxyConfig()
-	if err != nil {
-		p.l.Error("failed to reload routes: ", err)
+		p.StopAllRoutes()
+		err := p.loadProxyConfig()
+		if err != nil {
+			p.l.Error("failed to reload routes: ", err)
+			return
+		}
+		p.StartAllRoutes()
+	default:
+		p.l.Info("reload request already in progress")
 		return
 	}
-	p.StartAllRoutes()
 }
 
 func (p *Provider) loadProxyConfig() error {
@@ -97,9 +104,9 @@ func (p *Provider) initWatcher() error {
 		if err != nil {
 			return NewNestedError("unable to create docker client").With(err)
 		}
-		p.watcher = NewDockerWatcher(dockerClient, p.ReloadRoutes)
+		p.watcher = p.NewDockerWatcher(dockerClient)
 	case ProviderKind_File:
-		p.watcher = NewFileWatcher(p.GetFilePath(), p.ReloadRoutes, p.StopAllRoutes)
+		p.watcher = p.NewFileWatcher()
 	}
 	return nil
 }

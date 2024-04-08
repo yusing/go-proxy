@@ -1,28 +1,25 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"net/http"
+)
 
 type ProxyConfig struct {
-	Alias       string `yaml:"-" json:"-"`
-	Scheme      string `yaml:"scheme" json:"scheme"`
-	Host        string `yaml:"host" json:"host"`
-	Port        string `yaml:"port" json:"port"`
-	LoadBalance string `yaml:"-" json:"-"`                         // docker provider only
-	NoTLSVerify bool   `yaml:"no_tls_verify" json:"no_tls_verify"` // http proxy only
-	Path        string `yaml:"path" json:"path"`                   // http proxy only
-	PathMode    string `yaml:"path_mode" json:"path_mode"`         // http proxy only
-
-	provider *Provider
+	Alias       string      `yaml:"-" json:"-"`
+	Scheme      string      `yaml:"scheme" json:"scheme"`
+	Host        string      `yaml:"host" json:"host"`
+	Port        string      `yaml:"port" json:"port"`
+	LoadBalance string      `yaml:"-" json:"-"`                         // docker provider only
+	NoTLSVerify bool        `yaml:"no_tls_verify" json:"no_tls_verify"` // http proxy only
+	Path        string      `yaml:"path" json:"path"`                   // http proxy only
+	PathMode    string      `yaml:"path_mode" json:"path_mode"`         // http proxy only
+	SetHeaders  http.Header `yaml:"set_headers" json:"set_headers"`     // http proxy only
+	HideHeaders []string    `yaml:"hide_headers" json:"hide_headers"`   // http proxy only
 }
 
 type ProxyConfigMap map[string]ProxyConfig
 type ProxyConfigSlice []ProxyConfig
-
-func NewProxyConfig(provider *Provider) ProxyConfig {
-	return ProxyConfig{
-		provider: provider,
-	}
-}
 
 // used by `GetFileProxyConfigs`
 func (cfg *ProxyConfig) SetDefaults() error {

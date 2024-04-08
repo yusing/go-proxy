@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -212,13 +213,17 @@ func setFieldFromSnake[T interface{}, VT interface{}](obj *T, field string, valu
 	field = utils.snakeToPascal(field)
 	prop := reflect.ValueOf(obj).Elem().FieldByName(field)
 	if prop.Kind() == 0 {
-		return NewNestedError("unknown field").Subject(field)
+		return errors.New("unknown field")
 	}
 	prop.Set(reflect.ValueOf(value))
 	return nil
 }
 
 func validateYaml(schema *jsonschema.Schema, data []byte) error {
+	if noSchemaValidation {
+		return nil
+	}
+
 	var i interface{}
 
 	err := yaml.Unmarshal(data, &i)

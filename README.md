@@ -6,35 +6,29 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 ## Table of content
 
-- [go-proxy](#go-proxy)
-  - [Table of content](#table-of-content)
-  - [Key Points](#key-points)
-  - [How to use](#how-to-use)
-  - [Tested Services](#tested-services)
-    - [HTTP/HTTPs Reverse Proxy](#httphttps-reverse-proxy)
-    - [TCP Proxy](#tcp-proxy)
-    - [UDP Proxy](#udp-proxy)
-  - [Command-line args](#command-line-args)
-    - [Commands](#commands)
-  - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
-  - [Configuration](#configuration)
-    - [Labels (docker)](#labels-docker)
-    - [Environment variables](#environment-variables)
-    - [Config File](#config-file)
-      - [Fields](#fields)
-      - [Provider Kinds](#provider-kinds)
-    - [Provider File](#provider-file)
-    - [Supported DNS Challenge Providers](#supported-dns-challenge-providers)
-  - [Examples](#examples)
-    - [Single port configuration example](#single-port-configuration-example)
-    - [Multiple ports configuration example](#multiple-ports-configuration-example)
-    - [TCP/UDP configuration example](#tcpudp-configuration-example)
-  - [Load balancing Configuration Example](#load-balancing-configuration-example)
-  - [Troubleshooting](#troubleshooting)
-  - [Benchmarks](#benchmarks)
-  - [Known issues](#known-issues)
-  - [Memory usage](#memory-usage)
-  - [Build it yourself](#build-it-yourself)
+<!-- TOC -->
+- [Table of content](#table-of-content)
+- [Key Points](#key-points)
+- [How to use](#how-to-use)
+- [Tested Services](#tested-services)
+  - [HTTP/HTTPs Reverse Proxy](#httphttps-reverse-proxy)
+  - [TCP Proxy](#tcp-proxy)
+  - [UDP Proxy](#udp-proxy)
+- [Command-line args](#command-line-args)
+  - [Commands](#commands)
+- [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
+- [Environment variables](#environment-variables)
+- [Config File](#config-file)
+  - [Fields](#fields)
+  - [Provider Kinds](#provider-kinds)
+  - [Provider File](#provider-file)
+  - [Supported DNS Challenge Providers](#supported-dns-challenge-providers)
+- [Troubleshooting](#troubleshooting)
+- [Benchmarks](#benchmarks)
+- [Known issues](#known-issues)
+- [Memory usage](#memory-usage)
+- [Build it yourself](#build-it-yourself)
+<!-- /TOC -->
 
 ## Key Points
 
@@ -58,6 +52,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
     ![config editor screenshot](screenshots/config_editor.png)
 
+[🔼Back to top](#table-of-content)
+
 ## How to use
 
 1. Setup DNS Records to your machine's IP address
@@ -65,18 +61,23 @@ In the examples domain `x.y.z` is used, replace them with your domain
    - A Record: `*.y.z` -> `10.0.10.1`
    - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
 
-2. Start `go-proxy` (see [Binary](docs/binary.md) or [docker](docs/docker.md))
+2. Start `go-proxy` by
+
+   - [Running from binary or as a system service](docs/binary.md)
+   - [Running as a docker container](docs/docker.md)
 
 3. Start editing config files
    - with text editor (i.e. Visual Studio Code)
-   - or with web config editor by navigate to `ip:8080`
+   - or with web config editor by navigate to `http://ip:8080`
+
+[🔼Back to top](#table-of-content)
 
 ## Tested Services
 
 ### HTTP/HTTPs Reverse Proxy
 
-- nginx
-- minio
+- Nginx
+- Minio
 - AdguardHome Dashboard
 - etc.
 
@@ -90,6 +91,8 @@ In the examples domain `x.y.z` is used, replace them with your domain
 
 - Adguardhome DNS
 - Palworld Dedicated Server
+
+[🔼Back to top](#table-of-content)
 
 ## Command-line args
 
@@ -106,9 +109,11 @@ Examples:
 - Binary: `go-proxy reload`
 - Docker: `docker exec -it go-proxy /app/go-proxy reload`
 
+[🔼Back to top](#table-of-content)
+
 ## Use JSON Schema in VSCode
 
-Modify `.vscode/settings.json` to fit your needs
+Copy [`.vscode/settings.example.json`](.vscode/settings.example.json) to `.vscode/settings.json` and modify to fit your needs
 
 ```json
 {
@@ -125,78 +130,36 @@ Modify `.vscode/settings.json` to fit your needs
 }
 ```
 
-## Configuration
+[🔼Back to top](#table-of-content)
 
-With container name, no label needs to be added _(most of the time)_.
-
-### Labels (docker)
-
-See [docker.md](docs/docker.md#docker-compose-example) for examples
-
-When `go-proxy` is running in `host` network mode, see [here](docs/docker.md#docker-compose-example-host-network) for extra instructions
-
-- `proxy.aliases`: comma separated aliases for subdomain matching
-
-  - default: container name
-
-- `proxy.*.<field>`: wildcard label for all aliases
-
-Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
-
-- `scheme`: proxy protocol
-  - default: `http`
-  - allowed: `http`, `https`, `tcp`, `udp`
-- `host`: proxy host
-  - default: `container_name`
-- `port`: proxy port
-  - default: first expose port (declared in `Dockerfile` or `docker-compose.yml`)
-  - `http(s)`: number in range og `0 - 65535`
-  - `tcp/udp`: `[<listeningPort>:]<targetPort>`
-    - `listeningPort`: number, when it is omitted (not suggested), a free port starting from 20000 will be used.
-    - `targetPort`: number, or predefined names (see [constants.go:14](src/go-proxy/constants.go#L14))
-- `no_tls_verify`: whether skip tls verify when scheme is https
-  - default: `false`
-- `path`: proxy path _(http(s) proxy only)_
-  - default: empty
-- `path_mode`: mode for path handling
-
-  - default: empty
-  - allowed: empty, `forward`, `sub`
-    - `empty`: remove path prefix from URL when proxying
-      1. apps.y.z/webdav -> webdav:80
-      2. apps.y.z./webdav/path/to/file -> webdav:80/path/to/file
-    - `forward`: path remain unchanged
-      1. apps.y.z/webdav -> webdav:80/webdav
-      2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
-    - `sub`: (experimental) remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
-      e.g. apps.y.z/app1 -> webdav:80, `href="/app1/path/to/file"` -> `href="/path/to/file"`
-
-- `load_balance`: _(Docker only)_ enable load balance
-  - allowed: `1`, `true`
-
-### Environment variables
+## Environment variables
 
 - `GOPROXY_DEBUG`: set to `1` or `true` to enable debug behaviors (i.e. output, etc.)
 - `GOPROXY_HOST_NETWORK`: _(Docker only)_ set to `1` when `network_mode: host`
+- `GOPROXY_NO_SCHEMA_VALIDATION`: disable schema validation on config load / reload **(for testing new DNS Challenge providers)**
 
-### Config File
+[🔼Back to top](#table-of-content)
+
+## Config File
 
 See [config.example.yml](config.example.yml) for more
 
-#### Fields
+### Fields
 
 - `autocert`: autocert configuration
 
   - `email`: ACME Email
   - `domains`: a list of domains for cert registration
   - `provider`: DNS Challenge provider, see [Supported DNS Challenge Providers](#supported-dns-challenge-providers)
-  - `options`: provider specific options
+  - `options`: [provider specific options](#supported-dns-challenge-providers)
 
 - `providers`: reverse proxy providers configuration
   - `kind`: provider kind (string), see [Provider Kinds](#provider-kinds)
   - `value`: provider specific value
 
-#### Provider Kinds
+[🔼Back to top](#table-of-content)
+
+### Provider Kinds
 
 - `docker`: load reverse proxies from docker
 
@@ -209,11 +172,15 @@ See [config.example.yml](config.example.yml) for more
 
   value: relative path of file to `config/`
 
+[🔼Back to top](#table-of-content)
+
 ### Provider File
 
-Fields are same as [docker labels](#labels-docker) starting from `scheme`
+Fields are same as [docker labels](docs/docker.md#labels) starting from `scheme`
 
 See [providers.example.yml](providers.example.yml) for examples
+
+[🔼Back to top](#table-of-content)
 
 ### Supported DNS Challenge Providers
 
@@ -223,91 +190,27 @@ See [providers.example.yml](providers.example.yml) for examples
 
   Follow [this guide](https://cloudkul.com/blog/automcatic-renew-and-generate-ssl-on-your-website-using-lego-client/) to create a new token with `Zone.DNS` read and edit permissions
 
+- CloudDNS
+
+  - `client_id`
+  - `email`
+  - `password`
+
+- DuckDNS (thanks [earvingad](https://github.com/earvingad))
+
+  - `token`: DuckDNS Token
+
 To add more provider support, see [this](docs/add_dns_provider.md)
 
-## Examples
-
-See [docker.md](docs/docker.md#docker-compose-example) for complete examples
-
-### Single port configuration example
-
-```yaml
-# (default) https://<container_name>.y.z
-whoami:
-  image: traefik/whoami
-  container_name: whoami # => whoami.y.z
-
-# enable both subdomain and path matching:
-whoami:
-  image: traefik/whoami
-  container_name: whoami
-  labels:
-    - proxy.aliases=whoami,apps
-    - proxy.apps.path=/whoami
-# 1. visit https://whoami.y.z
-# 2. visit https://apps.y.z/whoami
-```
-
-### Multiple ports configuration example
-
-```yaml
-minio:
-  image: quay.io/minio/minio
-  container_name: minio
-  ...
-  labels:
-    - proxy.aliases=minio,minio-console
-    - proxy.minio.port=9000
-    - proxy.minio-console.port=9001
-
-# visit https://minio.y.z to access minio
-# visit https://minio-console.y.z/whoami to access minio console
-```
-
-### TCP/UDP configuration example
-
-```yaml
-# In the app
-app-db:
-  image: postgres:15
-  container_name: app-db
-  ...
-  labels:
-    # Optional (postgres is in the known image map)
-    - proxy.app-db.scheme=tcp
-
-    # Optional (first free port will be used for listening port)
-    - proxy.app-db.port=20000:postgres
-
-# In go-proxy
-go-proxy:
-  ...
-  ports:
-    - 80:80
-    ...
-    - <your desired port>:20000/tcp
-    # or 20000-20010:20000-20010/tcp to declare large range at once
-
-# access app-db via <*>.y.z:20000
-```
-
-## Load balancing Configuration Example
-
-```yaml
-nginx:
-  ...
-  deploy:
-    mode: replicated
-    replicas: 3
-  labels:
-    - proxy.nginx.load_balance=1 # allowed: [1, true]
-```
+[🔼Back to top](#table-of-content)
 
 ## Troubleshooting
 
 Q: How to fix when it shows "no matching route for subdomain \<subdomain>"?
 
 A: Make sure the container is running, and \<subdomain> matches any container name / alias
+
+[🔼Back to top](#table-of-content)
 
 ## Benchmarks
 
@@ -414,13 +317,19 @@ Local benchmark (client running wrk and `go-proxy` server are under same proxmox
   Transfer/sec:     10.94MB
   ```
 
+[🔼Back to top](#table-of-content)
+
 ## Known issues
 
-None
+- Cert "renewal" is actually obtaining a new cert instead of renewing the existing one
+
+[🔼Back to top](#table-of-content)
 
 ## Memory usage
 
 It takes ~15 MB for 50 proxy entries
+
+[🔼Back to top](#table-of-content)
 
 ## Build it yourself
 
@@ -433,3 +342,5 @@ It takes ~15 MB for 50 proxy entries
 4. build binary with `make build`
 
 5. start your container with `make up` (docker) or `bin/go-proxy` (binary)
+
+[🔼Back to top](#table-of-content)

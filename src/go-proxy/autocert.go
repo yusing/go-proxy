@@ -9,6 +9,7 @@ import (
 	"crypto/x509"
 	"os"
 	"path"
+	"slices"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/providers/dns/clouddns"
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
+	"github.com/go-acme/lego/v4/providers/dns/duckdns"
 	"github.com/go-acme/lego/v4/registration"
 )
 
@@ -54,7 +56,7 @@ type AutoCertProvider interface {
 	GetExpiries() CertExpiries
 	LoadCert() bool
 	ObtainCert() NestedErrorLike
-	RenewalOn() time.Time
+	ShouldRenewOn() time.Time
 	ScheduleRenewal()
 }
 
@@ -72,7 +74,7 @@ func (cfg AutoCertConfig) GetProvider() (AutoCertProvider, error) {
 	}
 	gen, ok := providersGenMap[cfg.Provider]
 	if !ok {
-		ne.Extraf("unknown provider: %s", cfg.Provider)
+		ne.Extraf("unknown provider: %q", cfg.Provider)
 	}
 	if ne.HasExtras() {
 		return nil, ne
@@ -189,13 +191,9 @@ func (p *autoCertProvider) LoadCert() bool {
 	return true
 }
 
-func (p *autoCertProvider) RenewalOn() time.Time {
-	t := time.Now().AddDate(0, 0, 3)
+func (p *autoCertProvider) ShouldRenewOn() time.Time {
 	for _, expiry := range p.certExpiries {
-		if expiry.Before(t) {
-			return time.Now()
-		}
-		return t
+		return expiry.AddDate(0, -1, 0)
 	}
 	// this line should never be reached
 	panic("no certificate available")
@@ -203,8 +201,8 @@ func (p *autoCertProvider) RenewalOn() time.Time {
 
 func (p *autoCertProvider) ScheduleRenewal() {
 	for {
-		t := time.Until(p.RenewalOn())
-		aclog.Infof("next renewal in %v", t)
+		t := time.Until(p.ShouldRenewOn())
+		aclog.Infof("next renewal in %v", t.Round(time.Second))
 		time.Sleep(t)
 		err := p.renewIfNeeded()
 		if err != nil {
@@ -230,7 +228,29 @@ func (p *autoCertProvider) saveCert(cert *certificate.Resource) NestedErrorLike 
 }
 
 func (p *autoCertProvider) needRenewal() bool {
-	return time.Now().After(p.RenewalOn())
+	expired := time.Now().After(p.ShouldRenewOn())
+	if expired {
+		return true
+	}
+	if len(p.cfg.Domains) != len(p.certExpiries) {
+		return true
+	}
+	wantedDomains := make([]string, len(p.cfg.Domains))
+	certDomains := make([]string, len(p.certExpiries))
+	copy(wantedDomains, p.cfg.Domains)
+	i := 0
+	for domain := range p.certExpiries {
+		certDomains[i] = domain
+		i++
+	}
+	slices.Sort(wantedDomains)
+	slices.Sort(certDomains)
+	for i, domain := range certDomains {
+		if domain != wantedDomains[i] {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *autoCertProvider) renewIfNeeded() NestedErrorLike {
@@ -249,6 +269,7 @@ func (p *autoCertProvider) renewIfNeeded() NestedErrorLike {
 	for {
 		err := p.ObtainCert()
 		if err == nil {
+			aclog.Info("renewed certificate")
 			return nil
 		}
 		trials++
@@ -305,5 +326,6 @@ func setOptions[T interface{}](cfg *T, opt ProviderOptions) error {
 
 var providersGenMap = map[string]ProviderGenerator{
 	"cloudflare": providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
-	"clouddns": providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
+	"clouddns":   providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
+	"duckdns":    providerGenerator(duckdns.NewDefaultConfig, duckdns.NewDNSProviderConfig),
 }

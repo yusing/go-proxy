@@ -55,7 +55,9 @@
         "no_tls_verify": {
           "description": "Disable TLS verification for https proxy",
           "type": "boolean"
-        }
+        },
+        "set_headers": {},
+        "hide_headers": {}
       },
       "required": ["host"],
       "additionalProperties": false,
@@ -129,6 +131,23 @@
                     "type": "null"
                   }
                 ]
+              }, 
+              "set_headers": {
+                "type": "object",
+                "description": "Proxy headers to set",
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "hide_headers": {
+                "type":"array",
+                "description": "Proxy headers to hide",
+                "items": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -144,6 +163,12 @@
                 "not": true
               },
               "path_mode": {
+                "not": true
+              },
+              "set_headers": {
+                "not": true
+              },
+              "hide_headers": {
                 "not": true
               }
             },
