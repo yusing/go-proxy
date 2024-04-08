@@ -18,18 +18,26 @@ build:
 	mkdir -p bin
 	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go
 
+test:
+	go test src/go-proxy/*.go
+
 up:
-	docker compose up -d --build app
+	docker compose up -d
 
 restart:
-	docker kill go-proxy
-	docker compose up -d app
+	docker compose restart -t 0
 
 logs:
 	tail -f log/go-proxy.log
 
 get:
 	go get -d -u ./src/go-proxy
+
+repush:
+	git reset --soft HEAD^
+	git add -A
+	git commit -m "repush"
+	git push gitlab dev --force
 
 udp-server:
 	docker run -it --rm \

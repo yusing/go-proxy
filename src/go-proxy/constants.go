@@ -123,7 +123,7 @@ var (
 	}
 )
 
-const wildcardLabelPrefix = "proxy.*."
+const wildcardAlias = "*"
 
 const clientUrlFromEnv = "FROM_ENV"
 
@@ -147,18 +147,6 @@ const (
 var (
 	configSchema    *jsonschema.Schema
 	providersSchema *jsonschema.Schema
-	_               = func() *jsonschema.Compiler {
-		c := jsonschema.NewCompiler()
-		c.Draft = jsonschema.Draft7
-		var err error
-		if configSchema, err = c.Compile(configSchemaPath); err != nil {
-			panic(err)
-		}
-		if providersSchema, err = c.Compile(providersSchemaPath); err != nil {
-			panic(err)
-		}
-		return c
-	}()
 )
 
 const (
@@ -168,17 +156,36 @@ const (
 
 const udpBufferSize = 1500
 
-var isHostNetworkMode = os.Getenv("GOPROXY_HOST_NETWORK") == "1"
+var isHostNetworkMode = getEnvBool("GOPROXY_HOST_NETWORK")
 
 var logLevel = func() logrus.Level {
-	switch os.Getenv("GOPROXY_DEBUG") {
-	case "1", "true":
+	if getEnvBool("GOPROXY_DEBUG") {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 	return logrus.GetLevel()
 }()
 
-var isRunningAsService = func() bool {
-	v := os.Getenv("IS_SYSTEMD")
-	return v == "1"
-}()
+var isRunningAsService = getEnvBool("IS_SYSTEMD") || getEnvBool("GOPROXY_IS_SYSTEMD") // IS_SYSTEMD is deprecated
+
+var noSchemaValidation = getEnvBool("GOPROXY_NO_SCHEMA_VALIDATION")
+
+func getEnvBool(key string) bool {
+	v := os.Getenv(key)
+	return v == "1" || v == "true"
+}
+
+func initSchema() {
+	if noSchemaValidation {
+		return
+	}
+
+	c := jsonschema.NewCompiler()
+	c.Draft = jsonschema.Draft7
+	var err error
+	if configSchema, err = c.Compile(configSchemaPath); err != nil {
+		panic(err)
+	}
+	if providersSchema, err = c.Compile(providersSchemaPath); err != nil {
+		panic(err)
+	}
+}

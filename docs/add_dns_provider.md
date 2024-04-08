@@ -37,5 +37,5 @@
        password: b9841238feb177a84330f
    ```
 
-5. Run and test if it works
+5. Run with `GOPROXY_NO_SCHEMA_VALIDATION=1` and test if it works
 6. Commit and create pull request

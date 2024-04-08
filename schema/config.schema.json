@@ -24,28 +24,89 @@
         "provider": {
           "description": "DNS Challenge Provider",
           "type": "string",
-          "enum": ["cloudflare"]
+          "enum": ["cloudflare", "clouddns", "duckdns"]
         },
         "options": {
           "description": "Provider specific options",
-          "type": "object",
-          "properties": {
-            "auth_token": {
-              "description": "Cloudflare API Token with Zone Scope",
-              "type": "string"
-            }
-          }
+          "type": "object"
         }
       },
       "required": ["email", "domains", "provider", "options"],
-      "anyOf": [
+      "allOf": [
         {
-          "properties": {
-            "provider": {
-              "const": "cloudflare"
-            },
-            "options": {
-              "required": ["auth_token"]
+          "if": {
+            "properties": {
+              "provider": {
+                "const": "cloudflare"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "required": ["auth_token"],
+                "additionalProperties": false,
+                "properties": {
+                  "auth_token": {
+                    "description": "Cloudflare API Token with Zone Scope",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provider": {
+                "const": "clouddns"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "required": ["client_id", "email", "password"],
+                "additionalProperties": false,
+                "properties": {
+                  "client_id": {
+                    "description": "CloudDNS Client ID",
+                    "type": "string"
+                  },
+                  "email": {
+                    "description": "CloudDNS Email",
+                    "type": "string"
+                  },
+                  "password": {
+                    "description": "CloudDNS Password",
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provider": {
+                "const": "duckdns"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "required": ["token"],
+                "additionalProperties": false,
+                "properties": {
+                  "token": {
+                    "description": "DuckDNS Token",
+                    "type": "string"
+                  }
+                }
+              }
             }
           }
         }

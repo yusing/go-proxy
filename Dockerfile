@@ -3,7 +3,7 @@ RUN apk add --no-cache unzip wget make
 COPY Makefile .
 RUN make setup-codemirror
 
-FROM golang:1.22.1-alpine as builder
+FROM golang:1.22.2-alpine as builder
 COPY src/ /src
 COPY go.mod go.sum /src/go-proxy
 WORKDIR /src/go-proxy

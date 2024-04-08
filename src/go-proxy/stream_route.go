@@ -48,10 +48,18 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 	var srcPort, dstPort string
 	var srcScheme, dstScheme string
 
+	l := srlog.WithFields(logrus.Fields{
+		"alias": config.Alias,
+	})
 	portSplit := strings.Split(config.Port, ":")
 	if len(portSplit) != 2 {
-		cfgl.Warnf("invalid port %s, assuming it is target port", config.Port)
-		srcPort = "0"
+		l.Warnf(
+			`%s: invalid port %s, 
+			assuming it is target port`,
+			config.Alias,
+			config.Port,
+		)
+		srcPort = "0" // will assign later
 		dstPort = config.Port
 	} else {
 		srcPort = portSplit[0]
@@ -101,11 +109,7 @@ func newStreamRouteBase(config *ProxyConfig) (*StreamRouteBase, error) {
 		stopCh:  make(chan struct{}, 1),
 		connCh:  make(chan interface{}),
 		started: false,
-		l: srlog.WithFields(logrus.Fields{
-			"alias": config.Alias,
-			// "src":   fmt.Sprintf("%s://:%d", srcScheme, srcPortInt),
-			// "dst":   fmt.Sprintf("%s://%s:%d", dstScheme, config.Host, dstPortInt),
-		}),
+		l:       l,
 	}, nil
 }
 

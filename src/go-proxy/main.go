@@ -43,6 +43,8 @@ func main() {
 		return
 	}
 
+	initSchema()
+
 	cfg = NewConfig(configPath)
 	cfg.MustLoad()
 

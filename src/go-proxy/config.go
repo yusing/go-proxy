@@ -1,10 +1,10 @@
 package main
 
 import (
-	"os"
 	"sync"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,12 +25,10 @@ type Config interface {
 func NewConfig(path string) Config {
 	cfg := &config{
 		reader: &FileReader{Path: path},
+		l:      cfgl,
 	}
-	cfg.watcher = NewFileWatcher(
-		path,
-		cfg.MustReload,        // OnChange
-		func() { os.Exit(1) }, // OnDelete
-	)
+	// must init fields above before creating watcher
+	cfg.watcher = cfg.NewFileWatcher()
 	return cfg
 }
 
@@ -43,10 +41,7 @@ func (cfg *config) Value() configModel {
 	return *cfg.m
 }
 
-func (cfg *config) Load(reader ...Reader) error {
-	cfg.mutex.Lock()
-	defer cfg.mutex.Unlock()
-
+func (cfg *config) Load() error {
 	if cfg.reader == nil {
 		panic("config reader not set")
 	}
@@ -68,7 +63,7 @@ func (cfg *config) Load(reader ...Reader) error {
 		ne.With(err)
 	}
 
-	pErrs := NewNestedError("errors in these providers")
+	pErrs := NewNestedError("these providers have errors")
 
 	for name, p := range model.Providers {
 		if p.Kind != ProviderKind_File {
@@ -90,13 +85,16 @@ func (cfg *config) Load(reader ...Reader) error {
 		return ne
 	}
 
+	cfg.mutex.Lock()
+	defer cfg.mutex.Unlock()
+
 	cfg.m = model
 	return nil
 }
 
 func (cfg *config) MustLoad() {
 	if err := cfg.Load(); err != nil {
-		cfgl.Fatal(err)
+		cfg.l.Fatal(err)
 	}
 }
 
@@ -115,7 +113,7 @@ func (cfg *config) Reload() error {
 
 func (cfg *config) MustReload() {
 	if err := cfg.Reload(); err != nil {
-		cfgl.Fatal(err)
+		cfg.l.Fatal(err)
 	}
 }
 
@@ -144,7 +142,7 @@ func (cfg *config) StartProviders() {
 	cfg.providerInitialized = true
 
 	if pErrs.HasExtras() {
-		cfgl.Error(pErrs)
+		cfg.l.Error(pErrs)
 	}
 }
 
@@ -194,6 +192,7 @@ func defaultConfig() *configModel {
 type config struct {
 	m *configModel
 
+	l                   logrus.FieldLogger
 	reader              Reader
 	watcher             Watcher
 	mutex               sync.Mutex

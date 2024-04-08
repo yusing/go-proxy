@@ -34,7 +34,7 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		tr = transport
 	}
 
-	proxy := NewSingleHostReverseProxy(url, tr)
+	proxy := NewReverseProxy(url, tr, config)
 
 	route := &HTTPRoute{
 		Alias:    config.Alias,
@@ -42,36 +42,35 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 		Path:     config.Path,
 		Proxy:    proxy,
 		PathMode: config.PathMode,
-		l: hrlog.WithFields(logrus.Fields{
-			"alias":     config.Alias,
-			// "path":      config.Path,
-			// "path_mode": config.PathMode,
-		}),
+		l:        logrus.WithField("alias", config.Alias),
 	}
 
 	var rewriteBegin = proxy.Rewrite
 	var rewrite func(*ProxyRequest)
 	var modifyResponse func(*http.Response) error
 
-	switch {
-	case config.Path == "", config.PathMode == ProxyPathMode_Forward:
+	// no path or forward path
+	if config.Path == "" || config.PathMode == ProxyPathMode_Forward {
 		rewrite = rewriteBegin
-	case config.PathMode == ProxyPathMode_RemovedPath:
-		rewrite = func(pr *ProxyRequest) {
-			rewriteBegin(pr)
-			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
+	} else {
+		switch config.PathMode {
+		case ProxyPathMode_RemovedPath:
+			rewrite = func(pr *ProxyRequest) {
+				rewriteBegin(pr)
+				pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
+			}
+		case ProxyPathMode_Sub:
+			rewrite = func(pr *ProxyRequest) {
+				rewriteBegin(pr)
+				// disable compression
+				pr.Out.Header.Set("Accept-Encoding", "identity")
+				// remove path prefix
+				pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
+			}
+			modifyResponse = config.pathSubModResp
+		default:
+			return nil, NewNestedError("invalid path mode").Subject(config.PathMode)
 		}
-	case config.PathMode == ProxyPathMode_Sub:
-		rewrite = func(pr *ProxyRequest) {
-			rewriteBegin(pr)
-			// disable compression
-			pr.Out.Header.Set("Accept-Encoding", "identity")
-			// remove path prefix
-			pr.Out.URL.Path = strings.TrimPrefix(pr.Out.URL.Path, config.Path)
-		}
-		modifyResponse = config.pathSubModResp
-	default:
-		return nil, NewNestedError("invalid path mode").Subject(config.PathMode)
 	}
 
 	if logLevel == logrus.DebugLevel {
@@ -96,8 +95,9 @@ func NewHTTPRoute(config *ProxyConfig) (*HTTPRoute, error) {
 }
 
 func (r *HTTPRoute) Start() {
-	// dummy
+	httpRoutes.Get(r.Alias).Add(r.Path, r)
 }
+
 func (r *HTTPRoute) Stop() {
 	httpRoutes.Delete(r.Alias)
 }

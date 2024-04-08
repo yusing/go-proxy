@@ -98,7 +98,7 @@ Wants=network-online.target systemd-networkd-wait-online.service
 Type=simple
 ExecStart=${APP_ROOT}/bin/go-proxy
 WorkingDirectory=${APP_ROOT}
-Environment="IS_SYSTEMD=1"
+Environment="GOPROXY_IS_SYSTEMD=1"
 Restart=on-failure
 RestartSec=1s
 KillMode=process
