@@ -3,7 +3,6 @@
 ## Table of content
 
 <!-- TOC -->
-
 - [Table of content](#table-of-content)
 - [Setup](#setup)
 - [Labels](#labels)
@@ -18,7 +17,7 @@
   - [Local docker provider in host network](#local-docker-provider-in-host-network)
     - [Proxy setup](#proxy-setup)
   - [Services URLs for above examples](#services-urls-for-above-examples)
-  <!-- /TOC -->
+<!-- /TOC -->
 
 ## Setup
 
@@ -113,8 +112,7 @@ Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
 
     ```yaml
     labels:
-      - |
-        proxy.app.set_headers=
+      proxy.app.set_headers: |
         X-Custom-Header1: value1
         X-Custom-Header1: value2
         X-Custom-Header2: value2
@@ -126,11 +124,7 @@ Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
 
 ## Labels (docker specific)
 
-Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.app.headers.hide: X-Powered-By,X-Custom-Header`)
-
-- `headers.set.<header>`: value of header to set
-
-- `headers.hide`: comma seperated list of headers to hide
+Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.app.load_balance=1`)
 
 - `load_balance`: enable load balance
   - allowed: `1`, `true`
