@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/docker/cli v26.0.0+incompatible
-	github.com/docker/docker v26.0.0+incompatible
+	github.com/docker/docker v26.0.2+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.16.1
 	github.com/santhosh-tekuri/jsonschema v1.2.4
