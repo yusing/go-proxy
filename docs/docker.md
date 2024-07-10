@@ -25,7 +25,7 @@
 
 2. Run setup script
 
-   `bash <(wget -qO- https://6uo.me/go-proxy-setup-docker)`
+   `bash <(wget -qO- https://github.com/yusing/go-proxy/raw/main/setup-docker.sh)`
 
    What it does:
 
