@@ -8,31 +8,63 @@
       "type": "object",
       "properties": {
         "email": {
-          "description": "ACME Email",
+          "title": "ACME Email",
           "type": "string",
           "pattern": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
           "patternErrorMessage": "Invalid email"
         },
         "domains": {
-          "description": "Cert Domains",
+          "title": "Cert Domains",
           "type": "array",
           "items": {
             "type": "string"
           },
           "minItems": 1
         },
+        "cert_path": {
+          "title": "path of cert file to load/store",
+          "description": "default: certs/cert.crt",
+          "type": "string"
+        },
+        "key_path": {
+          "title": "path of key file to load/store",
+          "description": "default: certs/priv.key",
+          "type": "string"
+        },
         "provider": {
-          "description": "DNS Challenge Provider",
+          "title": "DNS Challenge Provider",
           "type": "string",
-          "enum": ["cloudflare", "clouddns", "duckdns"]
+          "enum": [
+            "local",
+            "cloudflare",
+            "clouddns",
+            "duckdns"
+          ]
         },
         "options": {
-          "description": "Provider specific options",
+          "title": "Provider specific options",
           "type": "object"
         }
       },
-      "required": ["email", "domains", "provider", "options"],
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "provider": {
+                "not": true,
+                "const": "local"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "email",
+              "domains",
+              "provider",
+              "options"
+            ]
+          }
+        },
         {
           "if": {
             "properties": {
@@ -44,7 +76,9 @@
           "then": {
             "properties": {
               "options": {
-                "required": ["auth_token"],
+                "required": [
+                  "auth_token"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "auth_token": {
@@ -67,7 +101,11 @@
           "then": {
             "properties": {
               "options": {
-                "required": ["client_id", "email", "password"],
+                "required": [
+                  "client_id",
+                  "email",
+                  "password"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "client_id": {
@@ -98,7 +136,9 @@
           "then": {
             "properties": {
               "options": {
-                "required": ["token"],
+                "required": [
+                  "token"
+                ],
                 "additionalProperties": false,
                 "properties": {
                   "token": {
@@ -123,13 +163,19 @@
             "kind": {
               "description": "Proxy provider kind",
               "type": "string",
-              "enum": ["docker", "file"]
+              "enum": [
+                "docker",
+                "file"
+              ]
             },
             "value": {
               "type": "string"
             }
           },
-          "required": ["kind", "value"],
+          "required": [
+            "kind",
+            "value"
+          ],
           "allOf": [
             {
               "if": {
@@ -190,5 +236,7 @@
     }
   },
   "additionalProperties": false,
-  "required": ["providers"]
+  "required": [
+    "providers"
+  ]
 }

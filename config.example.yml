@@ -1,21 +1,33 @@
-# Autocert (uncomment to enable)
-# autocert: # (optional, if you need autocert feature)
-#   email: "user@domain.com" # (required) email for acme certificate
-#   domains: # (required)
-#     - "*.y.z" # domain for acme certificate, use wild card to allow all subdomains
-#   provider: cloudflare # (required) dns challenge provider (string)
-#   options: # provider specific options
-#     auth_token: "YOUR_ZONE_API_TOKEN"
+# Autocert (choose one below and uncomment to enable)
+
+# 1. use existing cert
+# autocert:
+#   provider: local
+#   cert_path: certs/cert.crt # optional, uncomment only if you need to change it
+#   key_path: certs/priv.key # optional, uncomment only if you need to change it
+
+# 2. cloudflare
+# autocert:
+#   provider: cloudflare
+#   email: # ACME Email
+#   domains: # a list of domains for cert registration
+#     -
+#   options:
+#     - auth_token: # your zone API token
+
+# 3. other providers, check readme for more
+
 providers:
   local:
     kind: docker
     # for value format, see https://docs.docker.com/reference/cli/dockerd/
-    # i.e. FROM_ENV, ssh://user@10.0.1.1:22, tcp://10.0.2.1:2375
+    # i.e. ssh://user@10.0.1.1:22, tcp://10.0.2.1:2375
+    # use FROM_ENV if you have binded docker socket to /var/run/docker.sock
     value: FROM_ENV
   providers:
     kind: file
     value: providers.yml
-
 # Fixed options (optional, non hot-reloadable)
+
 # timeout_shutdown: 5
 # redirect_to_https: false

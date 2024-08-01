@@ -16,10 +16,10 @@ setup-codemirror:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy src/go-proxy/*.go
+	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy github.com/yusing/go-proxy
 
 test:
-	go test src/go-proxy/*.go
+	cd src && go test && cd ..
 
 up:
 	docker compose up -d
@@ -28,22 +28,19 @@ restart:
 	docker compose restart -t 0
 
 logs:
-	tail -f log/go-proxy.log
+	docker compose logs -f
 
 get:
-	go get -d -u ./src/go-proxy
+	cd src && go get -u && go mod tidy && cd ..
+
+debug:
+	make build && GOPROXY_DEBUG=1 bin/go-proxy
+
+archive:
+	git archive HEAD -o ../go-proxy-$$(date +"%Y%m%d%H%M").zip
 
 repush:
 	git reset --soft HEAD^
 	git add -A
 	git commit -m "repush"
 	git push gitlab dev --force
-
-udp-server:
-	docker run -it --rm \
-		-p 9999:9999/udp \
-		--label proxy.test-udp.scheme=udp \
-		--label proxy.test-udp.port=20003:9999 \
-		--network host \
-		--name test-udp \
-		$$(docker build -q -f udp-test-server.Dockerfile .)

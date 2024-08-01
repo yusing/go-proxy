@@ -3,17 +3,15 @@ RUN apk add --no-cache unzip wget make
 COPY Makefile .
 RUN make setup-codemirror
 
-FROM golang:1.22.2-alpine as builder
-COPY src/ /src
-COPY go.mod go.sum /src/go-proxy
-WORKDIR /src/go-proxy
+FROM golang:1.22.4-alpine as builder
+COPY src /src
+ENV GOCACHE=/root/.cache/go-build
+WORKDIR /src
 RUN --mount=type=cache,target="/go/pkg/mod" \
     go mod download
-
-ENV GOCACHE=/root/.cache/go-build
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
-    CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o go-proxy
+    CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o go-proxy github.com/yusing/go-proxy
 
 FROM alpine:latest
 
@@ -33,7 +31,6 @@ ENV GOPROXY_DEBUG 0
 EXPOSE 80
 EXPOSE 8080
 EXPOSE 443
-EXPOSE 8443
 
 WORKDIR /app
 CMD ["/app/go-proxy"]

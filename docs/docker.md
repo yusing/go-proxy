@@ -25,7 +25,7 @@
 
 2. Run setup script
 
-   `bash <(wget -qO- https://6uo.me/go-proxy-setup-docker)`
+   `bash <(wget -qO- https://github.com/yusing/go-proxy/raw/main/setup-docker.sh)`
 
    What it does:
 
@@ -75,19 +75,25 @@
 
 - `proxy.*.<field>`: wildcard label for all aliases
 
-Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
+_Labels below should have a **`proxy.<alias>.`** prefix._
+
+_i.e. `proxy.nginx.scheme: http`_
 
 - `scheme`: proxy protocol
-  - default: `http`
+  - default:
+    - if `port` is like `x:y`: `tcp`
+    - if `port` is a number: `http`
   - allowed: `http`, `https`, `tcp`, `udp`
 - `host`: proxy host
   - default: `container_name`
+  - allowed: IP address, hostname
 - `port`: proxy port
-  - default: first expose port (declared in `Dockerfile` or `docker-compose.yml`)
+  - default: first port in `ports:`
   - `http(s)`: number in range og `0 - 65535`
-  - `tcp/udp`: `[<listeningPort>:]<targetPort>`
-    - `listeningPort`: number, when it is omitted (not suggested), a free port starting from 20000 will be used.
-    - `targetPort`: number, or predefined names (see [constants.go:14](src/go-proxy/constants.go#L14))
+  - `tcp`, `udp`: `x:y`
+    - `x`: port for `go-proxy` to listen on
+    - `y`: port, or _service name_ of target container
+      see [constants.go:14 for _service names_](../src/common/constants.go#L74)
 - `no_tls_verify`: whether skip tls verify when scheme is https
   - default: `false`
 - `path`: proxy path _(http(s) proxy only)_
@@ -95,7 +101,7 @@ Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
 - `path_mode`: mode for path handling
 
   - default: empty
-  - allowed: empty, `forward`, `sub`
+  - allowed: empty, `forward`
 
     - `empty`: remove path prefix from URL when proxying
       1. apps.y.z/webdav -> webdav:80
@@ -103,28 +109,24 @@ Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.nginx.scheme: http`)
     - `forward`: path remain unchanged
       1. apps.y.z/webdav -> webdav:80/webdav
       2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
-    - `sub`: **(experimental)** remove path prefix from URL and also append path to HTML link attributes (`src`, `href` and `action`) and Javascript `fetch(url)` by response body substitution
-      e.g. apps.y.z/app1 -> webdav:80, `href="/app1/path/to/file"` -> `href="/path/to/file"`
 
-  - `set_headers`: a list of header to set, (key:value, one by line)
+- `set_headers`: a list of header to set, (key:value, one by line)
 
-    Duplicated keys will be treated as multiple-value headers
+  Duplicated keys will be treated as multiple-value headers
 
-    ```yaml
-    labels:
-      proxy.app.set_headers: |
-        X-Custom-Header1: value1
-        X-Custom-Header1: value2
-        X-Custom-Header2: value2
-    ```
+  ```yaml
+  labels:
+    proxy.app.set_headers: |
+      X-Custom-Header1: value1
+      X-Custom-Header1: value2
+      X-Custom-Header2: value2
+  ```
 
-  - `hide_headers`: comma seperated list of headers to hide
+- `hide_headers`: comma seperated list of headers to hide
 
 [🔼Back to top](#table-of-content)
 
-## Labels (docker specific)
-
-Below labels has a **`proxy.<alias>.`** prefix (i.e. `proxy.app.load_balance=1`)
+**docker only:**
 
 - `load_balance`: enable load balance
   - allowed: `1`, `true`

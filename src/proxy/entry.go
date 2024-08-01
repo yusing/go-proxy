@@ -1,0 +1,94 @@
+package proxy
+
+import (
+	"net/http"
+	"net/url"
+	"strconv"
+
+	E "github.com/yusing/go-proxy/error"
+	M "github.com/yusing/go-proxy/models"
+	T "github.com/yusing/go-proxy/proxy/fields"
+)
+
+type (
+	Entry struct { // real model after validation
+		Alias       T.Alias
+		Scheme      T.Scheme
+		Host        T.Host
+		Port        T.Port
+		URL         *url.URL
+		NoTLSVerify bool
+		Path        T.Path
+		SetHeaders  http.Header
+		HideHeaders []string
+	}
+	StreamEntry struct {
+		Alias  T.Alias        `json:"alias"`
+		Scheme T.StreamScheme `json:"scheme"`
+		Host   T.Host         `json:"host"`
+		Port   T.StreamPort   `json:"port"`
+	}
+)
+
+func NewEntry(m *M.ProxyEntry) (any, E.NestedError) {
+	m.SetDefaults()
+	scheme, err := T.NewScheme(m.Scheme)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	if scheme.IsStream() {
+		return validateStreamEntry(m)
+	}
+	return validateEntry(m, *scheme)
+}
+
+func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
+	host, err := T.NewHost(m.Host)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	port, err := T.NewPort(m.Port)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	path, err := T.NewPath(m.Path)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	url, err := E.Check(url.Parse(s.String() + "://" + host.String() + ":" + strconv.Itoa(int(port))))
+	if err.IsNotNil() {
+		return nil, err
+	}
+	return &Entry{
+		Alias:       T.NewAlias(m.Alias),
+		Scheme:      s,
+		Host:        host,
+		Port:        port,
+		URL:         url,
+		NoTLSVerify: m.NoTLSVerify,
+		Path:        path,
+		SetHeaders:  m.SetHeaders,
+		HideHeaders: m.HideHeaders,
+	}, E.Nil()
+}
+
+func validateStreamEntry(m *M.ProxyEntry) (*StreamEntry, E.NestedError) {
+	host, err := T.NewHost(m.Host)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	port, err := T.NewStreamPort(m.Port)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	scheme, err := T.NewStreamScheme(m.Scheme)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	return &StreamEntry{
+		Alias:  T.NewAlias(m.Alias),
+		Scheme: *scheme,
+		Host:   host,
+		Port:   port,
+	}, E.Nil()
+}

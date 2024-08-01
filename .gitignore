@@ -3,8 +3,14 @@ compose.yml
 config/
 certs/
 bin/
+
 templates/codemirror/
 
 logs/
 log/
+
 .vscode/settings.json
+
+go.work.sum
+
+!src/config/

@@ -3,10 +3,10 @@
   "title": "go-proxy providers file",
   "anyOf": [
     {
-      "type":"object"
+      "type": "object"
     },
     {
-      "type":"null"
+      "type": "null"
     }
   ],
   "patternProperties": {
@@ -19,11 +19,20 @@
           "anyOf": [
             {
               "type": "string",
-              "enum": ["http", "https", "tcp", "udp"]
+              "enum": [
+                "http",
+                "https",
+                "tcp",
+                "udp",
+                "tcp:tcp",
+                "udp:udp",
+                "tcp:udp",
+                "udp:tcp"
+              ]
             },
             {
               "type": "null",
-              "description": "HTTP proxy"
+              "description": "Auto detect base on port number"
             }
           ]
         },
@@ -50,8 +59,9 @@
         "port": {
           "title": "Proxy port"
         },
-        "path": {},
-        "path_mode": {},
+        "path": {
+          "title": "Proxy path pattern (See https://pkg.go.dev/net/http#ServeMux)"
+        },
         "no_tls_verify": {
           "description": "Disable TLS verification for https proxy",
           "type": "boolean"
@@ -59,7 +69,9 @@
         "set_headers": {},
         "hide_headers": {}
       },
-      "required": ["host"],
+      "required": [
+        "host"
+      ],
       "additionalProperties": false,
       "allOf": [
         {
@@ -68,7 +80,10 @@
               {
                 "properties": {
                   "scheme": {
-                    "enum": ["http", "https"]
+                    "enum": [
+                      "http",
+                      "https"
+                    ]
                   }
                 }
               },
@@ -119,19 +134,6 @@
                   }
                 ]
               },
-              "path_mode": {
-                "anyOf": [
-                  {
-                    "description": "Proxy path mode (forward, sub, empty)",
-                    "type": "string",
-                    "enum": ["", "forward", "sub"]
-                  },
-                  {
-                    "description": "Default proxy path mode (sub)",
-                    "type": "null"
-                  }
-                ]
-              }, 
               "set_headers": {
                 "type": "object",
                 "description": "Proxy headers to set",
@@ -143,7 +145,7 @@
                 }
               },
               "hide_headers": {
-                "type":"array",
+                "type": "array",
                 "description": "Proxy headers to hide",
                 "items": {
                   "type": "string"
@@ -154,15 +156,12 @@
           "else": {
             "properties": {
               "port": {
-                "markdownDescription": "`listening port`:`target port | service type`",
+                "markdownDescription": "`listening port`:`proxy port | service name`",
                 "type": "string",
                 "pattern": "^[0-9]+\\:[0-9a-z]+$",
-                "patternErrorMessage": "'port' must be in the format of '<listening port>:<target port | service type>'"
+                "patternErrorMessage": "'port' must be in the format of '<listening port>:<proxy port | service name>'"
               },
               "path": {
-                "not": true
-              },
-              "path_mode": {
                 "not": true
               },
               "set_headers": {
@@ -172,7 +171,9 @@
                 "not": true
               }
             },
-            "required": ["port"]
+            "required": [
+              "port"
+            ]
           }
         },
         {
