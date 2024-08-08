@@ -1,9 +1,4 @@
-FROM alpine:latest AS codemirror
-RUN apk add --no-cache unzip wget make
-COPY Makefile .
-RUN make setup-codemirror
-
-FROM golang:1.22.4-alpine as builder
+FROM golang:1.22.6-alpine as builder
 COPY src /src
 ENV GOCACHE=/root/.cache/go-build
 WORKDIR /src
@@ -18,10 +13,8 @@ FROM alpine:latest
 LABEL maintainer="yusing@6uo.me"
 
 RUN apk add --no-cache tzdata
-RUN mkdir -p /app/templates
-COPY --from=codemirror templates/codemirror/ /app/templates/codemirror
-COPY templates/ /app/templates
 COPY schema/ /app/schema
+# copy binary
 COPY --from=builder /src/go-proxy /app/
 
 RUN chmod +x /app/go-proxy
@@ -29,7 +22,7 @@ ENV DOCKER_HOST unix:///var/run/docker.sock
 ENV GOPROXY_DEBUG 0
 
 EXPOSE 80
-EXPOSE 8080
+EXPOSE 8888
 EXPOSE 443
 
 WORKDIR /app

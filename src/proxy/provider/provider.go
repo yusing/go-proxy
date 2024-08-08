@@ -152,6 +152,7 @@ func (p *Provider) loadRoutes() E.NestedError {
 
 	errors := E.NewBuilder("errors loading routes from provider %q", p.name)
 	entries.EachKV(func(a string, e *M.ProxyEntry) {
+		e.Alias = a
 		r, err := R.NewRoute(e)
 		if err.IsNotNil() {
 			errors.Addf("%s: %w", a, err)

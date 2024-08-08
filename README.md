@@ -5,15 +5,17 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 **Table of content**
 
 <!-- TOC -->
-- [Key Points](#key-points)
-- [Getting Started](#getting-started)
-  - [Commands](#commands)
-  - [Environment variables](#environment-variables)
-  - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
-  - [Config File](#config-file)
-  - [Provider File](#provider-file)
-- [Known issues](#known-issues)
-- [Build it yourself](#build-it-yourself)
+
+- [go-proxy](#go-proxy)
+  - [Key Points](#key-points)
+  - [Getting Started](#getting-started)
+    - [Commands](#commands)
+    - [Environment variables](#environment-variables)
+    - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
+    - [Config File](#config-file)
+    - [Provider File](#provider-file)
+  - [Known issues](#known-issues)
+  - [Build it yourself](#build-it-yourself)
 <!-- /TOC -->
 
 ## Key Points
@@ -36,14 +38,11 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
    - A Record: `*.y.z` -> `10.0.10.1`
    - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
 
-2. Start `go-proxy`
-
-   - [Binary / systemd service](docs/binary.md)
-   - [Docker](docs/docker.md)
+2. Setup `go-proxy` [See here](docs/docker.md)
 
 3. Configure `go-proxy`
    - with text editor (i.e. Visual Studio Code)
-   - or with web config editor via `http://ip:8080`
+   - or with web config editor via `http://gp.y.z`
 
 [🔼Back to top](#table-of-content)
 

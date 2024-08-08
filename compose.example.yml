@@ -1,4 +1,13 @@
 services:
+  frontend:
+    image: ghcr.io/yusing/go-proxy-frontend:latest
+    container_name: go-proxy-frontend
+    restart: unless-stopped
+    network_mode: host
+    labels:
+      - proxy.*.aliases=gp
+    depends_on:
+      - app
   app:
     image: ghcr.io/yusing/go-proxy:latest
     container_name: go-proxy
@@ -7,7 +16,7 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config:/app/config
-      
+
       # (Optional) choose one of below to enable https
       # 1. use existing certificate
       # if your cert is not named `cert.crt` change `cert_path` in `config/config.yml`

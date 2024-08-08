@@ -3,21 +3,16 @@
 ## Table of content
 
 <!-- TOC -->
-- [Table of content](#table-of-content)
-- [Setup](#setup)
-- [Labels](#labels)
-- [Labels (docker specific)](#labels-docker-specific)
-- [Troubleshooting](#troubleshooting)
-- [Docker compose examples](#docker-compose-examples)
-  - [Local docker provider in bridge network](#local-docker-provider-in-bridge-network)
-  - [Remote docker provider](#remote-docker-provider)
-    - [Explaination](#explaination)
-    - [Remote setup](#remote-setup)
-    - [Proxy setup](#proxy-setup)
-  - [Local docker provider in host network](#local-docker-provider-in-host-network)
-    - [Proxy setup](#proxy-setup)
-  - [Services URLs for above examples](#services-urls-for-above-examples)
-<!-- /TOC -->
+
+- [Docker container guide](#docker-container-guide)
+  - [Table of content](#table-of-content)
+  - [Setup](#setup)
+  - [Labels](#labels)
+  - [Troubleshooting](#troubleshooting)
+  - [Docker compose examples](#docker-compose-examples)
+    - [Local docker provider in bridge network](#local-docker-provider-in-bridge-network)
+      - [Proxy setup](#proxy-setup)
+    - [Services URLs for above examples](#services-urls-for-above-examples)
 
 ## Setup
 
@@ -124,10 +119,6 @@ _i.e. `proxy.nginx.scheme: http`_
 
 - `hide_headers`: comma seperated list of headers to hide
 
-[🔼Back to top](#table-of-content)
-
-**docker only:**
-
 - `load_balance`: enable load balance
   - allowed: `1`, `true`
 
@@ -232,84 +223,6 @@ services:
 
 [🔼Back to top](#table-of-content)
 
-### Remote docker provider
-
-#### Explaination
-
-- Expose container ports to random port in remote host
-- Use container port with an asterisk sign **(\*)** before to find remote port automatically
-
-#### Remote setup
-
-```yaml
-volumes:
-  adg-work:
-  adg-conf:
-  mc-data:
-  palworld:
-  nginx:
-services:
-  adg:
-    image: adguard/adguardhome
-    restart: unless-stopped
-    ports: # map container ports
-      - 80
-      - 3000
-      - 53/udp
-      - 53/tcp
-    labels:
-      - proxy.aliases=adg,adg-dns,adg-setup
-      # add an asterisk (*) before to find host port automatically
-      - proxy.adg.port=*80
-      - proxy.adg-setup.port=*3000
-      - proxy.adg-dns.scheme=udp
-      - proxy.adg-dns.port=*53
-    volumes:
-      - adg-work:/opt/adguardhome/work
-      - adg-conf:/opt/adguardhome/conf
-  mc:
-    image: itzg/minecraft-server
-    tty: true
-    stdin_open: true
-    container_name: mc
-    restart: unless-stopped
-    ports:
-      - 25565
-    labels:
-      - proxy.mc.scheme=tcp
-      - proxy.mc.port=*25565
-    environment:
-      - EULA=TRUE
-    volumes:
-      - mc-data:/data
-  palworld:
-    image: thijsvanloef/palworld-server-docker:latest
-    restart: unless-stopped
-    container_name: pal
-    stop_grace_period: 30s
-    ports:
-      - 8211/udp
-      - 27015/udp
-    labels:
-      - proxy.aliases=pal1,pal2
-      - proxy.*.scheme=udp
-      - proxy.pal1.port=*8211
-      - proxy.pal2.port=*27015
-    environment: ...
-    volumes:
-      - palworld:/palworld
-  nginx:
-    image: nginx
-    container_name: nginx
-    # for single port container, host port will be found automatically
-    ports:
-      - 80
-    volumes:
-      - nginx:/usr/share/nginx/html
-```
-
-[🔼Back to top](#table-of-content)
-
 #### Proxy setup
 
 ```yaml
@@ -318,32 +231,6 @@ go-proxy:
   container_name: go-proxy
   restart: always
   network_mode: host
-  volumes:
-    - ./config:/app/config
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-  labels:
-    - proxy.aliases=gp
-    - proxy.gp.port=8080
-```
-
-[🔼Back to top](#table-of-content)
-
-### Local docker provider in host network
-
-Mostly as remote docker setup, see [remote setup](#remote-setup)
-
-With `GOPROXY_HOST_NETWORK=1` to treat it as remote docker provider
-
-#### Proxy setup
-
-```yaml
-go-proxy:
-  image: ghcr.io/yusing/go-proxy
-  container_name: go-proxy
-  restart: always
-  network_mode: host
-  environment: # this part is needed for local docker in host mode
-    - GOPROXY_HOST_NETWORK=1
   volumes:
     - ./config:/app/config
     - /var/run/docker.sock:/var/run/docker.sock:ro
