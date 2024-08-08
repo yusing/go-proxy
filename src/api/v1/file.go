@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -31,8 +32,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, U.ErrMissingKey("filename"), http.StatusBadRequest)
 		return
 	}
-	content := make([]byte, r.ContentLength)
-	_, err := E.Check(r.Body.Read(content))
+	content, err := E.Check(io.ReadAll(r.Body))
 	if err.IsNotNil() {
 		U.HandleErr(w, r, err)
 		return
@@ -45,7 +45,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err.IsNotNil() {
-		U.HandleErr(w, r, err)
+		U.HandleErr(w, r, err, http.StatusBadRequest)
 		return
 	}
 
