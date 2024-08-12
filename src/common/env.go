@@ -7,7 +7,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var IsRunningAsService = getEnvBool("GOPROXY_IS_SYSTEMD")
 var NoSchemaValidation = getEnvBool("GOPROXY_NO_SCHEMA_VALIDATION")
 var IsDebug = getEnvBool("GOPROXY_DEBUG")
 

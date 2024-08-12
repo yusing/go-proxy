@@ -67,7 +67,7 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	path := entry.Path.String()
 	if _, exists := r.Subroutes[path]; exists {
 		httpRoutes.Unlock()
-		return nil, E.Duplicated("path", path).Subject(entry.Alias)
+		return nil, E.Duplicated("path", path)
 	}
 	r.mux.HandleFunc(path, rp.ServeHTTP)
 	if err := recover(); err != nil {
@@ -75,9 +75,9 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 		switch t := err.(type) {
 		case error:
 			// NOTE: likely path pattern error
-			return nil, E.From(t).Subject(entry.Alias)
+			return nil, E.From(t)
 		default:
-			return nil, E.From(fmt.Errorf("%v", t)).Subject(entry.Alias)
+			return nil, E.From(fmt.Errorf("%v", t))
 		}
 	}
 

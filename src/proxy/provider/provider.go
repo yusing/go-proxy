@@ -155,7 +155,7 @@ func (p *Provider) loadRoutes() E.NestedError {
 		e.Alias = a
 		r, err := R.NewRoute(e)
 		if err.IsNotNil() {
-			errors.Addf("%s: %w", a, err)
+			errors.Add(err.Subject(a))
 			p.l.Debugf("failed to load route: %s, %s", a, err)
 		} else {
 			p.routes.Set(a, r)

@@ -32,19 +32,12 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	if common.IsRunningAsService {
-		logrus.SetFormatter(&logrus.TextFormatter{
-			DisableColors:    true,
-			DisableTimestamp: true,
-			DisableSorting:   true,
-		})
-	} else {
-		logrus.SetFormatter(&logrus.TextFormatter{
-			DisableSorting:  true,
-			FullTimestamp:   true,
-			TimestampFormat: "01-02 15:04:05",
-		})
-	}
+	logrus.SetFormatter(&logrus.TextFormatter{
+		DisableSorting:  true,
+		FullTimestamp:   true,
+		ForceColors:     true,
+		TimestampFormat: "01-02 15:04:05",
+	})
 
 	if args.Command == common.CommandReload {
 		if err := apiUtils.ReloadServer(); err.IsNotNil() {
