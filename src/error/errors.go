@@ -1,30 +1,33 @@
 package error
 
+import (
+	stderrors "errors"
+)
+
 var (
-	ErrAlreadyStarted = new("already started")
-	ErrNotStarted     = new("not started")
-	ErrInvalid        = new("invalid")
-	ErrUnsupported    = new("unsupported")
-	ErrNotExists      = new("does not exist")
-	ErrDuplicated     = new("duplicated")
+	ErrFailure     = stderrors.New("failed")
+	ErrInvalid     = stderrors.New("invalid")
+	ErrUnsupported = stderrors.New("unsupported")
+	ErrNotExists   = stderrors.New("does not exist")
+	ErrDuplicated  = stderrors.New("duplicated")
 )
 
 func Failure(what string) NestedError {
-	return errorf("%s failed", what)
+	return errorf("%s %w", what, ErrFailure)
 }
 
 func Invalid(subject, what any) NestedError {
-	return errorf("%w %s: %q", ErrInvalid, subject, what)
+	return errorf("%w %v - %v", ErrInvalid, subject, what)
 }
 
 func Unsupported(subject, what any) NestedError {
-	return errorf("%w %s: %q", ErrUnsupported, subject, what)
+	return errorf("%w %v - %v", ErrUnsupported, subject, what)
 }
 
 func NotExists(subject, what any) NestedError {
-	return errorf("%s %w: %q", subject, ErrNotExists, what)
+	return errorf("%s %v - %v", subject, ErrNotExists, what)
 }
 
 func Duplicated(subject, what any) NestedError {
-	return errorf("%w %s: %q", ErrDuplicated, subject, what)
+	return errorf("%w %v: %v", ErrDuplicated, subject, what)
 }

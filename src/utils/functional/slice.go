@@ -37,11 +37,13 @@ func (s *Slice[T]) Set(i int, v T) {
 }
 
 func (s *Slice[T]) Add(e T) *Slice[T] {
-	return &Slice[T]{append(s.s, e)}
+	s.s = append(s.s, e)
+	return s
 }
 
 func (s *Slice[T]) AddRange(other *Slice[T]) *Slice[T] {
-	return &Slice[T]{append(s.s, other.s...)}
+	s.s = append(s.s, other.s...)
+	return s
 }
 
 func (s *Slice[T]) ForEach(do func(T)) {

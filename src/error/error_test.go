@@ -4,63 +4,67 @@ import (
 	"testing"
 )
 
-func AssertEq(t *testing.T, got, want string) {
+func AssertEq[T comparable](t *testing.T, got, want T) {
 	t.Helper()
 	if got != want {
-		t.Errorf("expected %q, got %q", want, got)
+		t.Errorf("expected:\n%v, got\n%v", want, got)
 	}
 }
 
+func TestErrorIs(t *testing.T) {
+	AssertEq(t, Failure("foo").Is(ErrFailure), true)
+	AssertEq(t, Failure("foo").With("bar").Is(ErrFailure), true)
+	AssertEq(t, Failure("foo").With("bar").Is(ErrInvalid), false)
+	AssertEq(t, Failure("foo").With("bar").With("baz").Is(ErrInvalid), false)
+
+	AssertEq(t, Invalid("foo", "bar").Is(ErrInvalid), true)
+	AssertEq(t, Invalid("foo", "bar").Is(ErrFailure), false)
+}
+
 func TestErrorSimple(t *testing.T) {
-	ne := new("foo bar")
-	AssertEq(t, ne.Error(), "foo bar")
-	ne.Subject("baz")
-	AssertEq(t, ne.Error(), "baz: foo bar")
+	ne := Failure("foo bar")
+	AssertEq(t, ne.Error(), "foo bar failed")
+	ne = ne.Subject("baz")
+	AssertEq(t, ne.Error(), "foo bar failed for \"baz\"")
 }
 
-func TestErrorSubjectOnly(t *testing.T) {
-	ne := new().Subject("bar")
-	AssertEq(t, ne.Error(), "bar")
-}
-
-func TestErrorExtra(t *testing.T) {
-	ne := new("foo").Extra("bar").Extra("baz")
-	AssertEq(t, ne.Error(), "foo:\n  - bar\n  - baz\n")
+func TestErrorWith(t *testing.T) {
+	ne := Failure("foo").With("bar").With("baz")
+	AssertEq(t, ne.Error(), "foo failed:\n  - bar\n  - baz")
 }
 
 func TestErrorNested(t *testing.T) {
-	inner := new("inner").
-		Extra("123").
-		Extra("456")
-	inner2 := new("inner").
-		Subject("2").
-		Extra("456").
-		Extra("789")
-	inner3 := new("inner").
-		Subject("3").
-		Extra("456").
-		Extra("789")
-	ne := new("foo").
-		Extra("bar").
-		Extra("baz").
-		ExtraError(inner).
+	inner := Failure("inner").
+		With("1").
+		With("1")
+	inner2 := Failure("inner2").
+		Subject("action 2").
+		With("2").
+		With("2")
+	inner3 := Failure("inner3").
+		Subject("action 3").
+		With("3").
+		With("3")
+	ne := Failure("foo").
+		With("bar").
+		With("baz").
+		With(inner).
 		With(inner.With(inner2.With(inner3)))
 	want :=
-		`foo:
+		`foo failed:
   - bar
   - baz
-  - inner:
-    - 123
-    - 456
-  - inner:
-    - 123
-    - 456
-    - 2: inner:
-      - 456
-      - 789
-      - 3: inner:
-        - 456
-        - 789
-`
+  - inner failed:
+    - 1
+    - 1
+  - inner failed:
+    - 1
+    - 1
+    - inner2 failed for "action 2":
+      - 2
+      - 2
+      - inner3 failed for "action 3":
+        - 3
+        - 3`
 	AssertEq(t, ne.Error(), want)
 }

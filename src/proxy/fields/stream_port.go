@@ -15,7 +15,7 @@ type StreamPort struct {
 func NewStreamPort(p string) (StreamPort, E.NestedError) {
 	split := strings.Split(p, ":")
 	if len(split) != 2 {
-		return StreamPort{}, E.Invalid("stream port", p).Extra("should be in 'x:y' format")
+		return StreamPort{}, E.Invalid("stream port", p).With("should be in 'x:y' format")
 	}
 
 	listeningPort, err := NewPort(split[0])

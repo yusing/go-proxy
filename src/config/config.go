@@ -207,12 +207,12 @@ func (cfg *Config) load() E.NestedError {
 		}
 	}
 
-	errors := E.NewBuilder("errors validating config")
+	warnings := E.NewBuilder("errors validating config")
 
 	cfg.l.Debug("starting autocert")
 	ap, err := autocert.NewConfig(&model.AutoCert).GetProvider()
 	if err.IsNotNil() {
-		errors.Add(E.Failure("autocert provider").With(err))
+		warnings.Add(E.Failure("autocert provider").With(err))
 	} else {
 		cfg.l.Debug("started autocert")
 	}
@@ -224,14 +224,14 @@ func (cfg *Config) load() E.NestedError {
 		p := PR.NewProvider(name, pm)
 		cfg.proxyProviders.Set(name, p)
 		if err := p.StartAllRoutes(); err.IsNotNil() {
-			errors.Add(E.Failure("start routes").Subjectf("provider %s", name).With(err))
+			warnings.Add(E.Failure("start routes").Subjectf("provider %s", name).With(err))
 		}
 	}
 	cfg.l.Debug("started providers")
 
 	cfg.value = model
 
-	if err := errors.Build(); err.IsNotNil() {
+	if err := warnings.Build(); err.IsNotNil() {
 		cfg.l.Warn(err)
 	}
 

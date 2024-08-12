@@ -21,6 +21,7 @@ const (
 )
 
 var providersGenMap = map[string]ProviderGenerator{
+	"":                 providerGenerator(NewDummyDefaultConfig, NewDummyDNSProviderConfig),
 	ProviderLocal:      providerGenerator(NewDummyDefaultConfig, NewDummyDNSProviderConfig),
 	ProviderCloudflare: providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
 	ProviderClouddns:   providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),

@@ -200,25 +200,22 @@ services:
     volumes:
       - nginx:/usr/share/nginx/html
   go-proxy:
-    image: ghcr.io/yusing/go-proxy
+    image: ghcr.io/yusing/go-proxy:latest
     container_name: go-proxy
     restart: always
-    ports:
-      - 80:80 # http
-      - 443:443 # optional, https
-      - 8080:8080 # http panel
-      - 8443:8443 # optional, https panel
-
-      - 53:20000/udp # adguardhome
-      - 25565:20001/tcp # minecraft
-      - 8211:20002/udp # palworld
-      - 27015:20003/udp # palworld
+    network_mode: host
     volumes:
       - ./config:/app/config
       - /var/run/docker.sock:/var/run/docker.sock:ro
+  go-proxy-frontend:
+    image: ghcr.io/yusing/go-proxy-frontend:latest
+    container_name: go-proxy-frontend
+    restart: unless-stopped
+    network_mode: host
     labels:
-      - proxy.aliases=gp
-      - proxy.gp.port=8080
+      - proxy.*.aliases=gp
+    depends_on:
+      - go-proxy
 ```
 
 [🔼Back to top](#table-of-content)

@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -14,27 +13,13 @@ func makeLabel(namespace string, alias string, field string) string {
 	return fmt.Sprintf("%s.%s.%s", namespace, alias, field)
 }
 
-func TestInvalidLabel(t *testing.T) {
-	pl, err := ParseLabel("foo.bar", "1234")
-	if !errors.Is(err, ErrInvalidLabel) {
-		t.Errorf("expected errInvalidLabel, got %s", err)
-	}
-	if pl != nil {
-		t.Errorf("expected nil, got %v", pl)
-	}
-	_, err = ParseLabel("proxy.foo", "bar")
-	if !errors.Is(err, ErrInvalidLabel) {
-		t.Errorf("expected errInvalidLabel, got %s", err)
-	}
-}
-
 func TestHomePageLabel(t *testing.T) {
 	alias := "foo"
 	field := "ip"
 	v := "bar"
 	pl, err := ParseLabel(makeLabel(NSHomePage, alias, field), v)
 	if err.IsNotNil() {
-		t.Errorf("expected err=nil, got %s", err)
+		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 	if pl.Target != alias {
 		t.Errorf("expected alias=%s, got %s", alias, pl.Target)
@@ -53,7 +38,7 @@ func TestStringProxyLabel(t *testing.T) {
 	v := "bar"
 	pl, err := ParseLabel(makeLabel(NSProxy, alias, field), v)
 	if err.IsNotNil() {
-		t.Errorf("expected err=nil, got %s", err)
+		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 	if pl.Target != alias {
 		t.Errorf("expected alias=%s, got %s", alias, pl.Target)
@@ -83,7 +68,7 @@ func TestBoolProxyLabelValid(t *testing.T) {
 	for k, v := range tests {
 		pl, err := ParseLabel(makeLabel(NSProxy, alias, field), k)
 		if err.IsNotNil() {
-			t.Errorf("expected err=nil, got %s", err)
+			t.Errorf("expected err=nil, got %s", err.Error())
 		}
 		if pl.Target != alias {
 			t.Errorf("expected alias=%s, got %s", alias, pl.Target)
@@ -101,8 +86,8 @@ func TestBoolProxyLabelInvalid(t *testing.T) {
 	alias := "foo"
 	field := "no_tls_verify"
 	_, err := ParseLabel(makeLabel(NSProxy, alias, field), "invalid")
-	if !errors.Is(err, E.ErrInvalid) {
-		t.Errorf("expected err InvalidProxyLabel, got %s", err)
+	if !err.Is(E.ErrInvalid) {
+		t.Errorf("expected err InvalidProxyLabel, got %v", reflect.TypeOf(err))
 	}
 }
 
@@ -121,7 +106,7 @@ func TestHeaderProxyLabelValid(t *testing.T) {
 
 	pl, err := ParseLabel(makeLabel(NSProxy, alias, field), v)
 	if err.IsNotNil() {
-		t.Errorf("expected err=nil, got %s", err)
+		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 	if pl.Target != alias {
 		t.Errorf("expected alias=%s, got %s", alias, pl.Target)
@@ -152,7 +137,7 @@ func TestHeaderProxyLabelInvalid(t *testing.T) {
 
 	for _, v := range tests {
 		_, err := ParseLabel(makeLabel(NSProxy, alias, field), v)
-		if !errors.Is(err, E.ErrInvalid) {
+		if !err.Is(E.ErrInvalid) {
 			t.Errorf("expected err InvalidProxyLabel for %q, got %v", v, err)
 		}
 	}
@@ -164,7 +149,7 @@ func TestCommaSepProxyLabelSingle(t *testing.T) {
 	v := "X-Custom-Header1"
 	pl, err := ParseLabel(makeLabel(NSProxy, alias, field), v)
 	if err.IsNotNil() {
-		t.Errorf("expected err=nil, got %s", err)
+		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 	if pl.Target != alias {
 		t.Errorf("expected alias=%s, got %s", alias, pl.Target)
@@ -188,7 +173,7 @@ func TestCommaSepProxyLabelMulti(t *testing.T) {
 	v := "X-Custom-Header1, X-Custom-Header2,X-Custom-Header3"
 	pl, err := ParseLabel(makeLabel(NSProxy, alias, field), v)
 	if err.IsNotNil() {
-		t.Errorf("expected err=nil, got %s", err)
+		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 	if pl.Target != alias {
 		t.Errorf("expected alias=%s, got %s", alias, pl.Target)

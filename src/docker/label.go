@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"errors"
 	"strings"
 
 	E "github.com/yusing/go-proxy/error"
@@ -77,5 +76,3 @@ func RegisterNamespace(namespace string, pm ValueParserMap) {
 
 // namespace:target.attribute -> func(string) (any, error)
 var labelValueParserMap = make(map[string]ValueParserMap)
-
-var ErrInvalidLabel = errors.New("invalid label")

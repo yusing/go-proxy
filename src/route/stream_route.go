@@ -51,7 +51,7 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 
 func (r *StreamRoute) Start() E.NestedError {
 	if r.started.Load() {
-		return E.ErrAlreadyStarted
+		return E.Invalid("state", "already started")
 	}
 	r.wg.Wait()
 	if err := r.Setup(); err != nil {
@@ -66,7 +66,7 @@ func (r *StreamRoute) Start() E.NestedError {
 
 func (r *StreamRoute) Stop() E.NestedError {
 	if !r.started.Load() {
-		return E.ErrNotStarted
+		return E.Invalid("state", "not started")
 	}
 	l := r.l
 	close(r.stopCh)

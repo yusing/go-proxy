@@ -49,8 +49,12 @@ func NewServer(opt Options) (s *server) {
 		logrus.WithFields(logrus.Fields{"?": "server", "name": opt.Name}),
 	})
 
-	_, err := opt.CertProvider.GetCert(nil)
-	certAvailable := err == nil
+	certAvailable := false
+	if opt.CertProvider != nil {
+		_, err := opt.CertProvider.GetCert(nil)
+		certAvailable = err == nil
+	}
+
 	if certAvailable && opt.RedirectToHTTPS && opt.HTTPSPort != "" {
 		httpHandler = redirectToTLSHandler(opt.HTTPSPort)
 	} else {

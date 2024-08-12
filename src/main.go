@@ -16,6 +16,7 @@ import (
 	"github.com/yusing/go-proxy/common"
 	"github.com/yusing/go-proxy/config"
 	"github.com/yusing/go-proxy/docker"
+	E "github.com/yusing/go-proxy/error"
 	R "github.com/yusing/go-proxy/route"
 	"github.com/yusing/go-proxy/server"
 	F "github.com/yusing/go-proxy/utils/functional"
@@ -53,16 +54,24 @@ func main() {
 	}
 
 	onShutdown := F.NewSlice[func()]()
+
+	// exit if only validate config
+	if args.Command == common.CommandValidate {
+		var err E.NestedError
+		data, err := E.Check(os.ReadFile(common.ConfigPath))
+		if err.IsNotNil() {
+			l.WithError(err).Fatalf("config error")
+		}
+		if err = config.Validate(data); err.IsNotNil() {
+			l.WithError(err).Fatalf("config error")
+		}
+		l.Printf("config OK")
+		return
+	}
+
 	cfg, err := config.New()
 	if err.IsNotNil() {
 		l.Fatalf("config error: %s", err)
-	}
-
-	// exit if only validate config
-	// TODO: validate without load
-	if args.Command == common.CommandValidate {
-		l.Printf("config OK")
-		return
 	}
 
 	onShutdown.Add(func() {
@@ -76,22 +85,27 @@ func main() {
 	signal.Notify(sig, syscall.SIGHUP)
 
 	autocert := cfg.GetAutoCertProvider()
-	err = autocert.LoadCert()
 
-	if err.IsNotNil() {
-		l.Infof("error loading certificate: %s\nNow attempting to obtain a new certificate", err)
-		if err = autocert.ObtainCert(); err.IsNotNil() {
-			ctx, certRenewalCancel := context.WithCancel(context.Background())
-			go autocert.ScheduleRenewal(ctx)
-			onShutdown.Add(certRenewalCancel)
+	if autocert != nil {
+		err = autocert.LoadCert()
+
+		if err.IsNotNil() {
+			l.Error(err)
+			l.Info("Now attempting to obtain a new certificate...")
+			if err = autocert.ObtainCert(); err.IsNotNil() {
+				ctx, certRenewalCancel := context.WithCancel(context.Background())
+				go autocert.ScheduleRenewal(ctx)
+				onShutdown.Add(certRenewalCancel)
+			} else {
+				l.Warn(err)
+			}
 		} else {
-			l.Warn(err)
-		}
-	} else {
-		for name, expiry := range autocert.GetExpiries() {
-			l.Infof("certificate %q: expire on %s", name, expiry)
+			for name, expiry := range autocert.GetExpiries() {
+				l.Infof("certificate %q: expire on %s", name, expiry)
+			}
 		}
 	}
+
 	proxyServer := server.InitProxyServer(server.Options{
 		Name:            "proxy",
 		CertProvider:    autocert,

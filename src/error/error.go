@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 )
 
 type (
@@ -20,27 +19,24 @@ type (
 	// You should return (Slice/Map, NestedError).
 	// Caller then should handle the nested error,
 	// and continue with the valid values.
-	NestedError struct{ *nestedError }
-	nestedError struct {
-		neBase
-		sync.Mutex
-	}
-	neBase struct {
+	NestedError struct {
 		subject any
 		err     error // can be nil
-		extras  []neBase
-		inner   *neBase // can be nil
-		level   int
+		extras  []NestedError
 	}
 )
 
 func Nil() NestedError { return NestedError{} }
 
 func From(err error) NestedError {
-	if err == nil {
+	switch err := err.(type) {
+	case nil:
 		return Nil()
+	case NestedError:
+		return err
+	default:
+		return NestedError{err: err}
 	}
-	return NestedError{&nestedError{neBase: *copyFrom(err)}}
 }
 
 // Check is a helper function that
@@ -50,73 +46,41 @@ func Check[T any](obj T, err error) (T, NestedError) {
 }
 
 func Join(message string, err ...error) NestedError {
-	extras := make([]neBase, 0, len(err))
+	extras := make([]NestedError, 0, len(err))
 	nErr := 0
 	for _, e := range err {
 		if err == nil {
 			continue
 		}
-		extras = append(extras, *copyFrom(e))
+		extras = append(extras, From(e))
 		nErr += 1
 	}
 	if nErr == 0 {
 		return Nil()
 	}
-	return NestedError{&nestedError{
-		neBase: neBase{
-			err:    errors.New(message),
-			extras: extras,
-		},
-	}}
-}
-
-func copyFrom(err error) *neBase {
-	if err == nil {
-		return nil
+	return NestedError{
+		err:    errors.New(message),
+		extras: extras,
 	}
-	switch base := err.(type) {
-	case *neBase:
-		copy := *base
-		return &copy
-	}
-	return &neBase{err: err}
 }
 
-func new(message ...string) NestedError {
-	if len(message) == 0 {
-		return From(nil)
-	}
-	return From(errors.New(strings.Join(message, " ")))
-}
-
-func errorf(format string, args ...any) NestedError {
-	return From(fmt.Errorf(format, args...))
-}
-
-func (ne *neBase) Error() string {
+func (ne NestedError) Error() string {
 	var buf strings.Builder
-	ne.writeToSB(&buf, ne.level, "")
+	ne.writeToSB(&buf, 0, "")
 	return buf.String()
 }
 
-func (ne NestedError) ExtraError(err error) NestedError {
-	if err != nil {
-		ne.Lock()
-		ne.extras = append(ne.extras, From(err).addLevel(ne.Level()+1))
-		ne.Unlock()
-	}
-	return ne
+func (ne NestedError) Is(err error) bool {
+	return errors.Is(ne.err, err)
 }
 
-func (ne NestedError) Extra(s string) NestedError {
-	return ne.ExtraError(errors.New(s))
-}
-
-func (ne NestedError) ExtraAny(s any) NestedError {
+func (ne NestedError) With(s any) NestedError {
 	var msg string
 	switch ss := s.(type) {
+	case nil:
+		return ne
 	case error:
-		return ne.ExtraError(ss)
+		return ne.withError(ss)
 	case string:
 		msg = ss
 	case fmt.Stringer:
@@ -124,11 +88,11 @@ func (ne NestedError) ExtraAny(s any) NestedError {
 	default:
 		msg = fmt.Sprint(s)
 	}
-	return ne.ExtraError(errors.New(msg))
+	return ne.withError(errors.New(msg))
 }
 
 func (ne NestedError) Extraf(format string, args ...any) NestedError {
-	return ne.ExtraError(fmt.Errorf(format, args...))
+	return ne.With(fmt.Errorf(format, args...))
 }
 
 func (ne NestedError) Subject(s any) NestedError {
@@ -146,71 +110,47 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	return ne.Subject(fmt.Sprintf(format, args...))
 }
 
-func (ne NestedError) Level() int {
-	return ne.level
+func (ne NestedError) IsNil() bool {
+	return ne.err == nil
 }
 
-func (ne *nestedError) IsNil() bool {
-	return ne == nil
+func (ne NestedError) IsNotNil() bool {
+	return ne.err != nil
 }
 
-func (ne *nestedError) IsNotNil() bool {
-	return ne != nil
+func errorf(format string, args ...any) NestedError {
+	return From(fmt.Errorf(format, args...))
 }
 
-func (ne NestedError) With(inner error) NestedError {
-	ne.Lock()
-	defer ne.Unlock()
-
-	if ne.inner == nil {
-		ne.inner = copyFrom(inner)
-	} else {
-		ne.ExtraError(inner)
-	}
-
-	root := &ne.neBase
-	for root.inner != nil {
-		root.inner.level = root.level + 1
-		root = root.inner
-	}
+func (ne NestedError) withError(err error) NestedError {
+	ne.extras = append(ne.extras, From(err))
 	return ne
 }
 
-func (ne *neBase) addLevel(level int) neBase {
-	ret := *ne
-	ret.level += level
-	if ret.inner != nil {
-		inner := ret.inner.addLevel(level)
-		ret.inner = &inner
-	}
-	return ret
-}
-
-func (ne *neBase) writeToSB(sb *strings.Builder, level int, prefix string) {
+func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
 	ne.writeIndents(sb, level)
 	sb.WriteString(prefix)
 
 	if ne.err != nil {
 		sb.WriteString(ne.err.Error())
-		sb.WriteRune(' ')
 	}
 	if ne.subject != nil {
-		sb.WriteString(fmt.Sprintf("for %q", ne.subject))
+		if ne.err != nil {
+			sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
+		} else {
+			sb.WriteString(fmt.Sprint(ne.subject))
+		}
 	}
-	if ne.inner != nil || len(ne.extras) > 0 {
-		sb.WriteString(":\n")
-	}
-	level += 1
-	for _, extra := range ne.extras {
-		extra.writeToSB(sb, level, "- ")
-		sb.WriteRune('\n')
-	}
-	if ne.inner != nil {
-		ne.inner.writeToSB(sb, level, "- ")
+	if len(ne.extras) > 0 {
+		sb.WriteRune(':')
+		for _, extra := range ne.extras {
+			sb.WriteRune('\n')
+			extra.writeToSB(sb, level+1, "- ")
+		}
 	}
 }
 
-func (ne *neBase) writeIndents(sb *strings.Builder, level int) {
+func (ne *NestedError) writeIndents(sb *strings.Builder, level int) {
 	for i := 0; i < level; i++ {
 		sb.WriteString("  ")
 	}

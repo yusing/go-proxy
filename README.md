@@ -16,7 +16,6 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
     - [Provider File](#provider-file)
   - [Known issues](#known-issues)
   - [Build it yourself](#build-it-yourself)
-<!-- /TOC -->
 
 ## Key Points
 
