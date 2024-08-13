@@ -106,6 +106,10 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	return r, E.Nil()
 }
 
+func (r *HTTPRoute) String() string {
+	return fmt.Sprintf("%s (reverse proxy)", r.Alias)
+}
+
 func (r *HTTPRoute) Start() E.NestedError {
 	httpRoutes.Set(r.Alias.String(), r)
 	return E.Nil()

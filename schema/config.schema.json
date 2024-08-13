@@ -34,12 +34,7 @@
         "provider": {
           "title": "DNS Challenge Provider",
           "type": "string",
-          "enum": [
-            "local",
-            "cloudflare",
-            "clouddns",
-            "duckdns"
-          ]
+          "enum": ["local", "cloudflare", "clouddns", "duckdns"]
         },
         "options": {
           "title": "Provider specific options",
@@ -57,12 +52,7 @@
             }
           },
           "then": {
-            "required": [
-              "email",
-              "domains",
-              "provider",
-              "options"
-            ]
+            "required": ["email", "domains", "provider", "options"]
           }
         },
         {
@@ -76,9 +66,7 @@
           "then": {
             "properties": {
               "options": {
-                "required": [
-                  "auth_token"
-                ],
+                "required": ["auth_token"],
                 "additionalProperties": false,
                 "properties": {
                   "auth_token": {
@@ -101,11 +89,7 @@
           "then": {
             "properties": {
               "options": {
-                "required": [
-                  "client_id",
-                  "email",
-                  "password"
-                ],
+                "required": ["client_id", "email", "password"],
                 "additionalProperties": false,
                 "properties": {
                   "client_id": {
@@ -136,9 +120,7 @@
           "then": {
             "properties": {
               "options": {
-                "required": [
-                  "token"
-                ],
+                "required": ["token"],
                 "additionalProperties": false,
                 "properties": {
                   "token": {
@@ -155,73 +137,54 @@
     "providers": {
       "title": "Proxy providers configuration",
       "type": "object",
-      "patternProperties": {
-        "^[a-zA-Z0-9_-]+$": {
-          "description": "Proxy provider",
+      "additionalProperties": false,
+      "properties": {
+        "include": {
+          "title": "Proxy providers configuration files",
+          "description": "relative path to 'config'",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]+\\.(yml|yaml)$",
+            "patternErrorMessage": "Invalid file name"
+          }
+        },
+        "docker": {
+          "title": "Docker provider configuration",
+          "description": "docker clients (name: address)",
           "type": "object",
-          "properties": {
-            "kind": {
-              "description": "Proxy provider kind",
+          "patternProperties": {
+            "^[a-zA-Z0-9-_]+$": {
               "type": "string",
-              "enum": [
-                "docker",
-                "file"
+              "examples": [
+                "unix:///var/run/docker.sock",
+                "tcp://127.0.0.1:2375",
+                "ssh://user@host:port"
+              ],
+              "oneOf": [
+                {
+                  "const": "$DOCKER_HOST",
+                  "description": "Use DOCKER_HOST environment variable"
+                },
+                {
+                  "pattern": "^unix://.+$",
+                  "description": "A Unix socket for local Docker communication."
+                },
+                {
+                  "pattern": "^ssh://.+$",
+                  "description": "An SSH connection to a remote Docker host."
+                },
+                {
+                  "pattern": "^fd://.+$",
+                  "description": "A file descriptor for Docker communication."
+                },
+                {
+                  "pattern": "^tcp://.+$",
+                  "description": "A TCP connection to a remote Docker host."
+                }
               ]
-            },
-            "value": {
-              "type": "string"
             }
-          },
-          "required": [
-            "kind",
-            "value"
-          ],
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "kind": {
-                    "const": "docker"
-                  }
-                }
-              },
-              "then": {
-                "if": {
-                  "properties": {
-                    "value": {
-                      "const": "FROM_ENV"
-                    }
-                  }
-                },
-                "then": {
-                  "properties": {
-                    "value": {
-                      "description": "use docker client from environment"
-                    }
-                  }
-                },
-                "else": {
-                  "properties": {
-                    "value": {
-                      "description": "docker client URL",
-                      "examples": [
-                        "unix:///var/run/docker.sock",
-                        "tcp://127.0.0.1:2375",
-                        "ssh://user@host:port"
-                      ]
-                    }
-                  }
-                }
-              },
-              "else": {
-                "properties": {
-                  "value": {
-                    "description": "file path"
-                  }
-                }
-              }
-            }
-          ]
+          }
         }
       }
     },
@@ -236,7 +199,5 @@
     }
   },
   "additionalProperties": false,
-  "required": [
-    "providers"
-  ]
+  "required": ["providers"]
 }

@@ -16,8 +16,8 @@ type DockerProvider struct {
 	dockerHost string
 }
 
-func DockerProviderImpl(model *M.ProxyProvider) ProviderImpl {
-	return &DockerProvider{dockerHost: model.Value}
+func DockerProviderImpl(dockerHost string) ProviderImpl {
+	return &DockerProvider{dockerHost: dockerHost}
 }
 
 // GetProxyEntries returns proxy entries from a docker client.
@@ -32,15 +32,16 @@ func DockerProviderImpl(model *M.ProxyProvider) ProviderImpl {
 //   - p: A pointer to the DockerProvider struct.
 //
 // Returns:
-//   - P.EntryModelSlice: A slice of EntryModel structs representing the proxy entries.
+//   - P.EntryModelSlice: (non-nil) A slice of EntryModel structs representing the proxy entries.
 //   - error: An error object if there was an error retrieving the docker client information or parsing the labels.
 func (p DockerProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
+	entries := M.NewProxyEntries()
+
 	info, err := D.GetClientInfo(p.dockerHost)
 	if err.IsNotNil() {
-		return nil, E.From(err)
+		return entries, E.From(err)
 	}
 
-	entries := M.NewProxyEntries()
 	errors := E.NewBuilder("errors when parse docker labels for %q", p.dockerHost)
 
 	for _, container := range info.Containers {

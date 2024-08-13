@@ -134,16 +134,9 @@ func (cfg *Config) Statistics() map[string]interface{} {
 				panic("bug: should not reach here")
 			}
 		})
+		stats["type"] = p.GetType()
 		stats["num_streams"] = nStreams
 		stats["num_reverse_proxies"] = nRPs
-		switch p.ProviderImpl.(type) {
-		case *PR.DockerProvider:
-			stats["type"] = "docker"
-		case *PR.FileProvider:
-			stats["type"] = "file"
-		default:
-			panic("bug: should not reach here")
-		}
 		providerStats[p.GetName()] = stats
 	})
 
@@ -202,7 +195,7 @@ func (cfg *Config) load() E.NestedError {
 	}
 
 	if !common.NoSchemaValidation {
-		if err := Validate(data); err.IsNotNil() {
+		if err = Validate(data); err.IsNotNil() {
 			return err
 		}
 	}
@@ -220,13 +213,19 @@ func (cfg *Config) load() E.NestedError {
 
 	cfg.l.Debug("starting providers")
 	cfg.proxyProviders = F.NewMap[string, *PR.Provider]()
-	for name, pm := range model.Providers {
-		p := PR.NewProvider(name, pm)
-		cfg.proxyProviders.Set(name, p)
-		if err := p.StartAllRoutes(); err.IsNotNil() {
-			warnings.Add(E.Failure("start routes").Subjectf("provider %s", name).With(err))
-		}
+	for _, filename := range model.Providers.Files {
+		p := PR.NewFileProvider(filename)
+		cfg.proxyProviders.Set(p.GetName(), p)
 	}
+	for name, dockerHost := range model.Providers.Docker {
+		p := PR.NewDockerProvider(name, dockerHost)
+		cfg.proxyProviders.Set(p.GetName(), p)
+	}
+	cfg.proxyProviders.EachKV(func(name string, p *PR.Provider) {
+		if err := p.StartAllRoutes(); err.IsNotNil() {
+			warnings.Add(E.Failure("start routes").Subject(p).With(err))
+		}
+	})
 	cfg.l.Debug("started providers")
 
 	cfg.value = model
@@ -244,7 +243,7 @@ func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.Neste
 
 	cfg.proxyProviders.EachKVParallel(func(name string, p *PR.Provider) {
 		if err := do(p); err.IsNotNil() {
-			errors.Add(E.From(err).Subjectf("provider %s", name))
+			errors.Add(E.From(err).Subject(p))
 		}
 	})
 

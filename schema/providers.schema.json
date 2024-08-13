@@ -37,7 +37,7 @@
           ]
         },
         "host": {
-          "anyOf": [
+          "oneOf": [
             {
               "type": "string",
               "format": "ipv4",
@@ -69,9 +69,7 @@
         "set_headers": {},
         "hide_headers": {}
       },
-      "required": [
-        "host"
-      ],
+      "required": ["host"],
       "additionalProperties": false,
       "allOf": [
         {
@@ -80,10 +78,7 @@
               {
                 "properties": {
                   "scheme": {
-                    "enum": [
-                      "http",
-                      "https"
-                    ]
+                    "enum": ["http", "https"]
                   }
                 }
               },
@@ -171,9 +166,7 @@
                 "not": true
               }
             },
-            "required": [
-              "port"
-            ]
+            "required": ["port"]
           }
         },
         {

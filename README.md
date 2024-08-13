@@ -80,12 +80,14 @@ autocert:
     - ...
 # reverse proxy providers configuration
 providers:
-  entry_1:
-    kind: docker
-    value: # `FROM_ENV` or full url to docker host
-  entry_2:
-    kind: file
-    value: # relative path of file to `config/`
+  include:
+    - providers.yml
+    - other_file_1.yml
+    - ...
+  docker:
+    local: $DOCKER_HOST
+    remote-1: tcp://10.0.2.1:2375
+    remote-2: ssh://root:1234@10.0.2.2
 ```
 
 [🔼Back to top](#table-of-content)

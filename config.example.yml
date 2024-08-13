@@ -11,22 +11,26 @@
 #   provider: cloudflare
 #   email: # ACME Email
 #   domains: # a list of domains for cert registration
-#     -
+#     - x.y.z
 #   options:
-#     - auth_token: # your zone API token
+#     - auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
 
 # 3. other providers, check readme for more
 
 providers:
-  local:
-    kind: docker
+  include:
+    - providers.yml # config/providers.yml
+    # add some more below if you want
+    # - file1.yml # config/file_1.yml
+    # - file2.yml
+  docker:
     # for value format, see https://docs.docker.com/reference/cli/dockerd/
-    # i.e. ssh://user@10.0.1.1:22, tcp://10.0.2.1:2375
-    # use FROM_ENV if you have binded docker socket to /var/run/docker.sock
-    value: FROM_ENV
-  providers:
-    kind: file
-    value: providers.yml
+    # $DOCKER_HOST implies unix:///var/run/docker.sock by default
+    local: $DOCKER_HOST
+    # add more docker providers if needed
+    # remote-1: tcp://10.0.2.1:2375
+    # remote-2: ssh://root:1234@10.0.2.2
+
 # Fixed options (optional, non hot-reloadable)
 
 # timeout_shutdown: 5

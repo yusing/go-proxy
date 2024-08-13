@@ -11,7 +11,7 @@ type Port int
 func NewPort(v string) (Port, E.NestedError) {
 	p, err := strconv.Atoi(v)
 	if err != nil {
-		return ErrPort, E.From(err)
+		return ErrPort, E.Invalid("port number", v).With(err)
 	}
 	return NewPortInt(p)
 }

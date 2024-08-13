@@ -11,6 +11,7 @@ type (
 	Route interface {
 		Start() E.NestedError
 		Stop() E.NestedError
+		String() string
 	}
 	Routes = F.Map[string, Route]
 )

@@ -20,7 +20,7 @@ type (
 	// Caller then should handle the nested error,
 	// and continue with the valid values.
 	NestedError struct {
-		subject any
+		subject string
 		err     error // can be nil
 		extras  []NestedError
 	}
@@ -96,7 +96,14 @@ func (ne NestedError) Extraf(format string, args ...any) NestedError {
 }
 
 func (ne NestedError) Subject(s any) NestedError {
-	ne.subject = s
+	switch ss := s.(type) {
+	case string:
+		ne.subject = ss
+	case fmt.Stringer:
+		ne.subject = ss.String()
+	default:
+		ne.subject = fmt.Sprint(s)
+	}
 	return ne
 }
 
@@ -107,7 +114,8 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	if strings.Contains(format, "%w") {
 		panic("Subjectf format should not contain %w")
 	}
-	return ne.Subject(fmt.Sprintf(format, args...))
+	ne.subject = fmt.Sprintf(format, args...)
+	return ne
 }
 
 func (ne NestedError) IsNil() bool {
@@ -134,7 +142,7 @@ func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) 
 	if ne.err != nil {
 		sb.WriteString(ne.err.Error())
 	}
-	if ne.subject != nil {
+	if ne.subject != "" {
 		if ne.err != nil {
 			sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
 		} else {

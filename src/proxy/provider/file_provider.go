@@ -16,10 +16,10 @@ type FileProvider struct {
 	path     string
 }
 
-func FileProviderImpl(m *M.ProxyProvider) ProviderImpl {
+func FileProviderImpl(filename string) ProviderImpl {
 	return &FileProvider{
-		fileName: m.Value,
-		path:     path.Join(common.ConfigBasePath, m.Value),
+		fileName: filename,
+		path:     path.Join(common.ConfigBasePath, filename),
 	}
 }
 
@@ -27,13 +27,17 @@ func Validate(data []byte) E.NestedError {
 	return U.ValidateYaml(U.GetSchema(common.ProvidersSchemaPath), data)
 }
 
+func (p *FileProvider) String() string {
+	return p.fileName
+}
+
 func (p *FileProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
 	entries := M.NewProxyEntries()
 	data, err := E.Check(os.ReadFile(p.path))
 	if err.IsNotNil() {
-		return entries, E.Failure("read file").Subject(p.fileName).With(err)
+		return entries, E.Failure("read file").Subject(p).With(err)
 	}
-	ne := E.Failure("validation").Subject(p.fileName)
+	ne := E.Failure("validation").Subject(p)
 	if !common.NoSchemaValidation {
 		if err = Validate(data); err.IsNotNil() {
 			return entries, ne.With(err)

@@ -35,7 +35,7 @@ const (
 	ProvidersSchemaPath = SchemaBasePath + "providers.schema.json"
 )
 
-const DockerHostFromEnv = "FROM_ENV"
+const DockerHostFromEnv = "$DOCKER_HOST"
 
 const (
 	ProxyHTTPPort  = ":80"

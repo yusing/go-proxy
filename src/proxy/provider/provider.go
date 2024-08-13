@@ -2,9 +2,10 @@ package provider
 
 import (
 	"context"
+	"fmt"
+	"path"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/common"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
 	R "github.com/yusing/go-proxy/route"
@@ -20,6 +21,7 @@ type Provider struct {
 	ProviderImpl
 
 	name        string
+	t           ProviderType
 	routes      *R.Routes
 	reloadReqCh chan struct{}
 
@@ -30,25 +32,47 @@ type Provider struct {
 	l *logrus.Entry
 }
 
-func NewProvider(name string, model M.ProxyProvider) (p *Provider) {
-	p = &Provider{
+type ProviderType string
+
+const (
+	ProviderTypeDocker ProviderType = "docker"
+	ProviderTypeFile   ProviderType = "file"
+)
+
+func newProvider(name string, t ProviderType) *Provider {
+	return &Provider{
 		name:        name,
+		t:           t,
 		routes:      R.NewRoutes(),
 		reloadReqCh: make(chan struct{}, 1),
 		l:           logrus.WithField("provider", name),
 	}
-	switch model.Kind {
-	case common.ProviderKind_Docker:
-		p.ProviderImpl = DockerProviderImpl(&model)
-	case common.ProviderKind_File:
-		p.ProviderImpl = FileProviderImpl(&model)
-	}
+}
+func NewFileProvider(filename string) *Provider {
+	name := path.Base(filename)
+	p := newProvider(name, ProviderTypeFile)
+	p.ProviderImpl = FileProviderImpl(filename)
 	p.watcher = p.NewWatcher()
-	return
+	return p
+}
+
+func NewDockerProvider(name string, dockerHost string) *Provider {
+	p := newProvider(name, ProviderTypeDocker)
+	p.ProviderImpl = DockerProviderImpl(dockerHost)
+	p.watcher = p.NewWatcher()
+	return p
 }
 
 func (p *Provider) GetName() string {
 	return p.name
+}
+
+func (p *Provider) GetType() ProviderType {
+	return p.t
+}
+
+func (p *Provider) String() string {
+	return fmt.Sprintf("%s (%s provider)", p.name, p.t)
 }
 
 func (p *Provider) StartAllRoutes() E.NestedError {
@@ -58,23 +82,24 @@ func (p *Provider) StartAllRoutes() E.NestedError {
 	p.watcherCtx, p.watcherCancel = context.WithCancel(context.Background())
 	go p.watchEvents()
 
-	if err.IsNotNil() {
-		return err
-	}
-	errors := E.NewBuilder("errors starting routes for provider %q", p.name)
+	errors := E.NewBuilder("errors in routes")
 	nStarted := 0
+	nFailed := 0
+
+	if err.IsNotNil() {
+		errors.Add(err)
+	}
+
 	p.routes.EachKVParallel(func(alias string, r R.Route) {
 		if err := r.Start(); err.IsNotNil() {
-			errors.Add(err.Subject(alias))
+			errors.Add(err.Subject(r))
+			nFailed++
 		} else {
 			nStarted++
 		}
 	})
-	if err := errors.Build(); err.IsNotNil() {
-		return err
-	}
-	p.l.Infof("%d routes started", nStarted)
-	return E.Nil()
+	p.l.Infof("%d routes started, %d failed", nStarted, nFailed)
+	return errors.Build()
 }
 
 func (p *Provider) StopAllRoutes() E.NestedError {
@@ -87,7 +112,7 @@ func (p *Provider) StopAllRoutes() E.NestedError {
 	nStopped := 0
 	p.routes.EachKVParallel(func(alias string, r R.Route) {
 		if err := r.Stop(); err.IsNotNil() {
-			errors.Add(err.Subject(alias))
+			errors.Add(err.Subject(r))
 		} else {
 			nStopped++
 		}
@@ -146,7 +171,7 @@ func (p *Provider) loadRoutes() E.NestedError {
 	entries, err := p.GetProxyEntries()
 
 	if err.IsNotNil() {
-		p.l.Warn(err.Subjectf("provider %s", p.name))
+		p.l.Warn(err.Subject(p))
 	}
 	p.routes = R.NewRoutes()
 

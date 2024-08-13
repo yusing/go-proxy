@@ -49,6 +49,10 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	return base, E.Nil()
 }
 
+func (r *StreamRoute) String() string {
+	return fmt.Sprintf("%s (%v stream)", r.Alias, r.Scheme)
+}
+
 func (r *StreamRoute) Start() E.NestedError {
 	if r.started.Load() {
 		return E.Invalid("state", "already started")

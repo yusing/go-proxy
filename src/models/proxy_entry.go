@@ -40,4 +40,10 @@ func (e *ProxyEntry) SetDefaults() {
 	if e.Path == "" {
 		e.Path = "/"
 	}
+	switch e.Scheme {
+	case "http":
+		e.Port = "80"
+	case "https":
+		e.Port = "443"
+	}
 }

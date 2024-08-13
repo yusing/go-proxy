@@ -3,8 +3,8 @@ module github.com/yusing/go-proxy
 go 1.22
 
 require (
-	github.com/docker/cli v27.1.1+incompatible
-	github.com/docker/docker v27.1.1+incompatible
+	github.com/docker/cli v27.1.2+incompatible
+	github.com/docker/docker v27.1.2+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.17.4
 	github.com/santhosh-tekuri/jsonschema v1.2.4
