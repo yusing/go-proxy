@@ -3,7 +3,7 @@ RUN apk add --no-cache unzip wget make
 COPY Makefile .
 RUN make setup-codemirror
 
-FROM golang:1.22.2-alpine as builder
+FROM golang:1.22.2-alpine AS builder
 COPY src/ /src
 COPY go.mod go.sum /src/go-proxy
 WORKDIR /src/go-proxy
@@ -27,8 +27,8 @@ COPY schema/ /app/schema
 COPY --from=builder /src/go-proxy /app/
 
 RUN chmod +x /app/go-proxy
-ENV DOCKER_HOST unix:///var/run/docker.sock
-ENV GOPROXY_DEBUG 0
+ENV DOCKER_HOST=unix:///var/run/docker.sock
+ENV GOPROXY_DEBUG=0
 
 EXPOSE 80
 EXPOSE 8080
