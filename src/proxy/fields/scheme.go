@@ -4,20 +4,19 @@ import (
 	"strings"
 
 	E "github.com/yusing/go-proxy/error"
-	F "github.com/yusing/go-proxy/utils/functional"
 )
 
-type Scheme struct{ F.Stringable }
+type Scheme string
 
-func NewScheme(s string) (*Scheme, E.NestedError) {
+func NewScheme(s string) (Scheme, E.NestedError) {
 	switch s {
 	case "http", "https", "tcp", "udp":
-		return &Scheme{F.NewStringable(s)}, E.Nil()
+		return Scheme(s), E.Nil()
 	}
-	return nil, E.Invalid("scheme", s)
+	return "", E.Invalid("scheme", s)
 }
 
-func NewSchemeFromPort(p string) (*Scheme, E.NestedError) {
+func NewSchemeFromPort(p string) (Scheme, E.NestedError) {
 	var s string
 	switch {
 	case strings.ContainsRune(p, ':'):
@@ -27,11 +26,11 @@ func NewSchemeFromPort(p string) (*Scheme, E.NestedError) {
 	default:
 		s = "http"
 	}
-	return &Scheme{F.NewStringable(s)}, E.Nil()
+	return Scheme(s), E.Nil()
 }
 
-func (s Scheme) IsHTTP() bool   { return s.String() == "http" }
-func (s Scheme) IsHTTPS() bool  { return s.String() == "https" }
-func (s Scheme) IsTCP() bool    { return s.String() == "tcp" }
-func (s Scheme) IsUDP() bool    { return s.String() == "udp" }
+func (s Scheme) IsHTTP() bool   { return s == "http" }
+func (s Scheme) IsHTTPS() bool  { return s == "https" }
+func (s Scheme) IsTCP() bool    { return s == "tcp" }
+func (s Scheme) IsUDP() bool    { return s == "udp" }
 func (s Scheme) IsStream() bool { return s.IsTCP() || s.IsUDP() }

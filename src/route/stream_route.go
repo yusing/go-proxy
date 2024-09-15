@@ -39,18 +39,18 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 		wg:          sync.WaitGroup{},
 		stopCh:      make(chan struct{}, 1),
 		connCh:      make(chan any),
-		l:           logger.WithField("alias", entry.Alias),
 	}
 	if entry.Scheme.ListeningScheme.IsTCP() {
 		base.StreamImpl = NewTCPRoute(base)
 	} else {
 		base.StreamImpl = NewUDPRoute(base)
 	}
+	base.l = logrus.WithField("route", base.StreamImpl)
 	return base, E.Nil()
 }
 
 func (r *StreamRoute) String() string {
-	return fmt.Sprintf("%s (%v stream)", r.Alias, r.Scheme)
+	return fmt.Sprintf("%s-stream: %s", r.Scheme, r.Alias)
 }
 
 func (r *StreamRoute) Start() E.NestedError {
@@ -131,5 +131,3 @@ func (r *StreamRoute) grHandleConnections() {
 		}
 	}
 }
-
-var logger = logrus.WithField("?", "stream")

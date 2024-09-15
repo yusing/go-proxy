@@ -28,4 +28,4 @@ var providersGenMap = map[string]ProviderGenerator{
 	ProviderDuckdns:    providerGenerator(duckdns.NewDefaultConfig, duckdns.NewDNSProviderConfig),
 }
 
-var Logger = logrus.WithField("?", "autocert")
+var Logger = logrus.WithField("module", "autocert")

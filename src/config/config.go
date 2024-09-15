@@ -32,14 +32,15 @@ type Config struct {
 
 func New() (*Config, E.NestedError) {
 	cfg := &Config{
-		l:         logrus.WithField("?", "config"),
+		l:         logrus.WithField("module", "config"),
 		reader:    U.NewFileReader(common.ConfigPath),
 		watcher:   W.NewFileWatcher(common.ConfigFileName),
-		reloadReq: make(chan struct{}),
+		reloadReq: make(chan struct{}, 1),
 	}
 	if err := cfg.load(); err.IsNotNil() {
 		return nil, err
 	}
+	cfg.startProviders()
 	cfg.watchChanges()
 	return cfg, E.Nil()
 }
@@ -200,7 +201,7 @@ func (cfg *Config) load() E.NestedError {
 		}
 	}
 
-	warnings := E.NewBuilder("errors validating config")
+	warnings := E.NewBuilder("errors loading config")
 
 	cfg.l.Debug("starting autocert")
 	ap, err := autocert.NewConfig(&model.AutoCert).GetProvider()
@@ -211,7 +212,7 @@ func (cfg *Config) load() E.NestedError {
 	}
 	cfg.autocertProvider = ap
 
-	cfg.l.Debug("starting providers")
+	cfg.l.Debug("loading providers")
 	cfg.proxyProviders = F.NewMap[string, *PR.Provider]()
 	for _, filename := range model.Providers.Files {
 		p := PR.NewFileProvider(filename)
@@ -221,12 +222,7 @@ func (cfg *Config) load() E.NestedError {
 		p := PR.NewDockerProvider(name, dockerHost)
 		cfg.proxyProviders.Set(p.GetName(), p)
 	}
-	cfg.proxyProviders.EachKV(func(name string, p *PR.Provider) {
-		if err := p.StartAllRoutes(); err.IsNotNil() {
-			warnings.Add(E.Failure("start routes").Subject(p).With(err))
-		}
-	})
-	cfg.l.Debug("started providers")
+	cfg.l.Debug("loaded providers")
 
 	cfg.value = model
 
@@ -257,5 +253,5 @@ func (cfg *Config) startProviders() {
 }
 
 func (cfg *Config) stopProviders() {
-	cfg.controlProviders("stop", (*PR.Provider).StopAllRoutes)
+	cfg.controlProviders("stop routes", (*PR.Provider).StopAllRoutes)
 }

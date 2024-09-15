@@ -53,7 +53,7 @@ func (route *TCPRoute) Handle(c interface{}) error {
 	serverAddr := fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort)
 	dialer := &net.Dialer{}
 
-	serverConn, err := dialer.DialContext(ctx, route.Scheme.ProxyScheme.String(), serverAddr)
+	serverConn, err := dialer.DialContext(ctx, string(route.Scheme.ProxyScheme), serverAddr)
 	if err != nil {
 		return err
 	}

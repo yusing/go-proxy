@@ -255,4 +255,4 @@ func providerGenerator[CT any, PT challenge.Provider](
 	}
 }
 
-var logger = logrus.WithField("?", "autocert")
+var logger = logrus.WithField("module", "autocert")

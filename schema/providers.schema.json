@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "go-proxy providers file",
-  "anyOf": [
+  "oneOf": [
     {
       "type": "object"
     },
@@ -16,7 +16,7 @@
       "properties": {
         "scheme": {
           "title": "Proxy scheme (http, https, tcp, udp)",
-          "anyOf": [
+          "oneOf": [
             {
               "type": "string",
               "enum": [
@@ -101,7 +101,7 @@
           "then": {
             "properties": {
               "port": {
-                "anyOf": [
+                "oneOf": [
                   {
                     "type": "string",
                     "pattern": "^[0-9]{1,5}$",
@@ -118,7 +118,7 @@
                 ]
               },
               "path": {
-                "anyOf": [
+                "oneOf": [
                   {
                     "type": "string",
                     "description": "Proxy path"

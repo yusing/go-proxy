@@ -26,17 +26,15 @@ type (
 	}
 
 	HTTPSubroute struct {
-		TargetURL URL     `json:"targetURL"`
+		TargetURL *URL    `json:"targetURL"`
 		Path      PathKey `json:"path"`
 
 		proxy *P.ReverseProxy
 	}
 
-	URL struct {
-		*url.URL
-	}
-	PathKey       = string
-	SubdomainKey  = string
+	URL           url.URL
+	PathKey       = PT.Path
+	SubdomainKey  = PT.Alias
 	HTTPSubroutes = map[PathKey]HTTPSubroute
 )
 
@@ -53,25 +51,25 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	rp := P.NewReverseProxy(entry.URL, tr, entry)
 
 	httpRoutes.Lock()
+	defer httpRoutes.Unlock()
+
 	var r *HTTPRoute
-	r, ok := httpRoutes.UnsafeGet(entry.Alias.String())
+	r, ok := httpRoutes.UnsafeGet(entry.Alias)
 	if !ok {
 		r = &HTTPRoute{
 			Alias:     entry.Alias,
 			Subroutes: make(HTTPSubroutes),
 			mux:       http.NewServeMux(),
 		}
-		httpRoutes.UnsafeSet(entry.Alias.String(), r)
+		httpRoutes.UnsafeSet(entry.Alias, r)
 	}
 
-	path := entry.Path.String()
+	path := entry.Path
 	if _, exists := r.Subroutes[path]; exists {
-		httpRoutes.Unlock()
 		return nil, E.Duplicated("path", path)
 	}
-	r.mux.HandleFunc(path, rp.ServeHTTP)
+	r.mux.HandleFunc(string(path), rp.ServeHTTP)
 	if err := recover(); err != nil {
-		httpRoutes.Unlock()
 		switch t := err.(type) {
 		case error:
 			// NOTE: likely path pattern error
@@ -82,7 +80,7 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	}
 
 	sr := HTTPSubroute{
-		TargetURL: URL{entry.URL},
+		TargetURL: (*URL)(entry.URL),
 		proxy:     rp,
 		Path:      path,
 	}
@@ -102,21 +100,20 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	}
 
 	r.Subroutes[path] = sr
-	httpRoutes.Unlock()
 	return r, E.Nil()
 }
 
 func (r *HTTPRoute) String() string {
-	return fmt.Sprintf("%s (reverse proxy)", r.Alias)
+	return string(r.Alias)
 }
 
 func (r *HTTPRoute) Start() E.NestedError {
-	httpRoutes.Set(r.Alias.String(), r)
+	httpRoutes.Set(r.Alias, r)
 	return E.Nil()
 }
 
 func (r *HTTPRoute) Stop() E.NestedError {
-	httpRoutes.Delete(r.Alias.String())
+	httpRoutes.Delete(r.Alias)
 	return E.Nil()
 }
 
@@ -125,7 +122,11 @@ func (r *HTTPRoute) GetSubroute(path PathKey) (HTTPSubroute, bool) {
 	return sr, ok
 }
 
-func (u URL) MarshalText() (text []byte, err error) {
+func (u *URL) String() string {
+	return (*url.URL)(u).String()
+}
+
+func (u *URL) MarshalText() (text []byte, err error) {
 	return []byte(u.String()), nil
 }
 
@@ -144,7 +145,7 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 
 func findMux(host string, path PathKey) (*http.ServeMux, error) {
 	sd := strings.Split(host, ".")[0]
-	if r, ok := httpRoutes.UnsafeGet(sd); ok {
+	if r, ok := httpRoutes.UnsafeGet(PT.Alias(sd)); ok {
 		return r.mux, nil
 	}
 	return nil, E.NotExists("route", fmt.Sprintf("subdomain: %s, path: %s", sd, path))

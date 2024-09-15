@@ -129,4 +129,4 @@ func (h *fileWatcherHelper) start() {
 	}
 }
 
-var fsLogger = logrus.WithField("?", "fsnotify")
+var fsLogger = logrus.WithField("module", "fsnotify")

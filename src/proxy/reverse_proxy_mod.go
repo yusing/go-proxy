@@ -535,4 +535,4 @@ func IsPrint(s string) bool {
 	return true
 }
 
-var logger = logrus.WithField("?", "http")
+var logger = logrus.WithField("module", "http")

@@ -158,4 +158,4 @@ func redirectToTLSHandler(port string) http.HandlerFunc {
 	}
 }
 
-var logger = logrus.WithField("?", "server")
+var logger = logrus.WithField("module", "server")

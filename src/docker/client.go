@@ -91,4 +91,4 @@ var clientOptEnvHost = []client.Opt{
 	client.WithAPIVersionNegotiation(),
 }
 
-var logger = logrus.WithField("?", "docker")
+var logger = logrus.WithField("module", "docker")

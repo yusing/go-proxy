@@ -1,9 +1,9 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
@@ -39,7 +39,7 @@ func NewEntry(m *M.ProxyEntry) (any, E.NestedError) {
 	if scheme.IsStream() {
 		return validateStreamEntry(m)
 	}
-	return validateEntry(m, *scheme)
+	return validateEntry(m, scheme)
 }
 
 func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
@@ -55,7 +55,7 @@ func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
 	if err.IsNotNil() {
 		return nil, err
 	}
-	url, err := E.Check(url.Parse(s.String() + "://" + host.String() + ":" + strconv.Itoa(int(port))))
+	url, err := E.Check(url.Parse(fmt.Sprintf("%s://%s:%d", s, host, port)))
 	if err.IsNotNil() {
 		return nil, err
 	}

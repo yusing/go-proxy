@@ -16,7 +16,7 @@ const (
 	ActionCreated  Action = "CREATED"
 )
 
-func (e *Event) String() string {
+func (e Event) String() string {
 	return fmt.Sprintf("%s %s", e.ActorName, e.Action)
 }
 

@@ -1,14 +1,15 @@
 package fields
 
 import (
+	"fmt"
 	"strings"
 
 	E "github.com/yusing/go-proxy/error"
 )
 
 type StreamScheme struct {
-	ListeningScheme *Scheme `json:"listening"`
-	ProxyScheme     *Scheme `json:"proxy"`
+	ListeningScheme Scheme `json:"listening"`
+	ProxyScheme     Scheme `json:"proxy"`
 }
 
 func NewStreamScheme(s string) (ss *StreamScheme, err E.NestedError) {
@@ -31,12 +32,12 @@ func NewStreamScheme(s string) (ss *StreamScheme, err E.NestedError) {
 }
 
 func (s StreamScheme) String() string {
-	return s.ListeningScheme.String() + " -> " + s.ProxyScheme.String()
+	return fmt.Sprintf("%s -> %s", s.ListeningScheme, s.ProxyScheme)
 }
 
 // IsCoherent checks if the ListeningScheme and ProxyScheme of the StreamScheme are equal.
 //
 // It returns a boolean value indicating whether the ListeningScheme and ProxyScheme are equal.
 func (s StreamScheme) IsCoherent() bool {
-	return *s.ListeningScheme == *s.ProxyScheme
+	return s.ListeningScheme == s.ProxyScheme
 }

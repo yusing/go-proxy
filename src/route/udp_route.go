@@ -36,15 +36,15 @@ func NewUDPRoute(base *StreamRoute) StreamImpl {
 }
 
 func (route *UDPRoute) Setup() error {
-	laddr, err := net.ResolveUDPAddr(route.Scheme.ListeningScheme.String(), fmt.Sprintf(":%v", route.Port.ProxyPort))
+	laddr, err := net.ResolveUDPAddr(string(route.Scheme.ListeningScheme), fmt.Sprintf(":%v", route.Port.ProxyPort))
 	if err != nil {
 		return err
 	}
-	source, err := net.ListenUDP(route.Scheme.ListeningScheme.String(), laddr)
+	source, err := net.ListenUDP(string(route.Scheme.ListeningScheme), laddr)
 	if err != nil {
 		return err
 	}
-	raddr, err := net.ResolveUDPAddr(route.Scheme.ProxyScheme.String(), fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort))
+	raddr, err := net.ResolveUDPAddr(string(route.Scheme.ProxyScheme), fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort))
 	if err != nil {
 		source.Close()
 		return err

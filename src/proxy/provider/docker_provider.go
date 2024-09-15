@@ -100,8 +100,8 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 
 	// init entries map for all aliases
 	aliases.ForEach(func(a PT.Alias) {
-		entries.Set(a.String(), &M.ProxyEntry{
-			Alias: a.String(),
+		entries.Set(string(a), &M.ProxyEntry{
+			Alias: string(a),
 			Host:  clientHost,
 			Port:  fmt.Sprint(defaultPort),
 		})

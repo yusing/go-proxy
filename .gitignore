@@ -14,3 +14,5 @@ log/
 go.work.sum
 
 !src/config/
+
+todo.md

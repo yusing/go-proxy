@@ -40,13 +40,15 @@ const (
 )
 
 func newProvider(name string, t ProviderType) *Provider {
-	return &Provider{
+	p := &Provider{
 		name:        name,
 		t:           t,
 		routes:      R.NewRoutes(),
 		reloadReqCh: make(chan struct{}, 1),
-		l:           logrus.WithField("provider", name),
 	}
+	p.l = logrus.WithField("provider", p)
+
+	return p
 }
 func NewFileProvider(filename string) *Provider {
 	name := path.Base(filename)
@@ -72,7 +74,7 @@ func (p *Provider) GetType() ProviderType {
 }
 
 func (p *Provider) String() string {
-	return fmt.Sprintf("%s (%s provider)", p.name, p.t)
+	return fmt.Sprintf("%s: %s", p.t, p.name)
 }
 
 func (p *Provider) StartAllRoutes() E.NestedError {
@@ -103,25 +105,22 @@ func (p *Provider) StartAllRoutes() E.NestedError {
 }
 
 func (p *Provider) StopAllRoutes() E.NestedError {
-	defer p.routes.Clear()
-
 	if p.watcherCancel != nil {
 		p.watcherCancel()
 	}
 	errors := E.NewBuilder("errors stopping routes for provider %q", p.name)
 	nStopped := 0
+	nFailed := 0
 	p.routes.EachKVParallel(func(alias string, r R.Route) {
 		if err := r.Stop(); err.IsNotNil() {
 			errors.Add(err.Subject(r))
+			nFailed++
 		} else {
 			nStopped++
 		}
 	})
-	if err := errors.Build(); err.IsNotNil() {
-		return err
-	}
-	p.l.Infof("%d routes stopped", nStopped)
-	return E.Nil()
+	p.l.Infof("%d routes stopped, %d failed", nStopped, nFailed)
+	return errors.Build()
 }
 
 func (p *Provider) ReloadRoutes() {
@@ -146,7 +145,7 @@ func (p *Provider) GetCurrentRoutes() *R.Routes {
 
 func (p *Provider) watchEvents() {
 	events, errs := p.watcher.Events(p.watcherCtx)
-	l := logrus.WithField("?", "watcher")
+	l := p.l.WithField("module", "watcher")
 
 	for {
 		select {
@@ -156,11 +155,14 @@ func (p *Provider) watchEvents() {
 			if !ok {
 				return
 			}
-			l.Infof("watcher event: %v", event)
+			l.Infof("watcher event: %s", event)
 			p.reloadReqCh <- struct{}{}
 		case err, ok := <-errs:
 			if !ok {
 				return
+			}
+			if err.Is(context.Canceled) {
+				continue
 			}
 			l.Errorf("watcher error: %s", err)
 		}
@@ -175,17 +177,15 @@ func (p *Provider) loadRoutes() E.NestedError {
 	}
 	p.routes = R.NewRoutes()
 
-	errors := E.NewBuilder("errors loading routes from provider %q", p.name)
+	errors := E.NewBuilder("errors loading routes from %s", p)
 	entries.EachKV(func(a string, e *M.ProxyEntry) {
 		e.Alias = a
 		r, err := R.NewRoute(e)
 		if err.IsNotNil() {
 			errors.Add(err.Subject(a))
-			p.l.Debugf("failed to load route: %s, %s", a, err)
 		} else {
 			p.routes.Set(a, r)
 		}
 	})
-	p.l.Debugf("loaded %d routes from %d entries", p.routes.Size(), entries.Size())
 	return errors.Build()
 }

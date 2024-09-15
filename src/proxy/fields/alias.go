@@ -6,11 +6,11 @@ import (
 	F "github.com/yusing/go-proxy/utils/functional"
 )
 
-type Alias struct{ F.Stringable }
+type Alias string
 type Aliases struct{ *F.Slice[Alias] }
 
 func NewAlias(s string) Alias {
-	return Alias{F.NewStringable(s)}
+	return Alias(s)
 }
 
 func NewAliases(s string) Aliases {

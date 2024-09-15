@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
@@ -30,14 +30,14 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 		var err E.NestedError
 		for range 3 {
 			cl, err = D.ConnectClient(w.host)
-			if err.IsNotNil() {
+			if err.IsNil() {
 				break
 			}
 			errCh <- E.From(err)
 			time.Sleep(1 * time.Second)
 		}
 		if err.IsNotNil() {
-			errCh <- E.Failure("connect to docker")
+			errCh <- E.Failure("connecting to docker")
 			return
 		}
 
@@ -50,14 +50,8 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 				errCh <- E.From(<-cErrCh)
 				return
 			case msg := <-cEventCh:
-				containerName, ok := msg.Actor.Attributes["name"]
-				if !ok {
-					// NOTE: should not happen
-					// but if it happens, just ignore it
-					continue
-				}
 				eventCh <- Event{
-					ActorName: containerName,
+					ActorName: msg.Actor.Attributes["name"],
 					Action:    ActionModified,
 				}
 			case err := <-cErrCh:
@@ -79,7 +73,7 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 	return eventCh, errCh
 }
 
-var dwOptions = types.EventsOptions{Filters: filters.NewArgs(
+var dwOptions = events.ListOptions{Filters: filters.NewArgs(
 	filters.Arg("type", "container"),
 	filters.Arg("event", "start"),
 	filters.Arg("event", "die"), // 'stop' already triggering 'die'

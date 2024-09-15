@@ -20,13 +20,14 @@ import (
 	R "github.com/yusing/go-proxy/route"
 	"github.com/yusing/go-proxy/server"
 	F "github.com/yusing/go-proxy/utils/functional"
+	W "github.com/yusing/go-proxy/watcher"
 )
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	args := common.GetArgs()
-	l := logrus.WithField("?", "init")
+	l := logrus.WithField("module", "main")
 
 	if common.IsDebug {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -69,6 +70,7 @@ func main() {
 
 	onShutdown.Add(func() {
 		docker.CloseAllClients()
+		W.StopAllFileWatchers()
 		cfg.Dispose()
 	})
 

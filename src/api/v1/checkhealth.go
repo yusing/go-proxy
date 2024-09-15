@@ -6,6 +6,7 @@ import (
 
 	U "github.com/yusing/go-proxy/api/v1/utils"
 	"github.com/yusing/go-proxy/config"
+	PT "github.com/yusing/go-proxy/proxy/fields"
 	R "github.com/yusing/go-proxy/route"
 )
 
@@ -23,20 +24,20 @@ func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, U.ErrNotFound("target", target), http.StatusNotFound)
 		return
 	case *R.HTTPRoute:
-		path := r.FormValue("path")
-		if path == "" {
-			U.HandleErr(w, r, U.ErrMissingKey("path"), http.StatusBadRequest)
+		path, err := PT.NewPath(r.FormValue("path"))
+		if err.IsNotNil() {
+			U.HandleErr(w, r, err, http.StatusBadRequest)
 			return
 		}
 		sr, hasSr := route.GetSubroute(path)
 		if !hasSr {
-			U.HandleErr(w, r, U.ErrNotFound("path", path), http.StatusNotFound)
+			U.HandleErr(w, r, U.ErrNotFound("path", string(path)), http.StatusNotFound)
 			return
 		}
 		ok = U.IsSiteHealthy(sr.TargetURL.String())
 	case *R.StreamRoute:
 		ok = U.IsStreamHealthy(
-			route.Scheme.ProxyScheme.String(),
+			string(route.Scheme.ProxyScheme),
 			fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort),
 		)
 	}

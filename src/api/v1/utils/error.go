@@ -11,7 +11,7 @@ import (
 
 func HandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
 	err = E.From(err).Subjectf("%s %s", r.Method, r.URL)
-	logrus.WithField("?", "api").Error(err)
+	logrus.WithField("module", "api").Error(err)
 	if len(code) > 0 {
 		http.Error(w, err.Error(), code[0])
 		return

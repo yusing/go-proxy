@@ -2,14 +2,13 @@ package fields
 
 import (
 	E "github.com/yusing/go-proxy/error"
-	F "github.com/yusing/go-proxy/utils/functional"
 )
 
-type Path struct{ F.Stringable }
+type Path string
 
 func NewPath(s string) (Path, E.NestedError) {
 	if s == "" || s[0] == '/' {
-		return Path{F.NewStringable(s)}, E.Nil()
+		return Path(s), E.Nil()
 	}
-	return Path{}, E.Invalid("path", s).With("must be empty or start with '/'")
+	return "", E.Invalid("path", s).With("must be empty or start with '/'")
 }
