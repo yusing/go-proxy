@@ -1,126 +1,161 @@
-# Docker container guide
+# Docker compose guide
 
 ## Table of content
 
 <!-- TOC -->
 
-- [Docker container guide](#docker-container-guide)
+- [Docker compose guide](#docker-compose-guide)
   - [Table of content](#table-of-content)
   - [Setup](#setup)
   - [Labels](#labels)
+    - [Syntax](#syntax)
+    - [Fields](#fields)
+      - [Key-value mapping example](#key-value-mapping-example)
+      - [List example](#list-example)
   - [Troubleshooting](#troubleshooting)
   - [Docker compose examples](#docker-compose-examples)
-    - [Local docker provider in bridge network](#local-docker-provider-in-bridge-network)
-      - [Proxy setup](#proxy-setup)
     - [Services URLs for above examples](#services-urls-for-above-examples)
 
 ## Setup
 
-1. Install `wget` if not already
+1.  Install `wget` if not already
 
-2. Run setup script
+    - Ubuntu based: `sudo apt install -y wget`
+    - Fedora based: `sudo yum install -y wget`
+    - Arch based: `sudo pacman -Sy wget`
 
-   `bash <(wget -qO- https://github.com/yusing/go-proxy/raw/main/setup-docker.sh)`
+2.  Run setup script
 
-   What it does:
+    `bash <(wget -qO- https://github.com/yusing/go-proxy/raw/main/setup-docker.sh)`
 
-   - Create required directories
-   - Setup `config.yml` and `compose.yml`
+    It will setup folder structure and required config files
 
-3. Verify folder structure and then `cd go-proxy`
+3.  Verify folder structure and then `cd go-proxy`
 
-   ```plain
-   go-proxy
-   ├── certs
-   ├── compose.yml
-   └── config
-       ├── config.yml
-       └── providers.yml
-   ```
+    ```plain
+    go-proxy
+    ├── certs
+    ├── compose.yml
+    └── config
+        ├── config.yml
+        └── providers.yml
+    ```
 
-4. Enable HTTPs _(optional)_
+4.  Enable HTTPs _(optional)_
 
-   - To use autocert feature
+    Mount a folder (to store obtained certs) or (containing existing cert)
 
-     - completing `autocert` section in `config/config.yml`
-     - mount `certs/` to `/app/certs` to store obtained certs
+    ```yaml
+    services:
+      go-proxy:
+        ...
+        volumes:
+          - ./certs:/app/certs
+    ```
 
-   - To use existing certificate
+    To use **autocert**, complete that section in `config.yml`, e.g.
 
-     mount your wildcard (`*.y.z`) SSL cert
+    ```yaml
+    autocert:
+      email: john.doe@x.y.z # ACME Email
+      domains: # a list of domains for cert registration
+        - x.y.z
+      provider: cloudflare
+      options:
+        - auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
+    ```
 
-     - cert / chain / fullchain -> `/app/certs/cert.crt`
-     - private key -> `/app/certs/priv.key`
+    To use **existing certificate**, set path for cert and key in `config.yml`, e.g.
 
-5. Modify `compose.yml` fit your needs
+    ```yaml
+    autocert:
+      cert_path: /app/certs/cert.crt
+      key_path: /app/certs/priv.key
+    ```
 
-   Add networks to make sure it is in the same network with other containers, or make sure `proxy.<alias>.host` is reachable
+5.  Modify `compose.yml` to fit your needs
 
-6. Run `docker compose up -d` to start the container
+6.  Run `docker compose up -d` to start the container
 
-7. Start editing config files in `http://<ip>:8080`
+7.  Navigate to Web panel `http://gp.yourdomain.com` and edit proxy config
 
 [🔼Back to top](#table-of-content)
 
 ## Labels
 
-- `proxy.aliases`: comma separated aliases for subdomain matching
+### Syntax
 
-  - default: container name
+| Label                   | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `proxy.aliases`         | comma separated aliases for subdomain and label matching |
+| `proxy.<alias>.<field>` | set field for specific alias                             |
+| `proxy.*.<field>`       | set field for all aliases                                |
 
-- `proxy.*.<field>`: wildcard label for all aliases
+### Fields
 
-_Labels below should have a **`proxy.<alias>.`** prefix._
+| Field                 | Description                              | Default                                                                | Allowed Values / Syntax                                                                                                                                 |
+| --------------------- | ---------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheme`              | proxy protocol                           | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul> | `http`, `https`, `tcp`, `udp`                                                                                                                           |
+| `host`                | proxy host                               | `container_name`                                                       | IP address, hostname                                                                                                                                    |
+| `port`                | proxy port **(http/s)**                  | first port in `ports:`                                                 | number in range of `0 - 65535`                                                                                                                          |
+| `port` **(required)** | proxy port **(tcp/udp)**                 | N/A                                                                    | `x:y` <br><ul><li>x: port for `go-proxy` to listen on</li><li>y: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
+| `no_tls_verify`       | whether skip tls verify **(https only)** | `false`                                                                | boolean                                                                                                                                                 |
+| `path`                | proxy path                               | empty                                                                  | **(http/s only)** string                                                                                                                                |
+| `path_mode`           | path handling **(http/s only)**          | empty                                                                  | empty, `forward`                                                                                                                                        |
+| `set_headers`         | header to set **(http/s only)**          | empty                                                                  | yaml style key-value mapping[<sup>1</sup>](#1-key-value-mapping-example)                                                                                |
+| `hide_headers`        | header to hide **(http/s only)**         | empty                                                                  | yaml style list[<sup>2</sup>](#2-list-example)                                                                                                          |
 
-_i.e. `proxy.nginx.scheme: http`_
+#### Key-value mapping example
 
-- `scheme`: proxy protocol
-  - default:
-    - if `port` is like `x:y`: `tcp`
-    - if `port` is a number: `http`
-  - allowed: `http`, `https`, `tcp`, `udp`
-- `host`: proxy host
-  - default: `container_name`
-  - allowed: IP address, hostname
-- `port`: proxy port
-  - default: first port in `ports:`
-  - `http(s)`: number in range og `0 - 65535`
-  - `tcp`, `udp`: `x:y`
-    - `x`: port for `go-proxy` to listen on
-    - `y`: port, or _service name_ of target container
-      see [constants.go:14 for _service names_](../src/common/constants.go#L74)
-- `no_tls_verify`: whether skip tls verify when scheme is https
-  - default: `false`
-- `path`: proxy path _(http(s) proxy only)_
-  - default: empty
-- `path_mode`: mode for path handling
+Docker Compose
 
-  - default: empty
-  - allowed: empty, `forward`
+```yaml
+services:
+  nginx:
+    ...
+    labels:
+      # values from duplicated header keys will be combined
+      proxy.nginx.set_headers: | # remember to add the '|'
+        X-Custom-Header1: value1, value2
+        X-Custom-Header2: value3
+        X-Custom-Header2: value4
+      # X-Custom-Header2 will be "value3, value4"
+```
 
-    - `empty`: remove path prefix from URL when proxying
-      1. apps.y.z/webdav -> webdav:80
-      2. apps.y.z./webdav/path/to/file -> webdav:80/path/to/file
-    - `forward`: path remain unchanged
-      1. apps.y.z/webdav -> webdav:80/webdav
-      2. apps.y.z./webdav/path/to/file -> webdav:80/webdav/path/to/file
+File Provider
 
-- `set_headers`: a list of header to set, (key:value, one by line)
+```yaml
+service_a:
+  host: service_a.internal
+  set_headers:
+    # do not duplicate header keys, as it is not allowed in YAML
+    X-Custom-Header1: value1, value2
+    X-Custom-Header2: value3
+```
 
-  Duplicated keys will be treated as multiple-value headers
+#### List example
 
-  ```yaml
-  labels:
-    proxy.app.set_headers: |
-      X-Custom-Header1: value1
-      X-Custom-Header1: value2
-      X-Custom-Header2: value2
-  ```
+Docker Compose
 
-- `hide_headers`: comma seperated list of headers to hide
+```yaml
+services:
+  nginx:
+    ...
+    labels:
+      proxy.nginx.hide_headers: | # remember to add the '|'
+        - X-Custom-Header1
+        - X-Custom-Header2
+```
 
-- `load_balance`: enable load balance
-  - allowed: `1`, `true`
+File Provider
+
+```yaml
+service_a:
+  host: service_a.internal
+  hide_headers:
+    - X-Custom-Header1
+    - X-Custom-Header2
+```
 
 [🔼Back to top](#table-of-content)
 
@@ -145,8 +180,6 @@ _i.e. `proxy.nginx.scheme: http`_
 [🔼Back to top](#table-of-content)
 
 ## Docker compose examples
-
-### Local docker provider in bridge network
 
 ```yaml
 volumes:
@@ -216,24 +249,6 @@ services:
       - proxy.*.aliases=gp
     depends_on:
       - go-proxy
-```
-
-[🔼Back to top](#table-of-content)
-
-#### Proxy setup
-
-```yaml
-go-proxy:
-  image: ghcr.io/yusing/go-proxy
-  container_name: go-proxy
-  restart: always
-  network_mode: host
-  volumes:
-    - ./config:/app/config
-    - /var/run/docker.sock:/var/run/docker.sock:ro
-  labels:
-    - proxy.aliases=gp
-    - proxy.gp.port=8080
 ```
 
 [🔼Back to top](#table-of-content)

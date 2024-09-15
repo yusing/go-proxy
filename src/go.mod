@@ -1,8 +1,8 @@
 module github.com/yusing/go-proxy
 
-go 1.22.0
+go 1.22
 
-toolchain go1.22.6
+toolchain go1.23.1
 
 require (
 	github.com/docker/cli v27.2.1+incompatible

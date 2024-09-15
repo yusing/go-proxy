@@ -9,7 +9,7 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 - [go-proxy](#go-proxy)
   - [Key Points](#key-points)
   - [Getting Started](#getting-started)
-    - [Commands](#commands)
+    - [Commands line arguments](#commands-line-arguments)
     - [Environment variables](#environment-variables)
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
     - [Config File](#config-file)
@@ -45,20 +45,22 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 
 [🔼Back to top](#table-of-content)
 
-### Commands
+### Commands line arguments
 
-- `go-proxy` start proxy server
-- `go-proxy validate` validate config and exit
-- `go-proxy reload` trigger a force reload of config
+| Argument   | Description                      |
+| ---------- | -------------------------------- |
+| empty      | start proxy server               |
+| `validate` | validate config and exit         |
+| `reload`   | trigger a force reload of config |
 
-**For docker containers, run `docker exec -it go-proxy /app/go-proxy <command>`**
+**run with `docker exec <container_name> /app/go-proxy <command>`**
 
 ### Environment variables
 
-Booleans:
-
-- `GOPROXY_DEBUG` enable debug behaviors
-- `GOPROXY_NO_SCHEMA_VALIDATION`: disable schema validation **(useful for testing new DNS Challenge providers)**
+| Environment Variable           | Description               | Default | Values  |
+| ------------------------------ | ------------------------- | ------- | ------- |
+| `GOPROXY_NO_SCHEMA_VALIDATION` | disable schema validation | `false` | boolean |
+| `GOPROXY_DEBUG`                | enable debug behaviors    | `false` | boolean |
 
 ### Use JSON Schema in VSCode
 

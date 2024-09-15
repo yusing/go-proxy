@@ -1,4 +1,4 @@
-FROM golang:1.22.6-alpine AS builder
+FROM golang:1.23.1-alpine AS builder
 COPY src /src
 ENV GOCACHE=/root/.cache/go-build
 WORKDIR /src

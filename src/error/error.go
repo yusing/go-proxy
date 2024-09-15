@@ -139,9 +139,12 @@ func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) 
 	ne.writeIndents(sb, level)
 	sb.WriteString(prefix)
 
-	if ne.err != nil {
-		sb.WriteString(ne.err.Error())
+	if ne.IsNil() {
+		sb.WriteString("nil")
+		return
 	}
+
+	sb.WriteString(ne.err.Error())
 	if ne.subject != "" {
 		if ne.err != nil {
 			sb.WriteString(fmt.Sprintf(" for %q", ne.subject))

@@ -19,6 +19,16 @@ func TestErrorIs(t *testing.T) {
 
 	AssertEq(t, Invalid("foo", "bar").Is(ErrInvalid), true)
 	AssertEq(t, Invalid("foo", "bar").Is(ErrFailure), false)
+
+	AssertEq(t, Nil().Is(nil), true)
+	AssertEq(t, Nil().Is(ErrInvalid), false)
+	AssertEq(t, Invalid("foo", "bar").Is(nil), false)
+}
+
+func TestNil(t *testing.T) {
+	AssertEq(t, Nil().IsNil(), true)
+	AssertEq(t, Nil().IsNotNil(), false)
+	AssertEq(t, Nil().Error(), "nil")
 }
 
 func TestErrorSimple(t *testing.T) {

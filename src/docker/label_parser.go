@@ -5,7 +5,14 @@ import (
 	"strings"
 
 	E "github.com/yusing/go-proxy/error"
+	"gopkg.in/yaml.v3"
 )
+
+func yamlParser[T any](value string) (any, E.NestedError) {
+	var data T
+	err := E.From(yaml.Unmarshal([]byte(value), &data))
+	return data, err
+}
 
 func setHeadersParser(value string) (any, E.NestedError) {
 	value = strings.TrimSpace(value)
@@ -17,8 +24,10 @@ func setHeadersParser(value string) (any, E.NestedError) {
 			return nil, E.Invalid("set header statement", line)
 		}
 		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		h.Add(key, val)
+		vals := strings.Split(parts[1], ",")
+		for i := range vals {
+			h.Add(key, strings.TrimSpace(vals[i]))
+		}
 	}
 	return h, E.Nil()
 }
@@ -48,7 +57,7 @@ var _ = func() int {
 	RegisterNamespace(NSProxy, ValueParserMap{
 		"aliases":       commaSepParser,
 		"set_headers":   setHeadersParser,
-		"hide_headers":  commaSepParser,
+		"hide_headers":  yamlParser[[]string],
 		"no_tls_verify": boolParser,
 	})
 	return 0
