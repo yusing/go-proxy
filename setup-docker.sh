@@ -2,7 +2,7 @@
 
 set -e
 if [ -z "$BRANCH" ]; then
-    BRANCH="main"
+    BRANCH="v0.5"
 fi
 BASE_URL="https://github.com/yusing/go-proxy/raw/${BRANCH}"
 mkdir -p go-proxy
