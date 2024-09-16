@@ -8,7 +8,14 @@ jobs:
   build_and_push:
     runs-on: ubuntu-latest
     steps:
-      - name: Build and Push Container to ghcr.io
+      - name: Set up Docker Build and Push
+        id: docker_build_push
         uses: GlueOps/github-actions-build-push-containers@v0.3.7
         with:
-          tags: latest,${{ github.ref_name }}
+          tags: ${{ github.ref_name }}
+
+      - name: Tag as latest
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+        run: |
+          docker tag ghcr.io/${{ github.repository }}:${{ github.ref_name }} ghcr.io/${{ github.repository }}:latest
+          docker push ghcr.io/${{ github.repository }}:latest

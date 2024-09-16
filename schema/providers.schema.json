@@ -108,7 +108,7 @@
                     "markdownDescription": "A list of [path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)",
                     "items": {
                       "type": "string",
-                      "pattern": "^((GET|POST|DELETE|PUT|PATCH|HEAD|OPTIONS|CONNECT)\\s)?(/\\w*)+/?$",
+                      "pattern": "^((GET|POST|DELETE|PUT|PATCH|HEAD|OPTIONS|CONNECT)\\s)?(/(\\w*|{\\w*}|{\\$}))+/?$",
                       "patternErrorMessage": "invalid path pattern"
                     }
                   },
@@ -123,7 +123,10 @@
                 "description": "Proxy headers to set",
                 "additionalProperties": {
                   "items": {
-                    "type": "string"
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
                   }
                 }
               },

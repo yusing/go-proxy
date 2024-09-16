@@ -1,25 +1,20 @@
 example: # matching `app.y.z`
-  # optional, defaults to http
-  scheme: http
-  # required, proxy target
+  scheme: https
   host: 10.0.0.1
-  # optional, defaults to 80 for http, 443 for https
-  port: "80"
-  # optional, defaults to empty
-  path:
-  # optional (scheme=https only)
-  # no_tls_verify: false
-  # optional headers to set / override (http(s) only)
+  port: 80
+  path_patterns: # Check https://pkg.go.dev/net/http#hdr-Patterns-ServeMux for syntax
+    - GET / # accept any GET request
+    - POST /auth # for /auth and /auth/* accept only POST
+    - GET /home/{$}
+    - /b/{bucket}/o/{any}
+  no_tls_verify: false
   set_headers:
-    HEADER_A:
-      - VALUE_1
-      - VALUE_2
-    HEADER_B: [VALUE_3]
-  # optional headers to hide (http(s) only)
+    HEADER_A: VALUE_A, VALUE_B
+    HEADER_B: VALUE_C
   hide_headers:
     - HEADER_C
     - HEADER_D
-app1: # matching `app1.y.z` -> http://some_host
+app1:
   host: some_host
 app2:
   scheme: tcp
