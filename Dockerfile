@@ -18,8 +18,8 @@ COPY --from=builder /src/go-proxy /app/
 COPY schema/ /app/schema
 
 RUN chmod +x /app/go-proxy
-ENV DOCKER_HOST unix:///var/run/docker.sock
-ENV GOPROXY_DEBUG 0
+ENV DOCKER_HOST=unix:///var/run/docker.sock
+ENV GOPROXY_DEBUG=0
 
 EXPOSE 80
 EXPOSE 8888
