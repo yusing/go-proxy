@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/error"
@@ -30,6 +31,8 @@ type Provider struct {
 	watcherCancel context.CancelFunc
 
 	l *logrus.Entry
+
+	cooldownCh chan struct{}
 }
 
 type ProviderType string
@@ -45,9 +48,10 @@ func newProvider(name string, t ProviderType) *Provider {
 		t:           t,
 		routes:      R.NewRoutes(),
 		reloadReqCh: make(chan struct{}, 1),
+		cooldownCh:  make(chan struct{}, 1),
 	}
 	p.l = logrus.WithField("provider", p)
-
+	go p.processReloadRequests()
 	return p
 }
 func NewFileProvider(filename string) *Provider {
@@ -100,7 +104,8 @@ func (p *Provider) StartAllRoutes() E.NestedError {
 			nStarted++
 		}
 	})
-	p.l.Infof("%d routes started, %d failed", nStarted, nFailed)
+
+	p.l.Debugf("%d routes started, %d failed", nStarted, nFailed)
 	return errors.Build()
 }
 
@@ -120,16 +125,17 @@ func (p *Provider) StopAllRoutes() E.NestedError {
 			nStopped++
 		}
 	})
-	p.l.Infof("%d routes stopped, %d failed", nStopped, nFailed)
+	p.l.Debugf("%d routes stopped, %d failed", nStopped, nFailed)
 	return errors.Build()
 }
 
 func (p *Provider) ReloadRoutes() {
-	defer p.l.Info("routes reloaded")
-
-	p.StopAllRoutes()
-	p.loadRoutes()
-	p.StartAllRoutes()
+	select {
+	case p.reloadReqCh <- struct{}{}:
+		// Successfully sent reload request
+	default:
+		// Reload request already in progress, ignore this request
+	}
 }
 
 func (p *Provider) GetCurrentRoutes() *R.Routes {
@@ -142,15 +148,14 @@ func (p *Provider) watchEvents() {
 
 	for {
 		select {
-		case <-p.reloadReqCh: // block until last reload is done
-			p.ReloadRoutes()
-			continue // ignore events once after reload
+		case <-p.watcherCtx.Done():
+			return
 		case event, ok := <-events:
 			if !ok {
 				return
 			}
 			l.Info(event)
-			p.reloadReqCh <- struct{}{}
+			p.ReloadRoutes()
 		case err, ok := <-errs:
 			if !ok {
 				return
@@ -159,6 +164,29 @@ func (p *Provider) watchEvents() {
 				continue
 			}
 			l.Errorf("watcher error: %s", err)
+		}
+	}
+}
+
+func (p *Provider) processReloadRequests() {
+	for range p.reloadReqCh {
+		// prevent busy loop caused by a container
+		// repeating crashing and restarting
+		select {
+		case p.cooldownCh <- struct{}{}:
+			p.l.Info("Starting to reload routes")
+
+			p.StopAllRoutes()
+			p.loadRoutes()
+			p.StartAllRoutes()
+
+			p.l.Info("Routes reloaded")
+
+			go func() {
+				time.Sleep(reloadCooldown)
+				<-p.cooldownCh
+			}()
+		default:
 		}
 	}
 }
@@ -183,3 +211,5 @@ func (p *Provider) loadRoutes() E.NestedError {
 	})
 	return errors.Build()
 }
+
+const reloadCooldown = 300 * time.Millisecond

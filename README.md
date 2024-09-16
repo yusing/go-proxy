@@ -24,7 +24,6 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 - Auto configuration for docker contaienrs
 - Auto hot-reload on container state / config file changes
 - Support HTTP(s), TCP and UDP
-- Support HTTP(s) round robin load balancing
 - Web UI for configuration and monitoring (See [screenshots](screeenshots))
 - Written in **[Go](https://go.dev)**
 
@@ -110,14 +109,16 @@ See [providers.example.yml](providers.example.yml) for examples
 
 ## Build it yourself
 
-1. Install / Upgrade [go (>=1.22)](https://go.dev/doc/install) and `make` if not already
+1. Clone the repository `git clone https://github.com/yusing/go-proxy --depth=1`
 
-2. Clear cache if you have built this before (go < 1.22) with `go clean -cache`
+2. Install / Upgrade [go (>=1.22)](https://go.dev/doc/install) and `make` if not already
 
-3. get dependencies with `make get`
+3. Clear cache if you have built this before (go < 1.22) with `go clean -cache`
 
-4. build binary with `make build`
+4. get dependencies with `make get`
 
-5. start your container with `make up` (docker) or `bin/go-proxy` (binary)
+5. build binary with `make build`
+
+6. start your container with `make up` (docker) or `bin/go-proxy` (binary)
 
 [🔼Back to top](#table-of-content)

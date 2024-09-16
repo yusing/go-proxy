@@ -4,6 +4,7 @@ import (
 	"context"
 	"path"
 
+	"github.com/yusing/go-proxy/common"
 	E "github.com/yusing/go-proxy/error"
 )
 
@@ -22,4 +23,4 @@ func (f *fileWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nested
 	return fwHelper.Add(ctx, f)
 }
 
-var fwHelper = newFileWatcherHelper()
+var fwHelper = newFileWatcherHelper(common.ConfigBasePath)

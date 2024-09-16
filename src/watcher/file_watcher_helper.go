@@ -8,7 +8,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/common"
 	E "github.com/yusing/go-proxy/error"
 )
 
@@ -26,14 +25,12 @@ type fileWatcherStream struct {
 	errCh   chan E.NestedError
 }
 
-func newFileWatcherHelper() *fileWatcherHelper {
+func newFileWatcherHelper(dirPath string) *fileWatcherHelper {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		logrus.Panicf("unable to create fs watcher: %s", err)
 	}
-	// watch config path for all changes
-	err = w.Add(common.ConfigBasePath)
-	if err != nil {
+	if err = w.Add(dirPath); err != nil {
 		logrus.Panicf("unable to create fs watcher: %s", err)
 	}
 	helper := &fileWatcherHelper{
@@ -60,24 +57,22 @@ func (h *fileWatcherHelper) Add(ctx context.Context, w *fileWatcher) (<-chan Eve
 		errCh:       make(chan E.NestedError),
 	}
 	go func() {
-		select {
-		case <-ctx.Done():
-			h.Remove(w)
-			return
-		case <-s.stopped:
-			return
+		for {
+			select {
+			case <-ctx.Done():
+				s.stopped <- struct{}{}
+			case <-s.stopped:
+				h.mu.Lock()
+				defer h.mu.Unlock()
+				close(s.eventCh)
+				close(s.errCh)
+				delete(h.m, w.filename)
+				return
+			}
 		}
 	}()
 	h.m[w.filename] = s
 	return s.eventCh, s.errCh
-}
-
-func (h *fileWatcherHelper) Remove(w *fileWatcher) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	h.m[w.filename].stopped <- struct{}{}
-	delete(h.m, w.filename)
 }
 
 func (h *fileWatcherHelper) start() {

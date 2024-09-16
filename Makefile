@@ -37,3 +37,8 @@ repush:
 	git add -A
 	git commit -m "repush"
 	git push gitlab dev --force
+
+rapid-crash:
+	sudo docker run --restart=always --name test_crash debian:bookworm-slim /bin/cat &&\
+	sleep 3 &&\
+	sudo docker rm -f test_crash

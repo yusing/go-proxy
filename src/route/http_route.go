@@ -19,10 +19,9 @@ import (
 
 type (
 	HTTPRoute struct {
-		Alias PT.Alias `json:"alias"`
-
-		TargetURL    URL
-		PathPatterns PT.PathPatterns
+		Alias        PT.Alias        `json:"alias"`
+		TargetURL    *URL            `json:"target_url"`
+		PathPatterns PT.PathPatterns `json:"path_patterns"`
 
 		mux     *http.ServeMux
 		handler *P.ReverseProxy
@@ -53,7 +52,7 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	if !ok {
 		r = &HTTPRoute{
 			Alias:        entry.Alias,
-			TargetURL:    URL(*entry.URL),
+			TargetURL:    (*URL)(entry.URL),
 			PathPatterns: entry.PathPatterns,
 			handler:      rp,
 		}
