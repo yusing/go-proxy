@@ -39,10 +39,12 @@ func (e *ProxyEntry) SetDefaults() {
 	if e.Host == "" {
 		e.Host = "localhost"
 	}
-	switch e.Scheme {
-	case "http":
-		e.Port = "80"
-	case "https":
-		e.Port = "443"
+	if e.Port == "" {
+		switch e.Scheme {
+		case "http":
+			e.Port = "80"
+		case "https":
+			e.Port = "443"
+		}
 	}
 }
