@@ -3,12 +3,11 @@ COPY src /src
 ENV GOCACHE=/root/.cache/go-build
 WORKDIR /src
 RUN --mount=type=cache,target="/go/pkg/mod" \
-    go mod download
-RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
+    go mod download
     CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o go-proxy github.com/yusing/go-proxy
 
-FROM alpine:latest
+FROM alpine:3.20
 
 LABEL maintainer="yusing@6uo.me"
 

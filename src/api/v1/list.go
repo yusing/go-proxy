@@ -29,10 +29,10 @@ func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 
 func listRoutes(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	routes := cfg.RoutesByAlias()
-	type_filter := r.FormValue("type")
-	if type_filter != "" {
+	typeFilter := r.FormValue("type")
+	if typeFilter != "" {
 		for k, v := range routes {
-			if v["type"] != type_filter {
+			if v["type"] != typeFilter {
 				delete(routes, k)
 			}
 		}

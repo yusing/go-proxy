@@ -1,46 +1,42 @@
-package error
+package error_test
 
 import (
 	"testing"
+
+	. "github.com/yusing/go-proxy/error"
+	. "github.com/yusing/go-proxy/utils"
 )
 
-func AssertEq[T comparable](t *testing.T, got, want T) {
-	t.Helper()
-	if got != want {
-		t.Errorf("expected:\n%v, got\n%v", want, got)
-	}
-}
-
 func TestErrorIs(t *testing.T) {
-	AssertEq(t, Failure("foo").Is(ErrFailure), true)
-	AssertEq(t, Failure("foo").With("bar").Is(ErrFailure), true)
-	AssertEq(t, Failure("foo").With("bar").Is(ErrInvalid), false)
-	AssertEq(t, Failure("foo").With("bar").With("baz").Is(ErrInvalid), false)
+	ExpectTrue(t, Failure("foo").Is(ErrFailure))
+	ExpectTrue(t, Failure("foo").With("bar").Is(ErrFailure))
+	ExpectFalse(t, Failure("foo").With("bar").Is(ErrInvalid))
+	ExpectFalse(t, Failure("foo").With("bar").With("baz").Is(ErrInvalid))
 
-	AssertEq(t, Invalid("foo", "bar").Is(ErrInvalid), true)
-	AssertEq(t, Invalid("foo", "bar").Is(ErrFailure), false)
+	ExpectTrue(t, Invalid("foo", "bar").Is(ErrInvalid))
+	ExpectFalse(t, Invalid("foo", "bar").Is(ErrFailure))
 
-	AssertEq(t, Nil().Is(nil), true)
-	AssertEq(t, Nil().Is(ErrInvalid), false)
-	AssertEq(t, Invalid("foo", "bar").Is(nil), false)
+	ExpectTrue(t, Nil().Is(nil))
+	ExpectFalse(t, Nil().Is(ErrInvalid))
+	ExpectFalse(t, Invalid("foo", "bar").Is(nil))
 }
 
 func TestNil(t *testing.T) {
-	AssertEq(t, Nil().IsNil(), true)
-	AssertEq(t, Nil().IsNotNil(), false)
-	AssertEq(t, Nil().Error(), "nil")
+	ExpectTrue(t, Nil().IsNil())
+	ExpectFalse(t, Nil().IsNotNil())
+	ExpectEqual(t, Nil().Error(), "nil")
 }
 
 func TestErrorSimple(t *testing.T) {
 	ne := Failure("foo bar")
-	AssertEq(t, ne.Error(), "foo bar failed")
+	ExpectEqual(t, ne.Error(), "foo bar failed")
 	ne = ne.Subject("baz")
-	AssertEq(t, ne.Error(), "foo bar failed for \"baz\"")
+	ExpectEqual(t, ne.Error(), "foo bar failed for \"baz\"")
 }
 
 func TestErrorWith(t *testing.T) {
 	ne := Failure("foo").With("bar").With("baz")
-	AssertEq(t, ne.Error(), "foo failed:\n  - bar\n  - baz")
+	ExpectEqual(t, ne.Error(), "foo failed:\n  - bar\n  - baz")
 }
 
 func TestErrorNested(t *testing.T) {
@@ -76,5 +72,5 @@ func TestErrorNested(t *testing.T) {
       - inner3 failed for "action 3":
         - 3
         - 3`
-	AssertEq(t, ne.Error(), want)
+	ExpectEqual(t, ne.Error(), want)
 }
