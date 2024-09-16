@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
@@ -39,10 +40,10 @@ func (p DockerProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
 
 	info, err := D.GetClientInfo(p.dockerHost)
 	if err.IsNotNil() {
-		return entries, E.From(err)
+		return entries, err
 	}
 
-	errors := E.NewBuilder("errors when parse docker labels for %q", p.dockerHost)
+	errors := E.NewBuilder("errors when parse docker labels")
 
 	for _, container := range info.Containers {
 		en, err := p.getEntriesFromLabels(&container, info.Host)
@@ -93,9 +94,9 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 	entries := M.NewProxyEntries()
 
 	// find first port, return if no port exposed
-	defaultPort := findFirstPort(container)
-	if defaultPort == PT.NoPort {
-		return entries, E.Nil()
+	defaultPort, err := findFirstPort(container)
+	if err.IsNotNil() {
+		logrus.Debug(mainAlias, " ", err.Error())
 	}
 
 	// init entries map for all aliases
@@ -103,7 +104,7 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 		entries.Set(string(a), &M.ProxyEntry{
 			Alias: string(a),
 			Host:  clientHost,
-			Port:  fmt.Sprint(defaultPort),
+			Port:  defaultPort,
 		})
 	})
 
@@ -136,15 +137,23 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 		}
 	}
 
+	entries.EachKV(func(a string, e *M.ProxyEntry) {
+		if e.Port == "" {
+			entries.UnsafeDelete(a)
+		}
+	})
+
 	return entries, errors.Build()
 }
 
-func findFirstPort(c *types.Container) (pp PT.Port) {
+func findFirstPort(c *types.Container) (string, E.NestedError) {
+	if len(c.Ports) == 0 {
+		return "", E.FailureWhy("findFirstPort", "no port exposed")
+	}
 	for _, p := range c.Ports {
-		if p.PublicPort != 0 || c.HostConfig.NetworkMode == "host" {
-			pp, _ = PT.NewPortInt(int(p.PublicPort))
-			return
+		if p.PublicPort != 0 {
+			return fmt.Sprint(p.PublicPort), E.Nil()
 		}
 	}
-	return PT.NoPort
+	return "", E.Failure("findFirstPort")
 }

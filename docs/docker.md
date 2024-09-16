@@ -85,24 +85,26 @@
 
 ### Syntax
 
-| Label                   | Description                                              |
-| ----------------------- | -------------------------------------------------------- |
-| `proxy.aliases`         | comma separated aliases for subdomain and label matching |
-| `proxy.<alias>.<field>` | set field for specific alias                             |
-| `proxy.*.<field>`       | set field for all aliases                                |
+| Label                   | Description                                              | Default          |
+| ----------------------- | -------------------------------------------------------- | ---------------- |
+| `proxy.aliases`         | comma separated aliases for subdomain and label matching | `container_name` |
+| `proxy.<alias>.<field>` | set field for specific alias                             | N/A              |
+| `proxy.*.<field>`       | set field for all aliases                                | N/A              |
 
 ### Fields
 
-| Field                 | Description                                                                                    | Default                                                                | Allowed Values / Syntax                                                                                                                                 |
-| --------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scheme`              | proxy protocol                                                                                 | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul> | `http`, `https`, `tcp`, `udp`                                                                                                                           |
-| `host`                | proxy host                                                                                     | <ul><li>Docker: `container_name`</li><li>File: `localhost`</li></ul>   | IP address, hostname                                                                                                                                    |
-| `port`                | proxy port **(http/s)**                                                                        | first port in `ports:`                                                 | number in range of `1 - 65535`                                                                                                                          |
-| `port` **(required)** | proxy port **(tcp/udp)**                                                                       | N/A                                                                    | `x:y` <br><ul><li>x: port for `go-proxy` to listen on</li><li>y: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
-| `no_tls_verify`       | whether skip tls verify **(https only)**                                                       | `false`                                                                | boolean                                                                                                                                                 |
-| `path_patterns`       | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | empty **(proxy all requests)**                                         | yaml style list[<sup>1</sup>](#list-example) of path patterns ([syntax](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                             |
-| `set_headers`         | header to set **(http/s only)**                                                                | empty                                                                  | yaml style key-value mapping[<sup>2</sup>](#key-value-mapping-example) of header-value pairs                                                            |
-| `hide_headers`        | header to hide **(http/s only)**                                                               | empty                                                                  | yaml style list[<sup>1</sup>](#list-example) of headers                                                                                                 |
+| Field                 | Description                                                                                    | Default                                                                          | Allowed Values / Syntax                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheme`              | proxy protocol                                                                                 | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul>           | `http`, `https`, `tcp`, `udp`                                                                                                                           |
+| `host`                | proxy host                                                                                     | <ul><li>Docker: docker client IP / hostname </li><li>File: `localhost`</li></ul> | IP address, hostname                                                                                                                                    |
+| `port`                | proxy port **(http/s)**                                                                        | first port in `ports:`                                                           | number in range of `1 - 65535`                                                                                                                          |
+| `port` **(required)** | proxy port **(tcp/udp)**                                                                       | N/A                                                                              | `x:y` <br><ul><li>x: port for `go-proxy` to listen on</li><li>y: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
+| `no_tls_verify`       | whether skip tls verify **(https only)**                                                       | `false`                                                                          | boolean                                                                                                                                                 |
+| `path_patterns`       | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | empty **(proxy all requests)**                                                   | yaml style list[<sup>1</sup>](#list-example) of path patterns ([syntax](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                             |
+| `set_headers`         | header to set **(http/s only)**                                                                | empty                                                                            | yaml style key-value mapping[<sup>2</sup>](#key-value-mapping-example) of header-value pairs                                                            |
+| `hide_headers`        | header to hide **(http/s only)**                                                               | empty                                                                            | yaml style list[<sup>1</sup>](#list-example) of headers                                                                                                 |
+
+[🔼Back to top](#table-of-content)
 
 #### Key-value mapping example
 
@@ -131,6 +133,8 @@ service_a:
     X-Custom-Header1: value1, value2
     X-Custom-Header2: value3
 ```
+
+[🔼Back to top](#table-of-content)
 
 #### List example
 
@@ -165,6 +169,23 @@ service_a:
 [🔼Back to top](#table-of-content)
 
 ## Troubleshooting
+
+- Container not showing up in proxies list
+
+  Please check that either `ports` or label `proxy.<alias>.port` is declared, i.e.
+
+  ```yaml
+  services:
+    nginx-1: # Option 1
+      ...
+      ports:
+        - 80
+    nginx-2: # Option 2
+      ...
+      container_name: nginx-2
+      labels:
+        proxy.nginx-2.port: 80
+  ```
 
 - Firewall issues
 
@@ -237,6 +258,8 @@ services:
     container_name: nginx
     volumes:
       - nginx:/usr/share/nginx/html
+    ports:
+      - 80
   go-proxy:
     image: ghcr.io/yusing/go-proxy:latest
     container_name: go-proxy
@@ -251,7 +274,8 @@ services:
     restart: unless-stopped
     network_mode: host
     labels:
-      - proxy.*.aliases=gp
+      - proxy.aliases=gp
+      - proxy.gp.port=8888
     depends_on:
       - go-proxy
 ```

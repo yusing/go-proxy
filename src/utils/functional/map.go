@@ -135,6 +135,10 @@ func (m *Map[KT, VT]) Delete(key KT) {
 	m.Unlock()
 }
 
+func (m *Map[KT, VT]) UnsafeDelete(key KT) {
+	delete(m.m, key)
+}
+
 // MergeWith merges the contents of another Map[KT, VT]
 // into the current Map[KT, VT] and
 // returns a map that were duplicated.

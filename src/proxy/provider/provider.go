@@ -175,12 +175,13 @@ func (p *Provider) processReloadRequests() {
 		select {
 		case p.cooldownCh <- struct{}{}:
 			p.l.Info("Starting to reload routes")
+			nRoutes := p.routes.Size()
 
 			p.StopAllRoutes()
 			p.loadRoutes()
 			p.StartAllRoutes()
 
-			p.l.Info("Routes reloaded")
+			p.l.Infof("Routes reloaded (%d -> %d)", nRoutes, p.routes.Size())
 
 			go func() {
 				time.Sleep(reloadCooldown)
@@ -212,4 +213,4 @@ func (p *Provider) loadRoutes() E.NestedError {
 	return errors.Build()
 }
 
-const reloadCooldown = 300 * time.Millisecond
+const reloadCooldown = 50 * time.Millisecond

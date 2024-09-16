@@ -16,6 +16,10 @@ func Failure(what string) NestedError {
 	return errorf("%s %w", what, ErrFailure)
 }
 
+func FailureWhy(what string, why string) NestedError {
+	return errorf("%s %w because %s", what, ErrFailure, why)
+}
+
 func Invalid(subject, what any) NestedError {
 	return errorf("%w %v - %v", ErrInvalid, subject, what)
 }

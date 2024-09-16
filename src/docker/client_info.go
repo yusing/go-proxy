@@ -25,7 +25,7 @@ func GetClientInfo(clientHost string) (*ClientInfo, E.NestedError) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	containers, err := E.Check(dockerClient.ContainerList(ctx, container.ListOptions{All: true}))
+	containers, err := E.Check(dockerClient.ContainerList(ctx, container.ListOptions{}))
 	if err.IsNotNil() {
 		return nil, E.Failure("list containers").With(err)
 	}

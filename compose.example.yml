@@ -5,7 +5,8 @@ services:
     restart: unless-stopped
     network_mode: host
     labels:
-      - proxy.*.aliases=gp
+      - proxy.aliases=gp
+      - proxy.gp.port=8888
     depends_on:
       - app
   app:

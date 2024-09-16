@@ -24,7 +24,7 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 - Auto configuration for docker contaienrs
 - Auto hot-reload on container state / config file changes
 - Support HTTP(s), TCP and UDP
-- Web UI for configuration and monitoring (See [screenshots](screeenshots))
+- Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
 - Written in **[Go](https://go.dev)**
 
 [🔼Back to top](#table-of-content)
