@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/docker/docker/api/types/events"
@@ -47,14 +48,28 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 		for {
 			select {
 			case <-ctx.Done():
-				errCh <- E.From(<-cErrCh)
+				if err := <-cErrCh; err != nil {
+					errCh <- E.From(err)
+				}
 				return
 			case msg := <-cEventCh:
+				var Action Action
+				switch msg.Action {
+				case events.ActionStart:
+					Action = ActionCreated
+				case events.ActionDie:
+					Action = ActionDeleted
+				default: // NOTE: should not happen
+					Action = ActionModified
+				}
 				eventCh <- Event{
-					ActorName: msg.Actor.Attributes["name"],
-					Action:    ActionModified,
+					ActorName: fmt.Sprintf("container %q", msg.Actor.Attributes["name"]),
+					Action:    Action,
 				}
 			case err := <-cErrCh:
+				if err == nil {
+					continue
+				}
 				errCh <- E.From(err)
 				select {
 				case <-ctx.Done():
@@ -74,7 +89,7 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 }
 
 var dwOptions = events.ListOptions{Filters: filters.NewArgs(
-	filters.Arg("type", "container"),
-	filters.Arg("event", "start"),
-	filters.Arg("event", "die"), // 'stop' already triggering 'die'
+	filters.Arg("type", string(events.ContainerEventType)),
+	filters.Arg("event", string(events.ActionStart)),
+	filters.Arg("event", string(events.ActionDie)), // 'stop' already triggering 'die'
 )}

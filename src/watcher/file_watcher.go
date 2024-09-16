@@ -18,10 +18,6 @@ func NewFileWatcher(filename string) Watcher {
 	return &fileWatcher{filename: filename}
 }
 
-func StopAllFileWatchers() {
-	fwHelper.close()
-}
-
 func (f *fileWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.NestedError) {
 	return fwHelper.Add(ctx, f)
 }

@@ -80,13 +80,6 @@ func (h *fileWatcherHelper) Remove(w *fileWatcher) {
 	delete(h.m, w.filename)
 }
 
-// deinit closes the fs watcher
-// and waits for the start() loop to finish
-func (h *fileWatcherHelper) close() {
-	_ = h.w.Close()
-	h.wg.Wait() // wait for `start()` loop to finish
-}
-
 func (h *fileWatcherHelper) start() {
 	defer h.wg.Done()
 

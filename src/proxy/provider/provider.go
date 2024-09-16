@@ -107,6 +107,7 @@ func (p *Provider) StartAllRoutes() E.NestedError {
 func (p *Provider) StopAllRoutes() E.NestedError {
 	if p.watcherCancel != nil {
 		p.watcherCancel()
+		p.watcherCancel = nil
 	}
 	errors := E.NewBuilder("errors stopping routes for provider %q", p.name)
 	nStopped := 0
@@ -126,17 +127,9 @@ func (p *Provider) StopAllRoutes() E.NestedError {
 func (p *Provider) ReloadRoutes() {
 	defer p.l.Info("routes reloaded")
 
-	select {
-	case p.reloadReqCh <- struct{}{}:
-		defer func() {
-			<-p.reloadReqCh
-		}()
-		p.StopAllRoutes()
-		p.loadRoutes()
-		p.StartAllRoutes()
-	default:
-		return
-	}
+	p.StopAllRoutes()
+	p.loadRoutes()
+	p.StartAllRoutes()
 }
 
 func (p *Provider) GetCurrentRoutes() *R.Routes {
@@ -149,13 +142,14 @@ func (p *Provider) watchEvents() {
 
 	for {
 		select {
-		case <-p.reloadReqCh:
+		case <-p.reloadReqCh: // block until last reload is done
 			p.ReloadRoutes()
+			continue // ignore events once after reload
 		case event, ok := <-events:
 			if !ok {
 				return
 			}
-			l.Infof("watcher event: %s", event)
+			l.Info(event)
 			p.reloadReqCh <- struct{}{}
 		case err, ok := <-errs:
 			if !ok {

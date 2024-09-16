@@ -12,15 +12,15 @@ import (
 
 type (
 	Entry struct { // real model after validation
-		Alias       T.Alias
-		Scheme      T.Scheme
-		Host        T.Host
-		Port        T.Port
-		URL         *url.URL
-		NoTLSVerify bool
-		Path        T.Path
-		SetHeaders  http.Header
-		HideHeaders []string
+		Alias        T.Alias
+		Scheme       T.Scheme
+		Host         T.Host
+		Port         T.Port
+		URL          *url.URL
+		NoTLSVerify  bool
+		PathPatterns T.PathPatterns
+		SetHeaders   http.Header
+		HideHeaders  []string
 	}
 	StreamEntry struct {
 		Alias  T.Alias        `json:"alias"`
@@ -51,7 +51,11 @@ func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
 	if err.IsNotNil() {
 		return nil, err
 	}
-	path, err := T.NewPath(m.Path)
+	pathPatterns, err := T.NewPathPatterns(m.PathPatterns)
+	if err.IsNotNil() {
+		return nil, err
+	}
+	setHeaders, err := T.NewHTTPHeaders(m.SetHeaders)
 	if err.IsNotNil() {
 		return nil, err
 	}
@@ -60,15 +64,15 @@ func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
 		return nil, err
 	}
 	return &Entry{
-		Alias:       T.NewAlias(m.Alias),
-		Scheme:      s,
-		Host:        host,
-		Port:        port,
-		URL:         url,
-		NoTLSVerify: m.NoTLSVerify,
-		Path:        path,
-		SetHeaders:  m.SetHeaders,
-		HideHeaders: m.HideHeaders,
+		Alias:        T.NewAlias(m.Alias),
+		Scheme:       s,
+		Host:         host,
+		Port:         port,
+		URL:          url,
+		NoTLSVerify:  m.NoTLSVerify,
+		PathPatterns: pathPatterns,
+		SetHeaders:   setHeaders,
+		HideHeaders:  m.HideHeaders,
 	}, E.Nil()
 }
 

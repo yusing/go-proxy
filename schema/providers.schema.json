@@ -32,12 +32,17 @@
             },
             {
               "type": "null",
-              "description": "Auto detect base on port number"
+              "description": "Auto detect base on port format"
             }
           ]
         },
         "host": {
+          "default": "localhost",
           "oneOf": [
+            {
+              "type": "null",
+              "description": "localhost (default)"
+            },
             {
               "type": "string",
               "format": "ipv4",
@@ -56,59 +61,38 @@
           ],
           "title": "Proxy host (ipv4 / ipv6 / hostname)"
         },
-        "port": {
-          "title": "Proxy port"
-        },
-        "path": {
-          "title": "Proxy path pattern (See https://pkg.go.dev/net/http#ServeMux)"
-        },
-        "no_tls_verify": {
-          "description": "Disable TLS verification for https proxy",
-          "type": "boolean"
-        },
+        "port": {},
+        "no_tls_verify": {},
+        "path_patterns": {},
         "set_headers": {},
         "hide_headers": {}
       },
-      "required": ["host"],
       "additionalProperties": false,
       "allOf": [
         {
           "if": {
-            "anyOf": [
-              {
-                "properties": {
-                  "scheme": {
+            "properties": {
+              "scheme": {
+                "anyOf": [
+                  {
                     "enum": ["http", "https"]
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "scheme": {
-                    "not": true
-                  }
-                }
-              },
-              {
-                "properties": {
-                  "scheme": {
+                  },
+                  {
                     "type": "null"
                   }
-                }
+                ]
               }
-            ]
+            }
           },
           "then": {
             "properties": {
               "port": {
+                "markdownDescription": "Proxy port from **1** to **65535**",
                 "oneOf": [
                   {
                     "type": "string",
-                    "pattern": "^[0-9]{1,5}$",
-                    "minimum": 1,
-                    "maximum": 65535,
-                    "markdownDescription": "Proxy port from **1** to **65535**",
-                    "patternErrorMessage": "'port' must be a number"
+                    "pattern": "^\\d{1,5}$",
+                    "patternErrorMessage": "`port` must be a number"
                   },
                   {
                     "type": "integer",
@@ -117,11 +101,16 @@
                   }
                 ]
               },
-              "path": {
+              "path_patterns": {
                 "oneOf": [
                   {
-                    "type": "string",
-                    "description": "Proxy path"
+                    "type": "array",
+                    "markdownDescription": "A list of [path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^((GET|POST|DELETE|PUT|PATCH|HEAD|OPTIONS|CONNECT)\\s)?(/\\w*)+/?$",
+                      "patternErrorMessage": "invalid path pattern"
+                    }
                   },
                   {
                     "type": "null",
@@ -133,7 +122,6 @@
                 "type": "object",
                 "description": "Proxy headers to set",
                 "additionalProperties": {
-                  "type": "array",
                   "items": {
                     "type": "string"
                   }
@@ -151,12 +139,15 @@
           "else": {
             "properties": {
               "port": {
-                "markdownDescription": "`listening port`:`proxy port | service name`",
+                "markdownDescription": "`listening port:proxy port` or `listening port:service name`",
                 "type": "string",
                 "pattern": "^[0-9]+\\:[0-9a-z]+$",
-                "patternErrorMessage": "'port' must be in the format of '<listening port>:<proxy port | service name>'"
+                "patternErrorMessage": "invalid syntax"
               },
-              "path": {
+              "no_tls_verify": {
+                "not": true
+              },
+              "path_patterns": {
                 "not": true
               },
               "set_headers": {
@@ -171,15 +162,22 @@
         },
         {
           "if": {
-            "not": {
-              "properties": {
-                "scheme": {
-                  "const": "https"
-                }
+            "properties": {
+              "scheme": {
+                "const": "https"
               }
             }
           },
           "then": {
+            "properties": {
+              "no_tls_verify": {
+                "description": "Disable TLS verification for https proxy",
+                "type": "boolean",
+                "default": false
+              }
+            }
+          },
+          "else": {
             "properties": {
               "no_tls_verify": {
                 "not": true

@@ -2,7 +2,6 @@ package docker
 
 import (
 	"fmt"
-	"net/http"
 	"reflect"
 	"strings"
 	"testing"
@@ -82,26 +81,22 @@ X-Custom-Header1: foo, bar
 X-Custom-Header1: baz
 X-Custom-Header2: boo`
 	v = strings.TrimPrefix(v, "\n")
-	h := make(http.Header, 0)
-	h.Set("X-Custom-Header1", "foo")
-	h.Add("X-Custom-Header1", "bar")
-	h.Add("X-Custom-Header1", "baz")
-	h.Set("X-Custom-Header2", "boo")
+	h := map[string]string{
+		"X-Custom-Header1": "foo, bar, baz",
+		"X-Custom-Header2": "boo",
+	}
 
 	pl, err := ParseLabel(makeLabel(NSProxy, "foo", "set_headers"), v)
 	if err.IsNotNil() {
 		t.Errorf("expected err=nil, got %s", err.Error())
 	}
-	hGot, ok := pl.Value.(http.Header)
+	hGot, ok := pl.Value.(map[string]string)
 	if !ok {
-		t.Error("value is not http.Header")
+		t.Errorf("value is not a map[string]string, but %T", pl.Value)
 		return
 	}
-	for k, vWant := range h {
-		vGot := hGot[k]
-		if !reflect.DeepEqual(vGot, vWant) {
-			t.Errorf("expected %s=%q, got %q", k, vWant, vGot)
-		}
+	if !reflect.DeepEqual(h, hGot) {
+		t.Errorf("expected %v, got %v", h, hGot)
 	}
 }
 

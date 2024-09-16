@@ -12,8 +12,9 @@ type (
 
 const (
 	ActionModified Action = "MODIFIED"
-	ActionDeleted  Action = "DELETED"
 	ActionCreated  Action = "CREATED"
+	ActionStarted  Action = "STARTED"
+	ActionDeleted  Action = "DELETED"
 )
 
 func (e Event) String() string {
@@ -22,12 +23,4 @@ func (e Event) String() string {
 
 func (a Action) IsDelete() bool {
 	return a == ActionDeleted
-}
-
-func (a Action) IsModify() bool {
-	return a == ActionModified
-}
-
-func (a Action) IsCreate() bool {
-	return a == ActionCreated
 }

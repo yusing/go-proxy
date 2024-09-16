@@ -19,23 +19,18 @@ import (
 
 type (
 	HTTPRoute struct {
-		Alias     PT.Alias      `json:"alias"`
-		Subroutes HTTPSubroutes `json:"subroutes"`
+		Alias PT.Alias `json:"alias"`
 
-		mux *http.ServeMux
+		TargetURL    URL
+		PathPatterns PT.PathPatterns
+
+		mux     *http.ServeMux
+		handler *P.ReverseProxy
 	}
 
-	HTTPSubroute struct {
-		TargetURL *URL    `json:"targetURL"`
-		Path      PathKey `json:"path"`
-
-		proxy *P.ReverseProxy
-	}
-
-	URL           url.URL
-	PathKey       = PT.Path
-	SubdomainKey  = PT.Alias
-	HTTPSubroutes = map[PathKey]HTTPSubroute
+	URL          url.URL
+	PathKey      = PT.PathPattern
+	SubdomainKey = PT.Alias
 )
 
 var httpRoutes = F.NewMap[SubdomainKey, *HTTPRoute]()
@@ -57,32 +52,12 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	r, ok := httpRoutes.UnsafeGet(entry.Alias)
 	if !ok {
 		r = &HTTPRoute{
-			Alias:     entry.Alias,
-			Subroutes: make(HTTPSubroutes),
-			mux:       http.NewServeMux(),
+			Alias:        entry.Alias,
+			TargetURL:    URL(*entry.URL),
+			PathPatterns: entry.PathPatterns,
+			handler:      rp,
 		}
 		httpRoutes.UnsafeSet(entry.Alias, r)
-	}
-
-	path := entry.Path
-	if _, exists := r.Subroutes[path]; exists {
-		return nil, E.Duplicated("path", path)
-	}
-	r.mux.HandleFunc(string(path), rp.ServeHTTP)
-	if err := recover(); err != nil {
-		switch t := err.(type) {
-		case error:
-			// NOTE: likely path pattern error
-			return nil, E.From(t)
-		default:
-			return nil, E.From(fmt.Errorf("%v", t))
-		}
-	}
-
-	sr := HTTPSubroute{
-		TargetURL: (*URL)(entry.URL),
-		proxy:     rp,
-		Path:      path,
 	}
 
 	rewrite := rp.Rewrite
@@ -90,16 +65,15 @@ func NewHTTPRoute(entry *P.Entry) (*HTTPRoute, E.NestedError) {
 	if logrus.GetLevel() == logrus.DebugLevel {
 		l := logrus.WithField("alias", entry.Alias)
 
-		sr.proxy.Rewrite = func(pr *P.ProxyRequest) {
+		rp.Rewrite = func(pr *P.ProxyRequest) {
 			l.Debug("request URL: ", pr.In.Host, pr.In.URL.Path)
 			l.Debug("request headers: ", pr.In.Header)
 			rewrite(pr)
 		}
 	} else {
-		sr.proxy.Rewrite = rewrite
+		rp.Rewrite = rewrite
 	}
 
-	r.Subroutes[path] = sr
 	return r, E.Nil()
 }
 
@@ -108,18 +82,18 @@ func (r *HTTPRoute) String() string {
 }
 
 func (r *HTTPRoute) Start() E.NestedError {
+	r.mux = http.NewServeMux()
+	for _, p := range r.PathPatterns {
+		r.mux.HandleFunc(string(p), r.handler.ServeHTTP)
+	}
 	httpRoutes.Set(r.Alias, r)
 	return E.Nil()
 }
 
 func (r *HTTPRoute) Stop() E.NestedError {
+	r.mux = nil
 	httpRoutes.Delete(r.Alias)
 	return E.Nil()
-}
-
-func (r *HTTPRoute) GetSubroute(path PathKey) (HTTPSubroute, bool) {
-	sr, ok := r.Subroutes[path]
-	return sr, ok
 }
 
 func (u *URL) String() string {

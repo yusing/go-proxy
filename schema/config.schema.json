@@ -23,16 +23,19 @@
         },
         "cert_path": {
           "title": "path of cert file to load/store",
-          "description": "default: certs/cert.crt",
+          "default": "certs/cert.crt",
+          "markdownDescription": "default: `certs/cert.crt`",
           "type": "string"
         },
         "key_path": {
           "title": "path of key file to load/store",
-          "description": "default: certs/priv.key",
+          "default": "certs/priv.key",
+          "markdownDescription": "default: `certs/priv.key`",
           "type": "string"
         },
         "provider": {
           "title": "DNS Challenge Provider",
+          "default": "local",
           "type": "string",
           "enum": ["local", "cloudflare", "clouddns", "duckdns"]
         },
@@ -44,10 +47,11 @@
       "allOf": [
         {
           "if": {
-            "properties": {
-              "provider": {
-                "not": true,
-                "const": "local"
+            "not": {
+              "properties": {
+                "provider": {
+                  "const": "local"
+                }
               }
             }
           },
@@ -151,7 +155,7 @@
         },
         "docker": {
           "title": "Docker provider configuration",
-          "description": "docker clients (name: address)",
+          "description": "docker clients (name-address pairs)",
           "type": "object",
           "patternProperties": {
             "^[a-zA-Z0-9-_]+$": {
@@ -194,7 +198,7 @@
       "minimum": 0
     },
     "redirect_to_https": {
-      "title": "Redirect to HTTPS",
+      "title": "Redirect to HTTPS on HTTP requests",
       "type": "boolean"
     }
   },

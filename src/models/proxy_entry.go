@@ -1,7 +1,6 @@
 package model
 
 import (
-	"net/http"
 	"strings"
 
 	F "github.com/yusing/go-proxy/utils/functional"
@@ -9,14 +8,14 @@ import (
 
 type (
 	ProxyEntry struct {
-		Alias       string      `yaml:"-" json:"-"`
-		Scheme      string      `yaml:"scheme" json:"scheme"`
-		Host        string      `yaml:"host" json:"host"`
-		Port        string      `yaml:"port" json:"port"`
-		NoTLSVerify bool        `yaml:"no_tls_verify" json:"no_tls_verify"` // http proxy only
-		Path        string      `yaml:"path" json:"path"`                   // http proxy only
-		SetHeaders  http.Header `yaml:"set_headers" json:"set_headers"`     // http proxy only
-		HideHeaders []string    `yaml:"hide_headers" json:"hide_headers"`   // http proxy only
+		Alias        string            `yaml:"-" json:"-"`
+		Scheme       string            `yaml:"scheme" json:"scheme"`
+		Host         string            `yaml:"host" json:"host"`
+		Port         string            `yaml:"port" json:"port"`
+		NoTLSVerify  bool              `yaml:"no_tls_verify" json:"no_tls_verify"` // https proxy only
+		PathPatterns []string          `yaml:"path_patterns" json:"path_patterns"` // http(s) proxy only
+		SetHeaders   map[string]string `yaml:"set_headers" json:"set_headers"`     // http(s) proxy only
+		HideHeaders  []string          `yaml:"hide_headers" json:"hide_headers"`   // http(s) proxy only
 	}
 
 	ProxyEntries = *F.Map[string, *ProxyEntry]
@@ -37,8 +36,8 @@ func (e *ProxyEntry) SetDefaults() {
 			}
 		}
 	}
-	if e.Path == "" {
-		e.Path = "/"
+	if e.Host == "" {
+		e.Host = "localhost"
 	}
 	switch e.Scheme {
 	case "http":

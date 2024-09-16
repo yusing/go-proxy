@@ -77,7 +77,7 @@
 
 6.  Run `docker compose up -d` to start the container
 
-7.  Navigate to Web panel `http://gp.yourdomain.com` and edit proxy config
+7.  Navigate to Web panel `http://gp.yourdomain.com` or use **Visual Studio Code (provides schema check)** to edit proxy config
 
 [🔼Back to top](#table-of-content)
 
@@ -93,17 +93,16 @@
 
 ### Fields
 
-| Field                 | Description                              | Default                                                                | Allowed Values / Syntax                                                                                                                                 |
-| --------------------- | ---------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scheme`              | proxy protocol                           | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul> | `http`, `https`, `tcp`, `udp`                                                                                                                           |
-| `host`                | proxy host                               | `container_name`                                                       | IP address, hostname                                                                                                                                    |
-| `port`                | proxy port **(http/s)**                  | first port in `ports:`                                                 | number in range of `0 - 65535`                                                                                                                          |
-| `port` **(required)** | proxy port **(tcp/udp)**                 | N/A                                                                    | `x:y` <br><ul><li>x: port for `go-proxy` to listen on</li><li>y: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
-| `no_tls_verify`       | whether skip tls verify **(https only)** | `false`                                                                | boolean                                                                                                                                                 |
-| `path`                | proxy path                               | empty                                                                  | **(http/s only)** string                                                                                                                                |
-| `path_mode`           | path handling **(http/s only)**          | empty                                                                  | empty, `forward`                                                                                                                                        |
-| `set_headers`         | header to set **(http/s only)**          | empty                                                                  | yaml style key-value mapping[<sup>1</sup>](#1-key-value-mapping-example)                                                                                |
-| `hide_headers`        | header to hide **(http/s only)**         | empty                                                                  | yaml style list[<sup>2</sup>](#2-list-example)                                                                                                          |
+| Field                 | Description                                                                                    | Default                                                                | Allowed Values / Syntax                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheme`              | proxy protocol                                                                                 | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul> | `http`, `https`, `tcp`, `udp`                                                                                                                           |
+| `host`                | proxy host                                                                                     | <ul><li>Docker: `container_name`</li><li>File: `localhost`</li></ul>   | IP address, hostname                                                                                                                                    |
+| `port`                | proxy port **(http/s)**                                                                        | first port in `ports:`                                                 | number in range of `1 - 65535`                                                                                                                          |
+| `port` **(required)** | proxy port **(tcp/udp)**                                                                       | N/A                                                                    | `x:y` <br><ul><li>x: port for `go-proxy` to listen on</li><li>y: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
+| `no_tls_verify`       | whether skip tls verify **(https only)**                                                       | `false`                                                                | boolean                                                                                                                                                 |
+| `path_patterns`       | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | empty **(proxy all requests)**                                         | yaml style list[<sup>1</sup>](#list-example) of path patterns ([syntax](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                             |
+| `set_headers`         | header to set **(http/s only)**                                                                | empty                                                                  | yaml style key-value mapping[<sup>2</sup>](#key-value-mapping-example) of header-value pairs                                                            |
+| `hide_headers`        | header to hide **(http/s only)**                                                               | empty                                                                  | yaml style list[<sup>1</sup>](#list-example) of headers                                                                                                 |
 
 #### Key-value mapping example
 
@@ -142,6 +141,9 @@ services:
   nginx:
     ...
     labels:
+      proxy.nginx.path_patterns: | # remember to add the '|'
+        - GET /
+        - POST /auth
       proxy.nginx.hide_headers: | # remember to add the '|'
         - X-Custom-Header1
         - X-Custom-Header2
@@ -152,6 +154,9 @@ File Provider
 ```yaml
 service_a:
   host: service_a.internal
+  path_patterns:
+    - GET /
+    - POST /auth
   hide_headers:
     - X-Custom-Header1
     - X-Custom-Header2

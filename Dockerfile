@@ -13,9 +13,9 @@ FROM alpine:latest
 LABEL maintainer="yusing@6uo.me"
 
 RUN apk add --no-cache tzdata
-COPY schema/ /app/schema
 # copy binary
 COPY --from=builder /src/go-proxy /app/
+COPY schema/ /app/schema
 
 RUN chmod +x /app/go-proxy
 ENV DOCKER_HOST unix:///var/run/docker.sock
