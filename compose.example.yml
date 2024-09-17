@@ -14,6 +14,9 @@ services:
     container_name: go-proxy
     restart: always
     network_mode: host
+    environment:
+      # (Optional) change this to your timezone to get correct log timestamp
+      TZ: ETC/UTC
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./config:/app/config
