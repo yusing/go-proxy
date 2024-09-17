@@ -55,7 +55,7 @@ func (route *UDPRoute) Setup() error {
 	return nil
 }
 
-func (route *UDPRoute) Accept() (interface{}, error) {
+func (route *UDPRoute) Accept() (any, error) {
 	in := route.listeningConn
 
 	buffer := make([]byte, udpBufferSize)
@@ -103,7 +103,7 @@ func (route *UDPRoute) Accept() (interface{}, error) {
 	return conn, err
 }
 
-func (route *UDPRoute) Handle(c interface{}) error {
+func (route *UDPRoute) Handle(c any) error {
 	return c.(*UDPConn).Start()
 }
 

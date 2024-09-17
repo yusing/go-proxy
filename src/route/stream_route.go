@@ -37,7 +37,6 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	base := &StreamRoute{
 		StreamEntry: entry,
 		wg:          sync.WaitGroup{},
-		stopCh:      make(chan struct{}, 1),
 		connCh:      make(chan any),
 	}
 	if entry.Scheme.ListeningScheme.IsTCP() {
@@ -57,6 +56,7 @@ func (r *StreamRoute) Start() E.NestedError {
 	if r.started.Load() {
 		return E.Invalid("state", "already started")
 	}
+	r.stopCh = make(chan struct{}, 1)
 	r.wg.Wait()
 	if err := r.Setup(); err != nil {
 		return E.Failure("setup").With(err)

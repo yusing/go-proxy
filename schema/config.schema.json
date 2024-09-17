@@ -37,7 +37,7 @@
           "title": "DNS Challenge Provider",
           "default": "local",
           "type": "string",
-          "enum": ["local", "cloudflare", "clouddns", "duckdns"]
+          "enum": ["local", "cloudflare", "clouddns", "duckdns", "ovh"]
         },
         "options": {
           "title": "Provider specific options",
@@ -130,6 +130,82 @@
                   "token": {
                     "description": "DuckDNS Token",
                     "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "provider": {
+                "const": "ovh"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "options": {
+                "required": ["application_secret", "consumer_key"],
+                "additionalProperties": false,
+                "oneOf": [
+                  {
+                    "required": ["application_key"]
+                  },
+                  {
+                    "required": ["oauth2_config"]
+                  }
+                ],
+                "properties": {
+                  "api_endpoint": {
+                    "description": "OVH API endpoint",
+                    "default": "ovh-eu",
+                    "anyOf": [
+                      {
+                        "enum": [
+                          "ovh-eu",
+                          "ovh-ca",
+                          "ovh-us",
+                          "kimsufi-eu",
+                          "kimsufi-ca",
+                          "soyoustart-eu",
+                          "soyoustart-ca"
+                        ]
+                      },
+                      {
+                        "type": "string",
+                        "format": "uri"
+                      }
+                    ]
+                  },
+                  "application_secret": {
+                    "description": "OVH Application Secret",
+                    "type": "string"
+                  },
+                  "consumer_key": {
+                    "description": "OVH Consumer Key",
+                    "type": "string"
+                  },
+                  "application_key": {
+                    "description": "OVH Application Key",
+                    "type": "string"
+                  },
+                  "oauth2_config": {
+                    "description": "OVH OAuth2 config",
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "client_id": {
+                        "description": "OVH Client ID",
+                        "type": "string"
+                      },
+                      "client_secret": {
+                        "description": "OVH Client Secret",
+                        "type": "string"
+                      }
+                    },
+                    "required": ["client_id", "client_secret"]
                   }
                 }
               }

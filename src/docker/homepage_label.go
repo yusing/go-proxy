@@ -9,7 +9,7 @@ type (
 		Icon         string
 		Category     string
 		Description  string
-		WidgetConfig map[string]interface{}
+		WidgetConfig map[string]any
 	}
 )
 

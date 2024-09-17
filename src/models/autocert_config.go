@@ -9,5 +9,5 @@ type (
 		Provider string              `json:"provider"`
 		Options  AutocertProviderOpt `yaml:",flow" json:"options"`
 	}
-	AutocertProviderOpt map[string]string
+	AutocertProviderOpt map[string]any
 )

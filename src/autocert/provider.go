@@ -272,23 +272,13 @@ func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.NestedError) {
 	return r, E.Nil()
 }
 
-func setOptions[T interface{}](cfg *T, opt M.AutocertProviderOpt) E.NestedError {
-	for k, v := range opt {
-		err := U.SetFieldFromSnake(cfg, k, v)
-		if err.HasError() {
-			return E.Failure("set autocert option").Subject(k).With(err)
-		}
-	}
-	return E.Nil()
-}
-
 func providerGenerator[CT any, PT challenge.Provider](
 	defaultCfg func() *CT,
 	newProvider func(*CT) (PT, error),
 ) ProviderGenerator {
 	return func(opt M.AutocertProviderOpt) (challenge.Provider, E.NestedError) {
 		cfg := defaultCfg()
-		err := setOptions(cfg, opt)
+		err := U.Deserialize(opt, cfg)
 		if err.HasError() {
 			return nil, err
 		}

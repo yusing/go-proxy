@@ -38,11 +38,11 @@ func (route *TCPRoute) Setup() error {
 	return nil
 }
 
-func (route *TCPRoute) Accept() (interface{}, error) {
+func (route *TCPRoute) Accept() (any, error) {
 	return route.listener.Accept()
 }
 
-func (route *TCPRoute) Handle(c interface{}) error {
+func (route *TCPRoute) Handle(c any) error {
 	clientConn := c.(net.Conn)
 
 	defer clientConn.Close()

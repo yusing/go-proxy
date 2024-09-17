@@ -114,6 +114,8 @@ See [providers.example.yml](providers.example.yml) for examples
 
 - Cert "renewal" is actually obtaining a new cert instead of renewing the existing one
 
+- `autocert` config is not hot-reloadable
+
 [🔼Back to top](#table-of-content)
 
 ## Build it yourself

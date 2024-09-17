@@ -7,9 +7,16 @@ import (
 	E "github.com/yusing/go-proxy/error"
 )
 
-func ExpectErrNil(t *testing.T, err E.NestedError) {
+func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
-	if err.HasError() {
+	var noError bool
+	switch t := err.(type) {
+	case E.NestedError:
+		noError = t.NoError()
+	default:
+		noError = err == nil
+	}
+	if !noError {
 		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 }

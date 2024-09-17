@@ -9,7 +9,7 @@ import (
 	E "github.com/yusing/go-proxy/error"
 )
 
-type Map[KT comparable, VT interface{}] struct {
+type Map[KT comparable, VT any] struct {
 	m       map[KT]VT
 	defVals map[KT]VT
 	sync.RWMutex
@@ -22,7 +22,7 @@ type Map[KT comparable, VT interface{}] struct {
 //
 // Return:
 // - *Map[KT, VT]: a pointer to the newly created Map.
-func NewMap[KT comparable, VT interface{}](dv ...map[KT]VT) *Map[KT, VT] {
+func NewMap[KT comparable, VT any](dv ...map[KT]VT) *Map[KT, VT] {
 	return NewMapFrom(make(map[KT]VT), dv...)
 }
 
@@ -36,7 +36,7 @@ func NewMap[KT comparable, VT interface{}](dv ...map[KT]VT) *Map[KT, VT] {
 //
 // Return:
 // - *Map[KT, VT]: a pointer to the newly created Map.
-func NewMapOf[M Map[KT, VT], KT comparable, VT interface{}](dv ...map[KT]VT) *Map[KT, VT] {
+func NewMapOf[M Map[KT, VT], KT comparable, VT any](dv ...map[KT]VT) *Map[KT, VT] {
 	return NewMapFrom(make(map[KT]VT), dv...)
 }
 
@@ -48,7 +48,7 @@ func NewMapOf[M Map[KT, VT], KT comparable, VT interface{}](dv ...map[KT]VT) *Ma
 //
 // Return:
 // - *Map[KT, VT]: a pointer to the newly created Map.
-func NewMapFrom[KT comparable, VT interface{}](from map[KT]VT, dv ...map[KT]VT) *Map[KT, VT] {
+func NewMapFrom[KT comparable, VT any](from map[KT]VT, dv ...map[KT]VT) *Map[KT, VT] {
 	if len(dv) > 0 {
 		return &Map[KT, VT]{m: from, defVals: dv[0]}
 	}

@@ -95,7 +95,7 @@ func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 		prName := p.GetName()
 		p.GetCurrentRoutes().EachKV(func(a string, r R.Route) {
 			obj, err := U.Serialize(r)
-			if err != nil {
+			if err.HasError() {
 				cfg.l.Error(err)
 				return
 			}
@@ -114,13 +114,13 @@ func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 	return routes
 }
 
-func (cfg *Config) Statistics() map[string]interface{} {
+func (cfg *Config) Statistics() map[string]any {
 	nTotalStreams := 0
 	nTotalRPs := 0
-	providerStats := make(map[string]interface{})
+	providerStats := make(map[string]any)
 
 	cfg.proxyProviders.Each(func(p *PR.Provider) {
-		stats := make(map[string]interface{})
+		stats := make(map[string]any)
 		nStreams := 0
 		nRPs := 0
 		p.GetCurrentRoutes().EachKV(func(a string, r R.Route) {
@@ -141,7 +141,7 @@ func (cfg *Config) Statistics() map[string]interface{} {
 		providerStats[p.GetName()] = stats
 	})
 
-	return map[string]interface{}{
+	return map[string]any{
 		"num_total_streams":         nTotalStreams,
 		"num_total_reverse_proxies": nTotalRPs,
 		"providers":                 providerStats,

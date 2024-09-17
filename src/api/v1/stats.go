@@ -10,7 +10,7 @@ import (
 )
 
 func Stats(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	stats := map[string]interface{}{
+	stats := map[string]any{
 		"proxies": cfg.Statistics(),
 		"uptime":  utils.FormatDuration(server.GetProxyServer().Uptime()),
 	}

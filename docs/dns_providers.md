@@ -1,11 +1,13 @@
 # Supported DNS Providers
 
 <!-- TOC -->
-- [Cloudflare](#cloudflare)
-- [CloudDNS](#clouddns)
-- [DuckDNS](#duckdns)
-- [Implement other DNS providers](#implement-other-dns-providers)
-<!-- /TOC -->
+
+- [Supported DNS Providers](#supported-dns-providers)
+  - [Cloudflare](#cloudflare)
+  - [CloudDNS](#clouddns)
+  - [DuckDNS](#duckdns)
+  - [OVHCloud](#ovhcloud)
+  - [Implement other DNS providers](#implement-other-dns-providers)
 
 ## Cloudflare
 
@@ -23,9 +25,28 @@ Follow [this guide](https://cloudkul.com/blog/automcatic-renew-and-generate-ssl-
 
 ## DuckDNS
 
-`token`: DuckDNS Token
+- `token`: DuckDNS Token
 
 Tested by [earvingad](https://github.com/earvingad)
+
+## OVHCloud
+
+_Note, `application_key` and `oauth2_config` **CANNOT** be used together_
+
+- `api_endpoint`: Endpoint URL, or one of
+  - `ovh-eu`,
+  - `ovh-ca`,
+  - `ovh-us`,
+  - `kimsufi-eu`,
+  - `kimsufi-ca`,
+  - `soyoustart-eu`,
+  - `soyoustart-ca`
+- `application_secret`
+- `application_key`
+- `consumer_key`
+- `oauth2_config`: Client ID and Client Secret
+  - `client_id`
+  - `client_secret`
 
 ## Implement other DNS providers
 

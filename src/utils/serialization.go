@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema"
 	E "github.com/yusing/go-proxy/error"
@@ -12,7 +13,7 @@ import (
 )
 
 func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
-	var i interface{}
+	var i any
 
 	err := yaml.Unmarshal(data, &i)
 	if err != nil {
@@ -55,7 +56,7 @@ func TryJsonStringify(o any) string {
 	return string(b)
 }
 
-// Serialize converts the given data into a map[string]interface{} representation.
+// Serialize converts the given data into a map[string]any representation.
 //
 // It uses reflection to inspect the data type and handle different kinds of data.
 // For a struct, it extracts the fields using the json tag if present, or the field name if not.
@@ -66,9 +67,9 @@ func TryJsonStringify(o any) string {
 // - data: The data to be converted into a map.
 //
 // Returns:
-// - result: The resulting map[string]interface{} representation of the data.
+// - result: The resulting map[string]any representation of the data.
 // - error: An error if the data type is unsupported or if there is an error during conversion.
-func Serialize(data interface{}) (SerializedObject, error) {
+func Serialize(data any) (SerializedObject, E.NestedError) {
 	result := make(map[string]any)
 
 	// Use reflection to inspect the data type
@@ -76,7 +77,7 @@ func Serialize(data interface{}) (SerializedObject, error) {
 
 	// Check if the value is valid
 	if !value.IsValid() {
-		return nil, fmt.Errorf("invalid data")
+		return nil, E.Invalid("data", fmt.Sprintf("type: %T", data))
 	}
 
 	// Dereference pointers if necessary
@@ -107,7 +108,7 @@ func Serialize(data interface{}) (SerializedObject, error) {
 			} else if field.Anonymous {
 				// If the field is an embedded struct, add its fields to the result
 				fieldMap, err := Serialize(value.Field(i).Interface())
-				if err != nil {
+				if err.HasError() {
 					return nil, err
 				}
 				for k, v := range fieldMap {
@@ -118,10 +119,72 @@ func Serialize(data interface{}) (SerializedObject, error) {
 			}
 		}
 	default:
-		return nil, fmt.Errorf("unsupported type: %s", value.Kind())
+		// return nil, fmt.Errorf("unsupported type: %s", value.Kind())
+		return nil, E.Unsupported("type", value.Kind())
 	}
 
-	return result, nil
+	return result, E.Nil()
 }
 
-type SerializedObject map[string]any
+func Deserialize(src map[string]any, target any) E.NestedError {
+	// convert data fields to lower no-snake
+	// convert target fields to lower
+	// then check if the field of data is in the target
+	mapping := make(map[string]string)
+	t := reflect.TypeOf(target).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		snakeCaseField := strings.ToLower(field.Name)
+		mapping[snakeCaseField] = field.Name
+	}
+	for k, v := range src {
+		kCleaned := toLowerNoSnake(k)
+		if fieldName, ok := mapping[kCleaned]; ok {
+			prop := reflect.ValueOf(target).Elem().FieldByName(fieldName)
+			propType := prop.Type()
+			isPtr := prop.Kind() == reflect.Ptr
+			if prop.CanSet() {
+				val := reflect.ValueOf(v)
+				vType := val.Type()
+				switch {
+				case isPtr && vType.ConvertibleTo(propType.Elem()):
+					ptr := reflect.New(propType.Elem())
+					ptr.Elem().Set(val.Convert(propType.Elem()))
+					prop.Set(ptr)
+				case vType.ConvertibleTo(propType):
+					prop.Set(val.Convert(propType))
+				case isPtr:
+					var vSerialized SerializedObject
+					vSerialized, ok = v.(SerializedObject)
+					if !ok {
+						if vType.ConvertibleTo(reflect.TypeFor[SerializedObject]()) {
+							vSerialized = val.Convert(reflect.TypeFor[SerializedObject]()).Interface().(SerializedObject)
+						} else {
+							return E.Failure(fmt.Sprintf("convert %s (%T) to %s", k, v, reflect.TypeFor[SerializedObject]()))
+						}
+					}
+					propNew := reflect.New(propType.Elem())
+					err := Deserialize(vSerialized, propNew.Interface())
+					if err.HasError() {
+						return E.Failure("set field").With(k).With(err)
+					}
+					prop.Set(propNew)
+				default:
+					return E.Unsupported("field", k).Extraf("type=%s", propType)
+				}
+			} else {
+				return E.Unsupported("field", k).Extraf("type=%s", propType)
+			}
+		} else {
+			return E.Failure("unknown field").With(k)
+		}
+	}
+
+	return E.Nil()
+}
+
+func toLowerNoSnake(s string) string {
+	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
+}
+
+type SerializedObject = map[string]any

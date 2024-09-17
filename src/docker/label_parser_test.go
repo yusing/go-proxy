@@ -19,7 +19,7 @@ func TestHomePageLabel(t *testing.T) {
 	field := "ip"
 	v := "bar"
 	pl, err := ParseLabel(makeLabel(NSHomePage, alias, field), v)
-	ExpectErrNil(t, err)
+	ExpectNoError(t, err)
 	if pl.Target != alias {
 		t.Errorf("Expected alias=%s, got %s", alias, pl.Target)
 	}
@@ -34,7 +34,7 @@ func TestHomePageLabel(t *testing.T) {
 func TestStringProxyLabel(t *testing.T) {
 	v := "bar"
 	pl, err := ParseLabel(makeLabel(NSProxy, "foo", "ip"), v)
-	ExpectErrNil(t, err)
+	ExpectNoError(t, err)
 	ExpectEqual(t, pl.Value, v)
 }
 
@@ -52,7 +52,7 @@ func TestBoolProxyLabelValid(t *testing.T) {
 
 	for k, v := range tests {
 		pl, err := ParseLabel(makeLabel(NSProxy, "foo", "no_tls_verify"), k)
-		ExpectErrNil(t, err)
+		ExpectNoError(t, err)
 		ExpectEqual(t, pl.Value, v)
 	}
 }
@@ -78,7 +78,7 @@ X-Custom-Header2: boo`
 	}
 
 	pl, err := ParseLabel(makeLabel(NSProxy, "foo", "set_headers"), v)
-	ExpectErrNil(t, err)
+	ExpectNoError(t, err)
 	hGot := ExpectType[map[string]string](t, pl.Value)
 	if hGot != nil && !reflect.DeepEqual(h, hGot) {
 		t.Errorf("Expected %v, got %v", h, hGot)
@@ -109,7 +109,7 @@ func TestHideHeadersProxyLabel(t *testing.T) {
 `
 	v = strings.TrimPrefix(v, "\n")
 	pl, err := ParseLabel(makeLabel(NSProxy, "foo", "hide_headers"), v)
-	ExpectErrNil(t, err)
+	ExpectNoError(t, err)
 	sGot := ExpectType[[]string](t, pl.Value)
 	sWant := []string{"X-Custom-Header1", "X-Custom-Header2", "X-Custom-Header3"}
 	if sGot != nil {
@@ -120,7 +120,7 @@ func TestHideHeadersProxyLabel(t *testing.T) {
 func TestCommaSepProxyLabelSingle(t *testing.T) {
 	v := "a"
 	pl, err := ParseLabel("proxy.aliases", v)
-	ExpectErrNil(t, err)
+	ExpectNoError(t, err)
 	sGot := ExpectType[[]string](t, pl.Value)
 	sWant := []string{"a"}
 	if sGot != nil {
@@ -132,7 +132,7 @@ func TestCommaSepProxyLabelSingle(t *testing.T) {
 func TestCommaSepProxyLabelMulti(t *testing.T) {
 	v := "X-Custom-Header1, X-Custom-Header2,X-Custom-Header3"
 	pl, err := ParseLabel("proxy.aliases", v)
-	ExpectErrNil(t, err)
+	ExpectNoError(t, err)
 	sGot := ExpectType[[]string](t, pl.Value)
 	sWant := []string{"X-Custom-Header1", "X-Custom-Header2", "X-Custom-Header3"}
 	if sGot != nil {
