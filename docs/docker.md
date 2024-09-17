@@ -88,6 +88,7 @@
 | Label                   | Description                                              | Default          |
 | ----------------------- | -------------------------------------------------------- | ---------------- |
 | `proxy.aliases`         | comma separated aliases for subdomain and label matching | `container_name` |
+| `proxy.exclude`         | to be excluded from `go-proxy`                           | false            |
 | `proxy.<alias>.<field>` | set field for specific alias                             | N/A              |
 | `proxy.*.<field>`       | set field for all aliases                                | N/A              |
 

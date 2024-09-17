@@ -20,16 +20,16 @@ func FormatDuration(d time.Duration) string {
 	var parts []string
 
 	if days > 0 {
-		parts = append(parts, fmt.Sprintf("%d Day%s", days, pluralize(days)))
+		parts = append(parts, fmt.Sprintf("%d day%s", days, pluralize(days)))
 	}
 	if hours > 0 {
-		parts = append(parts, fmt.Sprintf("%d Hour%s", hours, pluralize(hours)))
+		parts = append(parts, fmt.Sprintf("%d hour%s", hours, pluralize(hours)))
 	}
 	if minutes > 0 {
-		parts = append(parts, fmt.Sprintf("%d Minute%s", minutes, pluralize(minutes)))
+		parts = append(parts, fmt.Sprintf("%d minute%s", minutes, pluralize(minutes)))
 	}
 	if seconds > 0 {
-		parts = append(parts, fmt.Sprintf("%d Second%s", seconds, pluralize(seconds)))
+		parts = append(parts, fmt.Sprintf("%d second%s", seconds, pluralize(seconds)))
 	}
 
 	// Join the parts with appropriate connectors
@@ -40,6 +40,15 @@ func FormatDuration(d time.Duration) string {
 		return parts[0]
 	}
 	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
+}
+
+func ParseBool(s string) bool {
+	switch strings.ToLower(s) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func pluralize(n int64) string {

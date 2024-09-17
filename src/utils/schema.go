@@ -2,7 +2,6 @@ package utils
 
 import (
 	"github.com/santhosh-tekuri/jsonschema"
-	"github.com/yusing/go-proxy/common"
 )
 
 var schemaCompiler = func() *jsonschema.Compiler {
@@ -11,12 +10,9 @@ var schemaCompiler = func() *jsonschema.Compiler {
 	return c
 }()
 
-var schemaStorage = make(map[string] *jsonschema.Schema)
+var schemaStorage = make(map[string]*jsonschema.Schema)
 
 func GetSchema(path string) *jsonschema.Schema {
-	if common.NoSchemaValidation {
-		panic("bug: GetSchema called when schema validation disabled")
-	}
 	if schema, ok := schemaStorage[path]; ok {
 		return schema
 	}

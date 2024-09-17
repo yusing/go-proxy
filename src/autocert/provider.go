@@ -114,7 +114,7 @@ func (p *Provider) LoadCert() E.NestedError {
 	p.tlsCert = &cert
 	p.certExpiries = expiries
 
-	logger.Infof("next renewal in %v", time.Until(p.ShouldRenewOn()))
+	logger.Infof("next renewal in %v", U.FormatDuration(time.Until(p.ShouldRenewOn())))
 	return p.renewIfNeeded()
 }
 

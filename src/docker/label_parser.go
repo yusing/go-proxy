@@ -60,7 +60,6 @@ const NSProxy = "proxy"
 
 var _ = func() int {
 	RegisterNamespace(NSProxy, ValueParserMap{
-		"aliases":       commaSepParser,
 		"path_patterns": yamlListParser,
 		"set_headers":   yamlStringMappingParser,
 		"hide_headers":  yamlListParser,

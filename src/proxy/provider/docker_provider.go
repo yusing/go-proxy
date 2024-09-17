@@ -10,6 +10,7 @@ import (
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
 	PT "github.com/yusing/go-proxy/proxy/fields"
+	U "github.com/yusing/go-proxy/utils"
 	W "github.com/yusing/go-proxy/watcher"
 )
 
@@ -72,6 +73,12 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 	var mainAlias string
 	var aliases PT.Aliases
 
+	if exclude, ok := container.Labels[D.NSProxy+".exclude"]; ok {
+		if U.ParseBool(exclude) {
+			return M.NewProxyEntries(), E.Nil()
+		}
+	}
+
 	// set mainAlias to docker compose service name if available
 	if serviceName, ok := container.Labels["com.docker.compose.service"]; ok {
 		mainAlias = serviceName
@@ -84,9 +91,9 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 		mainAlias = containerName
 	}
 
-	if l, ok := container.Labels["proxy.aliases"]; ok {
+	if l, ok := container.Labels[D.NSProxy+".aliases"]; ok {
 		aliases = PT.NewAliases(l)
-		delete(container.Labels, "proxy.aliases")
+		delete(container.Labels, D.NSProxy+"proxy.aliases")
 	} else {
 		aliases = PT.NewAliases(mainAlias)
 	}
@@ -157,3 +164,5 @@ func findFirstPort(c *types.Container) (string, E.NestedError) {
 	}
 	return "", E.Failure("findFirstPort")
 }
+
+const wildcardAlias = "*"

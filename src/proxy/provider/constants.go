@@ -1,3 +1,0 @@
-package provider
-
-const wildcardAlias = "*"
