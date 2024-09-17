@@ -33,7 +33,7 @@ type (
 func NewEntry(m *M.ProxyEntry) (any, E.NestedError) {
 	m.SetDefaults()
 	scheme, err := T.NewScheme(m.Scheme)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	if scheme.IsStream() {
@@ -44,23 +44,23 @@ func NewEntry(m *M.ProxyEntry) (any, E.NestedError) {
 
 func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
 	host, err := T.NewHost(m.Host)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	port, err := T.NewPort(m.Port)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	pathPatterns, err := T.NewPathPatterns(m.PathPatterns)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	setHeaders, err := T.NewHTTPHeaders(m.SetHeaders)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	url, err := E.Check(url.Parse(fmt.Sprintf("%s://%s:%d", s, host, port)))
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	return &Entry{
@@ -78,15 +78,15 @@ func validateEntry(m *M.ProxyEntry, s T.Scheme) (*Entry, E.NestedError) {
 
 func validateStreamEntry(m *M.ProxyEntry) (*StreamEntry, E.NestedError) {
 	host, err := T.NewHost(m.Host)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	port, err := T.NewStreamPort(m.Port)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	scheme, err := T.NewStreamScheme(m.Scheme)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	return &StreamEntry{

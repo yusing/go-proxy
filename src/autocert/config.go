@@ -20,6 +20,9 @@ func NewConfig(cfg *M.AutoCertConfig) *Config {
 	if cfg.KeyPath == "" {
 		cfg.KeyPath = KeyFileDefault
 	}
+	if cfg.Provider == "" {
+		cfg.Provider = ProviderLocal
+	}
 	return (*Config)(cfg)
 }
 
@@ -36,43 +39,35 @@ func (cfg *Config) GetProvider() (*Provider, E.NestedError) {
 		if cfg.Email == "" {
 			errors.Addf("no email specified")
 		}
+		// check if provider is implemented
+		_, ok := providersGenMap[cfg.Provider]
+		if !ok {
+			errors.Addf("unknown provider: %q", cfg.Provider)
+		}
 	}
 
-	gen, ok := providersGenMap[cfg.Provider]
-	if !ok {
-		errors.Addf("unknown provider: %q", cfg.Provider)
-	}
-	if err := errors.Build(); err.IsNotNil() {
+	if err := errors.Build(); err.HasError() {
 		return nil, err
 	}
 
 	privKey, err := E.Check(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, E.Failure("generate private key").With(err)
 	}
+
 	user := &User{
 		Email: cfg.Email,
 		key:   privKey,
 	}
+
 	legoCfg := lego.NewConfig(user)
 	legoCfg.Certificate.KeyType = certcrypto.RSA2048
-	legoClient, err := E.Check(lego.NewClient(legoCfg))
-	if err.IsNotNil() {
-		return nil, E.Failure("create lego client").With(err)
-	}
+
 	base := &Provider{
 		cfg:     cfg,
 		user:    user,
 		legoCfg: legoCfg,
-		client:  legoClient,
 	}
-	legoProvider, err := E.Check(gen(cfg.Options))
-	if err.IsNotNil() {
-		return nil, E.Failure("create lego provider").With(err)
-	}
-	err = E.From(legoClient.Challenge.SetDNS01Provider(legoProvider))
-	if err.IsNotNil() {
-		return nil, E.Failure("set challenge provider").With(err)
-	}
+
 	return base, E.Nil()
 }

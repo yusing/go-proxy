@@ -34,16 +34,16 @@ func (p *FileProvider) String() string {
 func (p *FileProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
 	entries := M.NewProxyEntries()
 	data, err := E.Check(os.ReadFile(p.path))
-	if err.IsNotNil() {
+	if err.HasError() {
 		return entries, E.Failure("read file").Subject(p).With(err)
 	}
 	ne := E.Failure("validation").Subject(p)
 	if !common.NoSchemaValidation {
-		if err = Validate(data); err.IsNotNil() {
+		if err = Validate(data); err.HasError() {
 			return entries, ne.With(err)
 		}
 	}
-	if err = entries.UnmarshalFromYAML(data); err.IsNotNil() {
+	if err = entries.UnmarshalFromYAML(data); err.HasError() {
 		return entries, ne.With(err)
 	}
 	return entries, E.Nil()

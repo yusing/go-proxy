@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,14 +35,15 @@ func main() {
 	}
 
 	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableSorting:  true,
-		FullTimestamp:   true,
-		ForceColors:     true,
-		TimestampFormat: "01-02 15:04:05",
+		DisableSorting:         true,
+		DisableLevelTruncation: true,
+		FullTimestamp:          true,
+		ForceColors:            true,
+		TimestampFormat:        "01-02 15:04:05",
 	})
 
 	if args.Command == common.CommandReload {
-		if err := apiUtils.ReloadServer(); err.IsNotNil() {
+		if err := apiUtils.ReloadServer(); err.HasError() {
 			l.Fatal(err)
 		}
 		return
@@ -52,10 +55,10 @@ func main() {
 	if args.Command == common.CommandValidate {
 		var err E.NestedError
 		data, err := E.Check(os.ReadFile(common.ConfigPath))
-		if err.IsNotNil() {
+		if err.HasError() {
 			l.WithError(err).Fatalf("config error")
 		}
-		if err = config.Validate(data); err.IsNotNil() {
+		if err = config.Validate(data); err.HasError() {
 			l.WithError(err).Fatalf("config error")
 		}
 		l.Printf("config OK")
@@ -63,8 +66,18 @@ func main() {
 	}
 
 	cfg, err := config.New()
-	if err.IsNotNil() {
+	if err.HasError() {
 		l.Fatalf("config error: %s", err)
+	}
+
+	if args.Command == common.CommandListConfigs {
+		yml, err := E.Check(json.Marshal(cfg.Value()))
+		if err.HasError() {
+			panic(err)
+		}
+		rawLogger := log.New(os.Stdout, "", 0)
+		rawLogger.Printf("%s", yml) // raw output for convenience using "jq"
+		return
 	}
 
 	onShutdown.Add(func() {
@@ -80,23 +93,27 @@ func main() {
 	autocert := cfg.GetAutoCertProvider()
 
 	if autocert != nil {
-		err = autocert.LoadCert()
-
-		if err.IsNotNil() {
-			l.Error(err)
-			l.Info("Now attempting to obtain a new certificate...")
-			if err = autocert.ObtainCert(); err.IsNotNil() {
-				ctx, certRenewalCancel := context.WithCancel(context.Background())
-				go autocert.ScheduleRenewal(ctx)
-				onShutdown.Add(certRenewalCancel)
-			} else {
+		if err = autocert.LoadCert(); err.HasError() {
+			if !err.Is(os.ErrNotExist) { // ignore if cert doesn't exist
+				l.Error(err)
+			}
+			l.Debug("obtaining cert due to error loading cert")
+			if err = autocert.ObtainCert(); err.HasError() {
 				l.Warn(err)
 			}
-		} else {
-			for name, expiry := range autocert.GetExpiries() {
-				l.Infof("certificate %q: expire on %s", name, expiry)
-			}
 		}
+
+		if err.NoError() {
+			ctx, certRenewalCancel := context.WithCancel(context.Background())
+			go autocert.ScheduleRenewal(ctx)
+			onShutdown.Add(certRenewalCancel)
+		}
+
+		for name, expiry := range autocert.GetExpiries() {
+			l.Infof("certificate %q: expire on %s", name, expiry)
+		}
+	} else {
+		l.Info("autocert not configured")
 	}
 
 	proxyServer := server.InitProxyServer(server.Options{

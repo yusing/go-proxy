@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"os"
 	"sync/atomic"
@@ -135,7 +136,7 @@ func (p *BidirectionalPipe) Start() E.NestedError {
 		errCh <- p.pDstSrc.Start()
 	}()
 	for err := range errCh {
-		if err.IsNotNil() {
+		if err.HasError() {
 			return err
 		}
 	}
@@ -149,4 +150,20 @@ func (p *BidirectionalPipe) Stop() E.NestedError {
 func Copy(ctx context.Context, dst io.WriteCloser, src io.ReadCloser) E.NestedError {
 	_, err := io.Copy(dst, StdReadCloser{&ReadCloser{ctx: ctx, r: src}})
 	return E.From(err)
+}
+
+func LoadJson[T any](path string, pointer *T) E.NestedError {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return E.From(err)
+	}
+	return E.From(json.Unmarshal(data, pointer))
+}
+
+func SaveJson[T any](path string, pointer *T, perm os.FileMode) E.NestedError {
+	data, err := json.Marshal(pointer)
+	if err != nil {
+		return E.From(err)
+	}
+	return E.From(os.WriteFile(path, data, perm))
 }

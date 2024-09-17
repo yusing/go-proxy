@@ -21,7 +21,7 @@ var NewRoutes = F.NewMap[string, Route]
 
 func NewRoute(en *M.ProxyEntry) (Route, E.NestedError) {
 	entry, err := P.NewEntry(en)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	switch e := entry.(type) {

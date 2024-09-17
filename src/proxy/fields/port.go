@@ -18,7 +18,7 @@ func NewPort(v string) (Port, E.NestedError) {
 
 func NewPortInt[Int int | uint16](v Int) (Port, E.NestedError) {
 	pp := Port(v)
-	if err := pp.boundCheck(); err.IsNotNil() {
+	if err := pp.boundCheck(); err.HasError() {
 		return ErrPort, err
 	}
 	return pp, E.Nil()

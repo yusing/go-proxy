@@ -25,7 +25,7 @@ func NewPathPatterns(s []string) (PathPatterns, E.NestedError) {
 	}
 	pp := make(PathPatterns, len(s))
 	for i, v := range s {
-		if pattern, err := NewPathPattern(v); err.IsNotNil() {
+		if pattern, err := NewPathPattern(v); err.HasError() {
 			return nil, err
 		} else {
 			pp[i] = pattern

@@ -63,7 +63,7 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 	}
 	// try to parse value
 	v, err := p(value)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	l.Value = v

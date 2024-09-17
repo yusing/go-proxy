@@ -12,18 +12,19 @@ type Args struct {
 }
 
 const (
-	CommandStart    = ""
-	CommandValidate = "validate"
-	CommandReload   = "reload"
+	CommandStart       = ""
+	CommandValidate    = "validate"
+	CommandListConfigs = "ls-config"
+	CommandReload      = "reload"
 )
 
-var ValidCommands = []string{CommandStart, CommandValidate, CommandReload}
+var ValidCommands = []string{CommandStart, CommandValidate, CommandListConfigs, CommandReload}
 
 func GetArgs() Args {
 	var args Args
 	flag.Parse()
 	args.Command = flag.Arg(0)
-	if err := validateArgs(args.Command, ValidCommands); err.IsNotNil() {
+	if err := validateArgs(args.Command, ValidCommands); err.HasError() {
 		logrus.Fatal(err)
 	}
 	return args

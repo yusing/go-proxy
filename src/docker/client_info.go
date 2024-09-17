@@ -18,7 +18,7 @@ type ClientInfo struct {
 
 func GetClientInfo(clientHost string) (*ClientInfo, E.NestedError) {
 	dockerClient, err := ConnectClient(clientHost)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, E.Failure("create docker client").With(err)
 	}
 
@@ -26,7 +26,7 @@ func GetClientInfo(clientHost string) (*ClientInfo, E.NestedError) {
 	defer cancel()
 
 	containers, err := E.Check(dockerClient.ContainerList(ctx, container.ListOptions{}))
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, E.Failure("list containers").With(err)
 	}
 
@@ -34,7 +34,7 @@ func GetClientInfo(clientHost string) (*ClientInfo, E.NestedError) {
 	// since the services being proxied to
 	// should have the same IP as the docker client
 	url, err := E.Check(client.ParseHostURL(dockerClient.DaemonHost()))
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, E.Invalid("host url", dockerClient.DaemonHost()).With(err)
 	}
 	if url.Scheme == "unix" {

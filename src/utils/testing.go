@@ -9,7 +9,7 @@ import (
 
 func ExpectErrNil(t *testing.T, err E.NestedError) {
 	t.Helper()
-	if err.IsNotNil() {
+	if err.HasError() {
 		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 }

@@ -7,7 +7,7 @@
    ```go
    var providersGenMap = map[string]ProviderGenerator{
      "cloudflare": providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
-     // add here, i.e.
+     // add here, e.g.
      "clouddns": providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
    }
    ```

@@ -22,8 +22,8 @@ func TestErrorIs(t *testing.T) {
 }
 
 func TestNil(t *testing.T) {
-	ExpectTrue(t, Nil().IsNil())
-	ExpectFalse(t, Nil().IsNotNil())
+	ExpectTrue(t, Nil().NoError())
+	ExpectFalse(t, Nil().HasError())
 	ExpectEqual(t, Nil().Error(), "nil")
 }
 

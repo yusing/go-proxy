@@ -19,21 +19,21 @@ func NewStreamPort(p string) (StreamPort, E.NestedError) {
 	}
 
 	listeningPort, err := NewPort(split[0])
-	if err.IsNotNil() {
+	if err.HasError() {
 		return StreamPort{}, err
 	}
-	if err = listeningPort.boundCheck(); err.IsNotNil() {
+	if err = listeningPort.boundCheck(); err.HasError() {
 		return StreamPort{}, err
 	}
 
 	proxyPort, err := NewPort(split[1])
-	if err.IsNotNil() {
+	if err.HasError() {
 		proxyPort, err = parseNameToPort(split[1])
-		if err.IsNotNil() {
+		if err.HasError() {
 			return StreamPort{}, err
 		}
 	}
-	if err = proxyPort.boundCheck(); err.IsNotNil() {
+	if err = proxyPort.boundCheck(); err.HasError() {
 		return StreamPort{}, err
 	}
 

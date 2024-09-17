@@ -26,8 +26,10 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 ## Key Points
 
 - Easy to use
+  - Effortless configuration
+  - Error messages is clear and detailed
 - Auto certificate obtaining and renewal (See [Supported DNS Challenge Providers](docs/dns_providers.md))
-- Auto configuration for docker contaienrs
+- Auto configuration for docker containers
 - Auto hot-reload on container state / config file changes
 - Support HTTP(s), TCP and UDP
 - Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
@@ -37,7 +39,7 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 
 ## Getting Started
 
-1. Setup DNS Records
+1. Setup DNS Records, e.g.
 
    - A Record: `*.y.z` -> `10.0.10.1`
    - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
@@ -45,18 +47,19 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 2. Setup `go-proxy` [See here](docs/docker.md)
 
 3. Configure `go-proxy`
-   - with text editor (i.e. Visual Studio Code)
+   - with text editor (e.g. Visual Studio Code)
    - or with web config editor via `http://gp.y.z`
 
 [🔼Back to top](#table-of-content)
 
 ### Commands line arguments
 
-| Argument   | Description                      |
-| ---------- | -------------------------------- |
-| empty      | start proxy server               |
-| `validate` | validate config and exit         |
-| `reload`   | trigger a force reload of config |
+| Argument    | Description                      | Example                    |
+| ----------- | -------------------------------- | -------------------------- |
+| empty       | start proxy server               |                            |
+| `validate`  | validate config and exit         |                            |
+| `reload`    | trigger a force reload of config |                            |
+| `ls-config` | list config and exit             | `go-proxy ls-config \| jq` |
 
 **run with `docker exec <container_name> /app/go-proxy <command>`**
 

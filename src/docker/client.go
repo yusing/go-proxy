@@ -40,7 +40,7 @@ func ConnectClient(host string) (Client, E.NestedError) {
 		opt = clientOptEnvHost
 	default:
 		helper, err := E.Check(connhelper.GetConnectionHelper(host))
-		if err.IsNotNil() {
+		if err.HasError() {
 			logger.Fatalf("unexpected error: %s", err)
 		}
 		if helper != nil {
@@ -65,7 +65,7 @@ func ConnectClient(host string) (Client, E.NestedError) {
 
 	client, err := E.Check(client.NewClientWithOpts(opt...))
 
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 

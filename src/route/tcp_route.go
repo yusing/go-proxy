@@ -78,7 +78,7 @@ func (route *TCPRoute) CloseListeners() {
 	route.listener.Close()
 	route.listener = nil
 	for _, pipe := range route.pipe {
-		if err := pipe.Stop(); err.IsNotNil() {
+		if err := pipe.Stop(); err.HasError() {
 			route.l.Error(err)
 		}
 	}

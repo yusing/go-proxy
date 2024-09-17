@@ -39,7 +39,7 @@ func (p DockerProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
 	entries := M.NewProxyEntries()
 
 	info, err := D.GetClientInfo(p.dockerHost)
-	if err.IsNotNil() {
+	if err.HasError() {
 		return entries, err
 	}
 
@@ -47,7 +47,7 @@ func (p DockerProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
 
 	for _, container := range info.Containers {
 		en, err := p.getEntriesFromLabels(&container, info.Host)
-		if err.IsNotNil() {
+		if err.HasError() {
 			errors.Add(err)
 		}
 		// although err is not nil
@@ -95,7 +95,7 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 
 	// find first port, return if no port exposed
 	defaultPort, err := findFirstPort(container)
-	if err.IsNotNil() {
+	if err.HasError() {
 		logrus.Debug(mainAlias, " ", err.Error())
 	}
 
@@ -111,7 +111,7 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 	errors := E.NewBuilder("failed to apply label for %q", mainAlias)
 	for key, val := range container.Labels {
 		lbl, err := D.ParseLabel(key, val)
-		if err.IsNotNil() {
+		if err.HasError() {
 			errors.Add(E.From(err).Subject(key))
 			continue
 		}
@@ -121,7 +121,7 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 		if lbl.Target == wildcardAlias {
 			// apply label for all aliases
 			entries.EachKV(func(a string, e *M.ProxyEntry) {
-				if err = D.ApplyLabel(e, lbl); err.IsNotNil() {
+				if err = D.ApplyLabel(e, lbl); err.HasError() {
 					errors.Add(E.From(err).Subject(lbl.Target))
 				}
 			})
@@ -131,7 +131,7 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 				errors.Add(E.NotExists("alias", lbl.Target))
 				continue
 			}
-			if err = D.ApplyLabel(config, lbl); err.IsNotNil() {
+			if err = D.ApplyLabel(config, lbl); err.HasError() {
 				errors.Add(err.Subject(lbl.Target))
 			}
 		}

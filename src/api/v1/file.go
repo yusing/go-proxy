@@ -33,7 +33,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	content, err := E.Check(io.ReadAll(r.Body))
-	if err.IsNotNil() {
+	if err.HasError() {
 		U.HandleErr(w, r, err)
 		return
 	}
@@ -44,13 +44,13 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		err = provider.Validate(content)
 	}
 
-	if err.IsNotNil() {
+	if err.HasError() {
 		U.HandleErr(w, r, err, http.StatusBadRequest)
 		return
 	}
 
 	err = E.From(os.WriteFile(path.Join(common.ConfigBasePath, filename), content, 0644))
-	if err.IsNotNil() {
+	if err.HasError() {
 		U.HandleErr(w, r, err)
 		return
 	}

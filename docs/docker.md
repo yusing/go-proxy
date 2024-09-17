@@ -172,7 +172,7 @@ service_a:
 
 - Container not showing up in proxies list
 
-  Please check that either `ports` or label `proxy.<alias>.port` is declared, i.e.
+  Please check that either `ports` or label `proxy.<alias>.port` is declared, e.g.
 
   ```yaml
   services:

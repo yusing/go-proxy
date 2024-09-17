@@ -31,13 +31,13 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 		var err E.NestedError
 		for range 3 {
 			cl, err = D.ConnectClient(w.host)
-			if err.IsNil() {
+			if err.NoError() {
 				break
 			}
 			errCh <- E.From(err)
 			time.Sleep(1 * time.Second)
 		}
-		if err.IsNotNil() {
+		if err.HasError() {
 			errCh <- E.Failure("connecting to docker")
 			return
 		}

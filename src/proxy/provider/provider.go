@@ -92,12 +92,12 @@ func (p *Provider) StartAllRoutes() E.NestedError {
 	nStarted := 0
 	nFailed := 0
 
-	if err.IsNotNil() {
+	if err.HasError() {
 		errors.Add(err)
 	}
 
 	p.routes.EachKVParallel(func(alias string, r R.Route) {
-		if err := r.Start(); err.IsNotNil() {
+		if err := r.Start(); err.HasError() {
 			errors.Add(err.Subject(r))
 			nFailed++
 		} else {
@@ -118,7 +118,7 @@ func (p *Provider) StopAllRoutes() E.NestedError {
 	nStopped := 0
 	nFailed := 0
 	p.routes.EachKVParallel(func(alias string, r R.Route) {
-		if err := r.Stop(); err.IsNotNil() {
+		if err := r.Stop(); err.HasError() {
 			errors.Add(err.Subject(r))
 			nFailed++
 		} else {
@@ -195,7 +195,7 @@ func (p *Provider) processReloadRequests() {
 func (p *Provider) loadRoutes() E.NestedError {
 	entries, err := p.GetProxyEntries()
 
-	if err.IsNotNil() {
+	if err.HasError() {
 		p.l.Warn(err.Subject(p))
 	}
 	p.routes = R.NewRoutes()
@@ -204,7 +204,7 @@ func (p *Provider) loadRoutes() E.NestedError {
 	entries.EachKV(func(a string, e *M.ProxyEntry) {
 		e.Alias = a
 		r, err := R.NewRoute(e)
-		if err.IsNotNil() {
+		if err.HasError() {
 			errors.Add(err.Subject(a))
 		} else {
 			p.routes.Set(a, r)

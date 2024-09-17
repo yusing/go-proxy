@@ -8,9 +8,10 @@ import (
 )
 
 const (
-	certBasePath    = "certs/"
-	CertFileDefault = certBasePath + "cert.crt"
-	KeyFileDefault  = certBasePath + "priv.key"
+	certBasePath     = "certs/"
+	CertFileDefault  = certBasePath + "cert.crt"
+	KeyFileDefault   = certBasePath + "priv.key"
+	RegistrationFile = certBasePath + "registration.json"
 )
 
 const (
@@ -21,11 +22,10 @@ const (
 )
 
 var providersGenMap = map[string]ProviderGenerator{
-	"":                 providerGenerator(NewDummyDefaultConfig, NewDummyDNSProviderConfig),
 	ProviderLocal:      providerGenerator(NewDummyDefaultConfig, NewDummyDNSProviderConfig),
 	ProviderCloudflare: providerGenerator(cloudflare.NewDefaultConfig, cloudflare.NewDNSProviderConfig),
 	ProviderClouddns:   providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
 	ProviderDuckdns:    providerGenerator(duckdns.NewDefaultConfig, duckdns.NewDNSProviderConfig),
 }
 
-var Logger = logrus.WithField("module", "autocert")
+var logger = logrus.WithField("module", "autocert")

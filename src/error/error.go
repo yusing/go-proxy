@@ -118,11 +118,11 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	return ne
 }
 
-func (ne NestedError) IsNil() bool {
+func (ne NestedError) NoError() bool {
 	return ne.err == nil
 }
 
-func (ne NestedError) IsNotNil() bool {
+func (ne NestedError) HasError() bool {
 	return ne.err != nil
 }
 
@@ -139,7 +139,7 @@ func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) 
 	ne.writeIndents(sb, level)
 	sb.WriteString(prefix)
 
-	if ne.IsNil() {
+	if ne.NoError() {
 		sb.WriteString("nil")
 		return
 	}

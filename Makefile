@@ -27,7 +27,7 @@ get:
 	cd src && go get -u && go mod tidy && cd ..
 
 debug:
-	make build && GOPROXY_DEBUG=1 bin/go-proxy
+	make build && sudo GOPROXY_DEBUG=1 bin/go-proxy
 
 archive:
 	git archive HEAD -o ../go-proxy-$$(date +"%Y%m%d%H%M").zip

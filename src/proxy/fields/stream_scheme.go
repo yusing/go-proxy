@@ -21,11 +21,11 @@ func NewStreamScheme(s string) (ss *StreamScheme, err E.NestedError) {
 		return nil, E.Invalid("stream scheme", s)
 	}
 	ss.ListeningScheme, err = NewScheme(parts[0])
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	ss.ProxyScheme, err = NewScheme(parts[1])
-	if err.IsNotNil() {
+	if err.HasError() {
 		return nil, err
 	}
 	return ss, E.Nil()

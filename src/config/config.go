@@ -37,7 +37,7 @@ func New() (*Config, E.NestedError) {
 		watcher:   W.NewFileWatcher(common.ConfigFileName),
 		reloadReq: make(chan struct{}, 1),
 	}
-	if err := cfg.load(); err.IsNotNil() {
+	if err := cfg.load(); err.HasError() {
 		return nil, err
 	}
 	cfg.startProviders()
@@ -66,7 +66,7 @@ func (cfg *Config) Dispose() {
 
 func (cfg *Config) Reload() E.NestedError {
 	cfg.stopProviders()
-	if err := cfg.load(); err.IsNotNil() {
+	if err := cfg.load(); err.HasError() {
 		return err
 	}
 	cfg.startProviders()
@@ -156,7 +156,7 @@ func (cfg *Config) watchChanges() {
 			case <-cfg.watcherCtx.Done():
 				return
 			case <-cfg.reloadReq:
-				if err := cfg.Reload(); err.IsNotNil() {
+				if err := cfg.Reload(); err.HasError() {
 					cfg.l.Error(err)
 				}
 			}
@@ -186,29 +186,29 @@ func (cfg *Config) load() E.NestedError {
 	cfg.l.Debug("loading config")
 
 	data, err := cfg.reader.Read()
-	if err.IsNotNil() {
+	if err.HasError() {
 		return E.Failure("read config").With(err)
 	}
 
 	model := M.DefaultConfig()
-	if err := E.From(yaml.Unmarshal(data, model)); err.IsNotNil() {
+	if err := E.From(yaml.Unmarshal(data, model)); err.HasError() {
 		return E.Failure("parse config").With(err)
 	}
 
 	if !common.NoSchemaValidation {
-		if err = Validate(data); err.IsNotNil() {
+		if err = Validate(data); err.HasError() {
 			return err
 		}
 	}
 
 	warnings := E.NewBuilder("errors loading config")
 
-	cfg.l.Debug("starting autocert")
+	cfg.l.Debug("initializing autocert")
 	ap, err := autocert.NewConfig(&model.AutoCert).GetProvider()
-	if err.IsNotNil() {
+	if err.HasError() {
 		warnings.Add(E.Failure("autocert provider").With(err))
 	} else {
-		cfg.l.Debug("started autocert")
+		cfg.l.Debug("initialized autocert")
 	}
 	cfg.autocertProvider = ap
 
@@ -226,7 +226,7 @@ func (cfg *Config) load() E.NestedError {
 
 	cfg.value = model
 
-	if err := warnings.Build(); err.IsNotNil() {
+	if err := warnings.Build(); err.HasError() {
 		cfg.l.Warn(err)
 	}
 
@@ -238,12 +238,12 @@ func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.Neste
 	errors := E.NewBuilder("cannot %s these providers", action)
 
 	cfg.proxyProviders.EachKVParallel(func(name string, p *PR.Provider) {
-		if err := do(p); err.IsNotNil() {
+		if err := do(p); err.HasError() {
 			errors.Add(E.From(err).Subject(p))
 		}
 	})
 
-	if err := errors.Build(); err.IsNotNil() {
+	if err := errors.Build(); err.HasError() {
 		cfg.l.Error(err)
 	}
 }
