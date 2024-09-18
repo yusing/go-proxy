@@ -93,7 +93,7 @@ func (p *DockerProvider) getEntriesFromLabels(container *types.Container, client
 
 	if l, ok := container.Labels[D.NSProxy+".aliases"]; ok {
 		aliases = PT.NewAliases(l)
-		delete(container.Labels, D.NSProxy+"proxy.aliases")
+		delete(container.Labels, D.NSProxy+".aliases")
 	} else {
 		aliases = PT.NewAliases(mainAlias)
 	}
