@@ -1,168 +1,160 @@
 package provider
 
 import (
-	"fmt"
-	"strings"
-
-	"github.com/docker/docker/api/types"
-	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
-	PT "github.com/yusing/go-proxy/proxy/fields"
-	U "github.com/yusing/go-proxy/utils"
+	R "github.com/yusing/go-proxy/route"
 	W "github.com/yusing/go-proxy/watcher"
+	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type DockerProvider struct {
-	dockerHost string
+	dockerHost, hostname string
 }
 
 func DockerProviderImpl(dockerHost string) ProviderImpl {
 	return &DockerProvider{dockerHost: dockerHost}
 }
 
-// GetProxyEntries returns proxy entries from a docker client.
-//
-// It retrieves the docker client information using the dockerhelper.GetClientInfo method.
-// Then, it iterates over the containers in the docker client information and calls
-// the getEntriesFromLabels method to get the proxy entries for each container.
-// Any errors encountered during the process are added to the ne error object.
-// Finally, it returns the collected proxy entries and the ne error object.
-//
-// Parameters:
-//   - p: A pointer to the DockerProvider struct.
-//
-// Returns:
-//   - P.EntryModelSlice: (non-nil) A slice of EntryModel structs representing the proxy entries.
-//   - error: An error object if there was an error retrieving the docker client information or parsing the labels.
-func (p DockerProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
+func (p *DockerProvider) NewWatcher() W.Watcher {
+	return W.NewDockerWatcher(p.dockerHost)
+}
+
+func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 	entries := M.NewProxyEntries()
 
-	info, err := D.GetClientInfo(p.dockerHost)
+	info, err := D.GetClientInfo(p.dockerHost, true)
 	if err.HasError() {
-		return entries, err
+		return routes, E.FailWith("connect to docker", err)
 	}
 
 	errors := E.NewBuilder("errors when parse docker labels")
 
-	for _, container := range info.Containers {
-		en, err := p.getEntriesFromLabels(&container, info.Host)
+	for _, c := range info.Containers {
+		container := D.FromDocker(&c, p.dockerHost)
+		if container.IsExcluded {
+			continue
+		}
+
+		newEntries, err := p.entriesFromContainerLabels(container)
 		if err.HasError() {
 			errors.Add(err)
 		}
 		// although err is not nil
 		// there may be some valid entries in `en`
-		dups := entries.MergeWith(en)
+		dups := entries.MergeFrom(newEntries)
 		// add the duplicate proxy entries to the error
-		dups.EachKV(func(k string, v *M.ProxyEntry) {
+		dups.RangeAll(func(k string, v *M.ProxyEntry) {
 			errors.Addf("duplicate alias %s", k)
 		})
 	}
 
-	return entries, errors.Build()
+	entries.RangeAll(func(_ string, e *M.ProxyEntry) {
+		e.DockerHost = p.dockerHost
+	})
+
+	routes, err = R.FromEntries(entries)
+	errors.Add(err)
+
+	return routes, errors.Build()
 }
 
-func (p *DockerProvider) NewWatcher() W.Watcher {
-	return W.NewDockerWatcher(p.dockerHost)
+func (p *DockerProvider) OnEvent(event Event, routes R.Routes) (res EventResult) {
+	b := E.NewBuilder("event %s error", event)
+	defer b.To(&res.err)
+
+	routes.RangeAll(func(k string, v R.Route) {
+		if v.Entry().ContainerName == event.ActorName {
+			b.Add(v.Stop())
+			routes.Delete(k)
+			res.nRemoved++
+		}
+	})
+
+	switch event.Action {
+	case ActionStarted, ActionCreated, ActionModified:
+		client, err := D.ConnectClient(p.dockerHost)
+		if err.HasError() {
+			b.Add(E.FailWith("connect to docker", err))
+			return
+		}
+		defer client.Close()
+		cont, err := client.Inspect(event.ActorID)
+		if err.HasError() {
+			b.Add(E.FailWith("inspect container", err))
+			return
+		}
+		entries, err := p.entriesFromContainerLabels(cont)
+		b.Add(err)
+
+		entries.RangeAll(func(alias string, entry *M.ProxyEntry) {
+			if routes.Has(alias) {
+				b.Add(E.AlreadyExist("alias", alias))
+			} else {
+				if route, err := R.NewRoute(entry); err.HasError() {
+					b.Add(err)
+				} else {
+					routes.Store(alias, route)
+					b.Add(route.Start())
+					res.nAdded++
+				}
+			}
+		})
+	}
+
+	return
 }
 
 // Returns a list of proxy entries for a container.
 // Always non-nil
-func (p *DockerProvider) getEntriesFromLabels(container *types.Container, clientHost string) (M.ProxyEntries, E.NestedError) {
-	var mainAlias string
-	var aliases PT.Aliases
-
-	if exclude, ok := container.Labels[D.NSProxy+".exclude"]; ok {
-		if U.ParseBool(exclude) {
-			return M.NewProxyEntries(), E.Nil()
-		}
-	}
-
-	// set mainAlias to docker compose service name if available
-	if serviceName, ok := container.Labels["com.docker.compose.service"]; ok {
-		mainAlias = serviceName
-	}
-
-	// if mainAlias is not set,
-	// or container name is different from service name
-	// use container name
-	if containerName := strings.TrimPrefix(container.Names[0], "/"); containerName != mainAlias {
-		mainAlias = containerName
-	}
-
-	if l, ok := container.Labels[D.NSProxy+".aliases"]; ok {
-		aliases = PT.NewAliases(l)
-		delete(container.Labels, D.NSProxy+"proxy.aliases")
-	} else {
-		aliases = PT.NewAliases(mainAlias)
-	}
-
+func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.ProxyEntries, E.NestedError) {
 	entries := M.NewProxyEntries()
 
-	// find first port, return if no port exposed
-	defaultPort, err := findFirstPort(container)
-	if err.HasError() {
-		logrus.Debug(mainAlias, " ", err.Error())
-	}
-
 	// init entries map for all aliases
-	aliases.ForEach(func(a PT.Alias) {
-		entries.Set(string(a), &M.ProxyEntry{
-			Alias: string(a),
-			Host:  clientHost,
-			Port:  defaultPort,
+	for _, a := range container.Aliases {
+		entries.Store(a, &M.ProxyEntry{
+			Alias:           a,
+			Host:            p.hostname,
+			ProxyProperties: container.ProxyProperties,
 		})
-	})
+	}
 
-	errors := E.NewBuilder("failed to apply label for %q", mainAlias)
+	errors := E.NewBuilder("failed to apply label")
 	for key, val := range container.Labels {
-		lbl, err := D.ParseLabel(key, val)
-		if err.HasError() {
-			errors.Add(E.From(err).Subject(key))
-			continue
-		}
-		if lbl.Namespace != D.NSProxy {
-			continue
-		}
-		if lbl.Target == wildcardAlias {
-			// apply label for all aliases
-			entries.EachKV(func(a string, e *M.ProxyEntry) {
-				if err = D.ApplyLabel(e, lbl); err.HasError() {
-					errors.Add(E.From(err).Subject(lbl.Target))
-				}
-			})
-		} else {
-			config, ok := entries.UnsafeGet(lbl.Target)
-			if !ok {
-				errors.Add(E.NotExists("alias", lbl.Target))
-				continue
-			}
-			if err = D.ApplyLabel(config, lbl); err.HasError() {
-				errors.Add(err.Subject(lbl.Target))
-			}
-		}
+		errors.Add(p.applyLabel(entries, key, val))
 	}
 
-	entries.EachKV(func(a string, e *M.ProxyEntry) {
-		if e.Port == "" {
-			entries.UnsafeDelete(a)
-		}
-	})
-
-	return entries, errors.Build()
+	return entries, errors.Build().Subject(container.ContainerName)
 }
 
-func findFirstPort(c *types.Container) (string, E.NestedError) {
-	if len(c.Ports) == 0 {
-		return "", E.FailureWhy("findFirstPort", "no port exposed")
+func (p *DockerProvider) applyLabel(entries M.ProxyEntries, key, val string) (res E.NestedError) {
+	b := E.NewBuilder("errors in label %s", key)
+	defer b.To(&res)
+
+	lbl, err := D.ParseLabel(key, val)
+	if err.HasError() {
+		b.Add(err.Subject(key))
 	}
-	for _, p := range c.Ports {
-		if p.PublicPort != 0 {
-			return fmt.Sprint(p.PublicPort), E.Nil()
+	if lbl.Namespace != D.NSProxy {
+		return
+	}
+	if lbl.Target == D.WildcardAlias {
+		// apply label for all aliases
+		entries.RangeAll(func(a string, e *M.ProxyEntry) {
+			if err = D.ApplyLabel(e, lbl); err.HasError() {
+				b.Add(err.Subject(lbl.Target))
+			}
+		})
+	} else {
+		config, ok := entries.Load(lbl.Target)
+		if !ok {
+			b.Add(E.NotExist("alias", lbl.Target))
+			return
+		}
+		if err = D.ApplyLabel(config, lbl); err.HasError() {
+			b.Add(err.Subject(lbl.Target))
 		}
 	}
-	return "", E.Failure("findFirstPort")
+	return
 }
-
-const wildcardAlias = "*"

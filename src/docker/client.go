@@ -3,6 +3,7 @@ package docker
 import (
 	"net/http"
 	"sync"
+	"sync/atomic"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/client"
@@ -11,14 +12,37 @@ import (
 	E "github.com/yusing/go-proxy/error"
 )
 
-type Client = *client.Client
+type Client struct {
+	key      string
+	refCount *atomic.Int32
+	*client.Client
+}
+
+func (c Client) DaemonHostname() string {
+	url, _ := client.ParseHostURL(c.DaemonHost())
+	return url.Hostname()
+}
+
+// if the client is still referenced, this is no-op
+func (c Client) Close() error {
+	if c.refCount.Load() > 0 {
+		c.refCount.Add(-1)
+		return nil
+	}
+
+	clientMapMu.Lock()
+	defer clientMapMu.Unlock()
+	delete(clientMap, c.key)
+
+	return c.Client.Close()
+}
 
 // ConnectClient creates a new Docker client connection to the specified host.
 //
 // Returns existing client if available.
 //
 // Parameters:
-//   - host: the host to connect to (either a URL or "FROM_ENV").
+//   - host: the host to connect to (either a URL or common.DockerHostFromEnv).
 //
 // Returns:
 //   - Client: the Docker client connection.
@@ -29,7 +53,8 @@ func ConnectClient(host string) (Client, E.NestedError) {
 
 	// check if client exists
 	if client, ok := clientMap[host]; ok {
-		return client, E.Nil()
+		client.refCount.Add(1)
+		return client, nil
 	}
 
 	// create client
@@ -41,7 +66,7 @@ func ConnectClient(host string) (Client, E.NestedError) {
 	default:
 		helper, err := E.Check(connhelper.GetConnectionHelper(host))
 		if err.HasError() {
-			logger.Fatalf("unexpected error: %s", err)
+			return Client{}, E.UnexpectedError(err.Error())
 		}
 		if helper != nil {
 			httpClient := &http.Client{
@@ -66,11 +91,16 @@ func ConnectClient(host string) (Client, E.NestedError) {
 	client, err := E.Check(client.NewClientWithOpts(opt...))
 
 	if err.HasError() {
-		return nil, err
+		return Client{}, err
 	}
 
-	clientMap[host] = client
-	return client, E.Nil()
+	clientMap[host] = Client{
+		Client:   client,
+		key:      host,
+		refCount: &atomic.Int32{},
+	}
+	clientMap[host].refCount.Add(1)
+	return clientMap[host], nil
 }
 
 func CloseAllClients() {
@@ -83,12 +113,13 @@ func CloseAllClients() {
 	logger.Debug("closed all clients")
 }
 
-var clientMap map[string]Client = make(map[string]Client)
-var clientMapMu sync.Mutex
+var (
+	clientMap        map[string]Client = make(map[string]Client)
+	clientMapMu      sync.Mutex
+	clientOptEnvHost = []client.Opt{
+		client.WithHostFromEnv(),
+		client.WithAPIVersionNegotiation(),
+	}
 
-var clientOptEnvHost = []client.Opt{
-	client.WithHostFromEnv(),
-	client.WithAPIVersionNegotiation(),
-}
-
-var logger = logrus.WithField("module", "docker")
+	logger = logrus.WithField("module", "docker")
+)

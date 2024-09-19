@@ -1,229 +1,116 @@
 package functional
 
 import (
-	"context"
-	"sync"
-
+	"github.com/puzpuzpuz/xsync/v3"
 	"gopkg.in/yaml.v3"
 
 	E "github.com/yusing/go-proxy/error"
 )
 
 type Map[KT comparable, VT any] struct {
-	m       map[KT]VT
-	defVals map[KT]VT
-	sync.RWMutex
+	*xsync.MapOf[KT, VT]
 }
 
-// NewMap creates a new Map with the given map as its initial values.
-//
-// Parameters:
-// - dv: optional default values for the Map
-//
-// Return:
-// - *Map[KT, VT]: a pointer to the newly created Map.
-func NewMap[KT comparable, VT any](dv ...map[KT]VT) *Map[KT, VT] {
-	return NewMapFrom(make(map[KT]VT), dv...)
+func NewMapOf[KT comparable, VT any](options ...func(*xsync.MapConfig)) Map[KT, VT] {
+	return Map[KT, VT]{xsync.NewMapOf[KT, VT](options...)}
 }
 
-// NewMapOf creates a new Map with the given map as its initial values.
-//
-// Type parameters:
-// - M: type for the new map.
-//
-// Parameters:
-// - dv: optional default values for the Map
-//
-// Return:
-// - *Map[KT, VT]: a pointer to the newly created Map.
-func NewMapOf[M Map[KT, VT], KT comparable, VT any](dv ...map[KT]VT) *Map[KT, VT] {
-	return NewMapFrom(make(map[KT]VT), dv...)
-}
-
-// NewMapFrom creates a new Map with the given map as its initial values.
-//
-// Parameters:
-// - from: a map of type KT to VT, which will be the initial values of the Map.
-// - dv: optional default values for the Map
-//
-// Return:
-// - *Map[KT, VT]: a pointer to the newly created Map.
-func NewMapFrom[KT comparable, VT any](from map[KT]VT, dv ...map[KT]VT) *Map[KT, VT] {
-	if len(dv) > 0 {
-		return &Map[KT, VT]{m: from, defVals: dv[0]}
+func NewMapFrom[KT comparable, VT any](m map[KT]VT) (res Map[KT, VT]) {
+	res = NewMapOf[KT, VT](xsync.WithPresize(len(m)))
+	for k, v := range m {
+		res.Store(k, v)
 	}
-	return &Map[KT, VT]{m: from}
+	return
 }
 
-func (m *Map[KT, VT]) Set(key KT, value VT) {
-	m.Lock()
-	m.m[key] = value
-	m.Unlock()
-}
+func MapFind[KT comparable, VT, CT any](m Map[KT, VT], criteria func(VT) (CT, bool)) (_ CT) {
+	result := make(chan CT, 1)
 
-func (m *Map[KT, VT]) Get(key KT) VT {
-	m.RLock()
-	defer m.RUnlock()
-	value, ok := m.m[key]
-	if !ok && m.defVals != nil {
-		return m.defVals[key]
-	}
-	return value
-}
-
-// Find searches for the first element in the map that satisfies the given criteria.
-//
-// Parameters:
-// - criteria: a function that takes a value of type VT and returns a tuple of any type and a boolean.
-//
-// Return:
-// - any: the first value that satisfies the criteria, or nil if no match is found.
-func (m *Map[KT, VT]) Find(criteria func(VT) (any, bool)) any {
-	m.RLock()
-	defer m.RUnlock()
-
-	result := make(chan any)
-	wg := sync.WaitGroup{}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	for _, v := range m.m {
-		wg.Add(1)
-		go func(val VT) {
-			defer wg.Done()
-			if value, ok := criteria(val); ok {
-				select {
-				case result <- value:
-					cancel() // Cancel other goroutines if a result is found
-				case <-ctx.Done(): // If already cancelled
-					return
-				}
+	m.Range(func(key KT, value VT) bool {
+		select {
+		case <-result: // already have a result
+			return false // stop iteration
+		default:
+			if got, ok := criteria(value); ok {
+				result <- got
+				return false
 			}
-		}(v)
-	}
-
-	go func() {
-		wg.Wait()
-		close(result)
-	}()
-
-	// The first valid match, if any
-	select {
-	case res, ok := <-result:
-		if ok {
-			return res
+			return true
 		}
-	case <-ctx.Done():
+	})
+
+	select {
+	case v := <-result:
+		return v
+	default:
+		return
 	}
-
-	return nil // Return nil if no matches found
 }
 
-func (m *Map[KT, VT]) UnsafeGet(key KT) (VT, bool) {
-	value, ok := m.m[key]
-	return value, ok
-}
-
-func (m *Map[KT, VT]) UnsafeSet(key KT, value VT) {
-	m.m[key] = value
-}
-
-func (m *Map[KT, VT]) Delete(key KT) {
-	m.Lock()
-	delete(m.m, key)
-	m.Unlock()
-}
-
-func (m *Map[KT, VT]) UnsafeDelete(key KT) {
-	delete(m.m, key)
-}
-
-// MergeWith merges the contents of another Map[KT, VT]
-// into the current Map[KT, VT] and
-// returns a map that were duplicated.
+// MergeFrom add contents from another `Map`, ignore duplicated keys
 //
 // Parameters:
-// - other: a pointer to another Map[KT, VT] to be merged into the current Map[KT, VT].
+// - other: `Map` of values to add from
 //
 // Return:
-// - Map[KT, VT]: a map of key-value pairs that were duplicated during the merge.
-func (m *Map[KT, VT]) MergeWith(other *Map[KT, VT]) Map[KT, VT] {
-	dups := make(map[KT]VT)
+// - Map: a `Map` of duplicated keys-value pairs
+func (m Map[KT, VT]) MergeFrom(other Map[KT, VT]) Map[KT, VT] {
+	dups := NewMapOf[KT, VT]()
 
-	m.Lock()
-	for k, v := range other.m {
-		if _, isDup := m.m[k]; !isDup {
-			m.m[k] = v
+	other.Range(func(k KT, v VT) bool {
+		if _, ok := m.Load(k); ok {
+			dups.Store(k, v)
 		} else {
-			dups[k] = v
+			m.Store(k, v)
 		}
-	}
-	m.Unlock()
-	return Map[KT, VT]{m: dups}
+		return true
+	})
+	return dups
 }
 
-func (m *Map[KT, VT]) Clear() {
-	m.Lock()
-	m.m = make(map[KT]VT)
-	m.Unlock()
+func (m Map[KT, VT]) RangeAll(do func(k KT, v VT)) {
+	m.Range(func(k KT, v VT) bool {
+		do(k, v)
+		return true
+	})
 }
 
-func (m *Map[KT, VT]) Size() int {
-	m.RLock()
-	defer m.RUnlock()
-	return len(m.m)
+func (m Map[KT, VT]) RemoveAll(criteria func(VT) bool) {
+	m.Range(func(k KT, v VT) bool {
+		if criteria(v) {
+			m.Delete(k)
+		}
+		return true
+	})
 }
 
-func (m *Map[KT, VT]) Contains(key KT) bool {
-	m.RLock()
-	_, ok := m.m[key]
-	m.RUnlock()
+func (m Map[KT, VT]) Has(k KT) bool {
+	_, ok := m.Load(k)
 	return ok
 }
 
-func (m *Map[KT, VT]) Clone() *Map[KT, VT] {
-	m.RLock()
-	defer m.RUnlock()
-	clone := make(map[KT]VT, len(m.m))
-	for k, v := range m.m {
-		clone[k] = v
+func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) E.NestedError {
+	if m.Size() != 0 {
+		return E.FailedWhy("unmarshal from yaml", "map is not empty")
 	}
-	return &Map[KT, VT]{m: clone, defVals: m.defVals}
-}
-
-func (m *Map[KT, VT]) EachKV(fn func(k KT, v VT)) {
-	m.Lock()
-	for k, v := range m.m {
-		fn(k, v)
+	tmp := make(map[KT]VT)
+	if err := E.From(yaml.Unmarshal(data, tmp)); err.HasError() {
+		return err
 	}
-	m.Unlock()
-}
-
-func (m *Map[KT, VT]) Each(fn func(v VT)) {
-	m.Lock()
-	for _, v := range m.m {
-		fn(v)
+	for k, v := range tmp {
+		m.Store(k, v)
 	}
-	m.Unlock()
+	return nil
 }
 
-func (m *Map[KT, VT]) EachParallel(fn func(v VT)) {
-	m.Lock()
-	ParallelForEachValue(m.m, fn)
-	m.Unlock()
-}
-
-func (m *Map[KT, VT]) EachKVParallel(fn func(k KT, v VT)) {
-	m.Lock()
-	ParallelForEachKV(m.m, fn)
-	m.Unlock()
-}
-
-func (m *Map[KT, VT]) UnmarshalFromYAML(data []byte) E.NestedError {
-	return E.From(yaml.Unmarshal(data, m.m))
-}
-
-func (m *Map[KT, VT]) Iterator() map[KT]VT {
-	return m.m
+func (m Map[KT, VT]) String() string {
+	tmp := make(map[KT]VT, m.Size())
+	m.RangeAll(func(k KT, v VT) {
+		tmp[k] = v
+	})
+	data, err := yaml.Marshal(tmp)
+	if err != nil {
+		return err.Error()
+	}
+	return string(data)
 }

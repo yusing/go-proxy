@@ -9,6 +9,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/error"
+	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type fileWatcherHelper struct {
@@ -93,7 +94,10 @@ func (h *fileWatcherHelper) start() {
 				continue
 			}
 
-			msg := Event{ActorName: w.filename}
+			msg := Event{
+				Type:      EventTypeFile,
+				ActorName: w.filename,
+			}
 			switch {
 			case event.Has(fsnotify.Create):
 				msg.Action = ActionCreated

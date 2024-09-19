@@ -18,6 +18,7 @@ import (
 	"github.com/yusing/go-proxy/common"
 	"github.com/yusing/go-proxy/config"
 	"github.com/yusing/go-proxy/docker"
+	"github.com/yusing/go-proxy/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/error"
 	R "github.com/yusing/go-proxy/route"
 	"github.com/yusing/go-proxy/server"
@@ -53,37 +54,40 @@ func main() {
 
 	// exit if only validate config
 	if args.Command == common.CommandValidate {
-		var err E.NestedError
-		data, err := E.Check(os.ReadFile(common.ConfigPath))
-		if err.HasError() {
-			l.WithError(err).Fatalf("config error")
+		data, err := os.ReadFile(common.ConfigPath)
+		if err == nil {
+			err = config.Validate(data).Error()
 		}
-		if err = config.Validate(data); err.HasError() {
-			l.WithError(err).Fatalf("config error")
+		if err != nil {
+			l.Fatal("config error: ", err)
 		}
 		l.Printf("config OK")
 		return
 	}
 
-	cfg, err := config.New()
-	if err.HasError() {
-		l.Fatalf("config error: %s", err)
+	cfg, err := config.Load()
+	if err.IsFatal() {
+		l.Fatal(err)
 	}
 
 	if args.Command == common.CommandListConfigs {
-		yml, err := E.Check(json.Marshal(cfg.Value()))
-		if err.HasError() {
-			panic(err)
-		}
-		rawLogger := log.New(os.Stdout, "", 0)
-		rawLogger.Printf("%s", yml) // raw output for convenience using "jq"
+		printJSON(cfg.Value())
 		return
 	}
 
-	onShutdown.Add(func() {
-		docker.CloseAllClients()
-		cfg.Dispose()
-	})
+	cfg.StartProxyProviders()
+
+	if args.Command == common.CommandListRoutes {
+		printJSON(cfg.RoutesByAlias())
+		return
+	}
+
+	if err.HasError() {
+		l.Warn(err)
+	}
+
+	onShutdown.Add(docker.CloseAllClients)
+	onShutdown.Add(cfg.Dispose)
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
@@ -109,8 +113,9 @@ func main() {
 			onShutdown.Add(certRenewalCancel)
 		}
 
-		for name, expiry := range autocert.GetExpiries() {
-			l.Infof("certificate %q: expire on %s", name, expiry)
+		for _, expiry := range autocert.GetExpiries() {
+			l.Infof("certificate expire on %s", expiry)
+			break
 		}
 	} else {
 		l.Info("autocert not configured")
@@ -136,6 +141,9 @@ func main() {
 	apiServer.Start()
 	onShutdown.Add(proxyServer.Stop)
 	onShutdown.Add(apiServer.Stop)
+
+	go idlewatcher.Start()
+	onShutdown.Add(idlewatcher.Stop)
 
 	// wait for signal
 	<-sig
@@ -163,4 +171,13 @@ func main() {
 	case <-time.After(time.Duration(cfg.Value().TimeoutShutdown) * time.Second):
 		logrus.Info("timeout waiting for shutdown")
 	}
+}
+
+func printJSON(obj any) {
+	j, err := E.Check(json.Marshal(obj))
+	if err.HasError() {
+		logrus.Fatal(err)
+	}
+	rawLogger := log.New(os.Stdout, "", 0)
+	rawLogger.Printf("%s", j) // raw output for convenience using "jq"
 }

@@ -12,35 +12,41 @@ import (
 )
 
 type ClientInfo struct {
-	Host       string
+	Client     Client
 	Containers []types.Container
 }
 
-func GetClientInfo(clientHost string) (*ClientInfo, E.NestedError) {
+var listOptions = container.ListOptions{
+	// Filters: filters.NewArgs(
+	// 	filters.Arg("health", "healthy"),
+	// 	filters.Arg("health", "none"),
+	// 	filters.Arg("health", "starting"),
+	// ),
+	All: true,
+}
+
+func GetClientInfo(clientHost string, getContainer bool) (*ClientInfo, E.NestedError) {
 	dockerClient, err := ConnectClient(clientHost)
 	if err.HasError() {
-		return nil, E.Failure("create docker client").With(err)
+		return nil, E.FailWith("connect to docker", err)
 	}
+	defer dockerClient.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	containers, err := E.Check(dockerClient.ContainerList(ctx, container.ListOptions{}))
-	if err.HasError() {
-		return nil, E.Failure("list containers").With(err)
+	var containers []types.Container
+	if getContainer {
+		containers, err = E.Check(dockerClient.ContainerList(ctx, listOptions))
+		if err.HasError() {
+			return nil, E.FailWith("list containers", err)
+		}
 	}
 
-	// extract host from docker client url
-	// since the services being proxied to
-	// should have the same IP as the docker client
-	url, err := E.Check(client.ParseHostURL(dockerClient.DaemonHost()))
-	if err.HasError() {
-		return nil, E.Invalid("host url", dockerClient.DaemonHost()).With(err)
-	}
-	if url.Scheme == "unix" {
-		return &ClientInfo{Host: "localhost", Containers: containers}, E.Nil()
-	}
-	return &ClientInfo{Host: url.Hostname(), Containers: containers}, E.Nil()
+	return &ClientInfo{
+		Client:     dockerClient,
+		Containers: containers,
+	}, nil
 }
 
 func IsErrConnectionFailed(err error) bool {

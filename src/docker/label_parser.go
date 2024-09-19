@@ -10,7 +10,7 @@ import (
 func yamlListParser(value string) (any, E.NestedError) {
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return []string{}, E.Nil()
+		return []string{}, nil
 	}
 	var data []string
 	err := E.From(yaml.Unmarshal([]byte(value), &data))
@@ -34,23 +34,15 @@ func yamlStringMappingParser(value string) (any, E.NestedError) {
 			h[key] = val
 		}
 	}
-	return h, E.Nil()
-}
-
-func commaSepParser(value string) (any, E.NestedError) {
-	v := strings.Split(value, ",")
-	for i := range v {
-		v[i] = strings.TrimSpace(v[i])
-	}
-	return v, E.Nil()
+	return h, nil
 }
 
 func boolParser(value string) (any, E.NestedError) {
 	switch strings.ToLower(value) {
 	case "true", "yes", "1":
-		return true, E.Nil()
+		return true, nil
 	case "false", "no", "0":
-		return false, E.Nil()
+		return false, nil
 	default:
 		return nil, E.Invalid("boolean value", value)
 	}

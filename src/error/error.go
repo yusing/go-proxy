@@ -7,35 +7,37 @@ import (
 )
 
 type (
-	// NestedError is an error with an inner error
-	// and a list of extra nested errors.
-	//
-	// It is designed to be non nil.
-	//
-	// You can use it to join multiple errors,
-	// or to set a inner reason for a nested error.
-	//
-	// When a method returns both valid values and errors,
-	// You should return (Slice/Map, NestedError).
-	// Caller then should handle the nested error,
-	// and continue with the valid values.
-	NestedError struct {
-		subject string
-		err     error // can be nil
-		extras  []NestedError
+	NestedError = *nestedError
+	nestedError struct {
+		subject  string
+		err      error // can be nil
+		extras   []nestedError
+		severity Severity
 	}
+	errorInterface struct {
+		*nestedError
+	}
+	Severity uint8
 )
 
-func Nil() NestedError { return NestedError{} }
+const (
+	SeverityFatal Severity = iota
+	SeverityWarning
+)
+
+func (e errorInterface) Error() string {
+	return e.String()
+}
 
 func From(err error) NestedError {
+	if IsNil(err) {
+		return nil
+	}
 	switch err := err.(type) {
-	case nil:
-		return Nil()
-	case NestedError:
-		return err
+	case errorInterface:
+		return err.nestedError
 	default:
-		return NestedError{err: err}
+		return &nestedError{err: err}
 	}
 }
 
@@ -45,40 +47,84 @@ func Check[T any](obj T, err error) (T, NestedError) {
 	return obj, From(err)
 }
 
-func Join(message string, err ...error) NestedError {
-	extras := make([]NestedError, 0, len(err))
+func Join(message string, err ...NestedError) NestedError {
+	extras := make([]nestedError, len(err))
 	nErr := 0
-	for _, e := range err {
-		if err == nil {
+	for i, e := range err {
+		if e == nil {
 			continue
 		}
-		extras = append(extras, From(e))
+		extras[i] = *e
 		nErr += 1
 	}
 	if nErr == 0 {
-		return Nil()
+		return nil
 	}
-	return NestedError{
+	return &nestedError{
 		err:    errors.New(message),
 		extras: extras,
 	}
 }
 
-func (ne NestedError) Error() string {
+func JoinE(message string, err ...error) NestedError {
+	b := NewBuilder(message)
+	for _, e := range err {
+		b.AddE(e)
+	}
+	return b.Build()
+}
+
+func IsNil(err error) bool {
+	return err == nil
+}
+
+func IsNotNil(err error) bool {
+	return err != nil
+}
+
+func (ne NestedError) String() string {
 	var buf strings.Builder
 	ne.writeToSB(&buf, 0, "")
 	return buf.String()
 }
 
 func (ne NestedError) Is(err error) bool {
-	return errors.Is(ne.err, err)
+	if ne == nil {
+		return err == nil
+	}
+	// return errors.Is(ne.err, err)
+	if errors.Is(ne.err, err) {
+		return true
+	}
+	for _, e := range ne.extras {
+		if e.Is(err) {
+			return true
+		}
+	}
+	return false
+}
+
+func (ne NestedError) IsNot(err error) bool {
+	return !ne.Is(err)
+}
+
+func (ne NestedError) Error() error {
+	if ne == nil {
+		return nil
+	}
+	return errorInterface{ne}
 }
 
 func (ne NestedError) With(s any) NestedError {
+	if ne == nil {
+		return ne
+	}
 	var msg string
 	switch ss := s.(type) {
 	case nil:
 		return ne
+	case *nestedError:
+		return ne.withError(ss.Error())
 	case error:
 		return ne.withError(ss)
 	case string:
@@ -92,10 +138,13 @@ func (ne NestedError) With(s any) NestedError {
 }
 
 func (ne NestedError) Extraf(format string, args ...any) NestedError {
-	return ne.With(fmt.Errorf(format, args...))
+	return ne.With(errorf(format, args...))
 }
 
 func (ne NestedError) Subject(s any) NestedError {
+	if ne == nil {
+		return ne
+	}
 	switch ss := s.(type) {
 	case string:
 		ne.subject = ss
@@ -108,6 +157,9 @@ func (ne NestedError) Subject(s any) NestedError {
 }
 
 func (ne NestedError) Subjectf(format string, args ...any) NestedError {
+	if ne == nil {
+		return ne
+	}
 	if strings.Contains(format, "%q") {
 		panic("Subjectf format should not contain %q")
 	}
@@ -118,12 +170,36 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	return ne
 }
 
+func (ne NestedError) Severity(s Severity) NestedError {
+	if ne == nil {
+		return ne
+	}
+	ne.severity = s
+	return ne
+}
+
+func (ne NestedError) Warn() NestedError {
+	if ne == nil {
+		return ne
+	}
+	ne.severity = SeverityWarning
+	return ne
+}
+
 func (ne NestedError) NoError() bool {
-	return ne.err == nil
+	return ne == nil
 }
 
 func (ne NestedError) HasError() bool {
-	return ne.err != nil
+	return ne != nil
+}
+
+func (ne NestedError) IsFatal() bool {
+	return ne != nil && ne.severity == SeverityFatal
+}
+
+func (ne NestedError) IsWarning() bool {
+	return ne != nil && ne.severity == SeverityWarning
 }
 
 func errorf(format string, args ...any) NestedError {
@@ -131,11 +207,13 @@ func errorf(format string, args ...any) NestedError {
 }
 
 func (ne NestedError) withError(err error) NestedError {
-	ne.extras = append(ne.extras, From(err))
+	if ne != nil && IsNotNil(err) {
+		ne.extras = append(ne.extras, *From(err))
+	}
 	return ne
 }
 
-func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
+func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
 	ne.writeIndents(sb, level)
 	sb.WriteString(prefix)
 
@@ -146,7 +224,7 @@ func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) 
 
 	sb.WriteString(ne.err.Error())
 	if ne.subject != "" {
-		if ne.err != nil {
+		if IsNotNil(ne.err) {
 			sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
 		} else {
 			sb.WriteString(fmt.Sprint(ne.subject))
@@ -161,7 +239,7 @@ func (ne *NestedError) writeToSB(sb *strings.Builder, level int, prefix string) 
 	}
 }
 
-func (ne *NestedError) writeIndents(sb *strings.Builder, level int) {
+func (ne NestedError) writeIndents(sb *strings.Builder, level int) {
 	for i := 0; i < level; i++ {
 		sb.WriteString("  ")
 	}

@@ -4,38 +4,40 @@ import (
 	"context"
 	"fmt"
 	"path"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/error"
-	M "github.com/yusing/go-proxy/models"
 	R "github.com/yusing/go-proxy/route"
 	W "github.com/yusing/go-proxy/watcher"
+	. "github.com/yusing/go-proxy/watcher/event"
 )
 
-type ProviderImpl interface {
-	GetProxyEntries() (M.ProxyEntries, E.NestedError)
-	NewWatcher() W.Watcher
-}
+type (
+	Provider struct {
+		ProviderImpl
 
-type Provider struct {
-	ProviderImpl
+		name   string
+		t      ProviderType
+		routes R.Routes
 
-	name        string
-	t           ProviderType
-	routes      *R.Routes
-	reloadReqCh chan struct{}
+		watcher       W.Watcher
+		watcherCtx    context.Context
+		watcherCancel context.CancelFunc
 
-	watcher       W.Watcher
-	watcherCtx    context.Context
-	watcherCancel context.CancelFunc
-
-	l *logrus.Entry
-
-	cooldownCh chan struct{}
-}
-
-type ProviderType string
+		l *logrus.Entry
+	}
+	ProviderImpl interface {
+		NewWatcher() W.Watcher
+		LoadRoutesImpl() (R.Routes, E.NestedError)
+		OnEvent(event Event, routes R.Routes) EventResult
+	}
+	ProviderType string
+	EventResult  struct {
+		nRemoved int
+		nAdded   int
+		err      E.NestedError
+	}
+)
 
 const (
 	ProviderTypeDocker ProviderType = "docker"
@@ -44,16 +46,14 @@ const (
 
 func newProvider(name string, t ProviderType) *Provider {
 	p := &Provider{
-		name:        name,
-		t:           t,
-		routes:      R.NewRoutes(),
-		reloadReqCh: make(chan struct{}, 1),
-		cooldownCh:  make(chan struct{}, 1),
+		name:   name,
+		t:      t,
+		routes: R.NewRoutes(),
 	}
 	p.l = logrus.WithField("provider", p)
-	go p.processReloadRequests()
 	return p
 }
+
 func NewFileProvider(filename string) *Provider {
 	name := path.Base(filename)
 	p := newProvider(name, ProviderTypeFile)
@@ -78,25 +78,21 @@ func (p *Provider) GetType() ProviderType {
 }
 
 func (p *Provider) String() string {
-	return fmt.Sprintf("%s: %s", p.t, p.name)
+	return fmt.Sprintf("%s-%s", p.t, p.name)
 }
 
-func (p *Provider) StartAllRoutes() E.NestedError {
-	err := p.loadRoutes()
+func (p *Provider) StartAllRoutes() (res E.NestedError) {
+	errors := E.NewBuilder("errors in routes")
+	defer errors.To(&res)
 
 	// start watcher no matter load success or not
 	p.watcherCtx, p.watcherCancel = context.WithCancel(context.Background())
 	go p.watchEvents()
 
-	errors := E.NewBuilder("errors in routes")
 	nStarted := 0
 	nFailed := 0
 
-	if err.HasError() {
-		errors.Add(err)
-	}
-
-	p.routes.EachKVParallel(func(alias string, r R.Route) {
+	p.routes.RangeAll(func(alias string, r R.Route) {
 		if err := r.Start(); err.HasError() {
 			errors.Add(err.Subject(r))
 			nFailed++
@@ -106,18 +102,21 @@ func (p *Provider) StartAllRoutes() E.NestedError {
 	})
 
 	p.l.Debugf("%d routes started, %d failed", nStarted, nFailed)
-	return errors.Build()
+	return
 }
 
-func (p *Provider) StopAllRoutes() E.NestedError {
+func (p *Provider) StopAllRoutes() (res E.NestedError) {
 	if p.watcherCancel != nil {
 		p.watcherCancel()
 		p.watcherCancel = nil
 	}
+
 	errors := E.NewBuilder("errors stopping routes for provider %q", p.name)
+	defer errors.To(&res)
+
 	nStopped := 0
 	nFailed := 0
-	p.routes.EachKVParallel(func(alias string, r R.Route) {
+	p.routes.RangeAll(func(alias string, r R.Route) {
 		if err := r.Stop(); err.HasError() {
 			errors.Add(err.Subject(r))
 			nFailed++
@@ -126,20 +125,24 @@ func (p *Provider) StopAllRoutes() E.NestedError {
 		}
 	})
 	p.l.Debugf("%d routes stopped, %d failed", nStopped, nFailed)
-	return errors.Build()
+	return
 }
 
-func (p *Provider) ReloadRoutes() {
-	select {
-	case p.reloadReqCh <- struct{}{}:
-		// Successfully sent reload request
-	default:
-		// Reload request already in progress, ignore this request
+func (p *Provider) RangeRoutes(do func(string, R.Route)) {
+	p.routes.RangeAll(do)
+}
+
+func (p *Provider) GetRoute(alias string) (R.Route, bool) {
+	return p.routes.Load(alias)
+}
+
+func (p *Provider) LoadRoutes() E.NestedError {
+	routes, err := p.LoadRoutesImpl()
+	if err != nil {
+		return err
 	}
-}
-
-func (p *Provider) GetCurrentRoutes() *R.Routes {
-	return p.routes
+	p.routes = routes
+	return nil
 }
 
 func (p *Provider) watchEvents() {
@@ -151,11 +154,15 @@ func (p *Provider) watchEvents() {
 		case <-p.watcherCtx.Done():
 			return
 		case event, ok := <-events:
-			if !ok {
+			if !ok { // channel closed
 				return
 			}
-			l.Info(event)
-			p.ReloadRoutes()
+			res := p.OnEvent(event, p.routes)
+			l.Infof("%s event %q", event.Type, event)
+			l.Infof("%d route added, %d routes removed", res.nAdded, res.nRemoved)
+			if res.err.HasError() {
+				l.Error(res.err)
+			}
 		case err, ok := <-errs:
 			if !ok {
 				return
@@ -167,50 +174,3 @@ func (p *Provider) watchEvents() {
 		}
 	}
 }
-
-func (p *Provider) processReloadRequests() {
-	for range p.reloadReqCh {
-		// prevent busy loop caused by a container
-		// repeating crashing and restarting
-		select {
-		case p.cooldownCh <- struct{}{}:
-			p.l.Info("Starting to reload routes")
-			nRoutes := p.routes.Size()
-
-			p.StopAllRoutes()
-			p.loadRoutes()
-			p.StartAllRoutes()
-
-			p.l.Infof("Routes reloaded (%d -> %d)", nRoutes, p.routes.Size())
-
-			go func() {
-				time.Sleep(reloadCooldown)
-				<-p.cooldownCh
-			}()
-		default:
-		}
-	}
-}
-
-func (p *Provider) loadRoutes() E.NestedError {
-	entries, err := p.GetProxyEntries()
-
-	if err.HasError() {
-		p.l.Warn(err.Subject(p))
-	}
-	p.routes = R.NewRoutes()
-
-	errors := E.NewBuilder("errors loading routes from %s", p)
-	entries.EachKV(func(a string, e *M.ProxyEntry) {
-		e.Alias = a
-		r, err := R.NewRoute(e)
-		if err.HasError() {
-			errors.Add(err.Subject(a))
-		} else {
-			p.routes.Set(a, r)
-		}
-	})
-	return errors.Build()
-}
-
-const reloadCooldown = 50 * time.Millisecond

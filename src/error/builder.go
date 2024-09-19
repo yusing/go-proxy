@@ -6,16 +6,23 @@ import (
 )
 
 type Builder struct {
-	message string
-	errors  []error
+	*builder
+}
+
+type builder struct {
+	message  string
+	errors   []NestedError
+	severity Severity
 	sync.Mutex
 }
 
-func NewBuilder(format string, args ...any) *Builder {
-	return &Builder{message: fmt.Sprintf(format, args...)}
+func NewBuilder(format string, args ...any) Builder {
+	return Builder{&builder{message: fmt.Sprintf(format, args...)}}
 }
 
-func (b *Builder) Add(err error) *Builder {
+// adding nil / nil is no-op,
+// you may safely pass expressions returning error to it
+func (b Builder) Add(err NestedError) Builder {
 	if err != nil {
 		b.Lock()
 		b.errors = append(b.errors, err)
@@ -24,8 +31,17 @@ func (b *Builder) Add(err error) *Builder {
 	return b
 }
 
-func (b *Builder) Addf(format string, args ...any) *Builder {
-	return b.Add(fmt.Errorf(format, args...))
+func (b Builder) AddE(err error) Builder {
+	return b.Add(From(err))
+}
+
+func (b Builder) Addf(format string, args ...any) Builder {
+	return b.Add(errorf(format, args...))
+}
+
+func (b Builder) WithSeverity(s Severity) Builder {
+	b.severity = s
+	return b
 }
 
 // Build builds a NestedError based on the errors collected in the Builder.
@@ -35,9 +51,21 @@ func (b *Builder) Addf(format string, args ...any) *Builder {
 //
 // Returns:
 //   - NestedError: the built NestedError.
-func (b *Builder) Build() NestedError {
+func (b Builder) Build() NestedError {
 	if len(b.errors) == 0 {
-		return Nil()
+		return nil
 	}
-	return Join(b.message, b.errors...)
+	return Join(b.message, b.errors...).Severity(b.severity)
+}
+
+func (b Builder) To(ptr *NestedError) {
+	if *ptr == nil {
+		*ptr = b.Build()
+	} else {
+		**ptr = *b.Build()
+	}
+}
+
+func (b Builder) HasError() bool {
+	return len(b.errors) > 0
 }

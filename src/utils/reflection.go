@@ -20,5 +20,5 @@ func SetFieldFromSnake[T, VT any](obj *T, field string, value VT) E.NestedError 
 		return E.Invalid("field", field)
 	}
 	prop.Set(reflect.ValueOf(value))
-	return E.Nil()
+	return nil
 }

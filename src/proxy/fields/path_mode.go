@@ -9,7 +9,7 @@ type PathMode string
 func NewPathMode(pm string) (PathMode, E.NestedError) {
 	switch pm {
 	case "", "forward":
-		return PathMode(pm), E.Nil()
+		return PathMode(pm), nil
 	default:
 		return "", E.Invalid("path mode", pm)
 	}

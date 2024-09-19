@@ -7,6 +7,6 @@ import (
 type Host string
 type Subdomain = Alias
 
-func NewHost(s string) (Host, E.NestedError) {
-	return Host(s), E.Nil()
+func ValidateHost(s string) (Host, E.NestedError) {
+	return Host(s), nil
 }

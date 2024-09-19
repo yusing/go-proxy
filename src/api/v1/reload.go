@@ -8,7 +8,7 @@ import (
 )
 
 func Reload(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	if err := cfg.Reload(); err.HasError() {
+	if err := cfg.Reload().Error(); err != nil {
 		U.HandleErr(w, r, err)
 		return
 	}

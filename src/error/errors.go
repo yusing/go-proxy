@@ -5,33 +5,48 @@ import (
 )
 
 var (
-	ErrFailure     = stderrors.New("failed")
-	ErrInvalid     = stderrors.New("invalid")
-	ErrUnsupported = stderrors.New("unsupported")
-	ErrNotExists   = stderrors.New("does not exist")
-	ErrDuplicated  = stderrors.New("duplicated")
+	ErrFailure      = stderrors.New("failed")
+	ErrInvalid      = stderrors.New("invalid")
+	ErrUnsupported  = stderrors.New("unsupported")
+	ErrUnexpected   = stderrors.New("unexpected")
+	ErrNotExists    = stderrors.New("does not exist")
+	ErrAlreadyExist = stderrors.New("already exist")
 )
+
+const fmtSubjectWhat = "%w %v: %v"
 
 func Failure(what string) NestedError {
 	return errorf("%s %w", what, ErrFailure)
 }
 
-func FailureWhy(what string, why string) NestedError {
+func FailedWhy(what string, why string) NestedError {
 	return errorf("%s %w because %s", what, ErrFailure, why)
 }
 
+func FailWith(what string, err any) NestedError {
+	return Failure(what).With(err)
+}
+
 func Invalid(subject, what any) NestedError {
-	return errorf("%w %v - %v", ErrInvalid, subject, what)
+	return errorf(fmtSubjectWhat, ErrInvalid, subject, what)
 }
 
 func Unsupported(subject, what any) NestedError {
-	return errorf("%w %v - %v", ErrUnsupported, subject, what)
+	return errorf(fmtSubjectWhat, ErrUnsupported, subject, what)
 }
 
-func NotExists(subject, what any) NestedError {
-	return errorf("%s %v - %v", subject, ErrNotExists, what)
+func Unexpected(subject, what any) NestedError {
+	return errorf(fmtSubjectWhat, ErrUnexpected, subject, what)
 }
 
-func Duplicated(subject, what any) NestedError {
-	return errorf("%w %v: %v", ErrDuplicated, subject, what)
+func UnexpectedError(err error) NestedError {
+	return errorf("%w error: %w", ErrUnexpected, err)
+}
+
+func NotExist(subject, what any) NestedError {
+	return errorf("%v %w: %v", subject, ErrNotExists, what)
+}
+
+func AlreadyExist(subject, what any) NestedError {
+	return errorf("%v %w: %v", subject, ErrAlreadyExist, what)
 }

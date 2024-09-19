@@ -7,6 +7,7 @@ require (
 	github.com/docker/docker v27.2.1+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.18.0
+	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/santhosh-tekuri/jsonschema v1.2.4
 	github.com/sirupsen/logrus v1.9.3
 	golang.org/x/net v0.29.0

@@ -17,43 +17,24 @@ func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
 
 	err := yaml.Unmarshal(data, &i)
 	if err != nil {
-		return E.Failure("unmarshal yaml").With(err)
+		return E.FailWith("unmarshal yaml", err)
 	}
 
 	m, err := json.Marshal(i)
 	if err != nil {
-		return E.Failure("marshal json").With(err)
+		return E.FailWith("marshal json", err)
 	}
 
 	err = schema.Validate(bytes.NewReader(m))
 	if err == nil {
-		return E.Nil()
+		return nil
 	}
 
 	errors := E.NewBuilder("yaml validation error")
 	for _, e := range err.(*jsonschema.ValidationError).Causes {
-		errors.Add(e)
+		errors.AddE(e)
 	}
 	return errors.Build()
-}
-
-// TryJsonStringify converts the given object to a JSON string.
-//
-// It takes an object of any type and attempts to marshal it into a JSON string.
-// If the marshaling is successful, the JSON string is returned.
-// If the marshaling fails, the object is converted to a string using fmt.Sprint and returned.
-//
-// Parameters:
-// - o: The object to be converted to a JSON string.
-//
-// Return type:
-// - string: The JSON string representation of the object.
-func TryJsonStringify(o any) string {
-	b, err := json.Marshal(o)
-	if err != nil {
-		return fmt.Sprint(o)
-	}
-	return string(b)
 }
 
 // Serialize converts the given data into a map[string]any representation.
@@ -123,7 +104,7 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 		return nil, E.Unsupported("type", value.Kind())
 	}
 
-	return result, E.Nil()
+	return result, nil
 }
 
 func Deserialize(src map[string]any, target any) E.NestedError {
@@ -166,7 +147,7 @@ func Deserialize(src map[string]any, target any) E.NestedError {
 					propNew := reflect.New(propType.Elem())
 					err := Deserialize(vSerialized, propNew.Interface())
 					if err.HasError() {
-						return E.Failure("set field").With(k).With(err)
+						return E.Failure("set field").With(err).Subject(k)
 					}
 					prop.Set(propNew)
 				default:
@@ -180,7 +161,15 @@ func Deserialize(src map[string]any, target any) E.NestedError {
 		}
 	}
 
-	return E.Nil()
+	return nil
+}
+
+func DeserializeJson(j map[string]string, target any) E.NestedError {
+	data, err := E.Check(json.Marshal(j))
+	if err.HasError() {
+		return err
+	}
+	return E.From(json.Unmarshal(data, target))
 }
 
 func toLowerNoSnake(s string) string {

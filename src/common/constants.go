@@ -41,7 +41,6 @@ const (
 	ProxyHTTPPort  = ":80"
 	ProxyHTTPSPort = ":443"
 	APIHTTPPort    = ":8888"
-	PanelHTTPPort  = ":8080"
 )
 
 var WellKnownHTTPPorts = map[uint16]bool{
@@ -53,7 +52,7 @@ var WellKnownHTTPPorts = map[uint16]bool{
 }
 
 var (
-	ImageNamePortMapTCP = map[string]int{
+	ServiceNamePortMapTCP = map[string]int{
 		"postgres":  5432,
 		"mysql":     3306,
 		"mariadb":   3306,
@@ -62,8 +61,7 @@ var (
 		"memcached": 11211,
 		"rabbitmq":  5672,
 		"mongo":     27017,
-	}
-	ExtraNamePortMapTCP = map[string]int{
+
 		"dns":  53,
 		"ssh":  22,
 		"ftp":  21,
@@ -71,20 +69,9 @@ var (
 		"pop3": 110,
 		"imap": 143,
 	}
-	NamePortMapTCP = func() map[string]int {
-		m := make(map[string]int)
-		for k, v := range ImageNamePortMapTCP {
-			m[k] = v
-		}
-		for k, v := range ExtraNamePortMapTCP {
-			m[k] = v
-		}
-		return m
-	}()
 )
 
-// docker library uses uint16, so followed here
-var ImageNamePortMapHTTP = map[string]uint16{
+var ImageNamePortMapHTTP = map[string]int{
 	"nginx":               80,
 	"httpd":               80,
 	"adguardhome":         3000,
@@ -101,3 +88,10 @@ var ImageNamePortMapHTTP = map[string]uint16{
 	"dockge":              5001,
 	"nginx-proxy-manager": 81,
 }
+
+const (
+	IdleTimeoutDefault = "0"
+	WakeTimeoutDefault = "10s"
+	StopTimeoutDefault = "10s"
+	StopMethodDefault  = "stop"
+)

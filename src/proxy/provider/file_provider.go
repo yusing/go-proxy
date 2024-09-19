@@ -7,8 +7,10 @@ import (
 	"github.com/yusing/go-proxy/common"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
+	R "github.com/yusing/go-proxy/route"
 	U "github.com/yusing/go-proxy/utils"
 	W "github.com/yusing/go-proxy/watcher"
+	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type FileProvider struct {
@@ -27,26 +29,53 @@ func Validate(data []byte) E.NestedError {
 	return U.ValidateYaml(U.GetSchema(common.ProvidersSchemaPath), data)
 }
 
-func (p *FileProvider) String() string {
-	return p.fileName
+func (p FileProvider) OnEvent(event Event, routes R.Routes) (res EventResult) {
+	b := E.NewBuilder("event %s error", event)
+	defer b.To(&res.err)
+
+	newRoutes, err := p.LoadRoutesImpl()
+	if err.HasError() {
+		b.Add(err)
+		return
+	}
+
+	routes.RangeAll(func(_ string, v R.Route) {
+		b.Add(v.Stop())
+	})
+	routes.Clear()
+
+	newRoutes.RangeAll(func(_ string, v R.Route) {
+		b.Add(v.Start())
+	})
+
+	routes.MergeFrom(newRoutes)
+	return
 }
 
-func (p *FileProvider) GetProxyEntries() (M.ProxyEntries, E.NestedError) {
+func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
+	b := E.NewBuilder("file %q validation failure", p.fileName)
+	defer b.To(&res)
+
 	entries := M.NewProxyEntries()
+
 	data, err := E.Check(os.ReadFile(p.path))
 	if err.HasError() {
-		return entries, E.Failure("read file").Subject(p).With(err)
+		b.Add(E.FailWith("read file", err))
+		return
 	}
-	ne := E.Failure("validation").Subject(p)
+
 	if !common.NoSchemaValidation {
 		if err = Validate(data); err.HasError() {
-			return entries, ne.With(err)
+			b.Add(err)
+			return
 		}
 	}
 	if err = entries.UnmarshalFromYAML(data); err.HasError() {
-		return entries, ne.With(err)
+		b.Add(err)
+		return
 	}
-	return entries, E.Nil()
+
+	return R.FromEntries(entries)
 }
 
 func (p *FileProvider) NewWatcher() W.Watcher {

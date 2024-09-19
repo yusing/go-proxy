@@ -2,13 +2,13 @@ package watcher
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
+	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type DockerWatcher struct {
@@ -34,13 +34,14 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 			if err.NoError() {
 				break
 			}
-			errCh <- E.From(err)
+			errCh <- err
 			time.Sleep(1 * time.Second)
 		}
 		if err.HasError() {
 			errCh <- E.Failure("connecting to docker")
 			return
 		}
+		defer cl.Close()
 
 		cEventCh, cErrCh := cl.Events(ctx, dwOptions)
 		started <- struct{}{}
@@ -58,13 +59,16 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 				case events.ActionStart:
 					Action = ActionCreated
 				case events.ActionDie:
-					Action = ActionDeleted
+					Action = ActionStopped
 				default: // NOTE: should not happen
 					Action = ActionModified
 				}
 				eventCh <- Event{
-					ActorName: fmt.Sprintf("container %q", msg.Actor.Attributes["name"]),
-					Action:    Action,
+					Type:            EventTypeDocker,
+					ActorID:         msg.Actor.ID,
+					ActorAttributes: msg.Actor.Attributes, // labels
+					ActorName:       msg.Actor.Attributes["name"],
+					Action:          Action,
 				}
 			case err := <-cErrCh:
 				if err == nil {

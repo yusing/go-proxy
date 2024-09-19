@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	. "github.com/yusing/go-proxy/error"
-	. "github.com/yusing/go-proxy/utils"
+	. "github.com/yusing/go-proxy/utils/testing"
 )
 
 func TestErrorIs(t *testing.T) {
@@ -16,27 +16,53 @@ func TestErrorIs(t *testing.T) {
 	ExpectTrue(t, Invalid("foo", "bar").Is(ErrInvalid))
 	ExpectFalse(t, Invalid("foo", "bar").Is(ErrFailure))
 
-	ExpectTrue(t, Nil().Is(nil))
-	ExpectFalse(t, Nil().Is(ErrInvalid))
 	ExpectFalse(t, Invalid("foo", "bar").Is(nil))
 }
 
-func TestNil(t *testing.T) {
-	ExpectTrue(t, Nil().NoError())
-	ExpectFalse(t, Nil().HasError())
-	ExpectEqual(t, Nil().Error(), "nil")
+func TestErrorNestedIs(t *testing.T) {
+	var err NestedError
+	ExpectTrue(t, err.Is(nil))
+
+	err = Failure("some reason")
+	ExpectTrue(t, err.Is(ErrFailure))
+	ExpectFalse(t, err.Is(ErrAlreadyExist))
+
+	err.With(AlreadyExist("something", ""))
+	ExpectTrue(t, err.Is(ErrFailure))
+	ExpectTrue(t, err.Is(ErrAlreadyExist))
+	ExpectFalse(t, err.Is(ErrInvalid))
+}
+
+func TestIsNil(t *testing.T) {
+	var err NestedError
+	ExpectTrue(t, err.Is(nil))
+	ExpectFalse(t, err.HasError())
+	ExpectTrue(t, err == nil)
+	ExpectTrue(t, err.NoError())
+
+	eb := NewBuilder("")
+	returnNil := func() error {
+		return eb.Build().Error()
+	}
+	ExpectTrue(t, IsNil(returnNil()))
+	ExpectTrue(t, returnNil() == nil)
+
+	ExpectTrue(t, (err.
+		Subject("any").
+		With("something").
+		Extraf("foo %s", "bar")) == nil)
 }
 
 func TestErrorSimple(t *testing.T) {
 	ne := Failure("foo bar")
-	ExpectEqual(t, ne.Error(), "foo bar failed")
+	ExpectEqual(t, ne.String(), "foo bar failed")
 	ne = ne.Subject("baz")
-	ExpectEqual(t, ne.Error(), "foo bar failed for \"baz\"")
+	ExpectEqual(t, ne.String(), "foo bar failed for \"baz\"")
 }
 
 func TestErrorWith(t *testing.T) {
 	ne := Failure("foo").With("bar").With("baz")
-	ExpectEqual(t, ne.Error(), "foo failed:\n  - bar\n  - baz")
+	ExpectEqual(t, ne.String(), "foo failed:\n  - bar\n  - baz")
 }
 
 func TestErrorNested(t *testing.T) {
@@ -72,5 +98,5 @@ func TestErrorNested(t *testing.T) {
       - inner3 failed for "action 3":
         - 3
         - 3`
-	ExpectEqual(t, ne.Error(), want)
+	ExpectEqual(t, ne.String(), want)
 }

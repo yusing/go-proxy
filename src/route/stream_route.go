@@ -12,7 +12,7 @@ import (
 )
 
 type StreamRoute struct {
-	*P.StreamEntry
+	P.StreamEntry
 	StreamImpl `json:"-"`
 
 	wg      sync.WaitGroup
@@ -35,7 +35,7 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 		return nil, E.Unsupported("scheme", fmt.Sprintf("%v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme))
 	}
 	base := &StreamRoute{
-		StreamEntry: entry,
+		StreamEntry: *entry,
 		wg:          sync.WaitGroup{},
 		connCh:      make(chan any),
 	}
@@ -45,11 +45,11 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 		base.StreamImpl = NewUDPRoute(base)
 	}
 	base.l = logrus.WithField("route", base.StreamImpl)
-	return base, E.Nil()
+	return base, nil
 }
 
 func (r *StreamRoute) String() string {
-	return fmt.Sprintf("%s-stream: %s", r.Scheme, r.Alias)
+	return fmt.Sprintf("%s stream: %s", r.Scheme, r.Alias)
 }
 
 func (r *StreamRoute) Start() E.NestedError {
@@ -59,13 +59,13 @@ func (r *StreamRoute) Start() E.NestedError {
 	r.stopCh = make(chan struct{}, 1)
 	r.wg.Wait()
 	if err := r.Setup(); err != nil {
-		return E.Failure("setup").With(err)
+		return E.FailWith("setup", err)
 	}
 	r.started.Store(true)
 	r.wg.Add(2)
 	go r.grAcceptConnections()
 	go r.grHandleConnections()
-	return E.Nil()
+	return nil
 }
 
 func (r *StreamRoute) Stop() E.NestedError {
@@ -88,7 +88,7 @@ func (r *StreamRoute) Stop() E.NestedError {
 	case <-time.After(streamStopListenTimeout):
 		l.Error("timed out waiting for connections")
 	}
-	return E.Nil()
+	return nil
 }
 
 func (r *StreamRoute) grAcceptConnections() {

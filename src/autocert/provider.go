@@ -33,7 +33,7 @@ type CertExpiries map[string]time.Time
 
 func (p *Provider) GetCert(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	if p.tlsCert == nil {
-		return nil, E.Failure("get certificate")
+		return nil, ErrGetCertFailure
 	}
 	return p.tlsCert, nil
 }
@@ -54,52 +54,60 @@ func (p *Provider) GetExpiries() CertExpiries {
 	return p.certExpiries
 }
 
-func (p *Provider) ObtainCert() E.NestedError {
+func (p *Provider) ObtainCert() (res E.NestedError) {
+	b := E.NewBuilder("failed to obtain certificate")
+	defer b.To(&res)
+
 	if p.cfg.Provider == ProviderLocal {
-		return E.FailureWhy("obtain cert", "provider is set to \"local\"")
+		b.Addf("provider is set to %q", ProviderLocal)
+		return
 	}
 
 	if p.client == nil {
 		if err := p.initClient(); err.HasError() {
-			return E.Failure("obtain cert").With(err)
+			b.Add(E.FailWith("init autocert client", err))
+			return
 		}
 	}
 
-	ne := E.Failure("obtain certificate")
-
-	client := p.client
 	if p.user.Registration == nil {
 		if err := p.loadRegistration(); err.HasError() {
-			ne = ne.With(err)
 			if err := p.registerACME(); err.HasError() {
-				return ne.With(err)
+				b.Add(E.FailWith("register ACME", err))
+				return
 			}
 		}
 	}
+
+	client := p.client
 	req := certificate.ObtainRequest{
 		Domains: p.cfg.Domains,
 		Bundle:  true,
 	}
 	cert, err := E.Check(client.Certificate.Obtain(req))
 	if err.HasError() {
-		return ne.With(err)
+		b.Add(err)
+		return
 	}
 	err = p.saveCert(cert)
 	if err.HasError() {
-		return ne.With(E.Failure("save certificate").With(err))
+		b.Add(E.FailWith("save certificate", err))
+		return
 	}
 	tlsCert, err := E.Check(tls.X509KeyPair(cert.Certificate, cert.PrivateKey))
 	if err.HasError() {
-		return ne.With(E.Failure("parse obtained certificate").With(err))
+		b.Add(E.FailWith("parse obtained certificate", err))
+		return
 	}
 	expiries, err := getCertExpiries(&tlsCert)
 	if err.HasError() {
-		return ne.With(E.Failure("get certificate expiry").With(err))
+		b.Add(E.FailWith("get certificate expiry", err))
+		return
 	}
 	p.tlsCert = &tlsCert
 	p.certExpiries = expiries
 
-	return E.Nil()
+	return nil
 }
 
 func (p *Provider) LoadCert() E.NestedError {
@@ -152,50 +160,50 @@ func (p *Provider) ScheduleRenewal(ctx context.Context) {
 func (p *Provider) initClient() E.NestedError {
 	legoClient, err := E.Check(lego.NewClient(p.legoCfg))
 	if err.HasError() {
-		return E.Failure("create lego client").With(err)
+		return E.FailWith("create lego client", err)
 	}
 
 	legoProvider, err := providersGenMap[p.cfg.Provider](p.cfg.Options)
 	if err.HasError() {
-		return E.Failure("create lego provider").With(err)
+		return E.FailWith("create lego provider", err)
 	}
 
 	err = E.From(legoClient.Challenge.SetDNS01Provider(legoProvider))
 	if err.HasError() {
-		return E.Failure("set challenge provider").With(err)
+		return E.FailWith("set challenge provider", err)
 	}
 
 	p.client = legoClient
-	return E.Nil()
+	return nil
 }
 
 func (p *Provider) registerACME() E.NestedError {
 	if p.user.Registration != nil {
-		return E.Nil()
+		return nil
 	}
 	reg, err := E.Check(p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true}))
 	if err.HasError() {
-		return E.Failure("register ACME").With(err)
+		return err
 	}
 	p.user.Registration = reg
 
 	if err := p.saveRegistration(); err.HasError() {
 		logger.Warn(err)
 	}
-	return E.Nil()
+	return nil
 }
 
 func (p *Provider) loadRegistration() E.NestedError {
 	if p.user.Registration != nil {
-		return E.Nil()
+		return nil
 	}
 	reg := &registration.Resource{}
 	err := U.LoadJson(RegistrationFile, reg)
 	if err.HasError() {
-		return E.Failure("parse registration file").With(err)
+		return E.FailWith("parse registration file", err)
 	}
 	p.user.Registration = reg
-	return E.Nil()
+	return nil
 }
 
 func (p *Provider) saveRegistration() E.NestedError {
@@ -205,13 +213,13 @@ func (p *Provider) saveRegistration() E.NestedError {
 func (p *Provider) saveCert(cert *certificate.Resource) E.NestedError {
 	err := os.WriteFile(p.cfg.KeyPath, cert.PrivateKey, 0o600) // -rw-------
 	if err != nil {
-		return E.Failure("write key file").With(err)
+		return E.FailWith("write key file", err)
 	}
 	err = os.WriteFile(p.cfg.CertPath, cert.Certificate, 0o644) // -rw-r--r--
 	if err != nil {
-		return E.Failure("write cert file").With(err)
+		return E.FailWith("write cert file", err)
 	}
-	return E.Nil()
+	return nil
 }
 
 func (p *Provider) certState() CertState {
@@ -245,13 +253,13 @@ func (p *Provider) renewIfNeeded() E.NestedError {
 	case CertStateMismatch:
 		logger.Info("cert domains mismatch with config, renewing")
 	default:
-		return E.Nil()
+		return nil
 	}
 
 	if err := p.ObtainCert(); err.HasError() {
-		return E.Failure("renew certificate").With(err)
+		return E.FailWith("renew certificate", err)
 	}
-	return E.Nil()
+	return nil
 }
 
 func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.NestedError) {
@@ -259,7 +267,7 @@ func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.NestedError) {
 	for _, cert := range cert.Certificate {
 		x509Cert, err := E.Check(x509.ParseCertificate(cert))
 		if err.HasError() {
-			return nil, E.Failure("parse certificate").With(err)
+			return nil, E.FailWith("parse certificate", err)
 		}
 		if x509Cert.IsCA {
 			continue
@@ -269,7 +277,7 @@ func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.NestedError) {
 			r[x509Cert.DNSNames[i]] = x509Cert.NotAfter
 		}
 	}
-	return r, E.Nil()
+	return r, nil
 }
 
 func providerGenerator[CT any, PT challenge.Provider](
@@ -286,6 +294,6 @@ func providerGenerator[CT any, PT challenge.Provider](
 		if err.HasError() {
 			return nil, err
 		}
-		return p, E.Nil()
+		return p, nil
 	}
 }

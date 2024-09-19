@@ -26,33 +26,35 @@ func NewConfig(cfg *M.AutoCertConfig) *Config {
 	return (*Config)(cfg)
 }
 
-func (cfg *Config) GetProvider() (*Provider, E.NestedError) {
-	errors := E.NewBuilder("cannot create autocert provider")
+func (cfg *Config) GetProvider() (provider *Provider, res E.NestedError) {
+	b := E.NewBuilder("unable to initialize autocert")
+	defer b.To(&res)
 
 	if cfg.Provider != ProviderLocal {
 		if len(cfg.Domains) == 0 {
-			errors.Addf("no domains specified")
+			b.Addf("no domains specified")
 		}
 		if cfg.Provider == "" {
-			errors.Addf("no provider specified")
+			b.Addf("no provider specified")
 		}
 		if cfg.Email == "" {
-			errors.Addf("no email specified")
+			b.Addf("no email specified")
 		}
 		// check if provider is implemented
 		_, ok := providersGenMap[cfg.Provider]
 		if !ok {
-			errors.Addf("unknown provider: %q", cfg.Provider)
+			b.Addf("unknown provider: %q", cfg.Provider)
 		}
 	}
 
-	if err := errors.Build(); err.HasError() {
-		return nil, err
+	if b.HasError() {
+		return
 	}
 
 	privKey, err := E.Check(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
 	if err.HasError() {
-		return nil, E.Failure("generate private key").With(err)
+		b.Add(E.FailWith("generate private key", err))
+		return
 	}
 
 	user := &User{
@@ -63,11 +65,11 @@ func (cfg *Config) GetProvider() (*Provider, E.NestedError) {
 	legoCfg := lego.NewConfig(user)
 	legoCfg.Certificate.KeyType = certcrypto.RSA2048
 
-	base := &Provider{
+	provider = &Provider{
 		cfg:     cfg,
 		user:    user,
 		legoCfg: legoCfg,
 	}
 
-	return base, E.Nil()
+	return
 }

@@ -65,9 +65,10 @@ func (route *TCPRoute) Handle(c any) error {
 	}()
 
 	route.mu.Lock()
+	defer route.mu.Unlock()
+
 	pipe := U.NewBidirectionalPipe(pipeCtx, clientConn, serverConn)
 	route.pipe = append(route.pipe, pipe)
-	route.mu.Unlock()
 	return pipe.Start()
 }
 
@@ -78,7 +79,7 @@ func (route *TCPRoute) CloseListeners() {
 	route.listener.Close()
 	route.listener = nil
 	for _, pipe := range route.pipe {
-		if err := pipe.Stop(); err.HasError() {
+		if err := pipe.Stop(); err != nil {
 			route.l.Error(err)
 		}
 	}

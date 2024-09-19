@@ -207,7 +207,7 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 //	}
 //
 // TODO: headers in ModifyResponse
-func NewReverseProxy(target *url.URL, transport *http.Transport, entry *Entry) *ReverseProxy {
+func NewReverseProxy(target *url.URL, transport http.RoundTripper, entry *ReverseProxyEntry) *ReverseProxy {
 	// check on init rather than on request
 	var setHeaders = func(r *http.Request) {}
 	var hideHeaders = func(r *http.Request) {}

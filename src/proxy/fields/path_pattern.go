@@ -16,12 +16,12 @@ func NewPathPattern(s string) (PathPattern, E.NestedError) {
 	if !pathPattern.MatchString(string(s)) {
 		return "", E.Invalid("path pattern", s)
 	}
-	return PathPattern(s), E.Nil()
+	return PathPattern(s), nil
 }
 
-func NewPathPatterns(s []string) (PathPatterns, E.NestedError) {
+func ValidatePathPatterns(s []string) (PathPatterns, E.NestedError) {
 	if len(s) == 0 {
-		return []PathPattern{"/"}, E.Nil()
+		return []PathPattern{"/"}, nil
 	}
 	pp := make(PathPatterns, len(s))
 	for i, v := range s {
@@ -31,7 +31,7 @@ func NewPathPatterns(s []string) (PathPatterns, E.NestedError) {
 			pp[i] = pattern
 		}
 	}
-	return pp, E.Nil()
+	return pp, nil
 }
 
 var pathPattern = regexp.MustCompile("^((GET|POST|DELETE|PUT|PATCH|HEAD|OPTIONS|CONNECT)\\s)?(/\\w*)+/?$")

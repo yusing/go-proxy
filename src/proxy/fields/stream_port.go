@@ -12,13 +12,13 @@ type StreamPort struct {
 	ProxyPort     Port `json:"proxy"`
 }
 
-func NewStreamPort(p string) (StreamPort, E.NestedError) {
+func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
 	split := strings.Split(p, ":")
 	if len(split) != 2 {
 		return StreamPort{}, E.Invalid("stream port", p).With("should be in 'x:y' format")
 	}
 
-	listeningPort, err := NewPort(split[0])
+	listeningPort, err := ValidatePort(split[0])
 	if err.HasError() {
 		return StreamPort{}, err
 	}
@@ -26,7 +26,7 @@ func NewStreamPort(p string) (StreamPort, E.NestedError) {
 		return StreamPort{}, err
 	}
 
-	proxyPort, err := NewPort(split[1])
+	proxyPort, err := ValidatePort(split[1])
 	if err.HasError() {
 		proxyPort, err = parseNameToPort(split[1])
 		if err.HasError() {
@@ -37,13 +37,13 @@ func NewStreamPort(p string) (StreamPort, E.NestedError) {
 		return StreamPort{}, err
 	}
 
-	return StreamPort{ListeningPort: listeningPort, ProxyPort: proxyPort}, E.Nil()
+	return StreamPort{ListeningPort: listeningPort, ProxyPort: proxyPort}, nil
 }
 
 func parseNameToPort(name string) (Port, E.NestedError) {
-	port, ok := common.NamePortMapTCP[name]
+	port, ok := common.ServiceNamePortMapTCP[name]
 	if !ok {
 		return -1, E.Unsupported("service", name)
 	}
-	return Port(port), E.Nil()
+	return Port(port), nil
 }

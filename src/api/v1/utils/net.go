@@ -44,7 +44,7 @@ func ReloadServer() E.NestedError {
 	if resp.StatusCode != http.StatusOK {
 		return E.Failure("server reload").Subjectf("status code: %v", resp.StatusCode)
 	}
-	return E.Nil()
+	return nil
 }
 
 var HttpClient = &http.Client{

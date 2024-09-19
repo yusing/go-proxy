@@ -15,25 +15,32 @@ const (
 	CommandStart       = ""
 	CommandValidate    = "validate"
 	CommandListConfigs = "ls-config"
+	CommandListRoutes  = "ls-routes"
 	CommandReload      = "reload"
 )
 
-var ValidCommands = []string{CommandStart, CommandValidate, CommandListConfigs, CommandReload}
+var ValidCommands = []string{
+	CommandStart,
+	CommandValidate,
+	CommandListConfigs,
+	CommandListRoutes,
+	CommandReload,
+}
 
 func GetArgs() Args {
 	var args Args
 	flag.Parse()
 	args.Command = flag.Arg(0)
-	if err := validateArgs(args.Command, ValidCommands); err.HasError() {
+	if err := validateArg(args.Command); err.HasError() {
 		logrus.Fatal(err)
 	}
 	return args
 }
 
-func validateArgs[T comparable](arg T, validArgs []T) E.NestedError {
-	for _, v := range validArgs {
+func validateArg(arg string) E.NestedError {
+	for _, v := range ValidCommands {
 		if arg == v {
-			return E.Nil()
+			return nil
 		}
 	}
 	return E.Invalid("argument", arg)

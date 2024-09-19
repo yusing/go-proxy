@@ -6,7 +6,7 @@ services:
     network_mode: host
     labels:
       - proxy.aliases=gp
-      - proxy.gp.port=8888
+      - proxy.gp.port=3000
     depends_on:
       - app
   app:

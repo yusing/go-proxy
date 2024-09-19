@@ -3,25 +3,23 @@ package utils
 import (
 	"reflect"
 	"testing"
-
-	E "github.com/yusing/go-proxy/error"
 )
 
 func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
-	var noError bool
-	switch t := err.(type) {
-	case E.NestedError:
-		noError = t.NoError()
-	default:
-		noError = err == nil
-	}
-	if !noError {
+	if err != nil && !reflect.ValueOf(err).IsNil() {
 		t.Errorf("expected err=nil, got %s", err.Error())
 	}
 }
 
-func ExpectEqual(t *testing.T, got, want any) {
+func ExpectEqual[T comparable](t *testing.T, got T, want T) {
+	t.Helper()
+	if got != want {
+		t.Errorf("expected:\n%v, got\n%v", want, got)
+	}
+}
+
+func ExpectDeepEqual[T any](t *testing.T, got T, want T) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("expected:\n%v, got\n%v", want, got)
@@ -47,7 +45,7 @@ func ExpectType[T any](t *testing.T, got any) T {
 	tExpect := reflect.TypeFor[T]()
 	_, ok := got.(T)
 	if !ok {
-		t.Errorf("expected type %T, got %T", tExpect, got)
+		t.Errorf("expected type %s, got %T", tExpect, got)
 	}
 	return got.(T)
 }

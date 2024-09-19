@@ -15,6 +15,7 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 - [go-proxy](#go-proxy)
   - [Key Points](#key-points)
   - [Getting Started](#getting-started)
+    - [Setup](#setup)
     - [Commands line arguments](#commands-line-arguments)
     - [Environment variables](#environment-variables)
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
@@ -27,10 +28,11 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 
 - Easy to use
   - Effortless configuration
-  - Error messages is clear and detailed
+  - Error messages is clear and detailed, easy troubleshooting
 - Auto certificate obtaining and renewal (See [Supported DNS Challenge Providers](docs/dns_providers.md))
 - Auto configuration for docker containers
 - Auto hot-reload on container state / config file changes
+- Stop containers on idle, wake it up on traffic _(optional)_
 - Support HTTP(s), TCP and UDP
 - Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
 - Written in **[Go](https://go.dev)**
@@ -38,6 +40,8 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 [🔼Back to top](#table-of-content)
 
 ## Getting Started
+
+### Setup
 
 1. Setup DNS Records, e.g.
 
@@ -60,6 +64,7 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 | `validate`  | validate config and exit         |                            |
 | `reload`    | trigger a force reload of config |                            |
 | `ls-config` | list config and exit             | `go-proxy ls-config \| jq` |
+| `ls-route`  | list proxy entries and exit      | `go-proxy ls-route \| jq`  |
 
 **run with `docker exec <container_name> /app/go-proxy <command>`**
 
@@ -104,7 +109,7 @@ providers:
 
 ### Provider File
 
-Fields are same as [docker labels](docs/docker.md#labels) starting from `scheme`
+See [Fields](docs/docker.md#fields)
 
 See [providers.example.yml](providers.example.yml) for examples
 

@@ -36,7 +36,7 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 		return &Label{
 			Namespace: label,
 			Value:     value,
-		}, E.Nil()
+		}, nil
 	}
 
 	l := &Label{
@@ -54,12 +54,12 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 	// find if namespace has value parser
 	pm, ok := labelValueParserMap[l.Namespace]
 	if !ok {
-		return l, E.Nil()
+		return l, nil
 	}
 	// find if attribute has value parser
 	p, ok := pm[l.Attribute]
 	if !ok {
-		return l, E.Nil()
+		return l, nil
 	}
 	// try to parse value
 	v, err := p(value)
@@ -67,7 +67,7 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 		return nil, err
 	}
 	l.Value = v
-	return l, E.Nil()
+	return l, nil
 }
 
 func RegisterNamespace(namespace string, pm ValueParserMap) {

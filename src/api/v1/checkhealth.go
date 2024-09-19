@@ -3,6 +3,7 @@ package v1
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	U "github.com/yusing/go-proxy/api/v1/utils"
 	"github.com/yusing/go-proxy/config"
@@ -17,17 +18,19 @@ func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	}
 
 	var ok bool
+	route := cfg.FindRoute(target)
 
-	switch route := cfg.FindRoute(target).(type) {
-	case nil:
+	switch {
+	case route == nil:
 		U.HandleErr(w, r, U.ErrNotFound("target", target), http.StatusNotFound)
 		return
-	case *R.HTTPRoute:
-		ok = U.IsSiteHealthy(route.TargetURL.String())
-	case *R.StreamRoute:
+	case route.Type() == R.RouteTypeReverseProxy:
+		ok = U.IsSiteHealthy(route.URL().String())
+	case route.Type() == R.RouteTypeStream:
+		entry := route.Entry()
 		ok = U.IsStreamHealthy(
-			string(route.Scheme.ProxyScheme),
-			fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort),
+			strings.Split(entry.Scheme, ":")[1], // target scheme
+			fmt.Sprintf("%s:%v", entry.Host, strings.Split(entry.Port, ":")[1]),
 		)
 	}
 

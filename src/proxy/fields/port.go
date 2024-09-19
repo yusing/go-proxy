@@ -8,7 +8,7 @@ import (
 
 type Port int
 
-func NewPort(v string) (Port, E.NestedError) {
+func ValidatePort(v string) (Port, E.NestedError) {
 	p, err := strconv.Atoi(v)
 	if err != nil {
 		return ErrPort, E.Invalid("port number", v).With(err)
@@ -21,14 +21,14 @@ func NewPortInt[Int int | uint16](v Int) (Port, E.NestedError) {
 	if err := pp.boundCheck(); err.HasError() {
 		return ErrPort, err
 	}
-	return pp, E.Nil()
+	return pp, nil
 }
 
 func (p Port) boundCheck() E.NestedError {
 	if p < MinPort || p > MaxPort {
 		return E.Invalid("port", p)
 	}
-	return E.Nil()
+	return nil
 }
 
 const (
