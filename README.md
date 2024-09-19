@@ -6,13 +6,16 @@
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 
-A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse proxy and load balancer with a web UI.
+[繁體中文文檔請看此](README_CHT.md)
 
-**Table of content**
+A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse proxy with a web UI.
+
+## Table of content
 
 <!-- TOC -->
 
 - [go-proxy](#go-proxy)
+  - [Table of content](#table-of-content)
   - [Key Points](#key-points)
   - [Getting Started](#getting-started)
     - [Setup](#setup)
@@ -33,7 +36,8 @@ A [lightweight](docs/benchmark_result.md), easy-to-use, and efficient reverse pr
 - Auto configuration for docker containers
 - Auto hot-reload on container state / config file changes
 - Stop containers on idle, wake it up on traffic _(optional)_
-- Support HTTP(s), TCP and UDP
+- HTTP(s) reserve proxy
+- TCP and UDP port forwarding
 - Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
 - Written in **[Go](https://go.dev)**
 
@@ -134,7 +138,5 @@ See [providers.example.yml](providers.example.yml) for examples
 4. get dependencies with `make get`
 
 5. build binary with `make build`
-
-6. start your container with `make up` (docker) or `bin/go-proxy` (binary)
 
 [🔼Back to top](#table-of-content)
