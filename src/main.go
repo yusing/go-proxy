@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -35,13 +36,17 @@ func main() {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableSorting:         true,
-		DisableLevelTruncation: true,
-		FullTimestamp:          true,
-		ForceColors:            true,
-		TimestampFormat:        "01-02 15:04:05",
-	})
+	if args.Command != common.CommandStart {
+		logrus.SetOutput(io.Discard)
+	} else {
+		logrus.SetFormatter(&logrus.TextFormatter{
+			DisableSorting:         true,
+			DisableLevelTruncation: true,
+			FullTimestamp:          true,
+			ForceColors:            true,
+			TimestampFormat:        "01-02 15:04:05",
+		})
+	}
 
 	if args.Command == common.CommandReload {
 		if err := apiUtils.ReloadServer(); err.HasError() {
@@ -59,15 +64,15 @@ func main() {
 			err = config.Validate(data).Error()
 		}
 		if err != nil {
-			l.Fatal("config error: ", err)
+			log.Fatal("config error: ", err)
 		}
-		l.Printf("config OK")
+		log.Print("config OK")
 		return
 	}
 
 	cfg, err := config.Load()
 	if err.IsFatal() {
-		l.Fatal(err)
+		log.Fatal(err)
 	}
 
 	if args.Command == common.CommandListConfigs {
