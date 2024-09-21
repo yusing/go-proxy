@@ -74,10 +74,13 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 ### Environment variables
 
-| Environment Variable           | Description               | Default | Values  |
-| ------------------------------ | ------------------------- | ------- | ------- |
-| `GOPROXY_NO_SCHEMA_VALIDATION` | disable schema validation | `false` | boolean |
-| `GOPROXY_DEBUG`                | enable debug behaviors    | `false` | boolean |
+| Environment Variable           | Description                   | Default | Values  |
+| ------------------------------ | ----------------------------- | ------- | ------- |
+| `GOPROXY_NO_SCHEMA_VALIDATION` | disable schema validation     | `false` | boolean |
+| `GOPROXY_DEBUG`                | enable debug behaviors        | `false` | boolean |
+| `GOPROXY_HTTP_PORT`            | http server port              | `80`    | integer |
+| `GOPROXY_HTTPS_PORT`           | http server port (if enabled) | `443`   | integer |
+| `GOPROXY_API_PORT`             | api server port               | `8888`  | integer |
 
 ### Use JSON Schema in VSCode
 

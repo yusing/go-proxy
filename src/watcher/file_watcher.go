@@ -20,11 +20,10 @@ func NewFileWatcher(filename string) Watcher {
 }
 
 func (f *fileWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.NestedError) {
+	if fwHelper == nil {
+		fwHelper = newFileWatcherHelper(common.ConfigBasePath)
+	}
 	return fwHelper.Add(ctx, f)
-}
-
-func InitFileWatcherHelper() {
-	fwHelper = newFileWatcherHelper(common.ConfigBasePath)
 }
 
 var fwHelper *fileWatcherHelper

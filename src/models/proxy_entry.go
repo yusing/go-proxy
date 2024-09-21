@@ -30,6 +30,10 @@ type (
 var NewProxyEntries = F.NewMapOf[string, *ProxyEntry]
 
 func (e *ProxyEntry) SetDefaults() {
+	if e.ProxyProperties == nil {
+		e.ProxyProperties = &D.ProxyProperties{}
+	}
+
 	if e.Scheme == "" {
 		switch {
 		case strings.ContainsRune(e.Port, ':'):

@@ -37,12 +37,6 @@ const (
 
 const DockerHostFromEnv = "$DOCKER_HOST"
 
-const (
-	ProxyHTTPPort  = ":80"
-	ProxyHTTPSPort = ":443"
-	APIHTTPPort    = ":8888"
-)
-
 var WellKnownHTTPPorts = map[uint16]bool{
 	80:   true,
 	8000: true,
