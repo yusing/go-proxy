@@ -294,9 +294,7 @@ services:
     network_mode: host
     labels:
       - proxy.aliases=gp
-      - proxy.gp.port=8080
-    ports:
-      - 8080
+      - proxy.gp.port=3000
     depends_on:
       - go-proxy
 ```
