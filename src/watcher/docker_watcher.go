@@ -4,72 +4,101 @@ import (
 	"context"
 	"time"
 
-	"github.com/docker/docker/api/types/events"
+	docker_events "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
-	. "github.com/yusing/go-proxy/watcher/event"
+	"github.com/yusing/go-proxy/watcher/events"
 )
 
-type DockerWatcher struct {
-	host string
+type (
+	DockerWatcher struct {
+		host   string
+		client D.Client
+		logrus.FieldLogger
+	}
+	DockerListOptions = docker_events.ListOptions
+)
+
+// https://docs.docker.com/reference/api/engine/version/v1.47/#tag/System/operation/SystemPingHead
+var (
+	DockerFilterContainer = filters.Arg("type", string(docker_events.ContainerEventType))
+	DockerFilterStart     = filters.Arg("event", string(docker_events.ActionStart))
+	DockerFilterStop      = filters.Arg("event", string(docker_events.ActionStop))
+	DockerFilterDie       = filters.Arg("event", string(docker_events.ActionDie))
+	DockerFilterKill      = filters.Arg("event", string(docker_events.ActionKill))
+	DockerFilterPause     = filters.Arg("event", string(docker_events.ActionPause))
+	DockerFilterUnpause   = filters.Arg("event", string(docker_events.ActionUnPause))
+
+	NewDockerFilter = filters.NewArgs
+)
+
+func DockerrFilterContainerName(name string) filters.KeyValuePair {
+	return filters.Arg("container", name)
 }
 
-func NewDockerWatcher(host string) *DockerWatcher {
-	return &DockerWatcher{host: host}
+func NewDockerWatcher(host string) DockerWatcher {
+	return DockerWatcher{host: host, FieldLogger: logrus.WithField("module", "docker_watcher")}
 }
 
-func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.NestedError) {
+func NewDockerWatcherWithClient(client D.Client) DockerWatcher {
+	return DockerWatcher{client: client, FieldLogger: logrus.WithField("module", "docker_watcher")}
+}
+
+func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.NestedError) {
+	return w.EventsWithOptions(ctx, optionsWatchAll)
+}
+
+func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan E.NestedError) {
 	eventCh := make(chan Event)
 	errCh := make(chan E.NestedError)
 	started := make(chan struct{})
 
 	go func() {
+		defer close(eventCh)
 		defer close(errCh)
 
-		var cl D.Client
-		var err E.NestedError
-		for range 3 {
-			cl, err = D.ConnectClient(w.host)
-			if err.NoError() {
-				break
+		if !w.client.Connected() {
+			var err E.NestedError
+			for range 3 {
+				w.client, err = D.ConnectClient(w.host)
+				if err != nil {
+					defer w.client.Close()
+					break
+				}
+				time.Sleep(1 * time.Second)
 			}
-			errCh <- err
-			time.Sleep(1 * time.Second)
+			if err.HasError() {
+				errCh <- E.FailWith("docker connection", err)
+				return
+			}
 		}
-		if err.HasError() {
-			errCh <- E.Failure("connecting to docker")
-			return
-		}
-		defer cl.Close()
 
-		cEventCh, cErrCh := cl.Events(ctx, dwOptions)
+		cEventCh, cErrCh := w.client.Events(ctx, options)
 		started <- struct{}{}
 
 		for {
 			select {
 			case <-ctx.Done():
-				if err := <-cErrCh; err != nil {
-					errCh <- E.From(err)
+				if err := E.From(ctx.Err()); err != nil && err.IsNot(context.Canceled) {
+					errCh <- err
 				}
 				return
 			case msg := <-cEventCh:
-				var Action Action
-				switch msg.Action {
-				case events.ActionStart:
-					Action = ActionCreated
-				case events.ActionDie:
-					Action = ActionStopped
-				default: // NOTE: should not happen
-					Action = ActionModified
+				action, ok := events.DockerEventMap[msg.Action]
+				if !ok {
+					w.Debugf("ignored unknown docker event: %s for container %s", msg.Action, msg.Actor.Attributes["name"])
+					continue
 				}
-				eventCh <- Event{
-					Type:            EventTypeDocker,
+				event := Event{
+					Type:            events.EventTypeDocker,
 					ActorID:         msg.Actor.ID,
 					ActorAttributes: msg.Actor.Attributes, // labels
 					ActorName:       msg.Actor.Attributes["name"],
-					Action:          Action,
+					Action:          action,
 				}
+				eventCh <- event
 			case err := <-cErrCh:
 				if err == nil {
 					continue
@@ -81,7 +110,7 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 				default:
 					if D.IsErrConnectionFailed(err) {
 						time.Sleep(100 * time.Millisecond)
-						cEventCh, cErrCh = cl.Events(ctx, dwOptions)
+						cEventCh, cErrCh = w.client.Events(ctx, options)
 					}
 				}
 			}
@@ -92,8 +121,9 @@ func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nest
 	return eventCh, errCh
 }
 
-var dwOptions = events.ListOptions{Filters: filters.NewArgs(
-	filters.Arg("type", string(events.ContainerEventType)),
-	filters.Arg("event", string(events.ActionStart)),
-	filters.Arg("event", string(events.ActionDie)), // 'stop' already triggering 'die'
+var optionsWatchAll = DockerListOptions{Filters: NewDockerFilter(
+	DockerFilterContainer,
+	DockerFilterStart,
+	DockerFilterStop,
+	DockerFilterDie,
 )}

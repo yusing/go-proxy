@@ -6,7 +6,6 @@ import (
 
 	"github.com/yusing/go-proxy/common"
 	E "github.com/yusing/go-proxy/error"
-	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type fileWatcher struct {

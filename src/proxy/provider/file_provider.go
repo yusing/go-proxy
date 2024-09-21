@@ -10,7 +10,6 @@ import (
 	R "github.com/yusing/go-proxy/route"
 	U "github.com/yusing/go-proxy/utils"
 	W "github.com/yusing/go-proxy/watcher"
-	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type FileProvider struct {
@@ -29,7 +28,7 @@ func Validate(data []byte) E.NestedError {
 	return U.ValidateYaml(U.GetSchema(common.ProvidersSchemaPath), data)
 }
 
-func (p FileProvider) OnEvent(event Event, routes R.Routes) (res EventResult) {
+func (p FileProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 

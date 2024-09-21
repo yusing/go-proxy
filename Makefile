@@ -42,3 +42,6 @@ rapid-crash:
 	sudo docker run --restart=always --name test_crash debian:bookworm-slim /bin/cat &&\
 	sleep 3 &&\
 	sudo docker rm -f test_crash
+
+debug-list-containers:
+	bash -c 'echo -e "GET /containers/json HTTP/1.0\r\n" | sudo netcat -U /var/run/docker.sock | tail -n +9 | jq'

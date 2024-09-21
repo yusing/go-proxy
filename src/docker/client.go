@@ -16,6 +16,8 @@ type Client struct {
 	key      string
 	refCount *atomic.Int32
 	*client.Client
+
+	l logrus.FieldLogger
 }
 
 func (c Client) DaemonHostname() string {
@@ -23,10 +25,13 @@ func (c Client) DaemonHostname() string {
 	return url.Hostname()
 }
 
+func (c Client) Connected() bool {
+	return c.Client != nil
+}
+
 // if the client is still referenced, this is no-op
-func (c Client) Close() error {
-	if c.refCount.Load() > 0 {
-		c.refCount.Add(-1)
+func (c *Client) Close() error {
+	if c.refCount.Add(-1) > 0 {
 		return nil
 	}
 
@@ -34,7 +39,15 @@ func (c Client) Close() error {
 	defer clientMapMu.Unlock()
 	delete(clientMap, c.key)
 
-	return c.Client.Close()
+	client := c.Client
+	c.Client = nil
+
+	c.l.Debugf("client closed")
+
+	if client != nil {
+		return client.Close()
+	}
+	return nil
 }
 
 // ConnectClient creates a new Docker client connection to the specified host.
@@ -94,12 +107,16 @@ func ConnectClient(host string) (Client, E.NestedError) {
 		return Client{}, err
 	}
 
-	clientMap[host] = Client{
+	c := Client{
 		Client:   client,
 		key:      host,
 		refCount: &atomic.Int32{},
+		l:        logger.WithField("docker_client", client.DaemonHost()),
 	}
-	clientMap[host].refCount.Add(1)
+	c.refCount.Add(1)
+	c.l.Debugf("client connected")
+
+	clientMap[host] = c
 	return clientMap[host], nil
 }
 

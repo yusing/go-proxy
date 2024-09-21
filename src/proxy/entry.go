@@ -22,13 +22,14 @@ type (
 		HideHeaders  []string
 
 		/* Docker only */
-		IdleTimeout   time.Duration
-		WakeTimeout   time.Duration
-		StopMethod    T.StopMethod
-		StopTimeout   int
-		StopSignal    T.Signal
-		DockerHost    string
-		ContainerName string
+		IdleTimeout      time.Duration
+		WakeTimeout      time.Duration
+		StopMethod       T.StopMethod
+		StopTimeout      int
+		StopSignal       T.Signal
+		DockerHost       string
+		ContainerName    string
+		ContainerRunning bool
 	}
 	StreamEntry struct {
 		Alias  T.Alias        `json:"alias"`
@@ -102,20 +103,21 @@ func validateRPEntry(m *M.ProxyEntry, s T.Scheme, b E.Builder) *ReverseProxyEntr
 	}
 
 	return &ReverseProxyEntry{
-		Alias:         T.NewAlias(m.Alias),
-		Scheme:        s,
-		URL:           url,
-		NoTLSVerify:   m.NoTLSVerify,
-		PathPatterns:  pathPatterns,
-		SetHeaders:    setHeaders,
-		HideHeaders:   m.HideHeaders,
-		IdleTimeout:   idleTimeout,
-		WakeTimeout:   wakeTimeout,
-		StopMethod:    stopMethod,
-		StopTimeout:   int(stopTimeOut.Seconds()), // docker api takes integer seconds for timeout argument
-		StopSignal:    stopSignal,
-		DockerHost:    m.DockerHost,
-		ContainerName: m.ContainerName,
+		Alias:            T.NewAlias(m.Alias),
+		Scheme:           s,
+		URL:              url,
+		NoTLSVerify:      m.NoTLSVerify,
+		PathPatterns:     pathPatterns,
+		SetHeaders:       setHeaders,
+		HideHeaders:      m.HideHeaders,
+		IdleTimeout:      idleTimeout,
+		WakeTimeout:      wakeTimeout,
+		StopMethod:       stopMethod,
+		StopTimeout:      int(stopTimeOut.Seconds()), // docker api takes integer seconds for timeout argument
+		StopSignal:       stopSignal,
+		DockerHost:       m.DockerHost,
+		ContainerName:    m.ContainerName,
+		ContainerRunning: m.Running,
 	}
 }
 

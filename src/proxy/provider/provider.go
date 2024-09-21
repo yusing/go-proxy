@@ -9,7 +9,6 @@ import (
 	E "github.com/yusing/go-proxy/error"
 	R "github.com/yusing/go-proxy/route"
 	W "github.com/yusing/go-proxy/watcher"
-	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type (
@@ -29,7 +28,7 @@ type (
 	ProviderImpl interface {
 		NewWatcher() W.Watcher
 		LoadRoutesImpl() (R.Routes, E.NestedError)
-		OnEvent(event Event, routes R.Routes) EventResult
+		OnEvent(event W.Event, routes R.Routes) EventResult
 	}
 	ProviderType string
 	EventResult  struct {

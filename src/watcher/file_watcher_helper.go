@@ -9,7 +9,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/error"
-	. "github.com/yusing/go-proxy/watcher/event"
+	"github.com/yusing/go-proxy/watcher/events"
 )
 
 type fileWatcherHelper struct {
@@ -81,30 +81,30 @@ func (h *fileWatcherHelper) start() {
 
 	for {
 		select {
-		case event, ok := <-h.w.Events:
+		case fsEvent, ok := <-h.w.Events:
 			if !ok {
 				// closed manually?
 				fsLogger.Error("channel closed")
 				return
 			}
 			// retrieve the watcher
-			w, ok := h.m[path.Base(event.Name)]
+			w, ok := h.m[path.Base(fsEvent.Name)]
 			if !ok {
 				// watcher for this file does not exist
 				continue
 			}
 
 			msg := Event{
-				Type:      EventTypeFile,
+				Type:      events.EventTypeFile,
 				ActorName: w.filename,
 			}
 			switch {
-			case event.Has(fsnotify.Create):
-				msg.Action = ActionCreated
-			case event.Has(fsnotify.Write):
-				msg.Action = ActionModified
-			case event.Has(fsnotify.Remove), event.Has(fsnotify.Rename):
-				msg.Action = ActionDeleted
+			case fsEvent.Has(fsnotify.Create):
+				msg.Action = events.ActionFileCreated
+			case fsEvent.Has(fsnotify.Write):
+				msg.Action = events.ActionFileModified
+			case fsEvent.Has(fsnotify.Remove), fsEvent.Has(fsnotify.Rename):
+				msg.Action = events.ActionFileDeleted
 			default: // ignore other events
 				continue
 			}

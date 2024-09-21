@@ -15,10 +15,13 @@ import (
 	E "github.com/yusing/go-proxy/error"
 	P "github.com/yusing/go-proxy/proxy"
 	PT "github.com/yusing/go-proxy/proxy/fields"
+	W "github.com/yusing/go-proxy/watcher"
+	event "github.com/yusing/go-proxy/watcher/events"
 )
 
 type watcher struct {
 	*P.ReverseProxyEntry
+
 	client D.Client
 
 	refCount atomic.Int32
@@ -26,6 +29,7 @@ type watcher struct {
 	stopByMethod StopCallback
 	wakeCh       chan struct{}
 	wakeDone     chan E.NestedError
+	running      atomic.Bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -36,7 +40,7 @@ type watcher struct {
 type (
 	WakeDone     <-chan error
 	WakeFunc     func() WakeDone
-	StopCallback func() (bool, E.NestedError)
+	StopCallback func() E.NestedError
 )
 
 func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
@@ -51,6 +55,7 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 
 	if w, ok := watcherMap[entry.ContainerName]; ok {
 		w.refCount.Add(1)
+		w.ReverseProxyEntry = entry
 		return w, nil
 	}
 
@@ -67,8 +72,9 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 		l:                 logger.WithField("container", entry.ContainerName),
 	}
 	w.refCount.Add(1)
-
+	w.running.Store(entry.ContainerRunning)
 	w.stopByMethod = w.getStopCallback()
+
 	watcherMap[w.ContainerName] = w
 
 	go func() {
@@ -84,13 +90,14 @@ func Unregister(containerName string) {
 	defer watcherMapMu.Unlock()
 
 	if w, ok := watcherMap[containerName]; ok {
-		if w.refCount.Load() == 0 {
-			w.cancel()
-			close(w.wakeCh)
-			delete(watcherMap, containerName)
-		} else {
-			w.refCount.Add(-1)
+		if w.refCount.Add(-1) > 0 {
+			return
 		}
+		if w.cancel != nil {
+			w.cancel()
+		}
+		w.client.Close()
+		delete(watcherMap, containerName)
 	}
 }
 
@@ -131,19 +138,26 @@ func (w *watcher) PatchRoundTripper(rtp http.RoundTripper) roundTripper {
 }
 
 func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*http.Response, error) {
-	timeout := time.After(w.WakeTimeout)
 	w.wakeCh <- struct{}{}
+
+	if w.running.Load() {
+		return origRoundTrip(req)
+	}
+	timeout := time.After(w.WakeTimeout)
+
 	for {
+		if w.running.Load() {
+			return origRoundTrip(req)
+		}
 		select {
+		case <-req.Context().Done():
+			return nil, req.Context().Err()
 		case err := <-w.wakeDone:
 			if err != nil {
 				return nil, err.Error()
 			}
-			return origRoundTrip(req)
 		case <-timeout:
-			resp := loadingResponse
-			resp.TLS = req.TLS
-			return &resp, nil
+			return getLoadingResponse(), nil
 		}
 	}
 }
@@ -178,36 +192,23 @@ func (w *watcher) containerStatus() (string, E.NestedError) {
 	return json.State.Status, nil
 }
 
-func (w *watcher) wakeIfStopped() (bool, E.NestedError) {
-	failure := E.Failure("wake")
+func (w *watcher) wakeIfStopped() E.NestedError {
 	status, err := w.containerStatus()
 
 	if err.HasError() {
-		return false, failure.With(err)
+		return err
 	}
 	// "created", "running", "paused", "restarting", "removing", "exited", or "dead"
 	switch status {
 	case "exited", "dead":
-		err = E.From(w.containerStart())
+		return E.From(w.containerStart())
 	case "paused":
-		err = E.From(w.containerUnpause())
+		return E.From(w.containerUnpause())
 	case "running":
-		return false, nil
+		w.running.Store(true)
+		return nil
 	default:
-		return false, failure.With(E.Unexpected("container state", status))
-	}
-
-	if err.HasError() {
-		return false, failure.With(err)
-	}
-
-	status, err = w.containerStatus()
-	if err.HasError() {
-		return false, failure.With(err)
-	} else if status != "running" {
-		return false, failure.With(E.Unexpected("container state", status))
-	} else {
-		return true, nil
+		return E.Unexpected("container state", status)
 	}
 }
 
@@ -223,19 +224,15 @@ func (w *watcher) getStopCallback() StopCallback {
 	default:
 		panic("should not reach here")
 	}
-	return func() (bool, E.NestedError) {
+	return func() E.NestedError {
 		status, err := w.containerStatus()
 		if err.HasError() {
-			return false, E.FailWith("stop", err)
+			return err
 		}
 		if status != "running" {
-			return false, nil
+			return nil
 		}
-		err = E.From(cb())
-		if err.HasError() {
-			return false, E.FailWith("stop", err)
-		}
-		return true, nil
+		return E.From(cb())
 	}
 }
 
@@ -244,39 +241,80 @@ func (w *watcher) watch() {
 	w.ctx = watcherCtx
 	w.cancel = watcherCancel
 
+	dockerWatcher := W.NewDockerWatcherWithClient(w.client)
+
+	defer close(w.wakeCh)
+
+	dockerEventCh, dockerEventErrCh := dockerWatcher.EventsWithOptions(w.ctx, W.DockerListOptions{
+		Filters: W.NewDockerFilter(
+			W.DockerFilterContainer,
+			W.DockerrFilterContainerName(w.ContainerName),
+			W.DockerFilterStart,
+			W.DockerFilterStop,
+			W.DockerFilterDie,
+			W.DockerFilterKill,
+			W.DockerFilterPause,
+			W.DockerFilterUnpause,
+		),
+	})
+
 	ticker := time.NewTicker(w.IdleTimeout)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-mainLoopCtx.Done():
-			watcherCancel()
+			w.cancel()
 		case <-watcherCtx.Done():
 			w.l.Debug("stopped")
 			return
+		case err := <-dockerEventErrCh:
+			if err != nil && err.IsNot(context.Canceled) {
+				w.l.Error(E.FailWith("docker watcher", err))
+			}
+		case e := <-dockerEventCh:
+			switch e.Action {
+			case event.ActionDockerStartUnpause:
+				w.running.Store(true)
+				w.l.Infof("%s %s", e.ActorName, e.Action)
+			case event.ActionDockerStopPause:
+				w.running.Store(false)
+				w.l.Infof("%s %s", e.ActorName, e.Action)
+			}
 		case <-ticker.C:
 			w.l.Debug("timeout")
-			stopped, err := w.stopByMethod()
-			if err.HasError() {
-				w.l.Error(err.Extraf("stop method: %s", w.StopMethod))
-			} else if stopped {
-				w.l.Infof("%s: ok", w.StopMethod)
-			} else {
-				ticker.Stop()
+			ticker.Stop()
+			if err := w.stopByMethod(); err != nil && err.IsNot(context.Canceled) {
+				w.l.Error(E.FailWith("stop", err).Extraf("stop method: %s", w.StopMethod))
 			}
 		case <-w.wakeCh:
-			w.l.Debug("wake received")
-			go func() {
-				started, err := w.wakeIfStopped()
-				if err != nil {
-					w.l.Error(err)
-				} else if started {
-					w.l.Infof("awaken")
-					ticker.Reset(w.IdleTimeout)
-				}
-				w.wakeDone <- err // this is passed to roundtrip
-			}()
+			w.l.Debug("wake signal received")
+			ticker.Reset(w.IdleTimeout)
+			err := w.wakeIfStopped()
+			if err != nil && err.IsNot(context.Canceled) {
+				w.l.Error(E.FailWith("wake", err))
+			}
+			select {
+			case w.wakeDone <- err: // this is passed to roundtrip
+			default:
+			}
 		}
+	}
+}
+
+func getLoadingResponse() *http.Response {
+	return &http.Response{
+		StatusCode: http.StatusAccepted,
+		Header: http.Header{
+			"Content-Type": {"text/html"},
+			"Cache-Control": {
+				"no-cache",
+				"no-store",
+				"must-revalidate",
+			},
+		},
+		Body:          io.NopCloser(bytes.NewReader((loadingPage))),
+		ContentLength: int64(len(loadingPage)),
 	}
 }
 
@@ -292,20 +330,6 @@ var (
 
 	logger = logrus.WithField("module", "idle_watcher")
 
-	loadingResponse = http.Response{
-		StatusCode: http.StatusAccepted,
-		Header: http.Header{
-			"Content-Type": {"text/html"},
-			"Cache-Control": {
-				"no-cache",
-				"no-store",
-				"must-revalidate",
-			},
-		},
-		Body:          io.NopCloser(bytes.NewReader((loadingPage))),
-		ContentLength: int64(len(loadingPage)),
-	}
-
 	loadingPage = []byte(`
 <!DOCTYPE html>
 <html>
@@ -317,12 +341,16 @@ var (
 <body>
 	<script>
 		window.onload = function() {
-            setTimeout(function() {
-                location.reload();
-            }, 1000); // 1000 milliseconds = 1 second
+			setTimeout(function() {
+				window.location.reload()
+			}, 1000)
+            // fetch(window.location.href)
+			// 	.then(resp => resp.text())
+			// 	.then(data => { document.body.innerHTML = data; })
+			// 	.catch(err => { document.body.innerHTML = 'Error: ' + err; });
         };
 	</script>
-	<p>Container is starting... Please wait</p>
+	<h1>Container is starting... Please wait</h1>
 </body>
 </html>
 `[1:])

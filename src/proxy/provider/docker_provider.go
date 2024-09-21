@@ -1,12 +1,13 @@
 package provider
 
 import (
+	"strconv"
+
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
 	R "github.com/yusing/go-proxy/route"
 	W "github.com/yusing/go-proxy/watcher"
-	. "github.com/yusing/go-proxy/watcher/event"
 )
 
 type DockerProvider struct {
@@ -60,7 +61,7 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 	return routes, errors.Build()
 }
 
-func (p *DockerProvider) OnEvent(event Event, routes R.Routes) (res EventResult) {
+func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 
@@ -72,36 +73,33 @@ func (p *DockerProvider) OnEvent(event Event, routes R.Routes) (res EventResult)
 		}
 	})
 
-	switch event.Action {
-	case ActionStarted, ActionCreated, ActionModified:
-		client, err := D.ConnectClient(p.dockerHost)
-		if err.HasError() {
-			b.Add(E.FailWith("connect to docker", err))
-			return
-		}
-		defer client.Close()
-		cont, err := client.Inspect(event.ActorID)
-		if err.HasError() {
-			b.Add(E.FailWith("inspect container", err))
-			return
-		}
-		entries, err := p.entriesFromContainerLabels(cont)
-		b.Add(err)
-
-		entries.RangeAll(func(alias string, entry *M.ProxyEntry) {
-			if routes.Has(alias) {
-				b.Add(E.AlreadyExist("alias", alias))
-			} else {
-				if route, err := R.NewRoute(entry); err.HasError() {
-					b.Add(err)
-				} else {
-					routes.Store(alias, route)
-					b.Add(route.Start())
-					res.nAdded++
-				}
-			}
-		})
+	client, err := D.ConnectClient(p.dockerHost)
+	if err.HasError() {
+		b.Add(E.FailWith("connect to docker", err))
+		return
 	}
+	defer client.Close()
+	cont, err := client.Inspect(event.ActorID)
+	if err.HasError() {
+		b.Add(E.FailWith("inspect container", err))
+		return
+	}
+	entries, err := p.entriesFromContainerLabels(cont)
+	b.Add(err)
+
+	entries.RangeAll(func(alias string, entry *M.ProxyEntry) {
+		if routes.Has(alias) {
+			b.Add(E.AlreadyExist("alias", alias))
+		} else {
+			if route, err := R.NewRoute(entry); err.HasError() {
+				b.Add(err)
+			} else {
+				routes.Store(alias, route)
+				b.Add(route.Start())
+				res.nAdded++
+			}
+		}
+	})
 
 	return
 }
@@ -123,6 +121,22 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Pr
 	errors := E.NewBuilder("failed to apply label")
 	for key, val := range container.Labels {
 		errors.Add(p.applyLabel(entries, key, val))
+	}
+
+	// selecting correct host port
+	if container.HostConfig.NetworkMode != "host" {
+		for _, a := range container.Aliases {
+			entry, ok := entries.Load(a)
+			if !ok {
+				continue
+			}
+			for _, p := range container.Ports {
+				containerPort := strconv.Itoa(int(p.PrivatePort))
+				if containerPort == entry.Port {
+					entry.Port = strconv.Itoa(int(p.PublicPort))
+				}
+			}
+		}
 	}
 
 	return entries, errors.Build().Subject(container.ContainerName)

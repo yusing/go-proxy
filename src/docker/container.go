@@ -10,17 +10,18 @@ import (
 )
 
 type ProxyProperties struct {
-	DockerHost    string   `yaml:"docker_host" json:"docker_host"`
-	ContainerName string   `yaml:"container_name" json:"container_name"`
-	ImageName     string   `yaml:"image_name" json:"image_name"`
-	Aliases       []string `yaml:"aliases" json:"aliases"`
-	IsExcluded    bool     `yaml:"is_excluded" json:"is_excluded"`
-	FirstPort     string   `yaml:"first_port" json:"first_port"`
-	IdleTimeout   string   `yaml:"idle_timeout" json:"idle_timeout"`
-	WakeTimeout   string   `yaml:"wake_timeout" json:"wake_timeout"`
-	StopMethod    string   `yaml:"stop_method" json:"stop_method"`
-	StopTimeout   string   `yaml:"stop_timeout" json:"stop_timeout"` // stop_method = "stop" only
-	StopSignal    string   `yaml:"stop_signal" json:"stop_signal"`   // stop_method = "stop" | "kill" only
+	DockerHost    string   `yaml:"-" json:"docker_host"`
+	ContainerName string   `yaml:"-" json:"container_name"`
+	ImageName     string   `yaml:"-" json:"image_name"`
+	Aliases       []string `yaml:"-" json:"aliases"`
+	IsExcluded    bool     `yaml:"-" json:"is_excluded"`
+	FirstPort     string   `yaml:"-" json:"first_port"`
+	IdleTimeout   string   `yaml:"-" json:"idle_timeout"`
+	WakeTimeout   string   `yaml:"-" json:"wake_timeout"`
+	StopMethod    string   `yaml:"-" json:"stop_method"`
+	StopTimeout   string   `yaml:"-" json:"stop_timeout"` // stop_method = "stop" only
+	StopSignal    string   `yaml:"-" json:"stop_signal"`  // stop_method = "stop" | "kill" only
+	Running       bool     `yaml:"-" json:"running"`
 }
 
 type Container struct {
@@ -42,6 +43,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		StopMethod:    res.getDeleteLabel(LabelStopMethod),
 		StopTimeout:   res.getDeleteLabel(LabelStopTimeout),
 		StopSignal:    res.getDeleteLabel(LabelStopSignal),
+		Running:       c.Status == "running",
 	}
 	return
 }
