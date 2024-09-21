@@ -43,7 +43,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		StopMethod:    res.getDeleteLabel(LabelStopMethod),
 		StopTimeout:   res.getDeleteLabel(LabelStopTimeout),
 		StopSignal:    res.getDeleteLabel(LabelStopSignal),
-		Running:       c.Status == "running",
+		Running:       c.Status == "running" || c.State == "running",
 	}
 	return
 }
@@ -94,7 +94,7 @@ func (c Container) getName() string {
 
 func (c Container) getImageName() string {
 	colonSep := strings.Split(c.Image, ":")
-	slashSep := strings.Split(colonSep[len(colonSep)-1], "/")
+	slashSep := strings.Split(colonSep[0], "/")
 	return slashSep[len(slashSep)-1]
 }
 

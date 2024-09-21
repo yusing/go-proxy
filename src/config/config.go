@@ -52,11 +52,6 @@ func (cfg *Config) GetAutoCertProvider() *autocert.Provider {
 	return cfg.autocertProvider
 }
 
-func (cfg *Config) StartProxyProviders() {
-	cfg.startProviders()
-	cfg.watchChanges()
-}
-
 func (cfg *Config) Dispose() {
 	if cfg.watcherCancel != nil {
 		cfg.watcherCancel()
@@ -70,8 +65,46 @@ func (cfg *Config) Reload() E.NestedError {
 	if err := cfg.load(); err.HasError() {
 		return err
 	}
-	cfg.startProviders()
+	cfg.StartProxyProviders()
 	return nil
+}
+
+func (cfg *Config) StartProxyProviders() {
+	cfg.controlProviders("start", (*PR.Provider).StartAllRoutes)
+}
+
+func (cfg *Config) WatchChanges() {
+	cfg.watcherCtx, cfg.watcherCancel = context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case <-cfg.watcherCtx.Done():
+				return
+			case <-cfg.reloadReq:
+				if err := cfg.Reload(); err.HasError() {
+					cfg.l.Error(err)
+				}
+			}
+		}
+	}()
+	go func() {
+		eventCh, errCh := cfg.watcher.Events(cfg.watcherCtx)
+		for {
+			select {
+			case <-cfg.watcherCtx.Done():
+				return
+			case event := <-eventCh:
+				if event.Action.IsDelete() {
+					cfg.stopProviders()
+				} else {
+					cfg.reloadReq <- struct{}{}
+				}
+			case err := <-errCh:
+				cfg.l.Error(err)
+				continue
+			}
+		}
+	}()
 }
 
 func (cfg *Config) FindRoute(alias string) R.Route {
@@ -131,46 +164,20 @@ func (cfg *Config) Statistics() map[string]any {
 	}
 }
 
+func (cfg *Config) DumpEntries() map[string]*M.ProxyEntry {
+	entries := make(map[string]*M.ProxyEntry)
+	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
+		entries[alias] = r.Entry()
+	})
+	return entries
+}
+
 func (cfg *Config) forEachRoute(do func(alias string, r R.Route, p *PR.Provider)) {
 	cfg.proxyProviders.RangeAll(func(_ string, p *PR.Provider) {
 		p.RangeRoutes(func(a string, r R.Route) {
 			do(a, r, p)
 		})
 	})
-}
-
-func (cfg *Config) watchChanges() {
-	cfg.watcherCtx, cfg.watcherCancel = context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-cfg.watcherCtx.Done():
-				return
-			case <-cfg.reloadReq:
-				if err := cfg.Reload(); err.HasError() {
-					cfg.l.Error(err)
-				}
-			}
-		}
-	}()
-	go func() {
-		eventCh, errCh := cfg.watcher.Events(cfg.watcherCtx)
-		for {
-			select {
-			case <-cfg.watcherCtx.Done():
-				return
-			case event := <-eventCh:
-				if event.Action.IsDelete() {
-					cfg.stopProviders()
-				} else {
-					cfg.reloadReq <- struct{}{}
-				}
-			case err := <-errCh:
-				cfg.l.Error(err)
-				continue
-			}
-		}
-	}()
 }
 
 func (cfg *Config) load() (res E.NestedError) {
@@ -255,10 +262,6 @@ func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.Neste
 	if err := errors.Build(); err.HasError() {
 		cfg.l.Error(err)
 	}
-}
-
-func (cfg *Config) startProviders() {
-	cfg.controlProviders("start", (*PR.Provider).StartAllRoutes)
 }
 
 func (cfg *Config) stopProviders() {

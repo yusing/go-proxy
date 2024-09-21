@@ -1,10 +1,5 @@
 package proxy
 
-var (
-	PathMode_Forward     = "forward"
-	PathMode_RemovedPath = ""
-)
-
 const (
 	StreamType_UDP string = "udp"
 	StreamType_TCP string = "tcp"
@@ -19,4 +14,3 @@ var (
 	HTTPSchemes   = []string{"http", "https"}
 	ValidSchemes  = append(StreamSchemes, HTTPSchemes...)
 )
-

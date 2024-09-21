@@ -53,14 +53,15 @@ var WellKnownHTTPPorts = map[uint16]bool{
 
 var (
 	ServiceNamePortMapTCP = map[string]int{
-		"postgres":  5432,
-		"mysql":     3306,
-		"mariadb":   3306,
-		"redis":     6379,
-		"mssql":     1433,
-		"memcached": 11211,
-		"rabbitmq":  5672,
-		"mongo":     27017,
+		"postgres":         5432,
+		"mysql":            3306,
+		"mariadb":          3306,
+		"redis":            6379,
+		"mssql":            1433,
+		"memcached":        11211,
+		"rabbitmq":         5672,
+		"mongo":            27017,
+		"minecraft-server": 25565,
 
 		"dns":  53,
 		"ssh":  22,

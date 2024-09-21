@@ -168,4 +168,5 @@ var (
 
 	httpRoutes   = F.NewMapOf[SubdomainKey, *HTTPRoute]()
 	httpRoutesMu sync.Mutex
+	globalMux    = http.NewServeMux()
 )

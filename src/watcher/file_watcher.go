@@ -23,4 +23,8 @@ func (f *fileWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Nested
 	return fwHelper.Add(ctx, f)
 }
 
-var fwHelper = newFileWatcherHelper(common.ConfigBasePath)
+func InitFileWatcherHelper() {
+	fwHelper = newFileWatcherHelper(common.ConfigBasePath)
+}
+
+var fwHelper *fileWatcherHelper

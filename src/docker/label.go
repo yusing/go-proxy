@@ -23,7 +23,7 @@ type Label struct {
 // Returns:
 //   - error: an error if the field does not exist.
 func ApplyLabel[T any](obj *T, l *Label) E.NestedError {
-	return U.SetFieldFromSnake(obj, l.Attribute, l.Value)
+	return U.Deserialize(map[string]any{l.Attribute: l.Value}, obj)
 }
 
 type ValueParser func(string) (any, E.NestedError)

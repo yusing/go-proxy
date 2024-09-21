@@ -85,17 +85,18 @@
 
 ### Syntax
 
-| Label                   | Description                                                           | Default              | Accepted values                                                           |
-| ----------------------- | --------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------- |
-| `proxy.aliases`         | comma separated aliases for subdomain and label matching              | `container_name`     | any                                                                       |
-| `proxy.exclude`         | to be excluded from `go-proxy`                                        | false                | boolean                                                                   |
-| `proxy.idle_timeout`    | time for idle (no traffic) before put it into sleep **(http/s only)** | empty **(disabled)** | `number[unit]...`, e.g. `1m30s`                                           |
-| `proxy.wake_timeout`    | time to wait for container to start before responding a loading page  | empty                | `number[unit]...`                                                         |
-| `proxy.stop_method`     | method to stop after `idle_timeout`                                   | `stop`               | `stop`, `pause`, `kill`                                                   |
-| `proxy.stop_timeout`    | time to wait for stop command                                         | `10s`                | `number[unit]...`                                                         |
-| `proxy.stop_signal`     | signal sent to container for `stop` and `kill` methods                | docker's default     | `SIGINT`, `SIGTERM`, `SIGHUP`, `SIGQUIT` and those without **SIG** prefix |
-| `proxy.<alias>.<field>` | set field for specific alias                                          | N/A                  | N/A                                                                       |
-| `proxy.*.<field>`       | set field for all aliases                                             | N/A                  | N/A                                                                       |
+| Label                    | Description                                                           | Default              | Accepted values                                                           |
+| ------------------------ | --------------------------------------------------------------------- | -------------------- | ------------------------------------------------------------------------- |
+| `proxy.aliases`          | comma separated aliases for subdomain and label matching              | `container_name`     | any                                                                       |
+| `proxy.exclude`          | to be excluded from `go-proxy`                                        | false                | boolean                                                                   |
+| `proxy.idle_timeout`     | time for idle (no traffic) before put it into sleep **(http/s only)** | empty **(disabled)** | `number[unit]...`, e.g. `1m30s`                                           |
+| `proxy.wake_timeout`     | time to wait for container to start before responding a loading page  | empty                | `number[unit]...`                                                         |
+| `proxy.stop_method`      | method to stop after `idle_timeout`                                   | `stop`               | `stop`, `pause`, `kill`                                                   |
+| `proxy.stop_timeout`     | time to wait for stop command                                         | `10s`                | `number[unit]...`                                                         |
+| `proxy.stop_signal`      | signal sent to container for `stop` and `kill` methods                | docker's default     | `SIGINT`, `SIGTERM`, `SIGHUP`, `SIGQUIT` and those without **SIG** prefix |
+| `proxy.<alias>.<field>`  | set field for specific alias                                          | N/A                  | N/A                                                                       |
+| `proxy.$<index>.<field>` | set field for specific alias at index (started from **0**)            | N/A                  | N/A                                                                       |
+| `proxy.*.<field>`        | set field for all aliases                                             | N/A                  | N/A                                                                       |
 
 ### Fields
 
@@ -226,10 +227,10 @@ services:
     restart: unless-stopped
     labels:
       - proxy.aliases=adg,adg-dns,adg-setup
-      - proxy.adg.port=80
-      - proxy.adg-setup.port=3000
-      - proxy.adg-dns.scheme=udp
-      - proxy.adg-dns.port=20000:dns
+      - proxy.$1.port=80
+      - proxy.$2.scheme=udp
+      - proxy.$2.port=20000:dns
+      - proxy.$3.port=3000
     volumes:
       - adg-work:/opt/adguardhome/work
       - adg-conf:/opt/adguardhome/conf
@@ -263,8 +264,8 @@ services:
     labels:
       - proxy.aliases=pal1,pal2
       - proxy.*.scheme=udp
-      - proxy.pal1.port=20002:8211
-      - proxy.pal2.port=20003:27015
+      - proxy.$1.port=20002:8211
+      - proxy.$2.port=20003:27015
     environment: ...
     volumes:
       - palworld:/palworld

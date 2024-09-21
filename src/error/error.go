@@ -10,12 +10,9 @@ type (
 	NestedError = *nestedError
 	nestedError struct {
 		subject  string
-		err      error // can be nil
+		err      error
 		extras   []nestedError
 		severity Severity
-	}
-	errorInterface struct {
-		*nestedError
 	}
 	Severity uint8
 )
@@ -25,20 +22,11 @@ const (
 	SeverityWarning
 )
 
-func (e errorInterface) Error() string {
-	return e.String()
-}
-
 func From(err error) NestedError {
 	if IsNil(err) {
 		return nil
 	}
-	switch err := err.(type) {
-	case errorInterface:
-		return err.nestedError
-	default:
-		return &nestedError{err: err}
-	}
+	return &nestedError{err: err}
 }
 
 // Check is a helper function that
@@ -112,7 +100,7 @@ func (ne NestedError) Error() error {
 	if ne == nil {
 		return nil
 	}
-	return errorInterface{ne}
+	return ne.buildError(0, "")
 }
 
 func (ne NestedError) With(s any) NestedError {
@@ -123,10 +111,10 @@ func (ne NestedError) With(s any) NestedError {
 	switch ss := s.(type) {
 	case nil:
 		return ne
-	case *nestedError:
-		return ne.withError(ss.Error())
-	case error:
+	case NestedError:
 		return ne.withError(ss)
+	case error:
+		return ne.withError(From(ss))
 	case string:
 		msg = ss
 	case fmt.Stringer:
@@ -134,7 +122,7 @@ func (ne NestedError) With(s any) NestedError {
 	default:
 		msg = fmt.Sprint(s)
 	}
-	return ne.withError(errors.New(msg))
+	return ne.withError(From(errors.New(msg)))
 }
 
 func (ne NestedError) Extraf(format string, args ...any) NestedError {
@@ -206,15 +194,17 @@ func errorf(format string, args ...any) NestedError {
 	return From(fmt.Errorf(format, args...))
 }
 
-func (ne NestedError) withError(err error) NestedError {
-	if ne != nil && IsNotNil(err) {
-		ne.extras = append(ne.extras, *From(err))
+func (ne NestedError) withError(err NestedError) NestedError {
+	if ne != nil && err != nil {
+		ne.extras = append(ne.extras, *err)
 	}
 	return ne
 }
 
 func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
-	ne.writeIndents(sb, level)
+	for i := 0; i < level; i++ {
+		sb.WriteString("  ")
+	}
 	sb.WriteString(prefix)
 
 	if ne.NoError() {
@@ -224,11 +214,7 @@ func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
 
 	sb.WriteString(ne.err.Error())
 	if ne.subject != "" {
-		if IsNotNil(ne.err) {
-			sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
-		} else {
-			sb.WriteString(fmt.Sprint(ne.subject))
-		}
+		sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
 	}
 	if len(ne.extras) > 0 {
 		sb.WriteRune(':')
@@ -239,8 +225,32 @@ func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
 	}
 }
 
-func (ne NestedError) writeIndents(sb *strings.Builder, level int) {
+func (ne NestedError) buildError(level int, prefix string) error {
+	var res error
+	var sb strings.Builder
+
 	for i := 0; i < level; i++ {
 		sb.WriteString("  ")
 	}
+	sb.WriteString(prefix)
+
+	if ne.NoError() {
+		sb.WriteString("nil")
+		return errors.New(sb.String())
+	}
+
+	res = fmt.Errorf("%s%w", sb.String(), ne.err)
+	sb.Reset()
+
+	if ne.subject != "" {
+		sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
+	}
+	if len(ne.extras) > 0 {
+		sb.WriteRune(':')
+		res = fmt.Errorf("%w%s", res, sb.String())
+		for _, extra := range ne.extras {
+			res = errors.Join(res, extra.buildError(level+1, "- "))
+		}
+	}
+	return res
 }

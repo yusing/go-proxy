@@ -1,7 +1,9 @@
 package provider
 
 import (
+	"regexp"
 	"strconv"
+	"strings"
 
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
@@ -13,6 +15,8 @@ import (
 type DockerProvider struct {
 	dockerHost, hostname string
 }
+
+var AliasRefRegex = regexp.MustCompile(`\$\d+`)
 
 func DockerProviderImpl(dockerHost string) ProviderImpl {
 	return &DockerProvider{dockerHost: dockerHost}
@@ -120,7 +124,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Pr
 
 	errors := E.NewBuilder("failed to apply label")
 	for key, val := range container.Labels {
-		errors.Add(p.applyLabel(entries, key, val))
+		errors.Add(p.applyLabel(container, entries, key, val))
 	}
 
 	// selecting correct host port
@@ -132,9 +136,14 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Pr
 			}
 			for _, p := range container.Ports {
 				containerPort := strconv.Itoa(int(p.PrivatePort))
-				if containerPort == entry.Port {
-					entry.Port = strconv.Itoa(int(p.PublicPort))
+				publicPort := strconv.Itoa(int(p.PublicPort))
+				entryPortSplit := strings.Split(entry.Port, ":")
+				if len(entryPortSplit) == 2 && entryPortSplit[1] == containerPort {
+					entryPortSplit[1] = publicPort
+				} else if entryPortSplit[0] == containerPort {
+					entryPortSplit[0] = publicPort
 				}
+				entry.Port = strings.Join(entryPortSplit, ":")
 			}
 		}
 	}
@@ -142,7 +151,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Pr
 	return entries, errors.Build().Subject(container.ContainerName)
 }
 
-func (p *DockerProvider) applyLabel(entries M.ProxyEntries, key, val string) (res E.NestedError) {
+func (p *DockerProvider) applyLabel(container D.Container, entries M.ProxyEntries, key, val string) (res E.NestedError) {
 	b := E.NewBuilder("errors in label %s", key)
 	defer b.To(&res)
 
@@ -161,6 +170,23 @@ func (p *DockerProvider) applyLabel(entries M.ProxyEntries, key, val string) (re
 			}
 		})
 	} else {
+		refErr := E.NewBuilder("errors parsing alias references")
+		lbl.Target = AliasRefRegex.ReplaceAllStringFunc(lbl.Target, func(ref string) string {
+			index, err := strconv.Atoi(ref[1:])
+			if err != nil {
+				refErr.Add(E.Invalid("integer", ref))
+				return ref
+			}
+			if index < 1 || index > len(container.Aliases) {
+				refErr.Add(E.Invalid("index", ref).Extraf("index out of range"))
+				return ref
+			}
+			return container.Aliases[index-1]
+		})
+		if refErr.HasError() {
+			b.Add(refErr.Build())
+			return
+		}
 		config, ok := entries.Load(lbl.Target)
 		if !ok {
 			b.Add(E.NotExist("alias", lbl.Target))

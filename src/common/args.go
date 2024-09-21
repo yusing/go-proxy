@@ -12,11 +12,12 @@ type Args struct {
 }
 
 const (
-	CommandStart       = ""
-	CommandValidate    = "validate"
-	CommandListConfigs = "ls-config"
-	CommandListRoutes  = "ls-routes"
-	CommandReload      = "reload"
+	CommandStart            = ""
+	CommandValidate         = "validate"
+	CommandListConfigs      = "ls-config"
+	CommandListRoutes       = "ls-routes"
+	CommandReload           = "reload"
+	CommandDebugListEntries = "debug-ls-entries"
 )
 
 var ValidCommands = []string{
@@ -25,6 +26,7 @@ var ValidCommands = []string{
 	CommandListConfigs,
 	CommandListRoutes,
 	CommandReload,
+	CommandDebugListEntries,
 }
 
 func GetArgs() Args {

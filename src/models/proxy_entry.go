@@ -21,7 +21,7 @@ type (
 		HideHeaders  []string          `yaml:"hide_headers" json:"hide_headers"`   // http(s) proxy only
 
 		/* Docker only */
-		*D.ProxyProperties `yaml:"-" json:"-"`
+		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`
 	}
 
 	ProxyEntries = F.Map[string, *ProxyEntry]

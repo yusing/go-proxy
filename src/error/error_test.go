@@ -1,6 +1,7 @@
 package error_test
 
 import (
+	"errors"
 	"testing"
 
 	. "github.com/yusing/go-proxy/error"
@@ -17,6 +18,11 @@ func TestErrorIs(t *testing.T) {
 	ExpectFalse(t, Invalid("foo", "bar").Is(ErrFailure))
 
 	ExpectFalse(t, Invalid("foo", "bar").Is(nil))
+
+	ExpectTrue(t, errors.Is(Failure("foo").Error(), ErrFailure))
+	ExpectTrue(t, errors.Is(Failure("foo").With(Invalid("bar", "baz")).Error(), ErrInvalid))
+	ExpectTrue(t, errors.Is(Failure("foo").With(Invalid("bar", "baz")).Error(), ErrFailure))
+	ExpectFalse(t, errors.Is(Failure("foo").With(Invalid("bar", "baz")).Error(), ErrNotExists))
 }
 
 func TestErrorNestedIs(t *testing.T) {
@@ -99,4 +105,5 @@ func TestErrorNested(t *testing.T) {
         - 3
         - 3`
 	ExpectEqual(t, ne.String(), want)
+	ExpectEqual(t, ne.Error().Error(), want)
 }

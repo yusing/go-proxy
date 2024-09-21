@@ -12,7 +12,7 @@ build:
 	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy github.com/yusing/go-proxy
 
 test:
-	cd src && go test ./... && cd ..
+	go test ./src/...
 
 up:
 	docker compose up -d

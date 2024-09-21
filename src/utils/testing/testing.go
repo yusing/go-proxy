@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 )
@@ -9,6 +10,13 @@ func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil && !reflect.ValueOf(err).IsNil() {
 		t.Errorf("expected err=nil, got %s", err.Error())
+	}
+}
+
+func ExpectError(t *testing.T, expected error, err error) {
+	t.Helper()
+	if !errors.Is(err, expected) {
+		t.Errorf("expected err %s, got nil", expected.Error())
 	}
 }
 

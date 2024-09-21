@@ -23,6 +23,7 @@ import (
 	R "github.com/yusing/go-proxy/route"
 	"github.com/yusing/go-proxy/server"
 	F "github.com/yusing/go-proxy/utils/functional"
+	W "github.com/yusing/go-proxy/watcher"
 )
 
 func main() {
@@ -82,9 +83,17 @@ func main() {
 		return
 	}
 
+	if args.Command == common.CommandDebugListEntries {
+		printJSON(cfg.DumpEntries())
+		return
+	}
+
 	if err.HasError() {
 		l.Warn(err)
 	}
+
+	W.InitFileWatcherHelper()
+	cfg.WatchChanges()
 
 	onShutdown.Add(docker.CloseAllClients)
 	onShutdown.Add(cfg.Dispose)
