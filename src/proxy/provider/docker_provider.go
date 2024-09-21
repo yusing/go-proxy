@@ -18,8 +18,12 @@ type DockerProvider struct {
 
 var AliasRefRegex = regexp.MustCompile(`\$\d+`)
 
-func DockerProviderImpl(dockerHost string) ProviderImpl {
-	return &DockerProvider{dockerHost: dockerHost}
+func DockerProviderImpl(dockerHost string) (ProviderImpl, E.NestedError) {
+	hostname, err := D.ParseDockerHostname(dockerHost)
+	if err.HasError() {
+		return nil, err
+	}
+	return &DockerProvider{dockerHost: dockerHost, hostname: hostname}, nil
 }
 
 func (p *DockerProvider) NewWatcher() W.Watcher {
@@ -27,6 +31,7 @@ func (p *DockerProvider) NewWatcher() W.Watcher {
 }
 
 func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
+	routes = R.NewRoutes()
 	entries := M.NewProxyEntries()
 
 	info, err := D.GetClientInfo(p.dockerHost, true)

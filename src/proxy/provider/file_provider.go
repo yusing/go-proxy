@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"errors"
 	"os"
 	"path"
 
@@ -17,10 +18,19 @@ type FileProvider struct {
 	path     string
 }
 
-func FileProviderImpl(filename string) ProviderImpl {
-	return &FileProvider{
+func FileProviderImpl(filename string) (ProviderImpl, E.NestedError) {
+	impl := &FileProvider{
 		fileName: filename,
 		path:     path.Join(common.ConfigBasePath, filename),
+	}
+	_, err := os.Stat(impl.path)
+	switch {
+	case err == nil:
+		return impl, nil
+	case errors.Is(err, os.ErrNotExist):
+		return nil, E.NotExist("file", impl.path)
+	default:
+		return nil, E.UnexpectedError(err)
 	}
 }
 
@@ -52,6 +62,8 @@ func (p FileProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) 
 }
 
 func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
+	routes = R.NewRoutes()
+
 	b := E.NewBuilder("file %q validation failure", p.fileName)
 	defer b.To(&res)
 

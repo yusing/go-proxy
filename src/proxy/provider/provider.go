@@ -27,6 +27,7 @@ type (
 	}
 	ProviderImpl interface {
 		NewWatcher() W.Watcher
+		// even returns error, routes must be non-nil
 		LoadRoutesImpl() (R.Routes, E.NestedError)
 		OnEvent(event W.Event, routes R.Routes) EventResult
 	}
@@ -53,19 +54,25 @@ func newProvider(name string, t ProviderType) *Provider {
 	return p
 }
 
-func NewFileProvider(filename string) *Provider {
+func NewFileProvider(filename string) (p *Provider, err E.NestedError) {
 	name := path.Base(filename)
-	p := newProvider(name, ProviderTypeFile)
-	p.ProviderImpl = FileProviderImpl(filename)
+	p = newProvider(name, ProviderTypeFile)
+	p.ProviderImpl, err = FileProviderImpl(filename)
+	if err != nil {
+		return nil, err
+	}
 	p.watcher = p.NewWatcher()
-	return p
+	return
 }
 
-func NewDockerProvider(name string, dockerHost string) *Provider {
-	p := newProvider(name, ProviderTypeDocker)
-	p.ProviderImpl = DockerProviderImpl(dockerHost)
+func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.NestedError) {
+	p = newProvider(name, ProviderTypeDocker)
+	p.ProviderImpl, err = DockerProviderImpl(dockerHost)
+	if err != nil {
+		return nil, err
+	}
 	p.watcher = p.NewWatcher()
-	return p
+	return
 }
 
 func (p *Provider) GetName() string {
@@ -137,11 +144,9 @@ func (p *Provider) GetRoute(alias string) (R.Route, bool) {
 
 func (p *Provider) LoadRoutes() E.NestedError {
 	routes, err := p.LoadRoutesImpl()
-	if err != nil {
-		return err
-	}
 	p.routes = routes
-	return nil
+	p.l.Infof("loaded %d routes", routes.Size())
+	return err
 }
 
 func (p *Provider) watchEvents() {

@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types"
+	"github.com/yusing/go-proxy/common"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
 	F "github.com/yusing/go-proxy/utils/functional"
@@ -51,6 +52,12 @@ X_Custom_Header2: value3
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LableAliases:          "a,b",
+			D.LabelIdleTimeout:      common.IdleTimeoutDefault,
+			D.LabelStopMethod:       common.StopMethodDefault,
+			D.LabelStopSignal:       "SIGTERM",
+			D.LabelStopTimeout:      common.StopTimeoutDefault,
+			D.LabelWakeTimeout:      common.WakeTimeoutDefault,
+			"proxy.*.no_tls_verify": "true",
 			"proxy.*.scheme":        "https",
 			"proxy.*.host":          "app",
 			"proxy.*.port":          "4567",
@@ -73,8 +80,8 @@ X_Custom_Header2: value3
 	ExpectEqual(t, a.Port, "4567")
 	ExpectEqual(t, b.Port, "4567")
 
-	ExpectEqual(t, a.NoTLSVerify, true)
-	ExpectEqual(t, b.NoTLSVerify, false)
+	ExpectTrue(t, a.NoTLSVerify)
+	ExpectTrue(t, b.NoTLSVerify)
 
 	ExpectDeepEqual(t, a.PathPatterns, pathPatternsExpect)
 	ExpectEqual(t, len(b.PathPatterns), 0)
@@ -84,6 +91,21 @@ X_Custom_Header2: value3
 
 	ExpectDeepEqual(t, a.HideHeaders, hideHeadersExpect)
 	ExpectEqual(t, len(b.HideHeaders), 0)
+
+	ExpectEqual(t, a.IdleTimeout, common.IdleTimeoutDefault)
+	ExpectEqual(t, b.IdleTimeout, common.IdleTimeoutDefault)
+
+	ExpectEqual(t, a.StopTimeout, common.StopTimeoutDefault)
+	ExpectEqual(t, b.StopTimeout, common.StopTimeoutDefault)
+
+	ExpectEqual(t, a.StopMethod, common.StopMethodDefault)
+	ExpectEqual(t, b.StopMethod, common.StopMethodDefault)
+
+	ExpectEqual(t, a.WakeTimeout, common.WakeTimeoutDefault)
+	ExpectEqual(t, b.WakeTimeout, common.WakeTimeoutDefault)
+
+	ExpectEqual(t, a.StopSignal, "SIGTERM")
+	ExpectEqual(t, b.StopSignal, "SIGTERM")
 }
 
 func TestApplyLabel(t *testing.T) {

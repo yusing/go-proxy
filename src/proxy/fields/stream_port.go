@@ -1,6 +1,7 @@
 package fields
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/yusing/go-proxy/common"
@@ -15,7 +16,7 @@ type StreamPort struct {
 func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
 	split := strings.Split(p, ":")
 	if len(split) != 2 {
-		return StreamPort{}, E.Invalid("stream port", p).With("should be in 'x:y' format")
+		return StreamPort{}, E.Invalid("stream port", fmt.Sprintf("%q", p)).With("should be in 'x:y' format")
 	}
 
 	listeningPort, err := ValidatePort(split[0])

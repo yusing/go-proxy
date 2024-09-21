@@ -20,9 +20,23 @@ type Client struct {
 	l logrus.FieldLogger
 }
 
+func ParseDockerHostname(host string) (string, E.NestedError) {
+	if host == common.DockerHostFromEnv {
+		return host, nil
+	} else if host == "" {
+		return "localhost", nil
+	}
+	url, err := E.Check(client.ParseHostURL(host))
+	if err != nil {
+		return "", E.Invalid("host", host).With(err)
+	}
+	return url.Hostname(), nil
+}
+
 func (c Client) DaemonHostname() string {
-	url, _ := client.ParseHostURL(c.DaemonHost())
-	return url.Hostname()
+	// DaemonHost should always return a valid host
+	hostname, _ := ParseDockerHostname(c.DaemonHost())
+	return hostname
 }
 
 func (c Client) Connected() bool {

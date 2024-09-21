@@ -238,14 +238,22 @@ func (cfg *Config) loadProviders(providers *M.ProxyProviders) (res E.NestedError
 	defer b.To(&res)
 
 	for _, filename := range providers.Files {
-		p := PR.NewFileProvider(filename)
+		p, err := PR.NewFileProvider(filename)
+		if err != nil {
+			b.Add(err.Subject(filename))
+			continue
+		}
 		cfg.proxyProviders.Store(p.GetName(), p)
-		b.Add(p.LoadRoutes())
+		b.Add(p.LoadRoutes().Subject(filename))
 	}
 	for name, dockerHost := range providers.Docker {
-		p := PR.NewDockerProvider(name, dockerHost)
+		p, err := PR.NewDockerProvider(name, dockerHost)
+		if err != nil {
+			b.Add(err.Subject(dockerHost))
+			continue
+		}
 		cfg.proxyProviders.Store(p.GetName(), p)
-		b.Add(p.LoadRoutes())
+		b.Add(p.LoadRoutes().Subject(dockerHost))
 	}
 	return
 }
