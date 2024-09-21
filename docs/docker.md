@@ -95,7 +95,7 @@
 | `proxy.stop_timeout`     | time to wait for stop command                                         | `10s`                | `number[unit]...`                                                         |
 | `proxy.stop_signal`      | signal sent to container for `stop` and `kill` methods                | docker's default     | `SIGINT`, `SIGTERM`, `SIGHUP`, `SIGQUIT` and those without **SIG** prefix |
 | `proxy.<alias>.<field>`  | set field for specific alias                                          | N/A                  | N/A                                                                       |
-| `proxy.$<index>.<field>` | set field for specific alias at index (started from **0**)            | N/A                  | N/A                                                                       |
+| `proxy.$<index>.<field>` | set field for specific alias at index (started from **1**)            | N/A                  | N/A                                                                       |
 | `proxy.*.<field>`        | set field for all aliases                                             | N/A                  | N/A                                                                       |
 
 ### Fields
