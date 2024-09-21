@@ -10,7 +10,9 @@ import (
 )
 
 type (
-	ProxyEntry struct { // raw entry object before validation
+	RawEntry struct {
+		// raw entry object before validation
+		// loaded from docker labels or yaml file
 		Alias        string            `yaml:"-" json:"-"`
 		Scheme       string            `yaml:"scheme" json:"scheme"`
 		Host         string            `yaml:"host" json:"host"`
@@ -24,12 +26,12 @@ type (
 		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`
 	}
 
-	ProxyEntries = F.Map[string, *ProxyEntry]
+	RawEntries = F.Map[string, *RawEntry]
 )
 
-var NewProxyEntries = F.NewMapOf[string, *ProxyEntry]
+var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
-func (e *ProxyEntry) SetDefaults() {
+func (e *RawEntry) SetDefaults() {
 	if e.ProxyProperties == nil {
 		e.ProxyProperties = &D.ProxyProperties{}
 	}

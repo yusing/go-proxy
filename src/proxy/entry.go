@@ -43,7 +43,7 @@ func (rp *ReverseProxyEntry) UseIdleWatcher() bool {
 	return rp.IdleTimeout > 0 && rp.DockerHost != ""
 }
 
-func ValidateEntry(m *M.ProxyEntry) (any, E.NestedError) {
+func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
 	m.SetDefaults()
 	scheme, err := T.NewScheme(m.Scheme)
 	if err.HasError() {
@@ -63,7 +63,7 @@ func ValidateEntry(m *M.ProxyEntry) (any, E.NestedError) {
 	return entry, nil
 }
 
-func validateRPEntry(m *M.ProxyEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry {
+func validateRPEntry(m *M.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry {
 	var stopTimeOut time.Duration
 
 	host, err := T.ValidateHost(m.Host)
@@ -121,7 +121,7 @@ func validateRPEntry(m *M.ProxyEntry, s T.Scheme, b E.Builder) *ReverseProxyEntr
 	}
 }
 
-func validateStreamEntry(m *M.ProxyEntry, b E.Builder) *StreamEntry {
+func validateStreamEntry(m *M.RawEntry, b E.Builder) *StreamEntry {
 	host, err := T.ValidateHost(m.Host)
 	b.Add(err)
 

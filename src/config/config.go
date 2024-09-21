@@ -164,8 +164,8 @@ func (cfg *Config) Statistics() map[string]any {
 	}
 }
 
-func (cfg *Config) DumpEntries() map[string]*M.ProxyEntry {
-	entries := make(map[string]*M.ProxyEntry)
+func (cfg *Config) DumpEntries() map[string]*M.RawEntry {
+	entries := make(map[string]*M.RawEntry)
 	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
 		entries[alias] = r.Entry()
 	})

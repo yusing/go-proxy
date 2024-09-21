@@ -55,12 +55,12 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 		// there may be some valid entries in `en`
 		dups := entries.MergeFrom(newEntries)
 		// add the duplicate proxy entries to the error
-		dups.RangeAll(func(k string, v *M.ProxyEntry) {
+		dups.RangeAll(func(k string, v *M.RawEntry) {
 			errors.Addf("duplicate alias %s", k)
 		})
 	}
 
-	entries.RangeAll(func(_ string, e *M.ProxyEntry) {
+	entries.RangeAll(func(_ string, e *M.RawEntry) {
 		e.DockerHost = p.dockerHost
 	})
 
@@ -96,7 +96,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 	entries, err := p.entriesFromContainerLabels(cont)
 	b.Add(err)
 
-	entries.RangeAll(func(alias string, entry *M.ProxyEntry) {
+	entries.RangeAll(func(alias string, entry *M.RawEntry) {
 		if routes.Has(alias) {
 			b.Add(E.AlreadyExist("alias", alias))
 		} else {
@@ -115,12 +115,12 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 
 // Returns a list of proxy entries for a container.
 // Always non-nil
-func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.ProxyEntries, E.NestedError) {
+func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.RawEntries, E.NestedError) {
 	entries := M.NewProxyEntries()
 
 	// init entries map for all aliases
 	for _, a := range container.Aliases {
-		entries.Store(a, &M.ProxyEntry{
+		entries.Store(a, &M.RawEntry{
 			Alias:           a,
 			Host:            p.hostname,
 			ProxyProperties: container.ProxyProperties,
@@ -156,7 +156,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Pr
 	return entries, errors.Build().Subject(container.ContainerName)
 }
 
-func (p *DockerProvider) applyLabel(container D.Container, entries M.ProxyEntries, key, val string) (res E.NestedError) {
+func (p *DockerProvider) applyLabel(container D.Container, entries M.RawEntries, key, val string) (res E.NestedError) {
 	b := E.NewBuilder("errors in label %s", key)
 	defer b.To(&res)
 
@@ -169,7 +169,7 @@ func (p *DockerProvider) applyLabel(container D.Container, entries M.ProxyEntrie
 	}
 	if lbl.Target == D.WildcardAlias {
 		// apply label for all aliases
-		entries.RangeAll(func(a string, e *M.ProxyEntry) {
+		entries.RangeAll(func(a string, e *M.RawEntry) {
 			if err = D.ApplyLabel(e, lbl); err.HasError() {
 				b.Add(err.Subject(lbl.Target))
 			}

@@ -13,7 +13,7 @@ import (
 type (
 	Route interface {
 		RouteImpl
-		Entry() *M.ProxyEntry
+		Entry() *M.RawEntry
 		Type() RouteType
 		URL() *url.URL
 	}
@@ -28,7 +28,7 @@ type (
 	route struct {
 		RouteImpl
 		type_ RouteType
-		entry *M.ProxyEntry
+		entry *M.RawEntry
 	}
 )
 
@@ -40,7 +40,7 @@ const (
 // function alias
 var NewRoutes = F.NewMapOf[string, Route]
 
-func NewRoute(en *M.ProxyEntry) (Route, E.NestedError) {
+func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
 	rt, err := P.ValidateEntry(en)
 	if err.HasError() {
 		return nil, err
@@ -61,7 +61,7 @@ func NewRoute(en *M.ProxyEntry) (Route, E.NestedError) {
 	return &route{RouteImpl: rt.(RouteImpl), entry: en, type_: t}, err
 }
 
-func (rt *route) Entry() *M.ProxyEntry {
+func (rt *route) Entry() *M.RawEntry {
 	return rt.entry
 }
 
@@ -74,11 +74,11 @@ func (rt *route) URL() *url.URL {
 	return url
 }
 
-func FromEntries(entries M.ProxyEntries) (Routes, E.NestedError) {
+func FromEntries(entries M.RawEntries) (Routes, E.NestedError) {
 	b := E.NewBuilder("errors in routes")
 
 	routes := NewRoutes()
-	entries.RangeAll(func(alias string, entry *M.ProxyEntry) {
+	entries.RangeAll(func(alias string, entry *M.RawEntry) {
 		entry.Alias = alias
 		r, err := NewRoute(entry)
 		if err.HasError() {
