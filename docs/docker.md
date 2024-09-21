@@ -95,7 +95,7 @@
 | `proxy.stop_timeout`     | time to wait for stop command                                         | `10s`                | `number[unit]...`                                                         |
 | `proxy.stop_signal`      | signal sent to container for `stop` and `kill` methods                | docker's default     | `SIGINT`, `SIGTERM`, `SIGHUP`, `SIGQUIT` and those without **SIG** prefix |
 | `proxy.<alias>.<field>`  | set field for specific alias                                          | N/A                  | N/A                                                                       |
-| `proxy.$<index>.<field>` | set field for specific alias at index (started from **1**)            | N/A                  | N/A                                                                       |
+| `proxy.$<index>.<field>` | set field for specific alias at index (starting from **1**)            | N/A                  | N/A                                                                       |
 | `proxy.*.<field>`        | set field for all aliases                                             | N/A                  | N/A                                                                       |
 
 ### Fields
@@ -190,6 +190,7 @@ service_a:
     nginx-2: # Option 2
       ...
       container_name: nginx-2
+      network_mode: host
       labels:
         proxy.nginx-2.port: 80
   ```
@@ -237,7 +238,7 @@ services:
     ports:
       - 80
       - 3000
-      - 53
+      - 53/udp
   mc:
     image: itzg/minecraft-server
     tty: true
@@ -285,7 +286,7 @@ services:
     network_mode: host
     volumes:
       - ./config:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/run/docker.sock:/var/run/docker.sock
   go-proxy-frontend:
     image: ghcr.io/yusing/go-proxy-frontend:latest
     container_name: go-proxy-frontend
@@ -293,7 +294,9 @@ services:
     network_mode: host
     labels:
       - proxy.aliases=gp
-      - proxy.gp.port=8888
+      - proxy.gp.port=8080
+    ports:
+      - 8080
     depends_on:
       - go-proxy
 ```
@@ -306,8 +309,8 @@ services:
 - `adg-setup.yourdomain.com`: adguard setup (first time setup)
 - `adg.yourdomain.com`: adguard dashboard
 - `nginx.yourdomain.com`: nginx
-- `yourdomain.com:53`: adguard dns
-- `yourdomain.com:25565`: minecraft server
-- `yourdomain.com:8211`: palworld server
+- `yourdomain.com:2000`: adguard dns (udp)
+- `yourdomain.com:20001`: minecraft server
+- `yourdomain.com:20002`: palworld server
 
 [🔼Back to top](#table-of-content)
