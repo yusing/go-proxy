@@ -2,6 +2,7 @@ package watcher
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	docker_events "github.com/docker/docker/api/types/events"
@@ -59,19 +60,28 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 		defer close(eventCh)
 		defer close(errCh)
 
+		defer func() {
+			if w.client.Connected() {
+				w.client.Close()
+			}
+		}()
+
 		if !w.client.Connected() {
 			var err E.NestedError
-			for range 3 {
+			for {
 				w.client, err = D.ConnectClient(w.host)
+				attempts := 0
 				if err != nil {
-					defer w.client.Close()
 					break
 				}
-				time.Sleep(1 * time.Second)
-			}
-			if err.HasError() {
-				errCh <- E.FailWith("docker connection", err)
-				return
+				attempts++
+				errCh <- E.FailWith(fmt.Sprintf("docker connection attempt #%d", attempts), err)
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					time.Sleep(3 * time.Second)
+				}
 			}
 		}
 

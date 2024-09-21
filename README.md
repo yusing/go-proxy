@@ -54,7 +54,9 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 2. Setup `go-proxy` [See here](docs/docker.md)
 
-3. Configure `go-proxy`
+3. Setup `docker-socket-proxy` (see [example](docs/docker_socket_proxy.md) other machine that is running docker (if any)
+
+4. Configure `go-proxy`
    - with text editor (e.g. Visual Studio Code)
    - or with web config editor via `http://gp.y.z`
 

@@ -21,9 +21,8 @@ type Client struct {
 }
 
 func ParseDockerHostname(host string) (string, E.NestedError) {
-	if host == common.DockerHostFromEnv {
-		return host, nil
-	} else if host == "" {
+	switch host {
+	case common.DockerHostFromEnv, "":
 		return "localhost", nil
 	}
 	url, err := E.Check(client.ParseHostURL(host))
