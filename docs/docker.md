@@ -259,8 +259,8 @@ services:
     container_name: pal
     stop_grace_period: 30s
     ports:
-      - 8211
-      - 27015
+      - 8211/udp
+      - 27015/udp
     labels:
       - proxy.aliases=pal1,pal2
       - proxy.*.scheme=udp

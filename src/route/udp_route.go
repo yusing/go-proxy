@@ -35,7 +35,7 @@ func NewUDPRoute(base *StreamRoute) StreamImpl {
 }
 
 func (route *UDPRoute) Setup() error {
-	laddr, err := net.ResolveUDPAddr(string(route.Scheme.ListeningScheme), fmt.Sprintf(":%v", route.Port.ProxyPort))
+	laddr, err := net.ResolveUDPAddr(string(route.Scheme.ListeningScheme), fmt.Sprintf(":%v", route.Port.ListeningPort))
 	if err != nil {
 		return err
 	}
