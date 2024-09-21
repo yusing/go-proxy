@@ -9,9 +9,9 @@ import (
 var (
 	NoSchemaValidation = getEnvBool("GOPROXY_NO_SCHEMA_VALIDATION")
 	IsDebug            = getEnvBool("GOPROXY_DEBUG")
-	ProxyHTTPPort      = ":" + getEnv("GOPROXY_HTTP_PORT", "80")
-	ProxyHTTPSPort     = ":" + getEnv("GOPROXY_HTTPS_PORT", "443")
-	APIHTTPPort        = ":" + getEnv("GOPROXY_API_PORT", "8888")
+	ProxyHTTPAddr      = getEnv("GOPROXY_HTTP_ADDR", ":80")
+	ProxyHTTPSAddr     = getEnv("GOPROXY_HTTPS_ADDR", ":443")
+	APIHTTPAddr        = getEnv("GOPROXY_API_ADDR", "127.0.0.1:8888")
 )
 
 func getEnvBool(key string) bool {

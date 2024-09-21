@@ -76,13 +76,13 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 ### Environment variables
 
-| Environment Variable           | Description                   | Default | Values  |
-| ------------------------------ | ----------------------------- | ------- | ------- |
-| `GOPROXY_NO_SCHEMA_VALIDATION` | disable schema validation     | `false` | boolean |
-| `GOPROXY_DEBUG`                | enable debug behaviors        | `false` | boolean |
-| `GOPROXY_HTTP_PORT`            | http server port              | `80`    | integer |
-| `GOPROXY_HTTPS_PORT`           | http server port (if enabled) | `443`   | integer |
-| `GOPROXY_API_PORT`             | api server port               | `8888`  | integer |
+| Environment Variable           | Description                                 | Default          | Values        |
+| ------------------------------ | ------------------------------------------- | ---------------- | ------------- |
+| `GOPROXY_NO_SCHEMA_VALIDATION` | disable schema validation                   | `false`          | boolean       |
+| `GOPROXY_DEBUG`                | enable debug behaviors                      | `false`          | boolean       |
+| `GOPROXY_HTTP_ADDR`            | http server listening address               | `:80`            | `[host]:port` |
+| `GOPROXY_HTTPS_ADDR`           | https server listening address (if enabled) | `:443`           | `[host]:port` |
+| `GOPROXY_API_ADDR`             | api server listening address                | `127.0.0.1:8888` | `[host]:port` |
 
 ### Use JSON Schema in VSCode
 
@@ -125,8 +125,6 @@ See [providers.example.yml](providers.example.yml) for examples
 [🔼Back to top](#table-of-content)
 
 ## Known issues
-
-- Cert "renewal" is actually obtaining a new cert instead of renewing the existing one
 
 - `autocert` config is not hot-reloadable
 

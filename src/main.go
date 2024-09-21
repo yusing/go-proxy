@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"runtime"
 	"sync"
 	"syscall"
 	"time"
@@ -27,8 +26,6 @@ import (
 )
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-
 	args := common.GetArgs()
 	l := logrus.WithField("module", "main")
 
@@ -136,15 +133,15 @@ func main() {
 	proxyServer := server.InitProxyServer(server.Options{
 		Name:            "proxy",
 		CertProvider:    autocert,
-		HTTPPort:        common.ProxyHTTPPort,
-		HTTPSPort:       common.ProxyHTTPSPort,
+		HTTPAddr:        common.ProxyHTTPAddr,
+		HTTPSAddr:       common.ProxyHTTPSAddr,
 		Handler:         http.HandlerFunc(R.ProxyHandler),
 		RedirectToHTTPS: cfg.Value().RedirectToHTTPS,
 	})
 	apiServer := server.InitAPIServer(server.Options{
 		Name:            "api",
 		CertProvider:    autocert,
-		HTTPPort:        common.APIHTTPPort,
+		HTTPAddr:        common.APIHTTPAddr,
 		Handler:         api.NewHandler(cfg),
 		RedirectToHTTPS: cfg.Value().RedirectToHTTPS,
 	})

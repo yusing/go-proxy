@@ -36,7 +36,7 @@ func IsStreamHealthy(scheme, address string) bool {
 }
 
 func ReloadServer() E.NestedError {
-	resp, err := HttpClient.Post(fmt.Sprintf("http://localhost%v/reload", common.APIHTTPPort), "", nil)
+	resp, err := HttpClient.Post(fmt.Sprintf("http://localhost%v/reload", common.APIHTTPAddr), "", nil)
 	if err != nil {
 		return E.From(err)
 	}

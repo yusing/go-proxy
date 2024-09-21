@@ -6,7 +6,7 @@
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 
-一個輕量化、易用且[高效](docs/benchmark_result.md)的反向代理工具
+一個輕量化、易用且[高效](docs/benchmark_result.md)的反向代理和端口轉發工具
 
 ## 目錄
 
@@ -72,10 +72,13 @@
 
 ### 環境變量
 
-| 環境變量                       | 描述             | 默認    | 值      |
-| ------------------------------ | ---------------- | ------- | ------- |
-| `GOPROXY_NO_SCHEMA_VALIDATION` | 禁用 schema 驗證 | `false` | boolean |
-| `GOPROXY_DEBUG`                | 啟用調試輸出     | `false` | boolean |
+| 環境變量                       | 描述             | 默認             | 格式          |
+| ------------------------------ | ---------------- | ---------------- | ------------- |
+| `GOPROXY_NO_SCHEMA_VALIDATION` | 禁用 schema 驗證 | `false`          | boolean       |
+| `GOPROXY_DEBUG`                | 啟用調試輸出     | `false`          | boolean       |
+| `GOPROXY_HTTP_ADDR`            | http 收聽地址    | `:80`            | `[host]:port` |
+| `GOPROXY_HTTPS_ADDR`           | https 收聽地址   | `:443`           | `[host]:port` |
+| `GOPROXY_API_ADDR`             | api 收聽地址     | `127.0.0.1:8888` | `[host]:port` |
 
 ### VSCode 中使用 JSON Schema
 
@@ -118,8 +121,6 @@ providers:
 [🔼 返回頂部](#目錄)
 
 ## 已知問題
-
-- 證書“更新”實際上是獲取新證書而不是更新現有證書
 
 - `autocert` 配置不能熱重載
 

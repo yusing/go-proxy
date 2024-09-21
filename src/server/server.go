@@ -22,11 +22,9 @@ type server struct {
 }
 
 type Options struct {
-	Name string
-	// port (with leading colon)
-	HTTPPort string
-	// port (with leading colon)
-	HTTPSPort       string
+	Name            string
+	HTTPAddr        string
+	HTTPSAddr       string
 	CertProvider    *autocert.Provider
 	RedirectToHTTPS bool
 	Handler         http.Handler
@@ -55,22 +53,22 @@ func NewServer(opt Options) (s *server) {
 		certAvailable = err == nil
 	}
 
-	if certAvailable && opt.RedirectToHTTPS && opt.HTTPSPort != "" {
-		httpHandler = redirectToTLSHandler(opt.HTTPSPort)
+	if certAvailable && opt.RedirectToHTTPS && opt.HTTPSAddr != "" {
+		httpHandler = redirectToTLSHandler(opt.HTTPSAddr)
 	} else {
 		httpHandler = opt.Handler
 	}
 
-	if opt.HTTPPort != "" {
+	if opt.HTTPAddr != "" {
 		httpSer = &http.Server{
-			Addr:     opt.HTTPPort,
+			Addr:     opt.HTTPAddr,
 			Handler:  httpHandler,
 			ErrorLog: logger,
 		}
 	}
-	if certAvailable && opt.HTTPSPort != "" {
+	if certAvailable && opt.HTTPSAddr != "" {
 		httpsSer = &http.Server{
-			Addr:     opt.HTTPSPort,
+			Addr:     opt.HTTPSAddr,
 			Handler:  opt.Handler,
 			ErrorLog: logger,
 			TLSConfig: &tls.Config{
