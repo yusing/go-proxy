@@ -33,6 +33,8 @@ var (
 	DockerFilterUnpause   = filters.Arg("event", string(docker_events.ActionUnPause))
 
 	NewDockerFilter = filters.NewArgs
+
+	dockerWatcherRetryInterval = 3 * time.Second
 )
 
 func DockerrFilterContainerName(name string) filters.KeyValuePair {
@@ -55,6 +57,8 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 	eventCh := make(chan Event)
 	errCh := make(chan E.NestedError)
 	started := make(chan struct{})
+
+	eventsCtx, eventsCancel := context.WithCancel(ctx)
 
 	go func() {
 		defer close(eventCh)
@@ -80,12 +84,12 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 				case <-ctx.Done():
 					return
 				default:
-					time.Sleep(3 * time.Second)
+					time.Sleep(dockerWatcherRetryInterval)
 				}
 			}
 		}
 
-		cEventCh, cErrCh := w.client.Events(ctx, options)
+		cEventCh, cErrCh := w.client.Events(eventsCtx, options)
 		started <- struct{}{}
 
 		for {
@@ -118,10 +122,10 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 				case <-ctx.Done():
 					return
 				default:
-					if D.IsErrConnectionFailed(err) {
-						time.Sleep(100 * time.Millisecond)
-						cEventCh, cErrCh = w.client.Events(ctx, options)
-					}
+					eventsCancel()
+					time.Sleep(dockerWatcherRetryInterval)
+					eventsCtx, eventsCancel = context.WithCancel(ctx)
+					cEventCh, cErrCh = w.client.Events(ctx, options)
 				}
 			}
 		}
