@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"sync"
+	"syscall"
 	"time"
 
 	U "github.com/yusing/go-proxy/utils"
@@ -24,7 +25,6 @@ type TCPRoute struct {
 func NewTCPRoute(base *StreamRoute) StreamImpl {
 	return &TCPRoute{
 		StreamRoute: base,
-		listener:    nil,
 		pipe:        make(Pipes, 0),
 	}
 }
@@ -47,7 +47,7 @@ func (route *TCPRoute) Handle(c any) error {
 
 	defer clientConn.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), tcpDialTimeout)
+	ctx, cancel := context.WithTimeout(route.ctx, tcpDialTimeout)
 	defer cancel()
 
 	serverAddr := fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort)
@@ -58,16 +58,10 @@ func (route *TCPRoute) Handle(c any) error {
 		return err
 	}
 
-	pipeCtx, pipeCancel := context.WithCancel(context.Background())
-	go func() {
-		<-route.stopCh
-		pipeCancel()
-	}()
-
 	route.mu.Lock()
 	defer route.mu.Unlock()
 
-	pipe := U.NewBidirectionalPipe(pipeCtx, clientConn, serverConn)
+	pipe := U.NewBidirectionalPipe(route.ctx, clientConn, serverConn)
 	route.pipe = append(route.pipe, pipe)
 	return pipe.Start()
 }
@@ -80,7 +74,14 @@ func (route *TCPRoute) CloseListeners() {
 	route.listener = nil
 	for _, pipe := range route.pipe {
 		if err := pipe.Stop(); err != nil {
-			route.l.Error(err)
+			switch err {
+			// target closing connection
+			// TODO: handle this by fixing utils/io.go
+			case net.ErrClosed, syscall.EPIPE:
+				return
+			default:
+				route.l.Error(err)
+			}
 		}
 	}
 }

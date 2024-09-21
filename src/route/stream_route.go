@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -15,8 +16,10 @@ type StreamRoute struct {
 	P.StreamEntry
 	StreamImpl `json:"-"`
 
-	wg      sync.WaitGroup
-	stopCh  chan struct{}
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	connCh  chan any
 	started atomic.Bool
 	l       logrus.FieldLogger
@@ -36,8 +39,7 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	}
 	base := &StreamRoute{
 		StreamEntry: *entry,
-		wg:          sync.WaitGroup{},
-		connCh:      make(chan any),
+		connCh:      make(chan any, 100),
 	}
 	if entry.Scheme.ListeningScheme.IsTCP() {
 		base.StreamImpl = NewTCPRoute(base)
@@ -54,9 +56,9 @@ func (r *StreamRoute) String() string {
 
 func (r *StreamRoute) Start() E.NestedError {
 	if r.started.Load() {
-		return E.Invalid("state", "already started")
+		return nil
 	}
-	r.stopCh = make(chan struct{}, 1)
+	r.ctx, r.cancel = context.WithCancel(context.Background())
 	r.wg.Wait()
 	if err := r.Setup(); err != nil {
 		return E.FailWith("setup", err)
@@ -70,10 +72,10 @@ func (r *StreamRoute) Start() E.NestedError {
 
 func (r *StreamRoute) Stop() E.NestedError {
 	if !r.started.Load() {
-		return E.Invalid("state", "not started")
+		return nil
 	}
 	l := r.l
-	close(r.stopCh)
+	r.cancel()
 	r.CloseListeners()
 
 	done := make(chan struct{}, 1)
@@ -82,13 +84,16 @@ func (r *StreamRoute) Stop() E.NestedError {
 		close(done)
 	}()
 
-	select {
-	case <-done:
-		l.Info("stopped listening")
-	case <-time.After(streamStopListenTimeout):
-		l.Error("timed out waiting for connections")
+	timeout := time.After(streamStopListenTimeout)
+	for {
+		select {
+		case <-done:
+			l.Debug("stopped listening")
+			return nil
+		case <-timeout:
+			return E.FailedWhy("stop", "timed out")
+		}
 	}
-	return nil
 }
 
 func (r *StreamRoute) grAcceptConnections() {
@@ -96,13 +101,13 @@ func (r *StreamRoute) grAcceptConnections() {
 
 	for {
 		select {
-		case <-r.stopCh:
+		case <-r.ctx.Done():
 			return
 		default:
 			conn, err := r.Accept()
 			if err != nil {
 				select {
-				case <-r.stopCh:
+				case <-r.ctx.Done():
 					return
 				default:
 					r.l.Error(err)
@@ -119,7 +124,7 @@ func (r *StreamRoute) grHandleConnections() {
 
 	for {
 		select {
-		case <-r.stopCh:
+		case <-r.ctx.Done():
 			return
 		case conn := <-r.connCh:
 			go func() {

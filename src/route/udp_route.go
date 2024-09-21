@@ -1,7 +1,6 @@
 package route
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
@@ -84,15 +83,10 @@ func (route *UDPRoute) Accept() (any, error) {
 				srcConn.Close()
 				return nil, err
 			}
-			pipeCtx, pipeCancel := context.WithCancel(context.Background())
-			go func() {
-				<-route.stopCh
-				pipeCancel()
-			}()
 			conn = &UDPConn{
 				srcConn,
 				dstConn,
-				utils.NewBidirectionalPipe(pipeCtx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
+				utils.NewBidirectionalPipe(route.ctx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
 			}
 			route.connMap[key] = conn
 		}
