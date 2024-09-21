@@ -72,9 +72,9 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 
 		if !w.client.Connected() {
 			var err E.NestedError
+			attempts := 0
 			for {
 				w.client, err = D.ConnectClient(w.host)
-				attempts := 0
 				if err != nil {
 					break
 				}

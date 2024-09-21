@@ -249,7 +249,7 @@ func (cfg *Config) loadProviders(providers *M.ProxyProviders) (res E.NestedError
 	for name, dockerHost := range providers.Docker {
 		p, err := PR.NewDockerProvider(name, dockerHost)
 		if err != nil {
-			b.Add(err.Subject(dockerHost))
+			b.Add(err.Subjectf("%s (%s)", name, dockerHost))
 			continue
 		}
 		cfg.proxyProviders.Store(p.GetName(), p)

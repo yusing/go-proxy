@@ -80,8 +80,6 @@ func main() {
 		return
 	}
 
-	cfg.StartProxyProviders()
-
 	if args.Command == common.CommandListRoutes {
 		printJSON(cfg.RoutesByAlias())
 		return
@@ -91,6 +89,8 @@ func main() {
 		printJSON(cfg.DumpEntries())
 		return
 	}
+
+	cfg.StartProxyProviders()
 
 	if err.HasError() {
 		l.Warn(err)
@@ -177,10 +177,11 @@ func main() {
 		close(done)
 	}()
 
+	timeout := time.After(time.Duration(cfg.Value().TimeoutShutdown) * time.Second)
 	select {
 	case <-done:
 		logrus.Info("shutdown complete")
-	case <-time.After(time.Duration(cfg.Value().TimeoutShutdown) * time.Second):
+	case <-timeout:
 		logrus.Info("timeout waiting for shutdown")
 	}
 }

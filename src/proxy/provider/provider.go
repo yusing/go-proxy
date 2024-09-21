@@ -143,10 +143,13 @@ func (p *Provider) GetRoute(alias string) (R.Route, bool) {
 }
 
 func (p *Provider) LoadRoutes() E.NestedError {
-	routes, err := p.LoadRoutesImpl()
-	p.routes = routes
-	p.l.Infof("loaded %d routes", routes.Size())
-	return err
+	var err E.NestedError
+	p.routes, err = p.LoadRoutesImpl()
+	if p.routes.Size() > 0 {
+		p.l.Infof("loaded %d routes", p.routes.Size())
+		return err
+	}
+	return E.FailWith("loading routes", err)
 }
 
 func (p *Provider) watchEvents() {
