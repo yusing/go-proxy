@@ -24,22 +24,23 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
     - [Config File](#config-file)
     - [Provider File](#provider-file)
-  - [Known issues](#known-issues)
+  - [Showcase](#showcase)
+    - [idlesleeper](#idlesleeper)
   - [Build it yourself](#build-it-yourself)
 
 ## Key Points
 
-- Easy to use
-  - Effortless configuration
-  - Error messages is clear and detailed, easy troubleshooting
-- Auto certificate obtaining and renewal (See [Supported DNS Challenge Providers](docs/dns_providers.md))
-- Auto configuration for docker containers
-- Auto hot-reload on container state / config file changes
-- Stop containers on idle, wake it up on traffic _(optional)_
-- HTTP(s) reserve proxy
-- TCP and UDP port forwarding
-- Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
-- Written in **[Go](https://go.dev)**
+-   Easy to use
+    -   Effortless configuration
+    -   Error messages is clear and detailed, easy troubleshooting
+-   Auto certificate obtaining and renewal (See [Supported DNS Challenge Providers](docs/dns_providers.md))
+-   Auto configuration for docker containers
+-   Auto hot-reload on container state / config file changes
+-   Stop containers on idle, wake it up on traffic _(optional, see [showcase](#idlesleeper))_
+-   HTTP(s) reserve proxy
+-   TCP and UDP port forwarding
+-   Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
+-   Written in **[Go](https://go.dev)**
 
 [🔼Back to top](#table-of-content)
 
@@ -49,16 +50,16 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 1. Setup DNS Records, e.g.
 
-   - A Record: `*.y.z` -> `10.0.10.1`
-   - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+    - A Record: `*.y.z` -> `10.0.10.1`
+    - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
 
 2. Setup `go-proxy` [See here](docs/docker.md)
 
 3. Setup `docker-socket-proxy` (see [example](docs/docker_socket_proxy.md) other machine that is running docker (if any)
 
 4. Configure `go-proxy`
-   - with text editor (e.g. Visual Studio Code)
-   - or with web config editor via `http://gp.y.z`
+    - with text editor (e.g. Visual Studio Code)
+    - or with web config editor via `http://gp.y.z`
 
 [🔼Back to top](#table-of-content)
 
@@ -97,21 +98,21 @@ See [config.example.yml](config.example.yml) for more
 ```yaml
 # autocert configuration
 autocert:
-  email: # ACME Email
-  domains: # a list of domains for cert registration
-  provider: # DNS Challenge provider
-  options: # provider specific options
-    - ...
+    email: # ACME Email
+    domains: # a list of domains for cert registration
+    provider: # DNS Challenge provider
+    options: # provider specific options
+        - ...
 # reverse proxy providers configuration
 providers:
-  include:
-    - providers.yml
-    - other_file_1.yml
-    - ...
-  docker:
-    local: $DOCKER_HOST
-    remote-1: tcp://10.0.2.1:2375
-    remote-2: ssh://root:1234@10.0.2.2
+    include:
+        - providers.yml
+        - other_file_1.yml
+        - ...
+    docker:
+        local: $DOCKER_HOST
+        remote-1: tcp://10.0.2.1:2375
+        remote-2: ssh://root:1234@10.0.2.2
 ```
 
 [🔼Back to top](#table-of-content)
@@ -124,9 +125,11 @@ See [providers.example.yml](providers.example.yml) for examples
 
 [🔼Back to top](#table-of-content)
 
-## Known issues
+## Showcase
 
-- `autocert` config is not hot-reloadable
+### idlesleeper
+
+![idlesleeper](showcase/idlesleeper.webp)
 
 [🔼Back to top](#table-of-content)
 

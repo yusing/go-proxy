@@ -22,22 +22,23 @@
     - [VSCode 中使用 JSON Schema](#vscode-中使用-json-schema)
     - [配置文件](#配置文件)
     - [透過文件配置](#透過文件配置)
-  - [已知問題](#已知問題)
+  - [展示](#展示)
+    - [idlesleeper](#idlesleeper)
   - [源碼編譯](#源碼編譯)
 
 ## 重點
 
-- 易用
-  - 不需花費太多時間就能輕鬆配置
-  - 除錯簡單
-- 自動處理 HTTPS 證書（參見[可用的 DNS 供應商](docs/dns_providers.md)）
-- 透過 Docker 容器自動配置
-- 容器狀態變更時自動熱重載
-- 容器閒置時自動暫停/停止，入站時自動喚醒
-- HTTP(s)反向代理
-- TCP/UDP 端口轉發
-- 用於配置和監控的前端 Web 面板（[截圖](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots)）
-- 使用 **[Go](https://go.dev)** 編寫
+-   易用
+    -   不需花費太多時間就能輕鬆配置
+    -   除錯簡單
+-   自動處理 HTTPS 證書（參見[可用的 DNS 供應商](docs/dns_providers.md)）
+-   透過 Docker 容器自動配置
+-   容器狀態變更時自動熱重載
+-   容器閒置時自動暫停/停止，入站時自動喚醒
+-   HTTP(s)反向代理
+-   TCP/UDP 端口轉發
+-   用於配置和監控的前端 Web 面板（[截圖](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots)）
+-   使用 **[Go](https://go.dev)** 編寫
 
 [🔼 返回頂部](#目錄)
 
@@ -47,14 +48,14 @@
 
 1. 設置 DNS 記錄，例如：
 
-   - A 記錄: `*.y.z` -> `10.0.10.1`
-   - AAAA 記錄: `*.y.z` -> `::ffff:a00:a01`
+    - A 記錄: `*.y.z` -> `10.0.10.1`
+    - AAAA 記錄: `*.y.z` -> `::ffff:a00:a01`
 
 2. 安裝 `go-proxy` [參見這裡](docs/docker.md)
 
 3. 配置 `go-proxy`
-   - 使用文本編輯器 (推薦 Visual Studio Code [參見 VSCode 使用 schema](#vscode-中使用-json-schema))
-   - 或通過 `http://gp.y.z` 使用網頁配置編輯器
+    - 使用文本編輯器 (推薦 Visual Studio Code [參見 VSCode 使用 schema](#vscode-中使用-json-schema))
+    - 或通過 `http://gp.y.z` 使用網頁配置編輯器
 
 [🔼 返回頂部](#目錄)
 
@@ -93,21 +94,21 @@
 ```yaml
 # autocert 配置
 autocert:
-  email: # ACME 電子郵件
-  domains: # 域名列表
-  provider: # DNS 供應商
-  options: # 供應商個別配置
-    - ...
+    email: # ACME 電子郵件
+    domains: # 域名列表
+    provider: # DNS 供應商
+    options: # 供應商個別配置
+        - ...
 # 配置文件 / docker
 providers:
-  include:
-    - providers.yml
-    - other_file_1.yml
-    - ...
-  docker:
-    local: $DOCKER_HOST
-    remote-1: tcp://10.0.2.1:2375
-    remote-2: ssh://root:1234@10.0.2.2
+    include:
+        - providers.yml
+        - other_file_1.yml
+        - ...
+    docker:
+        local: $DOCKER_HOST
+        remote-1: tcp://10.0.2.1:2375
+        remote-2: ssh://root:1234@10.0.2.2
 ```
 
 [🔼 返回頂部](#目錄)
@@ -120,9 +121,11 @@ providers:
 
 [🔼 返回頂部](#目錄)
 
-## 已知問題
+## 展示
 
-- `autocert` 配置不能熱重載
+### idlesleeper
+
+![idlesleeper](showcase/idlesleeper.webp)
 
 [🔼 返回頂部](#目錄)
 

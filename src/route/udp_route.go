@@ -5,6 +5,7 @@ import (
 	"io"
 	"net"
 
+	T "github.com/yusing/go-proxy/proxy/fields"
 	U "github.com/yusing/go-proxy/utils"
 	F "github.com/yusing/go-proxy/utils/functional"
 )
@@ -49,6 +50,9 @@ func (route *UDPRoute) Setup() error {
 		source.Close()
 		return err
 	}
+
+	//! this read the allocated listeningPort from orginal ':0'
+	route.Port.ListeningPort = T.Port(laddr.Port)
 
 	route.listeningConn = source
 	route.targetAddr = raddr

@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	T "github.com/yusing/go-proxy/proxy/fields"
 	U "github.com/yusing/go-proxy/utils"
 )
 
@@ -35,6 +36,8 @@ func (route *TCPRoute) Setup() error {
 	if err != nil {
 		return err
 	}
+	//! this read the allocated port from orginal ':0'
+	route.Port.ListeningPort = T.Port(in.Addr().(*net.TCPAddr).Port)
 	route.listener = in
 	return nil
 }

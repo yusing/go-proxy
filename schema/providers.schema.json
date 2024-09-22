@@ -75,7 +75,10 @@
               "scheme": {
                 "anyOf": [
                   {
-                    "enum": ["http", "https"]
+                    "enum": [
+                      "http",
+                      "https"
+                    ]
                   },
                   {
                     "type": "null"
@@ -87,7 +90,7 @@
           "then": {
             "properties": {
               "port": {
-                "markdownDescription": "Proxy port from **1** to **65535**",
+                "markdownDescription": "Proxy port from **0** to **65535**",
                 "oneOf": [
                   {
                     "type": "string",
@@ -96,7 +99,7 @@
                   },
                   {
                     "type": "integer",
-                    "minimum": 1,
+                    "minimum": 0,
                     "maximum": 65535
                   }
                 ]
@@ -160,7 +163,9 @@
                 "not": true
               }
             },
-            "required": ["port"]
+            "required": [
+              "port"
+            ]
           }
         },
         {
