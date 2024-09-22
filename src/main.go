@@ -44,6 +44,7 @@ func main() {
 			DisableSorting:         true,
 			DisableLevelTruncation: true,
 			FullTimestamp:          true,
+			ForceColors:            true,
 			TimestampFormat:        "01-02 15:04:05",
 		})
 	}
