@@ -42,11 +42,19 @@ func DockerrFilterContainerName(name string) filters.KeyValuePair {
 }
 
 func NewDockerWatcher(host string) DockerWatcher {
-	return DockerWatcher{host: host, FieldLogger: logrus.WithField("module", "docker_watcher")}
+	return DockerWatcher{
+		host: host,
+		FieldLogger: (logrus.
+			WithField("module", "docker_watcher").
+			WithField("host", host))}
 }
 
 func NewDockerWatcherWithClient(client D.Client) DockerWatcher {
-	return DockerWatcher{client: client, FieldLogger: logrus.WithField("module", "docker_watcher")}
+	return DockerWatcher{
+		client: client,
+		FieldLogger: (logrus.
+			WithField("module", "docker_watcher").
+			WithField("host", client.DaemonHost()))}
 }
 
 func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.NestedError) {
@@ -56,7 +64,6 @@ func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Neste
 func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan E.NestedError) {
 	eventCh := make(chan Event)
 	errCh := make(chan E.NestedError)
-	started := make(chan struct{})
 
 	eventsCtx, eventsCancel := context.WithCancel(ctx)
 
@@ -75,7 +82,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			attempts := 0
 			for {
 				w.client, err = D.ConnectClient(w.host)
-				if err != nil {
+				if err == nil {
 					break
 				}
 				attempts++
@@ -89,8 +96,11 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			}
 		}
 
+		w.Debugf("client connected")
+
 		cEventCh, cErrCh := w.client.Events(eventsCtx, options)
-		started <- struct{}{}
+
+		w.Debugf("watcher started")
 
 		for {
 			select {
@@ -130,7 +140,6 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			}
 		}
 	}()
-	<-started
 
 	return eventCh, errCh
 }

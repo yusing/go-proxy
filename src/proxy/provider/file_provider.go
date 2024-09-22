@@ -35,7 +35,11 @@ func FileProviderImpl(filename string) (ProviderImpl, E.NestedError) {
 }
 
 func Validate(data []byte) E.NestedError {
-	return U.ValidateYaml(U.GetSchema(common.ProvidersSchemaPath), data)
+	return U.ValidateYaml(U.GetSchema(common.FileProviderSchemaPath), data)
+}
+
+func (p FileProvider) String() string {
+	return p.fileName
 }
 
 func (p FileProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {

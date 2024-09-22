@@ -250,7 +250,6 @@ services:
     ports:
       - 25565
     labels:
-      - proxy.mc.scheme=tcp
       - proxy.mc.port=20001:25565
     environment:
       - EULA=TRUE

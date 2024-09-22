@@ -25,6 +25,7 @@ func NewBuilder(format string, args ...any) Builder {
 func (b Builder) Add(err NestedError) Builder {
 	if err != nil {
 		b.Lock()
+		// TODO: if err severity is higher than b.severity, update b.severity
 		b.errors = append(b.errors, err)
 		b.Unlock()
 	}

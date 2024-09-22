@@ -18,8 +18,8 @@ type (
 )
 
 const (
-	SeverityFatal Severity = iota
-	SeverityWarning
+	SeverityWarning Severity = iota
+	SeverityFatal
 )
 
 func From(err error) NestedError {

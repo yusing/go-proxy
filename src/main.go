@@ -8,6 +8,9 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
+	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -28,6 +31,7 @@ import (
 func main() {
 	args := common.GetArgs()
 	l := logrus.WithField("module", "main")
+	onShutdown := F.NewSlice[func()]()
 
 	if common.IsDebug {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -40,19 +44,17 @@ func main() {
 			DisableSorting:         true,
 			DisableLevelTruncation: true,
 			FullTimestamp:          true,
-			ForceColors:            true,
 			TimestampFormat:        "01-02 15:04:05",
 		})
 	}
 
 	if args.Command == common.CommandReload {
 		if err := apiUtils.ReloadServer(); err.HasError() {
-			l.Fatal(err)
+			log.Fatal(err)
 		}
+		log.Print("ok")
 		return
 	}
-
-	onShutdown := F.NewSlice[func()]()
 
 	// exit if only validate config
 	if args.Command == common.CommandValidate {
@@ -72,18 +74,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if args.Command == common.CommandListConfigs {
+	switch args.Command {
+	case common.CommandListConfigs:
 		printJSON(cfg.Value())
 		return
-	}
-
-	if args.Command == common.CommandListRoutes {
+	case common.CommandListRoutes:
 		printJSON(cfg.RoutesByAlias())
 		return
-	}
-
-	if args.Command == common.CommandDebugListEntries {
+	case common.CommandDebugListEntries:
 		printJSON(cfg.DumpEntries())
+		return
+	case common.CommandDebugListProviders:
+		printJSON(cfg.DumpProviders())
 		return
 	}
 
@@ -106,25 +108,14 @@ func main() {
 	autocert := cfg.GetAutoCertProvider()
 
 	if autocert != nil {
-		if err = autocert.LoadCert(); err.HasError() {
-			if !err.Is(os.ErrNotExist) { // ignore if cert doesn't exist
-				l.Error(err)
-			}
-			l.Debug("obtaining cert due to error loading cert")
-			if err = autocert.ObtainCert(); err.HasError() {
-				l.Warn(err)
-			}
-		}
-
-		if err.NoError() {
-			ctx, certRenewalCancel := context.WithCancel(context.Background())
-			go autocert.ScheduleRenewal(ctx)
-			onShutdown.Add(certRenewalCancel)
-		}
-
-		for _, expiry := range autocert.GetExpiries() {
-			l.Infof("certificate expire on %s", expiry)
-			break
+		ctx, cancel := context.WithCancel(context.Background())
+		if err = autocert.Setup(ctx); err != nil && err.IsWarning() {
+			cancel()
+			l.Warn(err)
+		} else if err.IsFatal() {
+			l.Fatal(err)
+		} else {
+			onShutdown.Add(cancel)
 		}
 	} else {
 		l.Info("autocert not configured")
@@ -165,7 +156,9 @@ func main() {
 	wg.Add(onShutdown.Size())
 	onShutdown.ForEach(func(f func()) {
 		go func() {
+			l.Debugf("waiting for %s to complete...", funcName(f))
 			f()
+			l.Debugf("%s done", funcName(f))
 			wg.Done()
 		}()
 	})
@@ -180,7 +173,15 @@ func main() {
 		logrus.Info("shutdown complete")
 	case <-timeout:
 		logrus.Info("timeout waiting for shutdown")
+		onShutdown.ForEach(func(f func()) {
+			l.Warnf("%s() is still running", funcName(f))
+		})
 	}
+}
+
+func funcName(f func()) string {
+	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), "/go-proxy/")
+	return parts[len(parts)-1]
 }
 
 func printJSON(obj any) {

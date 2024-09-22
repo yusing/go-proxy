@@ -14,36 +14,64 @@ type (
 		ActorAttributes map[string]string
 		Action          Action
 	}
-	Action    string
+	Action    uint16
 	EventType string
 )
 
 const (
-	ActionFileModified Action = "modified"
-	ActionFileCreated  Action = "created"
-	ActionFileDeleted  Action = "deleted"
+	ActionFileModified Action = (1 << iota)
+	ActionFileCreated
+	ActionFileDeleted
 
-	ActionDockerStartUnpause Action = "start"
-	ActionDockerStopPause    Action = "stop"
+	ActionContainerCreate
+	ActionContainerStart
+	ActionContainerUnpause
 
+	ActionContainerKill
+	ActionContainerStop
+	ActionContainerPause
+	ActionContainerDie
+
+	actionContainerWakeMask  = ActionContainerCreate | ActionContainerStart | ActionContainerUnpause
+	actionContainerSleepMask = ActionContainerKill | ActionContainerStop | ActionContainerPause | ActionContainerDie
+)
+
+const (
 	EventTypeDocker EventType = "docker"
 	EventTypeFile   EventType = "file"
 )
 
 var DockerEventMap = map[dockerEvents.Action]Action{
-	dockerEvents.ActionCreate:  ActionDockerStartUnpause,
-	dockerEvents.ActionStart:   ActionDockerStartUnpause,
-	dockerEvents.ActionPause:   ActionDockerStartUnpause,
-	dockerEvents.ActionDie:     ActionDockerStopPause,
-	dockerEvents.ActionStop:    ActionDockerStopPause,
-	dockerEvents.ActionUnPause: ActionDockerStopPause,
-	dockerEvents.ActionKill:    ActionDockerStopPause,
+	dockerEvents.ActionCreate:  ActionContainerCreate,
+	dockerEvents.ActionStart:   ActionContainerStart,
+	dockerEvents.ActionUnPause: ActionContainerUnpause,
+
+	dockerEvents.ActionKill:  ActionContainerKill,
+	dockerEvents.ActionStop:  ActionContainerStop,
+	dockerEvents.ActionPause: ActionContainerPause,
+	dockerEvents.ActionDie:   ActionContainerDie,
 }
+
+var dockerActionNameMap = func() (m map[Action]string) {
+	m = make(map[Action]string, len(DockerEventMap))
+	for k, v := range DockerEventMap {
+		m[v] = string(k)
+	}
+	return
+}()
 
 func (e Event) String() string {
 	return fmt.Sprintf("%s %s", e.ActorName, e.Action)
 }
 
-func (a Action) IsDelete() bool {
-	return a == ActionFileDeleted
+func (a Action) String() string {
+	return dockerActionNameMap[a]
+}
+
+func (a Action) IsContainerWake() bool {
+	return a&actionContainerWakeMask != 0
+}
+
+func (a Action) IsContainerSleep() bool {
+	return a&actionContainerSleepMask != 0
 }

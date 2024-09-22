@@ -59,7 +59,7 @@ func (p *Provider) ObtainCert() (res E.NestedError) {
 	defer b.To(&res)
 
 	if p.cfg.Provider == ProviderLocal {
-		b.Addf("provider is set to %q", ProviderLocal)
+		b.Addf("provider is set to %q", ProviderLocal).WithSeverity(E.SeverityWarning)
 		return
 	}
 

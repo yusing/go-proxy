@@ -14,6 +14,7 @@ import (
 	U "github.com/yusing/go-proxy/utils"
 	F "github.com/yusing/go-proxy/utils/functional"
 	W "github.com/yusing/go-proxy/watcher"
+	"github.com/yusing/go-proxy/watcher/events"
 	"gopkg.in/yaml.v3"
 )
 
@@ -94,7 +95,7 @@ func (cfg *Config) WatchChanges() {
 			case <-cfg.watcherCtx.Done():
 				return
 			case event := <-eventCh:
-				if event.Action.IsDelete() {
+				if event.Action == events.ActionFileDeleted {
 					cfg.stopProviders()
 				} else {
 					cfg.reloadReq <- struct{}{}
@@ -105,71 +106,6 @@ func (cfg *Config) WatchChanges() {
 			}
 		}
 	}()
-}
-
-func (cfg *Config) FindRoute(alias string) R.Route {
-	return F.MapFind(cfg.proxyProviders,
-		func(p *PR.Provider) (R.Route, bool) {
-			if route, ok := p.GetRoute(alias); ok {
-				return route, true
-			}
-			return nil, false
-		},
-	)
-}
-
-func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
-	routes := make(map[string]U.SerializedObject)
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
-		obj, err := U.Serialize(r)
-		if err.HasError() {
-			cfg.l.Error(err)
-			return
-		}
-		obj["provider"] = p.GetName()
-		obj["type"] = string(r.Type())
-		routes[alias] = obj
-	})
-	return routes
-}
-
-func (cfg *Config) Statistics() map[string]any {
-	nTotalStreams := 0
-	nTotalRPs := 0
-	providerStats := make(map[string]any)
-
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
-		s, ok := providerStats[p.GetName()]
-		if !ok {
-			s = make(map[string]int)
-		}
-
-		stats := s.(map[string]int)
-		switch r.Type() {
-		case R.RouteTypeStream:
-			stats["num_streams"]++
-			nTotalStreams++
-		case R.RouteTypeReverseProxy:
-			stats["num_reverse_proxies"]++
-			nTotalRPs++
-		default:
-			panic("bug: should not reach here")
-		}
-	})
-
-	return map[string]any{
-		"num_total_streams":         nTotalStreams,
-		"num_total_reverse_proxies": nTotalRPs,
-		"providers":                 providerStats,
-	}
-}
-
-func (cfg *Config) DumpEntries() map[string]*M.RawEntry {
-	entries := make(map[string]*M.RawEntry)
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
-		entries[alias] = r.Entry()
-	})
-	return entries
 }
 
 func (cfg *Config) forEachRoute(do func(alias string, r R.Route, p *PR.Provider)) {
@@ -259,7 +195,7 @@ func (cfg *Config) loadProviders(providers *M.ProxyProviders) (res E.NestedError
 }
 
 func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.NestedError) {
-	errors := E.NewBuilder("cannot %s these providers", action)
+	errors := E.NewBuilder("errors in %s these providers", action)
 
 	cfg.proxyProviders.RangeAll(func(name string, p *PR.Provider) {
 		if err := do(p); err.HasError() {

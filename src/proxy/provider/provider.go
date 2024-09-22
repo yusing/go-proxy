@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"fmt"
 	"path"
 
 	"github.com/sirupsen/logrus"
@@ -13,7 +12,7 @@ import (
 
 type (
 	Provider struct {
-		ProviderImpl
+		ProviderImpl `json:"-"`
 
 		name   string
 		t      ProviderType
@@ -30,6 +29,7 @@ type (
 		// even returns error, routes must be non-nil
 		LoadRoutesImpl() (R.Routes, E.NestedError)
 		OnEvent(event W.Event, routes R.Routes) EventResult
+		String() string
 	}
 	ProviderType string
 	EventResult  struct {
@@ -83,8 +83,9 @@ func (p *Provider) GetType() ProviderType {
 	return p.t
 }
 
-func (p *Provider) String() string {
-	return fmt.Sprintf("%s-%s", p.t, p.name)
+// to work with json marshaller
+func (p *Provider) MarshalText() ([]byte, error) {
+	return []byte(p.String()), nil
 }
 
 func (p *Provider) StartAllRoutes() (res E.NestedError) {
@@ -92,7 +93,6 @@ func (p *Provider) StartAllRoutes() (res E.NestedError) {
 	defer errors.To(&res)
 
 	// start watcher no matter load success or not
-	p.watcherCtx, p.watcherCancel = context.WithCancel(context.Background())
 	go p.watchEvents()
 
 	nStarted := 0
@@ -153,6 +153,7 @@ func (p *Provider) LoadRoutes() E.NestedError {
 }
 
 func (p *Provider) watchEvents() {
+	p.watcherCtx, p.watcherCancel = context.WithCancel(context.Background())
 	events, errs := p.watcher.Events(p.watcherCtx)
 	l := p.l.WithField("module", "watcher")
 
@@ -160,21 +161,15 @@ func (p *Provider) watchEvents() {
 		select {
 		case <-p.watcherCtx.Done():
 			return
-		case event, ok := <-events:
-			if !ok { // channel closed
-				return
-			}
+		case event := <-events:
 			res := p.OnEvent(event, p.routes)
 			l.Infof("%s event %q", event.Type, event)
 			l.Infof("%d route added, %d routes removed", res.nAdded, res.nRemoved)
 			if res.err.HasError() {
 				l.Error(res.err)
 			}
-		case err, ok := <-errs:
-			if !ok {
-				return
-			}
-			if err.Is(context.Canceled) {
+		case err := <-errs:
+			if err == nil || err.Is(context.Canceled) {
 				continue
 			}
 			l.Errorf("watcher error: %s", err)

@@ -4,5 +4,5 @@ import (
 	"time"
 )
 
-const udpBufferSize = 1500
+const udpBufferSize = 8192
 const streamStopListenTimeout = 1 * time.Second

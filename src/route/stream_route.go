@@ -2,6 +2,7 @@ package route
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -129,7 +130,7 @@ func (r *StreamRoute) grHandleConnections() {
 		case conn := <-r.connCh:
 			go func() {
 				err := r.Handle(conn)
-				if err != nil {
+				if err != nil && !errors.Is(err, context.Canceled) {
 					r.l.Error(err)
 				}
 			}()

@@ -4,33 +4,34 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sync"
 
-	"github.com/yusing/go-proxy/utils"
+	U "github.com/yusing/go-proxy/utils"
+	F "github.com/yusing/go-proxy/utils/functional"
 )
 
-type UDPRoute struct {
-	*StreamRoute
+type (
+	UDPRoute struct {
+		*StreamRoute
 
-	connMap      UDPConnMap
-	connMapMutex sync.Mutex
+		connMap UDPConnMap
 
-	listeningConn *net.UDPConn
-	targetAddr    *net.UDPAddr
-}
+		listeningConn *net.UDPConn
+		targetAddr    *net.UDPAddr
+	}
+	UDPConn struct {
+		src *net.UDPConn
+		dst *net.UDPConn
+		U.BidirectionalPipe
+	}
+	UDPConnMap = F.Map[string, *UDPConn]
+)
 
-type UDPConn struct {
-	src *net.UDPConn
-	dst *net.UDPConn
-	*utils.BidirectionalPipe
-}
-
-type UDPConnMap map[string]*UDPConn
+var NewUDPConnMap = F.NewMapOf[string, *UDPConn]
 
 func NewUDPRoute(base *StreamRoute) StreamImpl {
 	return &UDPRoute{
 		StreamRoute: base,
-		connMap:     make(UDPConnMap),
+		connMap:     NewUDPConnMap(),
 	}
 }
 
@@ -69,28 +70,24 @@ func (route *UDPRoute) Accept() (any, error) {
 	}
 
 	key := srcAddr.String()
-	conn, ok := route.connMap[key]
+	conn, ok := route.connMap.Load(key)
 
 	if !ok {
-		route.connMapMutex.Lock()
-		if conn, ok = route.connMap[key]; !ok {
-			srcConn, err := net.DialUDP("udp", nil, srcAddr)
-			if err != nil {
-				return nil, err
-			}
-			dstConn, err := net.DialUDP("udp", nil, route.targetAddr)
-			if err != nil {
-				srcConn.Close()
-				return nil, err
-			}
-			conn = &UDPConn{
-				srcConn,
-				dstConn,
-				utils.NewBidirectionalPipe(route.ctx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
-			}
-			route.connMap[key] = conn
+		srcConn, err := net.DialUDP("udp", nil, srcAddr)
+		if err != nil {
+			return nil, err
 		}
-		route.connMapMutex.Unlock()
+		dstConn, err := net.DialUDP("udp", nil, route.targetAddr)
+		if err != nil {
+			srcConn.Close()
+			return nil, err
+		}
+		conn = &UDPConn{
+			srcConn,
+			dstConn,
+			U.NewBidirectionalPipe(route.ctx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
+		}
+		route.connMap.Store(key, conn)
 	}
 
 	_, err = conn.dst.Write(buffer[:nRead])
@@ -106,15 +103,15 @@ func (route *UDPRoute) CloseListeners() {
 		route.listeningConn.Close()
 		route.listeningConn = nil
 	}
-	for _, conn := range route.connMap {
+	route.connMap.RangeAll(func(_ string, conn *UDPConn) {
 		if err := conn.src.Close(); err != nil {
 			route.l.Errorf("error closing src conn: %s", err)
 		}
 		if err := conn.dst.Close(); err != nil {
 			route.l.Error("error closing dst conn: %s", err)
 		}
-	}
-	route.connMap = make(UDPConnMap)
+	})
+	route.connMap.Clear()
 }
 
 type sourceRWCloser struct {

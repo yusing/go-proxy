@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net"
 	"sync"
-	"syscall"
 	"time"
 
 	U "github.com/yusing/go-proxy/utils"
@@ -13,14 +12,16 @@ import (
 
 const tcpDialTimeout = 5 * time.Second
 
-type Pipes []*U.BidirectionalPipe
+type (
+	Pipes []U.BidirectionalPipe
 
-type TCPRoute struct {
-	*StreamRoute
-	listener net.Listener
-	pipe     Pipes
-	mu       sync.Mutex
-}
+	TCPRoute struct {
+		*StreamRoute
+		listener net.Listener
+		pipe     Pipes
+		mu       sync.Mutex
+	}
+)
 
 func NewTCPRoute(base *StreamRoute) StreamImpl {
 	return &TCPRoute{
@@ -59,10 +60,11 @@ func (route *TCPRoute) Handle(c any) error {
 	}
 
 	route.mu.Lock()
-	defer route.mu.Unlock()
 
 	pipe := U.NewBidirectionalPipe(route.ctx, clientConn, serverConn)
 	route.pipe = append(route.pipe, pipe)
+
+	route.mu.Unlock()
 	return pipe.Start()
 }
 
@@ -72,16 +74,4 @@ func (route *TCPRoute) CloseListeners() {
 	}
 	route.listener.Close()
 	route.listener = nil
-	for _, pipe := range route.pipe {
-		if err := pipe.Stop(); err != nil {
-			switch err {
-			// target closing connection
-			// TODO: handle this by fixing utils/io.go
-			case net.ErrClosed, syscall.EPIPE:
-				return
-			default:
-				route.l.Error(err)
-			}
-		}
-	}
 }

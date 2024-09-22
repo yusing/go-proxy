@@ -30,9 +30,9 @@ const (
 )
 
 const (
-	SchemaBasePath      = "schema/"
-	ConfigSchemaPath    = SchemaBasePath + "config.schema.json"
-	ProvidersSchemaPath = SchemaBasePath + "providers.schema.json"
+	SchemaBasePath         = "schema/"
+	ConfigSchemaPath       = SchemaBasePath + "config.schema.json"
+	FileProviderSchemaPath = SchemaBasePath + "providers.schema.json"
 )
 
 const DockerHostFromEnv = "$DOCKER_HOST"

@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -24,6 +25,10 @@ func DockerProviderImpl(dockerHost string) (ProviderImpl, E.NestedError) {
 		return nil, err
 	}
 	return &DockerProvider{dockerHost: dockerHost, hostname: hostname}, nil
+}
+
+func (p *DockerProvider) String() string {
+	return fmt.Sprintf("docker:%s", p.dockerHost)
 }
 
 func (p *DockerProvider) NewWatcher() W.Watcher {
@@ -145,7 +150,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Ra
 				entryPortSplit := strings.Split(entry.Port, ":")
 				if len(entryPortSplit) == 2 && entryPortSplit[1] == containerPort {
 					entryPortSplit[1] = publicPort
-				} else if entryPortSplit[0] == containerPort {
+				} else if len(entryPortSplit) == 1 && entryPortSplit[0] == containerPort {
 					entryPortSplit[0] = publicPort
 				}
 				entry.Port = strings.Join(entryPortSplit, ":")

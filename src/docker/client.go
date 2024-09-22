@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/common"
 	E "github.com/yusing/go-proxy/error"
+	F "github.com/yusing/go-proxy/utils/functional"
 )
 
 type Client struct {
@@ -48,9 +49,7 @@ func (c *Client) Close() error {
 		return nil
 	}
 
-	clientMapMu.Lock()
-	defer clientMapMu.Unlock()
-	delete(clientMap, c.key)
+	clientMap.Delete(c.key)
 
 	client := c.Client
 	c.Client = nil
@@ -78,7 +77,7 @@ func ConnectClient(host string) (Client, E.NestedError) {
 	defer clientMapMu.Unlock()
 
 	// check if client exists
-	if client, ok := clientMap[host]; ok {
+	if client, ok := clientMap.Load(host); ok {
 		client.refCount.Add(1)
 		return client, nil
 	}
@@ -129,23 +128,22 @@ func ConnectClient(host string) (Client, E.NestedError) {
 	c.refCount.Add(1)
 	c.l.Debugf("client connected")
 
-	clientMap[host] = c
-	return clientMap[host], nil
+	clientMap.Store(host, c)
+	return c, nil
 }
 
 func CloseAllClients() {
-	clientMapMu.Lock()
-	defer clientMapMu.Unlock()
-	for _, client := range clientMap {
-		client.Close()
-	}
-	clientMap = make(map[string]Client)
+	clientMap.RangeAll(func(_ string, c Client) {
+		c.Client.Close()
+	})
+	clientMap.Clear()
 	logger.Debug("closed all clients")
 }
 
 var (
-	clientMap        map[string]Client = make(map[string]Client)
-	clientMapMu      sync.Mutex
+	clientMap   F.Map[string, Client] = F.NewMapOf[string, Client]()
+	clientMapMu sync.Mutex
+
 	clientOptEnvHost = []client.Opt{
 		client.WithHostFromEnv(),
 		client.WithAPIVersionNegotiation(),

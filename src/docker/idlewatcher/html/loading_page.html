@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>{{.Title}}</title>
+        <style>
+            /* Global Styles */
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+            }
+            body {
+                font-family: Inter, Arial, sans-serif;
+                font-size: 16px;
+                line-height: 1.5;
+                color: #fff;
+                background-color: #212121;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                margin: 0;
+            }
+
+            /* Spinner Styles */
+            .spinner {
+                width: 120px;
+                height: 120px;
+                border: 16px solid #333;
+                border-radius: 50%;
+                border-top: 16px solid #66d9ef;
+                animation: spin 2s linear infinite;
+            }
+            @keyframes spin {
+                0% {
+                    transform: rotate(0deg);
+                }
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            /* Error Styles */
+            .error {
+                display: inline-block;
+                text-align: center;
+                justify-content: center;
+            }
+            .error::before {
+                content: "\26A0"; /* Unicode for warning symbol */
+                font-size: 40px;
+                color: #ff9900;
+            }
+
+            /* Message Styles */
+            .message {
+                font-size: 24px;
+                font-weight: bold;
+                padding-left: 32px;
+                text-align: center;
+            }
+        </style>
+    </head>
+    <body>
+        <script>
+            window.onload = async function () {
+                let result = await fetch(window.location.href, {
+                    headers: {
+                        {{ range $key, $value := .RequestHeaders }}
+                        '{{ $key }}' : {{ $value }}
+                        {{ end }}
+                    },
+                }).then((resp) => resp.text())
+                    .catch((err) => {
+                        document.getElementById("message").innerText = err;
+                    });
+                if (result) {
+                    document.documentElement.innerHTML = result
+                }
+            };
+        </script>
+        <div class="{{.SpinnerClass}}"></div>
+        <div class="message">{{.Message}}</div>
+    </body>
+</html>

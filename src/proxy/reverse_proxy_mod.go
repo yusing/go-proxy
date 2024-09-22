@@ -232,7 +232,7 @@ func NewReverseProxy(target *url.URL, transport http.RoundTripper, entry *Revers
 	}
 	return &ReverseProxy{Rewrite: func(pr *ProxyRequest) {
 		rewriteRequestURL(pr.Out, target)
-		pr.SetXForwarded()
+		// pr.SetXForwarded()
 		setHeaders(pr.Out)
 		hideHeaders(pr.Out)
 	}, Transport: transport}
@@ -348,9 +348,9 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	outreq.Header.Del("Forwarded")
-	// outreq.Header.Del("X-Forwarded-For")
-	// outreq.Header.Del("X-Forwarded-Host")
-	// outreq.Header.Del("X-Forwarded-Proto")
+	outreq.Header.Del("X-Forwarded-For")
+	outreq.Header.Del("X-Forwarded-Host")
+	outreq.Header.Del("X-Forwarded-Proto")
 
 	pr := &ProxyRequest{
 		In:  req,

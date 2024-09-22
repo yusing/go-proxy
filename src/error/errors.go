@@ -20,7 +20,7 @@ func Failure(what string) NestedError {
 }
 
 func FailedWhy(what string, why string) NestedError {
-	return errorf("%s %w because %s", what, ErrFailure, why)
+	return Failure(what).With(why)
 }
 
 func FailWith(what string, err any) NestedError {

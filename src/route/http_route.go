@@ -37,19 +37,23 @@ type (
 )
 
 func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
-	var trans http.RoundTripper
+	var trans *http.Transport
 	var regIdleWatcher func() E.NestedError
 	var unregIdleWatcher func()
 
 	if entry.NoTLSVerify {
-		trans = transportNoTLS
+		trans = transportNoTLS.Clone()
 	} else {
-		trans = transport
+		trans = transport.Clone()
 	}
 
 	rp := P.NewReverseProxy(entry.URL, trans, entry)
 
 	if entry.UseIdleWatcher() {
+		// allow time for response header up to `WakeTimeout`
+		if entry.WakeTimeout > trans.ResponseHeaderTimeout {
+			trans.ResponseHeaderTimeout = entry.WakeTimeout
+		}
 		regIdleWatcher = func() E.NestedError {
 			watcher, err := idlewatcher.Register(entry)
 			if err.HasError() {
@@ -114,6 +118,7 @@ func (r *HTTPRoute) Stop() E.NestedError {
 
 	if r.unregIdleWatcher != nil {
 		r.unregIdleWatcher()
+		r.unregIdleWatcher = nil
 	}
 
 	r.mux = nil
@@ -151,13 +156,13 @@ func findMux(host string) (*http.ServeMux, E.NestedError) {
 }
 
 var (
+	defaultDialer = net.Dialer{
+		Timeout:   60 * time.Second,
+		KeepAlive: 60 * time.Second,
+	}
 	transport = &http.Transport{
-		Proxy: http.ProxyFromEnvironment,
-		DialContext: (&net.Dialer{
-			Timeout:   60 * time.Second,
-			KeepAlive: 60 * time.Second,
-		}).DialContext,
-		MaxIdleConns:        1000,
+		Proxy:               http.ProxyFromEnvironment,
+		DialContext:         defaultDialer.DialContext,
 		MaxIdleConnsPerHost: 1000,
 	}
 	transportNoTLS = func() *http.Transport {
