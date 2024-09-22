@@ -60,10 +60,12 @@ func (b Builder) Build() NestedError {
 }
 
 func (b Builder) To(ptr *NestedError) {
-	if *ptr == nil {
+	if ptr == nil {
+		return
+	} else if *ptr == nil {
 		*ptr = b.Build()
 	} else {
-		**ptr = *b.Build()
+		(*ptr).With(b.Build())
 	}
 }
 
