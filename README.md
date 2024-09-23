@@ -49,11 +49,17 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 ### Setup
 
-1.  Pull docker image `docker pull ghcr.io/yusing/go-proxy:latest`
+1.  Pull docker image 
+    
+    ```shell
+    docker pull ghcr.io/yusing/go-proxy:latest
+    ```
 
 2.  Create new directory, `cd` into it, then run setup
 
-    `docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup`
+    ```shell
+    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup
+    ```
 
 3.  Setup DNS Records point to machine which runs `go-proxy`, e.g.
 
