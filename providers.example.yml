@@ -1,12 +1,11 @@
-example: # matching `app.y.z`
+example: # matching `example.y.z`
     scheme: https
     host: 10.0.0.1
     port: 80
     path_patterns: # Check https://pkg.go.dev/net/http#hdr-Patterns-ServeMux for syntax
         - GET / # accept any GET request
         - POST /auth # for /auth and /auth/* accept only POST
-        - GET /home/{$}
-        - /b/{bucket}/o/{any}
+        - GET /home/{$} # for exactly /home
     no_tls_verify: false
     set_headers:
         HEADER_A: VALUE_A, VALUE_B
@@ -17,6 +16,6 @@ example: # matching `app.y.z`
 app1: # app1 -> localhost:8080
     port: 8080
 app2:
-    scheme: tcp
+    scheme: udp
     host: 10.0.0.2
-    port: 20000:tcp
+    port: 2223:dns
