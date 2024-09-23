@@ -15,14 +15,16 @@ type ProxyProperties struct {
 	ImageName          string      `yaml:"-" json:"image_name"`
 	PublicPortMapping  PortMapping `yaml:"-" json:"public_port_mapping"`  // non-zero publicPort:types.Port
 	PrivatePortMapping PortMapping `yaml:"-" json:"private_port_mapping"` // privatePort:types.Port
-	Aliases            []string    `yaml:"-" json:"aliases"`
-	IsExcluded         bool        `yaml:"-" json:"is_excluded"`
-	IdleTimeout        string      `yaml:"-" json:"idle_timeout"`
-	WakeTimeout        string      `yaml:"-" json:"wake_timeout"`
-	StopMethod         string      `yaml:"-" json:"stop_method"`
-	StopTimeout        string      `yaml:"-" json:"stop_timeout"` // stop_method = "stop" only
-	StopSignal         string      `yaml:"-" json:"stop_signal"`  // stop_method = "stop" | "kill" only
-	Running            bool        `yaml:"-" json:"running"`
+	NetworkMode        string      `yaml:"-" json:"network_mode"`
+
+	Aliases     []string `yaml:"-" json:"aliases"`
+	IsExcluded  bool     `yaml:"-" json:"is_excluded"`
+	IdleTimeout string   `yaml:"-" json:"idle_timeout"`
+	WakeTimeout string   `yaml:"-" json:"wake_timeout"`
+	StopMethod  string   `yaml:"-" json:"stop_method"`
+	StopTimeout string   `yaml:"-" json:"stop_timeout"` // stop_method = "stop" only
+	StopSignal  string   `yaml:"-" json:"stop_signal"`  // stop_method = "stop" | "kill" only
+	Running     bool     `yaml:"-" json:"running"`
 }
 
 type Container struct {
@@ -40,6 +42,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		ImageName:          res.getImageName(),
 		PublicPortMapping:  res.getPublicPortMapping(),
 		PrivatePortMapping: res.getPrivatePortMapping(),
+		NetworkMode:        c.HostConfig.NetworkMode,
 		Aliases:            res.getAliases(),
 		IsExcluded:         U.ParseBool(res.getDeleteLabel(LabelExclude)),
 		IdleTimeout:        res.getDeleteLabel(LabelIdleTimeout),

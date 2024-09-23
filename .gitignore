@@ -16,3 +16,5 @@ go.work.sum
 !src/**/
 
 todo.md
+
+.*.swp

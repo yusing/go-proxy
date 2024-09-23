@@ -288,3 +288,24 @@ func TestExcludeNonExposedPort(t *testing.T) {
 	_, ok := entries.Load("redis")
 	ExpectFalse(t, ok)
 }
+
+func TestNotExcludeNonExposedPortHostNetwork(t *testing.T) {
+	var p DockerProvider
+	cont := &types.Container{
+		Image: "redis",
+		Names: []string{"redis"},
+		Ports: []types.Port{
+			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
+		},
+		Labels: map[string]string{
+			"proxy.redis.port": "6379:6379", // should be excluded even specified
+		},
+	}
+	cont.HostConfig.NetworkMode = "host"
+
+	entries, err := p.entriesFromContainerLabels(D.FromDocker(cont, ""))
+	ExpectNoError(t, err.Error())
+
+	_, ok := entries.Load("redis")
+	ExpectTrue(t, ok)
+}

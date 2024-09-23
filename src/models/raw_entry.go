@@ -54,7 +54,7 @@ func (e *RawEntry) FillMissingFields() bool {
 		}
 	}
 
-	if e.PublicPortMapping != nil {
+	if e.PublicPortMapping != nil && e.NetworkMode != "host" {
 		if _, ok := e.PublicPortMapping[e.Port]; !ok { // port is not exposed, but specified
 			// try to fallback to first public port
 			if len(e.PublicPortMapping) == 0 {
