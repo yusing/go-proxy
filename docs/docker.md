@@ -6,7 +6,7 @@
 
 - [Docker compose guide](#docker-compose-guide)
   - [Table of content](#table-of-content)
-  - [Setup](#setup)
+  - [Additional setup](#additional-setup)
   - [Labels](#labels)
     - [Syntax](#syntax)
     - [Fields](#fields)
@@ -16,34 +16,11 @@
   - [Docker compose examples](#docker-compose-examples)
     - [Services URLs for above examples](#services-urls-for-above-examples)
 
-## Setup
+## Additional setup
 
-1.  Install `wget` if not already
+1.  Enable HTTPs _(optional)_
 
-    -   Ubuntu based: `sudo apt install -y wget`
-    -   Fedora based: `sudo yum install -y wget`
-    -   Arch based: `sudo pacman -Sy wget`
-
-2.  Run setup script
-
-    `bash <(wget -qO- https://github.com/yusing/go-proxy/raw/main/setup-docker.sh)`
-
-    It will setup folder structure and required config files
-
-3.  Verify folder structure and then `cd go-proxy`
-
-    ```plain
-    go-proxy
-    ├── certs
-    ├── compose.yml
-    └── config
-        ├── config.yml
-        └── providers.yml
-    ```
-
-4.  Enable HTTPs _(optional)_
-
-    Mount a folder (to store obtained certs) or (containing existing cert)
+    Mount a folder to store obtained certs or to load existing cert
 
     ```yaml
     services:
@@ -69,15 +46,16 @@
 
     ```yaml
     autocert:
+        provider: local
         cert_path: /app/certs/cert.crt
         key_path: /app/certs/priv.key
     ```
 
-5.  Modify `compose.yml` to fit your needs
+2.  Modify `compose.yml` to fit your needs
 
-6.  Run `docker compose up -d` to start the container
+3.  Run `docker compose up -d` to start the container
 
-7.  Navigate to Web panel `http://gp.yourdomain.com` or use **Visual Studio Code (provides schema check)** to edit proxy config
+4.  Navigate to Web panel `http://gp.yourdomain.com` or use **Visual Studio Code (provides schema check)** to edit proxy config
 
 [🔼Back to top](#table-of-content)
 
@@ -100,16 +78,16 @@
 
 ### Fields
 
-| Field                 | Description                                                                                    | Default                                                                          | Allowed Values / Syntax                                                                                                                                                                                                 |
-| --------------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `scheme`              | proxy protocol                                                                                 | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul>           | `http`, `https`, `tcp`, `udp`                                                                                                                                                                                           |
-| `host`                | proxy host                                                                                     | <ul><li>Docker: docker client IP / hostname </li><li>File: `localhost`</li></ul> | IP address, hostname                                                                                                                                                                                                    |
-| `port`                | proxy port **(http/s)**                                                                        | first port returned from docker                                                  | number in range of `1 - 65535`                                                                                                                                                                                          |
-| `port` **(required)** | proxy port **(tcp/udp)**                                                                       | N/A                                                                              | `x:y` <br><ul><li>**x**: port for `go-proxy` to listen on.<br>**x** can be 0, which means listen on a random port</li><li>**y**: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
-| `no_tls_verify`       | whether skip tls verify **(https only)**                                                       | `false`                                                                          | boolean                                                                                                                                                                                                                 |
-| `path_patterns`       | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | empty **(proxy all requests)**                                                   | yaml style list[<sup>1</sup>](#list-example) of ([path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                                                                                                    |
-| `set_headers`         | header to set **(http/s only)**                                                                | empty                                                                            | yaml style key-value mapping[<sup>2</sup>](#key-value-mapping-example) of header-value pairs                                                                                                                            |
-| `hide_headers`        | header to hide **(http/s only)**                                                               | empty                                                                            | yaml style list[<sup>1</sup>](#list-example) of headers                                                                                                                                                                 |
+| Field           | Description                                                                                    | Default                                                                          | Allowed Values / Syntax                                                                                                                                                                                                 |
+| --------------- | ---------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scheme`        | proxy protocol                                                                                 | <ul><li>`http` for numeric port</li><li>`tcp` for `x:y` port</li></ul>           | `http`, `https`, `tcp`, `udp`                                                                                                                                                                                           |
+| `host`          | proxy host                                                                                     | <ul><li>Docker: docker client IP / hostname </li><li>File: `localhost`</li></ul> | IP address, hostname                                                                                                                                                                                                    |
+| `port`          | proxy port **(http/s)**                                                                        | first port returned from docker                                                  | number in range of `1 - 65535`                                                                                                                                                                                          |
+| `port`          | proxy port **(tcp/udp)**                                                                       | `0:first_port`                                                                   | `x:y` <br><ul><li>**x**: port for `go-proxy` to listen on.<br>**x** can be 0, which means listen on a random port</li><li>**y**: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
+| `no_tls_verify` | whether skip tls verify **(https only)**                                                       | `false`                                                                          | boolean                                                                                                                                                                                                                 |
+| `path_patterns` | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | `/` **(proxy all requests)**                                                     | yaml style list[<sup>1</sup>](#list-example) of ([path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                                                                                                    |
+| `set_headers`   | header to set **(http/s only)**                                                                | empty                                                                            | yaml style key-value mapping[<sup>2</sup>](#key-value-mapping-example) of header-value pairs                                                                                                                            |
+| `hide_headers`  | header to hide **(http/s only)**                                                               | empty                                                                            | yaml style list[<sup>1</sup>](#list-example) of headers                                                                                                                                                                 |
 
 [🔼Back to top](#table-of-content)
 

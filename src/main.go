@@ -30,6 +30,12 @@ import (
 
 func main() {
 	args := common.GetArgs()
+
+	if args.Command == common.CommandSetup {
+		Setup()
+		return
+	}
+
 	l := logrus.WithField("module", "main")
 	onShutdown := F.NewSlice[func()]()
 

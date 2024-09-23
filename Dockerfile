@@ -19,6 +19,9 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 COPY --from=builder /src/go-proxy /app/
 COPY schema/ /app/schema
 
+# copy cert required for setup
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 ENV GOPROXY_DEBUG=0
 

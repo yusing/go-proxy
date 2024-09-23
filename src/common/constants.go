@@ -10,29 +10,24 @@ const (
 	KeepAlive         = 5 * time.Second
 )
 
-const (
-	ProviderKind_Docker = "docker"
-	ProviderKind_File   = "file"
-)
-
 // file, folder structure
 
 const (
-	ConfigBasePath = "config/"
-	ConfigFileName = "config.yml"
-	ConfigPath     = ConfigBasePath + ConfigFileName
+	ConfigBasePath        = "config"
+	ConfigFileName        = "config.yml"
+	ConfigExampleFileName = "config.example.yml"
+	ConfigPath            = ConfigBasePath + "/" + ConfigFileName
 )
 
 const (
-	TemplatesBasePath        = "templates/"
-	PanelTemplatePath        = TemplatesBasePath + "panel/index.html"
-	ConfigEditorTemplatePath = TemplatesBasePath + "config_editor/index.html"
+	SchemaBasePath         = "schema"
+	ConfigSchemaPath       = SchemaBasePath + "/config.schema.json"
+	FileProviderSchemaPath = SchemaBasePath + "/providers.schema.json"
 )
 
 const (
-	SchemaBasePath         = "schema/"
-	ConfigSchemaPath       = SchemaBasePath + "config.schema.json"
-	FileProviderSchemaPath = SchemaBasePath + "providers.schema.json"
+	ComposeFileName        = "compose.yml"
+	ComposeExampleFileName = "compose.example.yml"
 )
 
 const DockerHostFromEnv = "$DOCKER_HOST"

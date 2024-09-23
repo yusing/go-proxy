@@ -13,6 +13,7 @@ type Args struct {
 
 const (
 	CommandStart              = ""
+	CommandSetup              = "setup"
 	CommandValidate           = "validate"
 	CommandListConfigs        = "ls-config"
 	CommandListRoutes         = "ls-routes"
@@ -23,6 +24,7 @@ const (
 
 var ValidCommands = []string{
 	CommandStart,
+	CommandSetup,
 	CommandValidate,
 	CommandListConfigs,
 	CommandListRoutes,

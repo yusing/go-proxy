@@ -32,11 +32,12 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 -   Easy to use
     -   Effortless configuration
+    -   Simple multi-node setup
     -   Error messages is clear and detailed, easy troubleshooting
 -   Auto certificate obtaining and renewal (See [Supported DNS Challenge Providers](docs/dns_providers.md))
 -   Auto configuration for docker containers
 -   Auto hot-reload on container state / config file changes
--   Stop containers on idle, wake it up on traffic _(optional, see [showcase](#idlesleeper))_
+-   **idlesleeper**: stop containers on idle, wake it up on traffic _(optional, see [showcase](#idlesleeper))_
 -   HTTP(s) reserve proxy
 -   TCP and UDP port forwarding
 -   Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
@@ -48,18 +49,23 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 
 ### Setup
 
-1. Setup DNS Records, e.g.
+1.  Pull docker image `docker pull ghcr.io/yusing/go-proxy:latest`
 
-    - A Record: `*.y.z` -> `10.0.10.1`
-    - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+2.  Create new directory, `cd` into it, then run setup
 
-2. Setup `go-proxy` [See here](docs/docker.md)
+    `docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup`
 
-3. Setup `docker-socket-proxy` (see [example](docs/docker_socket_proxy.md) other machine that is running docker (if any)
+3.  Setup DNS Records point to machine which runs `go-proxy`, e.g.
 
-4. Configure `go-proxy`
-    - with text editor (e.g. Visual Studio Code)
-    - or with web config editor via `http://gp.y.z`
+    -   A Record: `*.y.z` -> `10.0.10.1`
+    -   AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+
+4.  Setup `docker-socket-proxy` other docker nodes _(if any)_ (see [example](docs/docker_socket_proxy.md)) and then them inside `config.yml`
+
+5.  Done. You may now do some extra configuration
+    -   With text editor (e.g. Visual Studio Code)
+    -   With Web UI via `gp.y.z`
+    -   For more info, [See docker.md](docs/docker.md)
 
 [🔼Back to top](#table-of-content)
 

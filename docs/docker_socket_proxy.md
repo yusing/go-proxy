@@ -23,7 +23,7 @@ docker-proxy:
   ports:
     - 2375:2375
     # or more secure
-    - <machine_ip>:2375:2375
+    - <machine_private_ip>:2375:2375
 ```
 
 ```yml
