@@ -3,8 +3,8 @@ package docker
 const (
 	WildcardAlias = "*"
 
-	LableAliases     = NSProxy + ".aliases"
-	LableExclude     = NSProxy + ".exclude"
+	LabelAliases     = NSProxy + ".aliases"
+	LabelExclude     = NSProxy + ".exclude"
 	LabelIdleTimeout = NSProxy + ".idle_timeout"
 	LabelWakeTimeout = NSProxy + ".wake_timeout"
 	LabelStopMethod  = NSProxy + ".stop_method"

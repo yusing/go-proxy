@@ -52,10 +52,11 @@ func (route *UDPRoute) Setup() error {
 	}
 
 	//! this read the allocated listeningPort from orginal ':0'
-	route.Port.ListeningPort = T.Port(laddr.Port)
+	route.Port.ListeningPort = T.Port(source.LocalAddr().(*net.UDPAddr).Port)
 
 	route.listeningConn = source
 	route.targetAddr = raddr
+
 	return nil
 }
 

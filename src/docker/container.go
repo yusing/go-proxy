@@ -10,18 +10,19 @@ import (
 )
 
 type ProxyProperties struct {
-	DockerHost    string   `yaml:"-" json:"docker_host"`
-	ContainerName string   `yaml:"-" json:"container_name"`
-	ImageName     string   `yaml:"-" json:"image_name"`
-	Aliases       []string `yaml:"-" json:"aliases"`
-	IsExcluded    bool     `yaml:"-" json:"is_excluded"`
-	FirstPort     string   `yaml:"-" json:"first_port"`
-	IdleTimeout   string   `yaml:"-" json:"idle_timeout"`
-	WakeTimeout   string   `yaml:"-" json:"wake_timeout"`
-	StopMethod    string   `yaml:"-" json:"stop_method"`
-	StopTimeout   string   `yaml:"-" json:"stop_timeout"` // stop_method = "stop" only
-	StopSignal    string   `yaml:"-" json:"stop_signal"`  // stop_method = "stop" | "kill" only
-	Running       bool     `yaml:"-" json:"running"`
+	DockerHost         string      `yaml:"-" json:"docker_host"`
+	ContainerName      string      `yaml:"-" json:"container_name"`
+	ImageName          string      `yaml:"-" json:"image_name"`
+	PublicPortMapping  PortMapping `yaml:"-" json:"public_port_mapping"`  // non-zero publicPort:types.Port
+	PrivatePortMapping PortMapping `yaml:"-" json:"private_port_mapping"` // privatePort:types.Port
+	Aliases            []string    `yaml:"-" json:"aliases"`
+	IsExcluded         bool        `yaml:"-" json:"is_excluded"`
+	IdleTimeout        string      `yaml:"-" json:"idle_timeout"`
+	WakeTimeout        string      `yaml:"-" json:"wake_timeout"`
+	StopMethod         string      `yaml:"-" json:"stop_method"`
+	StopTimeout        string      `yaml:"-" json:"stop_timeout"` // stop_method = "stop" only
+	StopSignal         string      `yaml:"-" json:"stop_signal"`  // stop_method = "stop" | "kill" only
+	Running            bool        `yaml:"-" json:"running"`
 }
 
 type Container struct {
@@ -29,21 +30,24 @@ type Container struct {
 	*ProxyProperties
 }
 
+type PortMapping = map[string]types.Port
+
 func FromDocker(c *types.Container, dockerHost string) (res Container) {
 	res.Container = c
 	res.ProxyProperties = &ProxyProperties{
-		DockerHost:    dockerHost,
-		ContainerName: res.getName(),
-		ImageName:     res.getImageName(),
-		Aliases:       res.getAliases(),
-		IsExcluded:    U.ParseBool(res.getDeleteLabel(LableExclude)),
-		FirstPort:     res.firstPortOrEmpty(),
-		IdleTimeout:   res.getDeleteLabel(LabelIdleTimeout),
-		WakeTimeout:   res.getDeleteLabel(LabelWakeTimeout),
-		StopMethod:    res.getDeleteLabel(LabelStopMethod),
-		StopTimeout:   res.getDeleteLabel(LabelStopTimeout),
-		StopSignal:    res.getDeleteLabel(LabelStopSignal),
-		Running:       c.Status == "running" || c.State == "running",
+		DockerHost:         dockerHost,
+		ContainerName:      res.getName(),
+		ImageName:          res.getImageName(),
+		PublicPortMapping:  res.getPublicPortMapping(),
+		PrivatePortMapping: res.getPrivatePortMapping(),
+		Aliases:            res.getAliases(),
+		IsExcluded:         U.ParseBool(res.getDeleteLabel(LabelExclude)),
+		IdleTimeout:        res.getDeleteLabel(LabelIdleTimeout),
+		WakeTimeout:        res.getDeleteLabel(LabelWakeTimeout),
+		StopMethod:         res.getDeleteLabel(LabelStopMethod),
+		StopTimeout:        res.getDeleteLabel(LabelStopTimeout),
+		StopSignal:         res.getDeleteLabel(LabelStopSignal),
+		Running:            c.Status == "running" || c.State == "running",
 	}
 	return
 }
@@ -81,7 +85,7 @@ func (c Container) getDeleteLabel(label string) string {
 }
 
 func (c Container) getAliases() []string {
-	if l := c.getDeleteLabel(LableAliases); l != "" {
+	if l := c.getDeleteLabel(LabelAliases); l != "" {
 		return U.CommaSeperatedList(l)
 	} else {
 		return []string{c.getName()}
@@ -98,14 +102,24 @@ func (c Container) getImageName() string {
 	return slashSep[len(slashSep)-1]
 }
 
-func (c Container) firstPortOrEmpty() string {
-	if len(c.Ports) == 0 {
-		return ""
-	}
-	for _, p := range c.Ports {
-		if p.PublicPort != 0 {
-			return fmt.Sprint(p.PublicPort)
+func (c Container) getPublicPortMapping() PortMapping {
+	res := make(PortMapping)
+	for _, v := range c.Ports {
+		if v.PublicPort == 0 {
+			continue
 		}
+		res[fmt.Sprint(v.PublicPort)] = v
 	}
-	return ""
+	return res
+}
+
+func (c Container) getPrivatePortMapping() PortMapping {
+	res := make(PortMapping)
+	for _, v := range c.Ports {
+		if v.PublicPort == 0 {
+			continue
+		}
+		res[fmt.Sprint(v.PrivatePort)] = v
+	}
+	return res
 }

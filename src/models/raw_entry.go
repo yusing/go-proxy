@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -53,11 +54,17 @@ func (e *RawEntry) FillMissingFields() bool {
 		}
 	}
 
-	if e.Port == "" {
-		if e.FirstPort == "" {
-			return false
+	if e.PublicPortMapping != nil {
+		if _, ok := e.PublicPortMapping[e.Port]; !ok { // port is not exposed, but specified
+			// try to fallback to first public port
+			if len(e.PublicPortMapping) == 0 {
+				return false
+			}
+			for _, p := range e.PublicPortMapping {
+				e.Port = fmt.Sprint(p.PublicPort)
+				break
+			}
 		}
-		e.Port = e.FirstPort
 	}
 
 	if e.Scheme == "" {
@@ -69,8 +76,19 @@ func (e *RawEntry) FillMissingFields() bool {
 			e.Scheme = "http"
 		} else if e.Port == "443" {
 			e.Scheme = "https"
-		} else if isDocker && e.Port == "" {
-			return false
+		} else if isDocker {
+			if e.Port == "" {
+				return false
+			}
+			if p, ok := e.PublicPortMapping[e.Port]; ok {
+				if p.Type == "udp" {
+					e.Scheme = "udp"
+				} else {
+					e.Scheme = "http"
+				}
+			} else {
+				return false
+			}
 		} else {
 			e.Scheme = "http"
 		}

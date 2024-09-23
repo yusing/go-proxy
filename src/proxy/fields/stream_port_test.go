@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	E "github.com/yusing/go-proxy/error"
-	U "github.com/yusing/go-proxy/utils/testing"
+	. "github.com/yusing/go-proxy/utils/testing"
 )
 
 var validPorts = []string{
@@ -35,14 +35,14 @@ var outOfRangePorts = []string{
 func TestStreamPort(t *testing.T) {
 	for _, port := range validPorts {
 		_, err := ValidateStreamPort(port)
-		U.ExpectNoError(t, err.Error())
+		ExpectNoError(t, err.Error())
 	}
 	for _, port := range invalidPorts {
 		_, err := ValidateStreamPort(port)
-		U.ExpectError2(t, port, E.ErrInvalid, err.Error())
+		ExpectError2(t, port, E.ErrInvalid, err.Error())
 	}
 	for _, port := range outOfRangePorts {
 		_, err := ValidateStreamPort(port)
-		U.ExpectError2(t, port, E.ErrOutOfRange, err.Error())
+		ExpectError2(t, port, E.ErrOutOfRange, err.Error())
 	}
 }

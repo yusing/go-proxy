@@ -14,7 +14,7 @@ import (
 )
 
 type StreamRoute struct {
-	P.StreamEntry
+	*P.StreamEntry
 	StreamImpl `json:"-"`
 
 	wg     sync.WaitGroup
@@ -31,6 +31,7 @@ type StreamImpl interface {
 	Accept() (any, error)
 	Handle(any) error
 	CloseListeners()
+	String() string
 }
 
 func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
@@ -39,7 +40,7 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 		return nil, E.Unsupported("scheme", fmt.Sprintf("%v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme))
 	}
 	base := &StreamRoute{
-		StreamEntry: *entry,
+		StreamEntry: entry,
 		connCh:      make(chan any, 100),
 	}
 	if entry.Scheme.ListeningScheme.IsTCP() {
@@ -64,6 +65,7 @@ func (r *StreamRoute) Start() E.NestedError {
 	if err := r.Setup(); err != nil {
 		return E.FailWith("setup", err)
 	}
+	r.l.Infof("listening on port %d", r.Port.ListeningPort)
 	r.started.Store(true)
 	r.wg.Add(2)
 	go r.grAcceptConnections()

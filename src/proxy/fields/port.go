@@ -28,6 +28,10 @@ func (p Port) inBound() bool {
 	return p >= MinPort && p <= MaxPort
 }
 
+func (p Port) String() string {
+	return strconv.Itoa(int(p))
+}
+
 const (
 	MinPort  = 0
 	MaxPort  = 65535

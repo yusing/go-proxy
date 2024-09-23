@@ -37,7 +37,7 @@ func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
 	} else if err != nil {
 		proxyPort, err = parseNameToPort(split[1])
 		if err != nil {
-			return ErrStreamPort, err
+			return ErrStreamPort, E.Invalid("stream port", p).With(proxyPort)
 		}
 	}
 

@@ -10,6 +10,7 @@ func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil && !reflect.ValueOf(err).IsNil() {
 		t.Errorf("expected err=nil, got %s", err.Error())
+		t.FailNow()
 	}
 }
 
@@ -17,6 +18,7 @@ func ExpectError(t *testing.T, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
 		t.Errorf("expected err %s, got %s", expected.Error(), err.Error())
+		t.FailNow()
 	}
 }
 
@@ -24,6 +26,7 @@ func ExpectError2(t *testing.T, input any, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
 		t.Errorf("%v: expected err %s, got %s", input, expected.Error(), err.Error())
+		t.FailNow()
 	}
 }
 
@@ -31,6 +34,7 @@ func ExpectEqual[T comparable](t *testing.T, got T, want T) {
 	t.Helper()
 	if got != want {
 		t.Errorf("expected:\n%v, got\n%v", want, got)
+		t.FailNow()
 	}
 }
 
@@ -38,29 +42,34 @@ func ExpectDeepEqual[T any](t *testing.T, got T, want T) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("expected:\n%v, got\n%v", want, got)
+		t.FailNow()
 	}
 }
 
 func ExpectTrue(t *testing.T, got bool) {
 	t.Helper()
 	if !got {
-		t.Errorf("expected true, got false")
+		t.Error("expected true")
+		t.FailNow()
 	}
 }
 
 func ExpectFalse(t *testing.T, got bool) {
 	t.Helper()
 	if got {
-		t.Errorf("expected false, got true")
+		t.Error("expected false")
+		t.FailNow()
 	}
 }
 
-func ExpectType[T any](t *testing.T, got any) T {
+func ExpectType[T any](t *testing.T, got any) (_ T) {
 	t.Helper()
 	tExpect := reflect.TypeFor[T]()
 	_, ok := got.(T)
 	if !ok {
-		t.Errorf("expected type %s, got %T", tExpect, got)
+		t.Fatalf("expected type %s, got %s", tExpect, reflect.TypeOf(got).Elem())
+		t.FailNow()
+		return
 	}
 	return got.(T)
 }

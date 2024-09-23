@@ -17,15 +17,15 @@ type (
 		Type() RouteType
 		URL() *url.URL
 	}
-	Routes    = F.Map[string, Route]
-	RouteType string
+	Routes = F.Map[string, Route]
 
 	RouteImpl interface {
 		Start() E.NestedError
 		Stop() E.NestedError
 		String() string
 	}
-	route struct {
+	RouteType string
+	route     struct {
 		RouteImpl
 		type_ RouteType
 		entry *M.RawEntry
@@ -58,7 +58,10 @@ func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
 	default:
 		panic("bug: should not reach here")
 	}
-	return &route{RouteImpl: rt.(RouteImpl), entry: en, type_: t}, err
+	if err != nil {
+		return nil, err
+	}
+	return &route{RouteImpl: rt.(RouteImpl), entry: en, type_: t}, nil
 }
 
 func (rt *route) Entry() *M.RawEntry {

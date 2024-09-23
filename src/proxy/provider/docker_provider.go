@@ -137,31 +137,29 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Ra
 		errors.Add(p.applyLabel(container, entries, key, val))
 	}
 
+	// selecting correct host port
+	replacePrivPorts := func() {
+		if container.HostConfig.NetworkMode != "host" {
+			entries.RangeAll(func(_ string, entry *M.RawEntry) {
+				entryPortSplit := strings.Split(entry.Port, ":")
+				n := len(entryPortSplit)
+				// if the port matches the proxy port, replace it with the public port
+				if p, ok := container.PrivatePortMapping[entryPortSplit[n-1]]; ok {
+					entryPortSplit[n-1] = fmt.Sprint(p.PublicPort)
+					entry.Port = strings.Join(entryPortSplit, ":")
+				}
+			})
+		}
+	}
+	replacePrivPorts()
+
 	// remove all entries that failed to fill in missing fields
 	entries.RemoveAll(func(re *M.RawEntry) bool {
 		return !re.FillMissingFields()
 	})
 
-	// selecting correct host port
-	if container.HostConfig.NetworkMode != "host" {
-		for _, a := range container.Aliases {
-			entry, ok := entries.Load(a)
-			if !ok {
-				continue
-			}
-			for _, p := range container.Ports {
-				containerPort := strconv.Itoa(int(p.PrivatePort))
-				publicPort := strconv.Itoa(int(p.PublicPort))
-				entryPortSplit := strings.Split(entry.Port, ":")
-				n := len(entryPortSplit)
-				if entryPortSplit[n-1] == containerPort {
-					entryPortSplit[n-1] = publicPort
-					entry.Port = strings.Join(entryPortSplit, ":")
-					break
-				}
-			}
-		}
-	}
+	// do it again since the port may got filled in
+	replacePrivPorts()
 
 	return entries, errors.Build().Subject(container.ContainerName)
 }
@@ -193,7 +191,7 @@ func (p *DockerProvider) applyLabel(container D.Container, entries M.RawEntries,
 				return ref
 			}
 			if index < 1 || index > len(container.Aliases) {
-				refErr.Add(E.Invalid("index", ref).Extraf("index out of range"))
+				refErr.Add(E.OutOfRange("index", ref))
 				return ref
 			}
 			return container.Aliases[index-1]
