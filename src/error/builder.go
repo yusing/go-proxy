@@ -55,6 +55,8 @@ func (b Builder) WithSeverity(s Severity) Builder {
 func (b Builder) Build() NestedError {
 	if len(b.errors) == 0 {
 		return nil
+	} else if len(b.errors) == 1 {
+		return b.errors[0]
 	}
 	return Join(b.message, b.errors...).Severity(b.severity)
 }

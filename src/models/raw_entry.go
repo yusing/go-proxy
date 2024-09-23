@@ -31,50 +31,55 @@ type (
 
 var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
-func (e *RawEntry) SetDefaults() {
-	if e.ProxyProperties == nil {
+func (e *RawEntry) FillMissingFields() bool {
+	isDocker := e.ProxyProperties != nil
+
+	if !isDocker {
 		e.ProxyProperties = &D.ProxyProperties{}
 	}
 
-	if e.Scheme == "" {
-		switch {
-		case strings.ContainsRune(e.Port, ':'):
-			e.Scheme = "tcp"
-		case e.ProxyProperties != nil:
-			if _, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
-				e.Scheme = "tcp"
+	if e.Port == "" {
+		if port, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
+			e.Port = strconv.Itoa(port)
+		} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
+			e.Port = strconv.Itoa(port)
+		} else {
+			switch {
+			case e.Scheme == "https":
+				e.Port = "443"
+			case !isDocker:
+				e.Port = "80"
 			}
 		}
 	}
 
+	if e.Port == "" {
+		if e.FirstPort == "" {
+			return false
+		}
+		e.Port = e.FirstPort
+	}
+
 	if e.Scheme == "" {
-		switch e.Port {
-		case "443", "8443":
+		if _, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
+			e.Scheme = "tcp"
+		} else if strings.ContainsRune(e.Port, ':') {
+			e.Scheme = "tcp"
+		} else if _, ok := WellKnownHTTPPorts[e.Port]; ok {
+			e.Scheme = "http"
+		} else if e.Port == "443" {
 			e.Scheme = "https"
-		default:
+		} else if isDocker && e.Port == "" {
+			return false
+		} else {
 			e.Scheme = "http"
 		}
 	}
+
 	if e.Host == "" {
 		e.Host = "localhost"
 	}
-	if e.Port == "" {
-		e.Port = e.FirstPort
-	}
-	if e.Port == "" {
-		if port, ok := ServiceNamePortMapTCP[e.Port]; ok {
-			e.Port = strconv.Itoa(port)
-		} else if port, ok := ImageNamePortMapHTTP[e.Port]; ok {
-			e.Port = strconv.Itoa(port)
-		} else {
-			switch e.Scheme {
-			case "http":
-				e.Port = "80"
-			case "https":
-				e.Port = "443"
-			}
-		}
-	}
+
 	if e.IdleTimeout == "" {
 		e.IdleTimeout = IdleTimeoutDefault
 	}
@@ -87,4 +92,6 @@ func (e *RawEntry) SetDefaults() {
 	if e.StopMethod == "" {
 		e.StopMethod = StopMethodDefault
 	}
+
+	return true
 }

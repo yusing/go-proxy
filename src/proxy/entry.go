@@ -44,7 +44,10 @@ func (rp *ReverseProxyEntry) UseIdleWatcher() bool {
 }
 
 func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
-	m.SetDefaults()
+	if !m.FillMissingFields() {
+		return nil, E.Missing("fields")
+	}
+
 	scheme, err := T.NewScheme(m.Scheme)
 	if err.HasError() {
 		return nil, err

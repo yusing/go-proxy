@@ -1,0 +1,39 @@
+From 6728bc39d2d7ded19c1ca288691ec787c02ff666 Mon Sep 17 00:00:00 2001
+From: yusing <yusing@6uo.me>
+Date: Mon, 23 Sep 2024 07:19:47 +0800
+Subject: [PATCH] fixed nil dereferencing
+
+---
+ frontend             | 2 +-
+ src/error/builder.go | 6 ++++--
+ 2 files changed, 5 insertions(+), 3 deletions(-)
+
+diff --git a/frontend b/frontend
+index d0e5963..441fd70 160000
+--- a/frontend
++++ b/frontend
+@@ -1 +1 @@
+-Subproject commit d0e59630d6e0beb1c22d2f242f556464a5056c1f
++Subproject commit 441fd708dbed89c59bf72a742431a78ff2f02bc3
+diff --git a/src/error/builder.go b/src/error/builder.go
+index 38a1bf2..16d2816 100644
+--- a/src/error/builder.go
++++ b/src/error/builder.go
+@@ -60,10 +60,12 @@ func (b Builder) Build() NestedError {
+ }
+ 
+ func (b Builder) To(ptr *NestedError) {
+-	if *ptr == nil {
++	if ptr == nil {
++		return
++	} else if *ptr == nil {
+ 		*ptr = b.Build()
+ 	} else {
+-		**ptr = *b.Build()
++		(*ptr).With(b.Build())
+ 	}
+ }
+ 
+-- 
+2.46.1
+

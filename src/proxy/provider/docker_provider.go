@@ -137,6 +137,11 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Ra
 		errors.Add(p.applyLabel(container, entries, key, val))
 	}
 
+	// remove all entries that failed to fill in missing fields
+	entries.RemoveAll(func(re *M.RawEntry) bool {
+		return !re.FillMissingFields()
+	})
+
 	// selecting correct host port
 	if container.HostConfig.NetworkMode != "host" {
 		for _, a := range container.Aliases {
@@ -148,12 +153,12 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Ra
 				containerPort := strconv.Itoa(int(p.PrivatePort))
 				publicPort := strconv.Itoa(int(p.PublicPort))
 				entryPortSplit := strings.Split(entry.Port, ":")
-				if len(entryPortSplit) == 2 && entryPortSplit[1] == containerPort {
-					entryPortSplit[1] = publicPort
-				} else if len(entryPortSplit) == 1 && entryPortSplit[0] == containerPort {
-					entryPortSplit[0] = publicPort
+				n := len(entryPortSplit)
+				if entryPortSplit[n-1] == containerPort {
+					entryPortSplit[n-1] = publicPort
+					entry.Port = strings.Join(entryPortSplit, ":")
+					break
 				}
-				entry.Port = strings.Join(entryPortSplit, ":")
 			}
 		}
 	}

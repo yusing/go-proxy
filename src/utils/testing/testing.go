@@ -16,7 +16,14 @@ func ExpectNoError(t *testing.T, err error) {
 func ExpectError(t *testing.T, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("expected err %s, got nil", expected.Error())
+		t.Errorf("expected err %s, got %s", expected.Error(), err.Error())
+	}
+}
+
+func ExpectError2(t *testing.T, input any, expected error, err error) {
+	t.Helper()
+	if !errors.Is(err, expected) {
+		t.Errorf("%v: expected err %s, got %s", input, expected.Error(), err.Error())
 	}
 }
 

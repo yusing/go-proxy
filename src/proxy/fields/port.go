@@ -13,22 +13,19 @@ func ValidatePort(v string) (Port, E.NestedError) {
 	if err != nil {
 		return ErrPort, E.Invalid("port number", v).With(err)
 	}
-	return NewPortInt(p)
+	return ValidatePortInt(p)
 }
 
-func NewPortInt[Int int | uint16](v Int) (Port, E.NestedError) {
-	pp := Port(v)
-	if err := pp.boundCheck(); err.HasError() {
-		return ErrPort, err
+func ValidatePortInt[Int int | uint16](v Int) (Port, E.NestedError) {
+	p := Port(v)
+	if !p.inBound() {
+		return ErrPort, E.OutOfRange("port", p)
 	}
-	return pp, nil
+	return p, nil
 }
 
-func (p Port) boundCheck() E.NestedError {
-	if p < MinPort || p > MaxPort {
-		return E.Invalid("port", p)
-	}
-	return nil
+func (p Port) inBound() bool {
+	return p >= MinPort && p <= MaxPort
 }
 
 const (

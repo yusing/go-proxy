@@ -1,7 +1,6 @@
 package fields
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/yusing/go-proxy/common"
@@ -15,36 +14,42 @@ type StreamPort struct {
 
 func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
 	split := strings.Split(p, ":")
-	if len(split) != 2 {
-		return StreamPort{}, E.Invalid("stream port", fmt.Sprintf("%q", p)).With("should be in 'x:y' format")
+
+	switch len(split) {
+	case 1:
+		split = []string{"0", split[0]}
+	case 2:
+		break
+	default:
+		return ErrStreamPort, E.Invalid("stream port", p).With("too many colons")
 	}
 
 	listeningPort, err := ValidatePort(split[0])
-	if err.HasError() {
-		return StreamPort{}, err
-	}
-	if err = listeningPort.boundCheck(); err.HasError() {
-		return StreamPort{}, err
+	if err != nil {
+		return ErrStreamPort, err
 	}
 
 	proxyPort, err := ValidatePort(split[1])
-	if err.HasError() {
+	if err.Is(E.ErrOutOfRange) {
+		return ErrStreamPort, err
+	} else if proxyPort == 0 {
+		return ErrStreamPort, E.Invalid("stream port", p).With("proxy port cannot be 0")
+	} else if err != nil {
 		proxyPort, err = parseNameToPort(split[1])
-		if err.HasError() {
-			return StreamPort{}, err
+		if err != nil {
+			return ErrStreamPort, err
 		}
 	}
-	if err = proxyPort.boundCheck(); err.HasError() {
-		return StreamPort{}, err
-	}
 
-	return StreamPort{ListeningPort: listeningPort, ProxyPort: proxyPort}, nil
+	return StreamPort{listeningPort, proxyPort}, nil
 }
 
 func parseNameToPort(name string) (Port, E.NestedError) {
 	port, ok := common.ServiceNamePortMapTCP[name]
 	if !ok {
-		return -1, E.Unsupported("service", name)
+		return ErrPort, E.Invalid("service", name)
 	}
 	return Port(port), nil
 }
+
+var ErrStreamPort = StreamPort{ErrPort, ErrPort}

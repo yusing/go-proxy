@@ -42,7 +42,7 @@ var NewRoutes = F.NewMapOf[string, Route]
 
 func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
 	rt, err := P.ValidateEntry(en)
-	if err.HasError() {
+	if err != nil {
 		return nil, err
 	}
 

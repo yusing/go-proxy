@@ -43,10 +43,10 @@ func TestBuilderNested(t *testing.T) {
 	expected2 :=
 		(`error occurred:
   - Action 1 failed:
-    - invalid Inner: 2
-    - invalid Inner: 1
+    - invalid Inner: "1"
+    - invalid Inner: "2"
   - Action 2 failed:
-    - invalid Inner: 3`)
+    - invalid Inner: "3"`)
 	if got != expected1 && got != expected2 {
 		t.Errorf("expected \n%s, got \n%s", expected1, got)
 	}

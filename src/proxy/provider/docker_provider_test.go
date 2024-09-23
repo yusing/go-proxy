@@ -115,6 +115,7 @@ func TestApplyLabel(t *testing.T) {
 		Labels: map[string]string{
 			D.LableAliases:          "a,b,c",
 			"proxy.a.no_tls_verify": "true",
+			"proxy.a.port":          "3333",
 			"proxy.b.port":          "1234",
 			"proxy.c.scheme":        "https",
 		}}, "")
@@ -132,6 +133,7 @@ func TestApplyLabelWithRef(t *testing.T) {
 		Labels: map[string]string{
 			D.LableAliases:    "a,b,c",
 			"proxy.$1.host":   "localhost",
+			"proxy.$1.port":   "4444",
 			"proxy.$2.port":   "1234",
 			"proxy.$3.scheme": "https",
 		}}, "")
