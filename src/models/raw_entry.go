@@ -54,15 +54,17 @@ func (e *RawEntry) FillMissingFields() bool {
 		}
 	}
 
-	if e.PublicPortMapping != nil && e.NetworkMode != "host" {
+	if isDocker && e.NetworkMode != "host" {
 		if _, ok := e.PublicPortMapping[e.Port]; !ok { // port is not exposed, but specified
 			// try to fallback to first public port
-			if len(e.PublicPortMapping) == 0 {
-				return false
-			}
-			for _, p := range e.PublicPortMapping {
+			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
 				e.Port = fmt.Sprint(p.PublicPort)
-				break
+			}
+			// ignore only if it is NOT RUNNING
+			// because stopped containers
+			// will have empty port mapping got from docker
+			if e.Running {
+				return false
 			}
 		}
 	}
@@ -77,9 +79,6 @@ func (e *RawEntry) FillMissingFields() bool {
 		} else if e.Port == "443" {
 			e.Scheme = "https"
 		} else if isDocker {
-			if e.Port == "" {
-				return false
-			}
 			if p, ok := e.PublicPortMapping[e.Port]; ok {
 				if p.Type == "udp" {
 					e.Scheme = "udp"
@@ -87,6 +86,7 @@ func (e *RawEntry) FillMissingFields() bool {
 					e.Scheme = "http"
 				}
 			} else {
+				// port is not exposed, no way to determine
 				return false
 			}
 		} else {
