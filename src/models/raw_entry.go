@@ -39,21 +39,19 @@ func (e *RawEntry) FillMissingFields() bool {
 		e.ProxyProperties = &D.ProxyProperties{}
 	}
 
-	if e.Port == "" {
-		if port, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
-			e.Port = strconv.Itoa(port)
-		} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
-			e.Port = strconv.Itoa(port)
-		} else {
-			switch {
-			case e.Scheme == "https":
-				e.Port = "443"
-			case !isDocker:
-				e.Port = "80"
-			}
-		}
+	if port, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
+		e.Port = strconv.Itoa(port)
+		e.Scheme = "tcp"
+	} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
+		e.Port = strconv.Itoa(port)
+		e.Scheme = "http"
+	} else if e.Port == "" && e.Scheme == "https" {
+		e.Port = "443"
+	} else if e.Port == "" {
+		e.Port = "80"
 	}
 
+	// replace private port with public port (if any)
 	if isDocker && e.NetworkMode != "host" {
 		if _, ok := e.PublicPortMapping[e.Port]; !ok { // port is not exposed, but specified
 			// try to fallback to first public port
@@ -69,27 +67,25 @@ func (e *RawEntry) FillMissingFields() bool {
 		}
 	}
 
+	if e.Scheme == "" && isDocker {
+		if p, ok := e.PublicPortMapping[e.Port]; ok {
+			if p.Type == "udp" {
+				e.Scheme = "udp"
+			} else {
+				e.Scheme = "http"
+			}
+		}
+	}
+
 	if e.Scheme == "" {
-		if _, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
+		if strings.ContainsRune(e.Port, ':') {
 			e.Scheme = "tcp"
-		} else if strings.ContainsRune(e.Port, ':') {
-			e.Scheme = "tcp"
+		} else if strings.HasSuffix(e.Port, "443") {
+			e.Scheme = "https"
 		} else if _, ok := WellKnownHTTPPorts[e.Port]; ok {
 			e.Scheme = "http"
-		} else if e.Port == "443" {
-			e.Scheme = "https"
-		} else if isDocker {
-			if p, ok := e.PublicPortMapping[e.Port]; ok {
-				if p.Type == "udp" {
-					e.Scheme = "udp"
-				} else {
-					e.Scheme = "http"
-				}
-			} else {
-				// port is not exposed, no way to determine
-				return false
-			}
 		} else {
+			// assume its http
 			e.Scheme = "http"
 		}
 	}
@@ -97,7 +93,6 @@ func (e *RawEntry) FillMissingFields() bool {
 	if e.Host == "" {
 		e.Host = "localhost"
 	}
-
 	if e.IdleTimeout == "" {
 		e.IdleTimeout = IdleTimeoutDefault
 	}
