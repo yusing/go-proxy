@@ -71,11 +71,9 @@ func (p *Provider) ObtainCert() (res E.NestedError) {
 	}
 
 	if p.user.Registration == nil {
-		if err := p.loadRegistration(); err.HasError() {
-			if err := p.registerACME(); err.HasError() {
-				b.Add(E.FailWith("register ACME", err))
-				return
-			}
+		if err := p.registerACME(); err.HasError() {
+			b.Add(E.FailWith("register ACME", err))
+			return
 		}
 	}
 
@@ -89,16 +87,18 @@ func (p *Provider) ObtainCert() (res E.NestedError) {
 		b.Add(err)
 		return
 	}
-	err = p.saveCert(cert)
-	if err.HasError() {
+
+	if err = p.saveCert(cert); err.HasError() {
 		b.Add(E.FailWith("save certificate", err))
 		return
 	}
+
 	tlsCert, err := E.Check(tls.X509KeyPair(cert.Certificate, cert.PrivateKey))
 	if err.HasError() {
 		b.Add(E.FailWith("parse obtained certificate", err))
 		return
 	}
+
 	expiries, err := getCertExpiries(&tlsCert)
 	if err.HasError() {
 		b.Add(E.FailWith("get certificate expiry", err))
@@ -187,27 +187,7 @@ func (p *Provider) registerACME() E.NestedError {
 	}
 	p.user.Registration = reg
 
-	if err := p.saveRegistration(); err.HasError() {
-		logger.Warn(err)
-	}
 	return nil
-}
-
-func (p *Provider) loadRegistration() E.NestedError {
-	if p.user.Registration != nil {
-		return nil
-	}
-	reg := &registration.Resource{}
-	err := U.LoadJson(RegistrationFile, reg)
-	if err.HasError() {
-		return E.FailWith("parse registration file", err)
-	}
-	p.user.Registration = reg
-	return nil
-}
-
-func (p *Provider) saveRegistration() E.NestedError {
-	return U.SaveJson(RegistrationFile, p.user.Registration, 0o600)
 }
 
 func (p *Provider) saveCert(cert *certificate.Resource) E.NestedError {
