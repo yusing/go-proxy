@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
-	"strings"
 
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
@@ -123,6 +122,10 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.RawEntries, E.NestedError) {
 	entries := M.NewProxyEntries()
 
+	if container.IsExcluded {
+		return entries, nil
+	}
+
 	// init entries map for all aliases
 	for _, a := range container.Aliases {
 		entries.Store(a, &M.RawEntry{
@@ -137,30 +140,10 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Ra
 		errors.Add(p.applyLabel(container, entries, key, val))
 	}
 
-	// selecting correct host port
-	replacePrivPorts := func() {
-		if container.HostConfig.NetworkMode == "host" {
-			return
-		}
-		entries.RangeAll(func(_ string, entry *M.RawEntry) {
-			entryPortSplit := strings.Split(entry.Port, ":")
-			n := len(entryPortSplit)
-			// if the port matches the proxy port, replace it with the public port
-			if p, ok := container.PrivatePortMapping[entryPortSplit[n-1]]; ok {
-				entryPortSplit[n-1] = fmt.Sprint(p.PublicPort)
-				entry.Port = strings.Join(entryPortSplit, ":")
-			}
-		})
-	}
-	replacePrivPorts()
-
 	// remove all entries that failed to fill in missing fields
 	entries.RemoveAll(func(re *M.RawEntry) bool {
 		return !re.FillMissingFields()
 	})
-
-	// do it again since the port may got filled in
-	replacePrivPorts()
 
 	return entries, errors.Build().Subject(container.ContainerName)
 }

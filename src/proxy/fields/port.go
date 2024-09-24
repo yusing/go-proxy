@@ -8,8 +8,8 @@ import (
 
 type Port int
 
-func ValidatePort(v string) (Port, E.NestedError) {
-	p, err := strconv.Atoi(v)
+func ValidatePort[String ~string](v String) (Port, E.NestedError) {
+	p, err := strconv.Atoi(string(v))
 	if err != nil {
 		return ErrPort, E.Invalid("port number", v).With(err)
 	}

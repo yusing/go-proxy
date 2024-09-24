@@ -3,7 +3,6 @@ package idlewatcher
 import (
 	"context"
 	"net/http"
-	"time"
 )
 
 type (
@@ -18,13 +17,13 @@ func (rt roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*http.Response, error) {
+	// wake the container
+	w.wakeCh <- struct{}{}
+
 	// target site is ready, passthrough
 	if w.ready.Load() {
 		return origRoundTrip(req)
 	}
-
-	// wake the container
-	w.wakeCh <- struct{}{}
 
 	// initial request
 	targetUrl := req.Header.Get(headerGoProxyTargetURL)
@@ -57,7 +56,6 @@ func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*ht
 					rtDone <- resp
 					return
 				}
-				time.Sleep(time.Millisecond * 200)
 			}
 		}
 	}()
@@ -66,6 +64,10 @@ func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*ht
 		select {
 		case resp := <-rtDone:
 			return w.makeSuccResp(targetUrl, resp)
+		case err := <-w.wakeDone:
+			if err != nil {
+				return w.makeErrResp("error waking up %s\n%s", w.ContainerName, err.Error())
+			}
 		case <-ctx.Done():
 			if ctx.Err() == context.DeadlineExceeded {
 				return w.makeErrResp("Timed out waiting for %s to fully wake", w.ContainerName)

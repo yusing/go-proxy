@@ -249,7 +249,9 @@ func TestImplicitExclude(t *testing.T) {
 		Labels: map[string]string{
 			D.LabelAliases:          "a",
 			"proxy.a.no_tls_verify": "true",
-		}}, ""))
+		},
+		State: "running",
+	}, ""))
 	ExpectNoError(t, err.Error())
 
 	_, ok := entries.Load("a")

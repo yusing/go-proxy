@@ -78,8 +78,8 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 		ReverseProxyEntry: entry,
 		client:            client,
 		refCount:          &sync.WaitGroup{},
-		wakeCh:            make(chan struct{}, 1),
-		wakeDone:          make(chan E.NestedError, 1),
+		wakeCh:            make(chan struct{}),
+		wakeDone:          make(chan E.NestedError),
 		l:                 logger.WithField("container", entry.ContainerName),
 	}
 	w.refCount.Add(1)

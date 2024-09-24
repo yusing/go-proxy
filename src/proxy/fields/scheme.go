@@ -6,7 +6,7 @@ import (
 
 type Scheme string
 
-func NewScheme(s string) (Scheme, E.NestedError) {
+func NewScheme[String ~string](s String) (Scheme, E.NestedError) {
 	switch s {
 	case "http", "https", "tcp", "udp":
 		return Scheme(s), nil

@@ -26,18 +26,19 @@ func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
 
 	listeningPort, err := ValidatePort(split[0])
 	if err != nil {
-		return ErrStreamPort, err
+		return ErrStreamPort, err.Subject("listening port")
 	}
 
 	proxyPort, err := ValidatePort(split[1])
+
 	if err.Is(E.ErrOutOfRange) {
-		return ErrStreamPort, err
+		return ErrStreamPort, err.Subject("proxy port")
 	} else if proxyPort == 0 {
-		return ErrStreamPort, E.Invalid("stream port", p).With("proxy port cannot be 0")
+		return ErrStreamPort, E.Invalid("proxy port", p)
 	} else if err != nil {
 		proxyPort, err = parseNameToPort(split[1])
 		if err != nil {
-			return ErrStreamPort, E.Invalid("stream port", p).With(proxyPort)
+			return ErrStreamPort, E.Invalid("proxy port", proxyPort)
 		}
 	}
 

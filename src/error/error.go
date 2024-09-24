@@ -133,13 +133,19 @@ func (ne NestedError) Subject(s any) NestedError {
 	if ne == nil {
 		return ne
 	}
+	var subject string
 	switch ss := s.(type) {
 	case string:
-		ne.subject = ss
+		subject = ss
 	case fmt.Stringer:
-		ne.subject = ss.String()
+		subject = ss.String()
 	default:
-		ne.subject = fmt.Sprint(s)
+		subject = fmt.Sprint(s)
+	}
+	if ne.subject == "" {
+		ne.subject = subject
+	} else {
+		ne.subject = fmt.Sprintf("%s > %s", subject, ne.subject)
 	}
 	return ne
 }

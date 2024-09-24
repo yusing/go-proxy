@@ -34,29 +34,41 @@ var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
 func (e *RawEntry) FillMissingFields() bool {
 	isDocker := e.ProxyProperties != nil
-
 	if !isDocker {
 		e.ProxyProperties = &D.ProxyProperties{}
 	}
 
+	lp, pp, extra := e.splitPorts()
+
 	if port, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
-		e.Port = strconv.Itoa(port)
+		if pp == "" {
+			pp = strconv.Itoa(port)
+		}
 		e.Scheme = "tcp"
 	} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
-		e.Port = strconv.Itoa(port)
+		if pp == "" {
+			pp = strconv.Itoa(port)
+		}
 		e.Scheme = "http"
-	} else if e.Port == "" && e.Scheme == "https" {
-		e.Port = "443"
-	} else if e.Port == "" {
-		e.Port = "80"
+	} else if pp == "" && e.Scheme == "https" {
+		pp = "443"
+	} else if pp == "" {
+		if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
+			pp = fmt.Sprint(p.PrivatePort)
+		} else {
+			pp = "80"
+		}
 	}
 
 	// replace private port with public port (if any)
 	if isDocker && e.NetworkMode != "host" {
-		if _, ok := e.PublicPortMapping[e.Port]; !ok { // port is not exposed, but specified
+		if p, ok := e.PrivatePortMapping[pp]; ok {
+			pp = fmt.Sprint(p.PublicPort)
+		}
+		if _, ok := e.PublicPortMapping[pp]; !ok { // port is not exposed, but specified
 			// try to fallback to first public port
 			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
-				e.Port = fmt.Sprint(p.PublicPort)
+				pp = fmt.Sprint(p.PublicPort)
 			}
 			// ignore only if it is NOT RUNNING
 			// because stopped containers
@@ -68,21 +80,17 @@ func (e *RawEntry) FillMissingFields() bool {
 	}
 
 	if e.Scheme == "" && isDocker {
-		if p, ok := e.PublicPortMapping[e.Port]; ok {
-			if p.Type == "udp" {
-				e.Scheme = "udp"
-			} else {
-				e.Scheme = "http"
-			}
+		if p, ok := e.PublicPortMapping[pp]; ok && p.Type == "udp" {
+			e.Scheme = "udp"
 		}
 	}
 
 	if e.Scheme == "" {
-		if strings.ContainsRune(e.Port, ':') {
+		if lp != "" {
 			e.Scheme = "tcp"
-		} else if strings.HasSuffix(e.Port, "443") {
+		} else if strings.HasSuffix(pp, "443") {
 			e.Scheme = "https"
-		} else if _, ok := WellKnownHTTPPorts[e.Port]; ok {
+		} else if _, ok := WellKnownHTTPPorts[pp]; ok {
 			e.Scheme = "http"
 		} else {
 			// assume its http
@@ -106,5 +114,35 @@ func (e *RawEntry) FillMissingFields() bool {
 		e.StopMethod = StopMethodDefault
 	}
 
+	e.Port = joinPorts(lp, pp, extra)
+
 	return true
+}
+
+func (e *RawEntry) splitPorts() (lp string, pp string, extra string) {
+	portSplit := strings.Split(e.Port, ":")
+	if len(portSplit) == 1 {
+		pp = portSplit[0]
+	} else {
+		lp = portSplit[0]
+		pp = portSplit[1]
+	}
+	if len(portSplit) > 2 {
+		extra = strings.Join(portSplit[2:], ":")
+	}
+	return
+}
+
+func joinPorts(lp string, pp string, extra string) string {
+	s := make([]string, 0, 3)
+	if lp != "" {
+		s = append(s, lp)
+	}
+	if pp != "" {
+		s = append(s, pp)
+	}
+	if extra != "" {
+		s = append(s, extra)
+	}
+	return strings.Join(s, ":")
 }

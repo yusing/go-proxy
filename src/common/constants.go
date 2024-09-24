@@ -34,7 +34,7 @@ const DockerHostFromEnv = "$DOCKER_HOST"
 
 const (
 	IdleTimeoutDefault = "0"
-	WakeTimeoutDefault = "10s"
+	WakeTimeoutDefault = "30s"
 	StopTimeoutDefault = "10s"
 	StopMethodDefault  = "stop"
 )

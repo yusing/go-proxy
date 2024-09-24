@@ -54,7 +54,7 @@ func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
 	}
 
 	var entry any
-	e := E.NewBuilder("error validating proxy entry")
+	e := E.NewBuilder("error validating entry")
 	if scheme.IsStream() {
 		entry = validateStreamEntry(m, e)
 	} else {

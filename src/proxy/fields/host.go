@@ -7,6 +7,6 @@ import (
 type Host string
 type Subdomain = Alias
 
-func ValidateHost(s string) (Host, E.NestedError) {
+func ValidateHost[String ~string](s String) (Host, E.NestedError) {
 	return Host(s), nil
 }

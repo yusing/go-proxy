@@ -10,14 +10,15 @@ var (
 	}
 
 	ServiceNamePortMapTCP = map[string]int{
-		"mssql":     1433,
-		"mysql":     3306,
-		"mariadb":   3306,
-		"postgres":  5432,
-		"rabbitmq":  5672,
-		"redis":     6379,
-		"memcached": 11211,
-		"mongo":     27017,
+		"mssql":            1433,
+		"mysql":            3306,
+		"mariadb":          3306,
+		"postgres":         5432,
+		"rabbitmq":         5672,
+		"redis":            6379,
+		"memcached":        11211,
+		"mongo":            27017,
+		"minecraft-server": 25565,
 
 		"ssh":  22,
 		"ftp":  21,
@@ -53,7 +54,7 @@ var (
 		"immich":              3001,
 		"jellyfin":            8096,
 		"lidarr":              8686,
-		"minecraft-server":    25565,
+		"microbin":            8080,
 		"nginx":               80,
 		"nginx-proxy-manager": 81,
 		"open-webui":          8080,
