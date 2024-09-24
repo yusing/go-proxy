@@ -148,7 +148,12 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func findMux(host string) (*http.ServeMux, E.NestedError) {
-	sd := strings.Split(host, ".")[0]
+	hostSplit := strings.Split(host, ".")
+	n := len(hostSplit)
+	if n <= 2 {
+		return nil, E.Missing("subdomain")
+	}
+	sd := strings.Join(hostSplit[:n-2], ".")
 	if r, ok := httpRoutes.Load(PT.Alias(sd)); ok {
 		return r.mux, nil
 	}
