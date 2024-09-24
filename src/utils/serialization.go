@@ -100,7 +100,6 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 			}
 		}
 	default:
-		// return nil, fmt.Errorf("unsupported type: %s", value.Kind())
 		return nil, E.Unsupported("type", value.Kind())
 	}
 

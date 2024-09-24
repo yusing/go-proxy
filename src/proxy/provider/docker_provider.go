@@ -139,17 +139,18 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.Ra
 
 	// selecting correct host port
 	replacePrivPorts := func() {
-		if container.HostConfig.NetworkMode != "host" {
-			entries.RangeAll(func(_ string, entry *M.RawEntry) {
-				entryPortSplit := strings.Split(entry.Port, ":")
-				n := len(entryPortSplit)
-				// if the port matches the proxy port, replace it with the public port
-				if p, ok := container.PrivatePortMapping[entryPortSplit[n-1]]; ok {
-					entryPortSplit[n-1] = fmt.Sprint(p.PublicPort)
-					entry.Port = strings.Join(entryPortSplit, ":")
-				}
-			})
+		if container.HostConfig.NetworkMode == "host" {
+			return
 		}
+		entries.RangeAll(func(_ string, entry *M.RawEntry) {
+			entryPortSplit := strings.Split(entry.Port, ":")
+			n := len(entryPortSplit)
+			// if the port matches the proxy port, replace it with the public port
+			if p, ok := container.PrivatePortMapping[entryPortSplit[n-1]]; ok {
+				entryPortSplit[n-1] = fmt.Sprint(p.PublicPort)
+				entry.Port = strings.Join(entryPortSplit, ":")
+			}
+		})
 	}
 	replacePrivPorts()
 

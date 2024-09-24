@@ -1,6 +1,6 @@
 .PHONY: all build up quick-restart restart logs get udp-server
 
-all: build quick-restart logs
+all: debug
 
 setup:
 	mkdir -p config certs
