@@ -18,3 +18,4 @@ go.work.sum
 todo.md
 
 .*.swp
+.aider*

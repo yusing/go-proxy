@@ -23,7 +23,7 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
     - [Environment variables](#environment-variables)
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
     - [Config File](#config-file)
-    - [Provider File](#provider-file)
+    - [Include Files](#include-files)
   - [Showcase](#showcase)
     - [idlesleeper](#idlesleeper)
   - [Build it yourself](#build-it-yourself)
@@ -34,13 +34,14 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
     -   Effortless configuration
     -   Simple multi-node setup
     -   Error messages is clear and detailed, easy troubleshooting
--   Auto certificate obtaining and renewal (See [Supported DNS Challenge Providers](docs/dns_providers.md))
+-   Auto SSL cert management (See [Supported DNS Challenge Providers](docs/dns_providers.md)) 
 -   Auto configuration for docker containers
 -   Auto hot-reload on container state / config file changes
 -   **idlesleeper**: stop containers on idle, wake it up on traffic _(optional, see [showcase](#idlesleeper))_
 -   HTTP(s) reserve proxy
 -   TCP and UDP port forwarding
 -   Web UI for configuration and monitoring (See [screenshots](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots))
+-   Supports linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6 multi-platform
 -   Written in **[Go](https://go.dev)**
 
 [🔼Back to top](#table-of-content)
@@ -85,7 +86,7 @@ A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse p
 | `ls-config` | list config and exit             | `go-proxy ls-config \| jq` |
 | `ls-route`  | list proxy entries and exit      | `go-proxy ls-route \| jq`  |
 
-**run with `docker exec <container_name> /app/go-proxy <command>`**
+**run with `docker exec go-proxy /app/go-proxy <command>`**
 
 ### Environment variables
 
@@ -129,7 +130,9 @@ providers:
 
 [🔼Back to top](#table-of-content)
 
-### Provider File
+### Include Files
+
+These are files that include standalone proxy entries
 
 See [Fields](docs/docker.md#fields)
 
