@@ -143,6 +143,8 @@ type ReverseProxy struct {
 	// If nil, the default is to log the provided error and return
 	// a 502 Status Bad Gateway response.
 	ErrorHandler func(http.ResponseWriter, *http.Request, error)
+
+	ServeHTTP http.HandlerFunc
 }
 
 // A BufferPool is an interface for getting and returning temporary
@@ -230,12 +232,16 @@ func NewReverseProxy(target *url.URL, transport http.RoundTripper, entry *Revers
 			}
 		}
 	}
-	return &ReverseProxy{Rewrite: func(pr *ProxyRequest) {
-		rewriteRequestURL(pr.Out, target)
-		// pr.SetXForwarded()
-		setHeaders(pr.Out)
-		hideHeaders(pr.Out)
-	}, Transport: transport}
+	rp := &ReverseProxy{
+		Rewrite: func(pr *ProxyRequest) {
+			rewriteRequestURL(pr.Out, target)
+			// pr.SetXForwarded()
+			setHeaders(pr.Out)
+			hideHeaders(pr.Out)
+		}, Transport: transport,
+	}
+	rp.ServeHTTP = rp.serveHTTP
+	return rp
 }
 
 func rewriteRequestURL(req *http.Request, target *url.URL) {
@@ -277,7 +283,7 @@ func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response
 	return true
 }
 
-func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	transport := p.Transport
 
 	ctx := req.Context()
@@ -348,9 +354,9 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	outreq.Header.Del("Forwarded")
-	outreq.Header.Del("X-Forwarded-For")
-	outreq.Header.Del("X-Forwarded-Host")
-	outreq.Header.Del("X-Forwarded-Proto")
+	// outreq.Header.Del("X-Forwarded-For")
+	// outreq.Header.Del("X-Forwarded-Host")
+	// outreq.Header.Del("X-Forwarded-Proto")
 
 	pr := &ProxyRequest{
 		In:  req,

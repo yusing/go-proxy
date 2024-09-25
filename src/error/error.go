@@ -118,9 +118,9 @@ func (ne NestedError) With(s any) NestedError {
 	case string:
 		msg = ss
 	case fmt.Stringer:
-		return ne.append(ss.String())
+		return ne.appendMsg(ss.String())
 	default:
-		return ne.append(fmt.Sprint(s))
+		return ne.appendMsg(fmt.Sprint(s))
 	}
 	return ne.withError(From(errors.New(msg)))
 }
@@ -207,7 +207,7 @@ func (ne NestedError) withError(err NestedError) NestedError {
 	return ne
 }
 
-func (ne NestedError) append(msg string) NestedError {
+func (ne NestedError) appendMsg(msg string) NestedError {
 	if ne == nil {
 		return nil
 	}

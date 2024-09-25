@@ -32,13 +32,13 @@ func (cfg *Config) GetProvider() (provider *Provider, res E.NestedError) {
 
 	if cfg.Provider != ProviderLocal {
 		if len(cfg.Domains) == 0 {
-			b.Addf("no domains specified")
+			b.Addf("%s", "no domains specified")
 		}
 		if cfg.Provider == "" {
-			b.Addf("no provider specified")
+			b.Addf("%s", "no provider specified")
 		}
 		if cfg.Email == "" {
-			b.Addf("no email specified")
+			b.Addf("%s", "no email specified")
 		}
 		// check if provider is implemented
 		_, ok := providersGenMap[cfg.Provider]
