@@ -27,41 +27,36 @@ func TestApplyLabelFieldValidity(t *testing.T) {
 		"POST /upload/{$}",
 		"GET /static",
 	}
-	setHeaders := `
-X_Custom_Header1: value1
-X_Custom_Header1: value2
-X_Custom_Header2: value3
-`[1:]
-	setHeadersExpect := map[string]string{
-		"X_Custom_Header1": "value1, value2",
-		"X_Custom_Header2": "value3",
-	}
-	hideHeaders := `
-- X-Custom-Header1
-- X-Custom-Header2
-`[1:]
-	hideHeadersExpect := []string{
-		"X-Custom-Header1",
-		"X-Custom-Header2",
+	middlewaresExpect := D.NestedLabelMap{
+		"middleware1": {
+			"prop1": "value1",
+			"prop2": "value2",
+		},
+		"middleware2": {
+			"prop3": "value3",
+			"prop4": "value4",
+		},
 	}
 	var p DockerProvider
 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
-			D.LabelAliases:          "a,b",
-			D.LabelIdleTimeout:      common.IdleTimeoutDefault,
-			D.LabelStopMethod:       common.StopMethodDefault,
-			D.LabelStopSignal:       "SIGTERM",
-			D.LabelStopTimeout:      common.StopTimeoutDefault,
-			D.LabelWakeTimeout:      common.WakeTimeoutDefault,
-			"proxy.*.no_tls_verify": "true",
-			"proxy.*.scheme":        "https",
-			"proxy.*.host":          "app",
-			"proxy.*.port":          "4567",
-			"proxy.a.no_tls_verify": "true",
-			"proxy.a.path_patterns": pathPatterns,
-			"proxy.a.set_headers":   setHeaders,
-			"proxy.a.hide_headers":  hideHeaders,
+			D.LabelAliases:                          "a,b",
+			D.LabelIdleTimeout:                      common.IdleTimeoutDefault,
+			D.LabelStopMethod:                       common.StopMethodDefault,
+			D.LabelStopSignal:                       "SIGTERM",
+			D.LabelStopTimeout:                      common.StopTimeoutDefault,
+			D.LabelWakeTimeout:                      common.WakeTimeoutDefault,
+			"proxy.*.no_tls_verify":                 "true",
+			"proxy.*.scheme":                        "https",
+			"proxy.*.host":                          "app",
+			"proxy.*.port":                          "4567",
+			"proxy.a.no_tls_verify":                 "true",
+			"proxy.a.path_patterns":                 pathPatterns,
+			"proxy.a.middlewares.middleware1.prop1": "value1",
+			"proxy.a.middlewares.middleware1.prop2": "value2",
+			"proxy.a.middlewares.middleware2.prop3": "value3",
+			"proxy.a.middlewares.middleware2.prop4": "value4",
 		},
 		Ports: []types.Port{
 			{Type: "tcp", PrivatePort: 4567, PublicPort: 8888},
@@ -88,11 +83,8 @@ X_Custom_Header2: value3
 	ExpectDeepEqual(t, a.PathPatterns, pathPatternsExpect)
 	ExpectEqual(t, len(b.PathPatterns), 0)
 
-	ExpectDeepEqual(t, a.SetHeaders, setHeadersExpect)
-	ExpectEqual(t, len(b.SetHeaders), 0)
-
-	ExpectDeepEqual(t, a.HideHeaders, hideHeadersExpect)
-	ExpectEqual(t, len(b.HideHeaders), 0)
+	ExpectDeepEqual(t, a.Middlewares, middlewaresExpect)
+	ExpectEqual(t, len(b.Middlewares), 0)
 
 	ExpectEqual(t, a.IdleTimeout, common.IdleTimeoutDefault)
 	ExpectEqual(t, b.IdleTimeout, common.IdleTimeoutDefault)
@@ -149,11 +141,11 @@ func TestApplyLabelWithRef(t *testing.T) {
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b,c",
-			"proxy.$1.host":   "localhost",
+			"proxy.#1.host":   "localhost",
 			"proxy.*.port":    "1111",
-			"proxy.$1.port":   "4444",
-			"proxy.$2.port":   "9999",
-			"proxy.$3.scheme": "https",
+			"proxy.#1.port":   "4444",
+			"proxy.#2.port":   "9999",
+			"proxy.#3.scheme": "https",
 		},
 		Ports: []types.Port{
 			{Type: "tcp", PrivatePort: 3333, PublicPort: 9999},
@@ -182,8 +174,8 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b",
-			"proxy.$1.host":   "localhost",
-			"proxy.$4.scheme": "https",
+			"proxy.#1.host":   "localhost",
+			"proxy.#4.scheme": "https",
 		}}, "")
 	_, err := p.entriesFromContainerLabels(c)
 	ExpectError(t, E.ErrOutOfRange, err.Error())
@@ -193,7 +185,7 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:  "a,b",
-			"proxy.$0.host": "localhost",
+			"proxy.#0.host": "localhost",
 		}}, ""))
 	ExpectError(t, E.ErrOutOfRange, err.Error())
 	ExpectTrue(t, strings.Contains(err.String(), "index out of range"))

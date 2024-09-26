@@ -16,7 +16,7 @@ type DockerProvider struct {
 	dockerHost, hostname string
 }
 
-var AliasRefRegex = regexp.MustCompile(`\$\d+`)
+var AliasRefRegex = regexp.MustCompile(`#\d+`)
 
 func DockerProviderImpl(dockerHost string) (ProviderImpl, E.NestedError) {
 	hostname, err := D.ParseDockerHostname(dockerHost)
@@ -102,7 +102,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 
 	entries.RangeAll(func(alias string, entry *M.RawEntry) {
 		if routes.Has(alias) {
-			b.Add(E.AlreadyExist("alias", alias))
+			b.Add(E.Duplicated("alias", alias))
 		} else {
 			if route, err := R.NewRoute(entry); err.HasError() {
 				b.Add(err)
