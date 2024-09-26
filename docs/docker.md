@@ -36,7 +36,8 @@
     autocert:
         email: john.doe@x.y.z # ACME Email
         domains: # a list of domains for cert registration
-            - x.y.z
+            - y.z
+            - *.y.z
         provider: cloudflare
         options:
             auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
