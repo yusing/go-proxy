@@ -265,6 +265,8 @@ func (ne NestedError) buildError(level int, prefix string) error {
 		for _, extra := range ne.extras {
 			res = errors.Join(res, extra.buildError(level+1, "- "))
 		}
+	} else {
+		res = fmt.Errorf("%w%s", res, sb.String())
 	}
 	return res
 }
