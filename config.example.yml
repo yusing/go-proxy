@@ -13,7 +13,7 @@
 #   domains: # a list of domains for cert registration
 #     - x.y.z
 #   options:
-#     - auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
+#     auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
 
 # 3. other providers, check docs/dns_providers.md for more
 
