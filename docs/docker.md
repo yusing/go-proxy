@@ -39,7 +39,7 @@
             - x.y.z
         provider: cloudflare
         options:
-            - auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
+            auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
     ```
 
     To use **existing certificate**, set path for cert and key in `config.yml`, e.g.
