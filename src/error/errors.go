@@ -5,14 +5,14 @@ import (
 )
 
 var (
-	ErrFailure      = stderrors.New("failed")
-	ErrInvalid      = stderrors.New("invalid")
-	ErrUnsupported  = stderrors.New("unsupported")
-	ErrUnexpected   = stderrors.New("unexpected")
-	ErrNotExists    = stderrors.New("does not exist")
-	ErrMissing      = stderrors.New("missing")
-	ErrAlreadyExist = stderrors.New("already exist")
-	ErrOutOfRange   = stderrors.New("out of range")
+	ErrFailure     = stderrors.New("failed")
+	ErrInvalid     = stderrors.New("invalid")
+	ErrUnsupported = stderrors.New("unsupported")
+	ErrUnexpected  = stderrors.New("unexpected")
+	ErrNotExists   = stderrors.New("does not exist")
+	ErrMissing     = stderrors.New("missing")
+	ErrDuplicated  = stderrors.New("duplicated")
+	ErrOutOfRange  = stderrors.New("out of range")
 )
 
 const fmtSubjectWhat = "%w %v: %q"
@@ -53,8 +53,8 @@ func Missing(subject any) NestedError {
 	return errorf("%w %v", ErrMissing, subject)
 }
 
-func AlreadyExist(subject, what any) NestedError {
-	return errorf("%v %w: %v", subject, ErrAlreadyExist, what)
+func Duplicated(subject, what any) NestedError {
+	return errorf("%w %v: %v", ErrDuplicated, subject, what)
 }
 
 func OutOfRange(subject string, value any) NestedError {

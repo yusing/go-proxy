@@ -14,7 +14,7 @@ func (p *Provider) Setup(ctx context.Context) (err E.NestedError) {
 		}
 		logger.Debug("obtaining cert due to error loading cert")
 		if err = p.ObtainCert(); err != nil {
-			return err.Warn()
+			return err
 		}
 	}
 

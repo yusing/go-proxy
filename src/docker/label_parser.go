@@ -7,7 +7,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func yamlListParser(value string) (any, E.NestedError) {
+const (
+	NSProxy                    = "proxy"
+	ProxyAttributePathPatterns = "path_patterns"
+	ProxyAttributeNoTLSVerify  = "no_tls_verify"
+	ProxyAttributeMiddlewares  = "middlewares"
+)
+
+var _ = func() int {
+	RegisterNamespace(NSProxy, ValueParserMap{
+		ProxyAttributePathPatterns: YamlStringListParser,
+		ProxyAttributeNoTLSVerify:  BoolParser,
+	})
+	return 0
+}()
+
+func YamlStringListParser(value string) (any, E.NestedError) {
+	/*
+		- foo
+		- bar
+		- baz
+	*/
 	value = strings.TrimSpace(value)
 	if value == "" {
 		return []string{}, nil
@@ -17,27 +37,36 @@ func yamlListParser(value string) (any, E.NestedError) {
 	return data, err
 }
 
-func yamlStringMappingParser(value string) (any, E.NestedError) {
-	value = strings.TrimSpace(value)
-	lines := strings.Split(value, "\n")
-	h := make(map[string]string)
-	for _, line := range lines {
-		parts := strings.SplitN(line, ":", 2)
-		if len(parts) != 2 {
-			return nil, E.Invalid("set header statement", line)
+func YamlLikeMappingParser(allowDuplicate bool) func(string) (any, E.NestedError) {
+	return func(value string) (any, E.NestedError) {
+		/*
+			foo: bar
+			boo: baz
+		*/
+		value = strings.TrimSpace(value)
+		lines := strings.Split(value, "\n")
+		h := make(map[string]string)
+		for _, line := range lines {
+			parts := strings.SplitN(line, ":", 2)
+			if len(parts) != 2 {
+				return nil, E.Invalid("syntax", line)
+			}
+			key := strings.TrimSpace(parts[0])
+			val := strings.TrimSpace(parts[1])
+			if existing, ok := h[key]; ok {
+				if !allowDuplicate {
+					return nil, E.Duplicated("key", key)
+				}
+				h[key] = existing + ", " + val
+			} else {
+				h[key] = val
+			}
 		}
-		key := strings.TrimSpace(parts[0])
-		val := strings.TrimSpace(parts[1])
-		if existing, ok := h[key]; ok {
-			h[key] = existing + ", " + val
-		} else {
-			h[key] = val
-		}
+		return h, nil
 	}
-	return h, nil
 }
 
-func boolParser(value string) (any, E.NestedError) {
+func BoolParser(value string) (any, E.NestedError) {
 	switch strings.ToLower(value) {
 	case "true", "yes", "1":
 		return true, nil
@@ -47,15 +76,3 @@ func boolParser(value string) (any, E.NestedError) {
 		return nil, E.Invalid("boolean value", value)
 	}
 }
-
-const NSProxy = "proxy"
-
-var _ = func() int {
-	RegisterNamespace(NSProxy, ValueParserMap{
-		"path_patterns": yamlListParser,
-		"set_headers":   yamlStringMappingParser,
-		"hide_headers":  yamlListParser,
-		"no_tls_verify": boolParser,
-	})
-	return 0
-}()

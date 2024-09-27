@@ -106,7 +106,7 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 	return result, nil
 }
 
-func Deserialize(src map[string]any, target any) E.NestedError {
+func Deserialize(src SerializedObject, target any) E.NestedError {
 	// convert data fields to lower no-snake
 	// convert target fields to lower
 	// then check if the field of data is in the target
@@ -116,6 +116,10 @@ func Deserialize(src map[string]any, target any) E.NestedError {
 		field := t.Field(i)
 		snakeCaseField := strings.ToLower(field.Name)
 		mapping[snakeCaseField] = field.Name
+	}
+	tValue := reflect.ValueOf(target)
+	if tValue.IsZero() {
+		return E.Invalid("value", "nil")
 	}
 	for k, v := range src {
 		kCleaned := toLowerNoSnake(k)
@@ -150,13 +154,13 @@ func Deserialize(src map[string]any, target any) E.NestedError {
 					}
 					prop.Set(propNew)
 				default:
-					return E.Unsupported("field", k).Extraf("type=%s", propType)
+					return E.Invalid("conversion", k).Extraf("from %s to %s", vType, propType)
 				}
 			} else {
-				return E.Unsupported("field", k).Extraf("type=%s", propType)
+				return E.Unsupported("field", k).Extraf("type %s is not settable", propType)
 			}
 		} else {
-			return E.Failure("unknown field").With(k)
+			return E.Unexpected("field", k)
 		}
 	}
 

@@ -1,4 +1,4 @@
-.PHONY: all build up quick-restart restart logs get udp-server
+.PHONY: all setup build test up restart logs get debug run archive repush rapid-crash debug-list-containers
 
 all: debug
 
@@ -9,7 +9,8 @@ setup:
 
 build:
 	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o bin/go-proxy github.com/yusing/go-proxy
+	CGO_ENABLED=0 GOOS=linux \
+		go build -ldflags '${BUILD_FLAG}' -pgo=auto -o bin/go-proxy github.com/yusing/go-proxy
 
 test:
 	go test ./src/...
@@ -28,6 +29,9 @@ get:
 
 debug:
 	make build && sudo GOPROXY_DEBUG=1 bin/go-proxy
+
+run:
+	BUILD_FLAG="-s -w" make build && sudo bin/go-proxy
 
 archive:
 	git archive HEAD -o ../go-proxy-$$(date +"%Y%m%d%H%M").zip

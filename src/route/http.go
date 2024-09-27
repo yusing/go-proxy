@@ -1,20 +1,20 @@
 package route
 
 import (
-	"crypto/tls"
-	"net"
 	"sync"
-	"time"
 
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/common"
 	"github.com/yusing/go-proxy/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/error"
+	. "github.com/yusing/go-proxy/http"
 	P "github.com/yusing/go-proxy/proxy"
 	PT "github.com/yusing/go-proxy/proxy/fields"
+	"github.com/yusing/go-proxy/route/middleware"
 	F "github.com/yusing/go-proxy/utils/functional"
 )
 
@@ -26,7 +26,7 @@ type (
 
 		entry   *P.ReverseProxyEntry
 		mux     *http.ServeMux
-		handler *P.ReverseProxy
+		handler *ReverseProxy
 
 		regIdleWatcher   func() E.NestedError
 		unregIdleWatcher func()
@@ -36,18 +36,41 @@ type (
 	SubdomainKey = PT.Alias
 )
 
+var (
+	findMuxFunc = findMuxAnyDomain
+
+	httpRoutes   = F.NewMapOf[SubdomainKey, *HTTPRoute]()
+	httpRoutesMu sync.Mutex
+	globalMux    = http.NewServeMux() // TODO: support regex subdomain matching
+)
+
+func SetFindMuxDomains(domains []string) {
+	if len(domains) == 0 {
+		findMuxFunc = findMuxAnyDomain
+	} else {
+		findMuxFunc = findMuxByDomain(domains)
+	}
+}
+
 func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	var trans *http.Transport
 	var regIdleWatcher func() E.NestedError
 	var unregIdleWatcher func()
 
 	if entry.NoTLSVerify {
-		trans = transportNoTLS.Clone()
+		trans = common.DefaultTransportNoTLS.Clone()
 	} else {
-		trans = transport.Clone()
+		trans = common.DefaultTransport.Clone()
 	}
 
-	rp := P.NewReverseProxy(entry.URL, trans, entry)
+	rp := NewReverseProxy(entry.URL, trans)
+
+	if len(entry.Middlewares) > 0 {
+		err := middleware.PatchReverseProxy(rp, entry.Middlewares)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if entry.UseIdleWatcher() {
 		// allow time for response header up to `WakeTimeout`
@@ -74,7 +97,7 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 
 	_, exists := httpRoutes.Load(entry.Alias)
 	if exists {
-		return nil, E.AlreadyExist("HTTPRoute alias", entry.Alias)
+		return nil, E.Duplicated("HTTPRoute alias", entry.Alias)
 	}
 
 	r := &HTTPRoute{
@@ -94,11 +117,16 @@ func (r *HTTPRoute) String() string {
 }
 
 func (r *HTTPRoute) Start() E.NestedError {
+	if r.mux != nil {
+		return nil
+	}
+
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
 	if r.regIdleWatcher != nil {
 		if err := r.regIdleWatcher(); err.HasError() {
+			r.unregIdleWatcher = nil
 			return err
 		}
 	}
@@ -113,6 +141,10 @@ func (r *HTTPRoute) Start() E.NestedError {
 }
 
 func (r *HTTPRoute) Stop() E.NestedError {
+	if r.mux == nil {
+		return nil
+	}
+
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
@@ -135,7 +167,7 @@ func (u *URL) MarshalText() (text []byte, err error) {
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
-	mux, err := findMux(r.Host)
+	mux, err := findMuxFunc(r.Host)
 	if err != nil {
 		err = E.Failure("request").
 			Subjectf("%s %s%s", r.Method, r.Host, r.URL.Path).
@@ -147,7 +179,7 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	mux.ServeHTTP(w, r)
 }
 
-func findMux(host string) (*http.ServeMux, E.NestedError) {
+func findMuxAnyDomain(host string) (*http.ServeMux, E.NestedError) {
 	hostSplit := strings.Split(host, ".")
 	n := len(hostSplit)
 	if n <= 2 {
@@ -160,23 +192,21 @@ func findMux(host string) (*http.ServeMux, E.NestedError) {
 	return nil, E.NotExist("route", sd)
 }
 
-var (
-	defaultDialer = net.Dialer{
-		Timeout:   60 * time.Second,
-		KeepAlive: 60 * time.Second,
+func findMuxByDomain(domains []string) func(host string) (*http.ServeMux, E.NestedError) {
+	return func(host string) (*http.ServeMux, E.NestedError) {
+		var subdomain string
+		for _, domain := range domains {
+			subdomain = strings.TrimSuffix(subdomain, domain)
+			if subdomain != domain {
+				break
+			}
+		}
+		if subdomain == "" { // not matched
+			return nil, E.Invalid("host", host)
+		}
+		if r, ok := httpRoutes.Load(PT.Alias(subdomain)); ok {
+			return r.mux, nil
+		}
+		return nil, E.NotExist("route", subdomain)
 	}
-	transport = &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		DialContext:         defaultDialer.DialContext,
-		MaxIdleConnsPerHost: 1000,
-	}
-	transportNoTLS = func() *http.Transport {
-		var clone = transport.Clone()
-		clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		return clone
-	}()
-
-	httpRoutes   = F.NewMapOf[SubdomainKey, *HTTPRoute]()
-	httpRoutesMu sync.Mutex
-	globalMux    = http.NewServeMux()
-)
+}

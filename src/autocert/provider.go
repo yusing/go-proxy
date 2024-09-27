@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"time"
@@ -59,8 +60,7 @@ func (p *Provider) ObtainCert() (res E.NestedError) {
 	defer b.To(&res)
 
 	if p.cfg.Provider == ProviderLocal {
-		b.Addf("provider is set to %q", ProviderLocal).WithSeverity(E.SeverityWarning)
-		return
+		return nil
 	}
 
 	if p.client == nil {
@@ -191,7 +191,19 @@ func (p *Provider) registerACME() E.NestedError {
 }
 
 func (p *Provider) saveCert(cert *certificate.Resource) E.NestedError {
-	err := os.WriteFile(p.cfg.KeyPath, cert.PrivateKey, 0o600) // -rw-------
+	//* This should have been done in setup
+	//* but double check is always a good choice
+	_, err := os.Stat(path.Dir(p.cfg.CertPath))
+	if err != nil {
+		if os.IsNotExist(err) {
+			if err = os.MkdirAll(path.Dir(p.cfg.CertPath), 0o755); err != nil {
+				return E.FailWith("create cert directory", err)
+			}
+		} else {
+			return E.FailWith("stat cert directory", err)
+		}
+	}
+	err = os.WriteFile(p.cfg.KeyPath, cert.PrivateKey, 0o600) // -rw-------
 	if err != nil {
 		return E.FailWith("write key file", err)
 	}
@@ -227,6 +239,10 @@ func (p *Provider) certState() CertState {
 }
 
 func (p *Provider) renewIfNeeded() E.NestedError {
+	if p.cfg.Provider == ProviderLocal {
+		return nil
+	}
+
 	switch p.certState() {
 	case CertStateExpired:
 		logger.Info("certs expired, renewing")

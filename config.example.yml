@@ -1,36 +1,64 @@
 # Autocert (choose one below and uncomment to enable)
-
+#
 # 1. use existing cert
+#
 # autocert:
 #   provider: local
-#   cert_path: certs/cert.crt # optional, uncomment only if you need to change it
-#   key_path: certs/priv.key # optional, uncomment only if you need to change it
-
+#
+#   cert_path: certs/cert.crt         # optional, uncomment only if you need to change it
+#   key_path: certs/priv.key          # optional, uncomment only if you need to change it
+#
 # 2. cloudflare
+#
 # autocert:
 #   provider: cloudflare
-#   email: # ACME Email
-#   domains: # a list of domains for cert registration
-#     - x.y.z
+#   email: abc@gmail.com                            # ACME Email
+#   domains:                                        # a list of domains for cert registration
+#     - "*.y.z"                                     # remember to use double quotes to surround wildcard domain
 #   options:
-#     auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
-
+#     auth_token: c1234565789-abcdefghijklmnopqrst  # your zone API token
+#
 # 3. other providers, check docs/dns_providers.md for more
 
 providers:
+  # include files are standalone yaml files under `config/` directory
+  #
   # include:
-  #   - providers.yml # config/providers.yml
-  #   # add some more below if you want
-  #   - file1.yml # config/file_1.yml
+  #   - file1.yml
   #   - file2.yml
+
   docker:
-    # for value format, see https://docs.docker.com/reference/cli/dockerd/
-    # $DOCKER_HOST implies unix:///var/run/docker.sock by default
+    # $DOCKER_HOST implies environment variable `DOCKER_HOST` or unix:///var/run/docker.sock by default
     local: $DOCKER_HOST
+
     # add more docker providers if needed
+    # for value format, see https://docs.docker.com/reference/cli/dockerd/
+    #
     # remote-1: tcp://10.0.2.1:2375
     # remote-2: ssh://root:1234@10.0.2.2
-# Fixed options (optional, non hot-reloadable)
+# if match_domains not defined
+# any host = alias+[any domain] will match
+# i.e. https://app1.y.z       will match alias app1 for any domain y.z
+#  but https://app1.node1.y.z will only match alias "app.node1"
+#
+# if match_domains defined
+# only host = alias+[one of match_domains] will match
+# i.e. match_domains = [node1.my.app, my.site]
+# https://app1.my.app, https://app1.my.net, etc. will not match even if app1 exists
+# only https://*.node1.my.app and https://*.my.site will match
+#
+#
+# match_domains:
+#   - my.site
+#   - node1.my.app
 
+# Below are fixed options (non hot-reloadable)
+
+# timeout for shutdown (in seconds)
+#
 # timeout_shutdown: 5
-# redirect_to_https: false # redirect http requests to https (if enabled)
+
+# global setting redirect http requests to https (if https available, otherwise this will be ignored)
+# proxy.<alias>.middlewares.redirect_http will override this
+#
+# redirect_to_https: false

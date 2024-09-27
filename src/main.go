@@ -47,11 +47,10 @@ func main() {
 		logrus.SetOutput(io.Discard)
 	} else {
 		logrus.SetFormatter(&logrus.TextFormatter{
-			DisableSorting:         true,
-			DisableLevelTruncation: true,
-			FullTimestamp:          true,
-			ForceColors:            true,
-			TimestampFormat:        "01-02 15:04:05",
+			DisableSorting:  true,
+			FullTimestamp:   true,
+			ForceColors:     true,
+			TimestampFormat: "01-02 15:04:05",
 		})
 	}
 
@@ -76,10 +75,11 @@ func main() {
 		return
 	}
 
-	cfg, err := config.Load()
-	if err.IsFatal() {
-		log.Fatal(err)
+	err := config.Load()
+	if err != nil {
+		logrus.Warn(err)
 	}
+	cfg := config.GetConfig()
 
 	switch args.Command {
 	case common.CommandListConfigs:
@@ -94,6 +94,10 @@ func main() {
 	case common.CommandDebugListProviders:
 		printJSON(cfg.DumpProviders())
 		return
+	}
+
+	if common.IsDebug {
+		printJSON(docker.GetRegisteredNamespaces())
 	}
 
 	cfg.StartProxyProviders()
@@ -116,10 +120,7 @@ func main() {
 
 	if autocert != nil {
 		ctx, cancel := context.WithCancel(context.Background())
-		if err = autocert.Setup(ctx); err != nil && err.IsWarning() {
-			cancel()
-			l.Warn(err)
-		} else if err.IsFatal() {
+		if err = autocert.Setup(ctx); err != nil {
 			l.Fatal(err)
 		} else {
 			onShutdown.Add(cancel)
@@ -192,7 +193,7 @@ func funcName(f func()) string {
 }
 
 func printJSON(obj any) {
-	j, err := E.Check(json.Marshal(obj))
+	j, err := E.Check(json.MarshalIndent(obj, "", "  "))
 	if err.HasError() {
 		logrus.Fatal(err)
 	}

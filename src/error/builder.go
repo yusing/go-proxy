@@ -10,9 +10,8 @@ type Builder struct {
 }
 
 type builder struct {
-	message  string
-	errors   []NestedError
-	severity Severity
+	message string
+	errors  []NestedError
 	sync.Mutex
 }
 
@@ -40,11 +39,6 @@ func (b Builder) Addf(format string, args ...any) Builder {
 	return b.Add(errorf(format, args...))
 }
 
-func (b Builder) WithSeverity(s Severity) Builder {
-	b.severity = s
-	return b
-}
-
 // Build builds a NestedError based on the errors collected in the Builder.
 //
 // If there are no errors in the Builder, it returns a Nil() NestedError.
@@ -58,7 +52,7 @@ func (b Builder) Build() NestedError {
 	} else if len(b.errors) == 1 {
 		return b.errors[0]
 	}
-	return Join(b.message, b.errors...).Severity(b.severity)
+	return Join(b.message, b.errors...)
 }
 
 func (b Builder) To(ptr *NestedError) {

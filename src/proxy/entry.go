@@ -2,10 +2,10 @@ package proxy
 
 import (
 	"fmt"
-	"net/http"
 	"net/url"
 	"time"
 
+	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
 	T "github.com/yusing/go-proxy/proxy/fields"
@@ -18,8 +18,7 @@ type (
 		URL          *url.URL
 		NoTLSVerify  bool
 		PathPatterns T.PathPatterns
-		SetHeaders   http.Header
-		HideHeaders  []string
+		Middlewares  D.NestedLabelMap
 
 		/* Docker only */
 		IdleTimeout      time.Duration
@@ -78,9 +77,6 @@ func validateRPEntry(m *M.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry 
 	pathPatterns, err := T.ValidatePathPatterns(m.PathPatterns)
 	b.Add(err)
 
-	setHeaders, err := T.ValidateHTTPHeaders(m.SetHeaders)
-	b.Add(err)
-
 	url, err := E.Check(url.Parse(fmt.Sprintf("%s://%s:%d", s, host, port)))
 	b.Add(err)
 
@@ -111,8 +107,7 @@ func validateRPEntry(m *M.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry 
 		URL:              url,
 		NoTLSVerify:      m.NoTLSVerify,
 		PathPatterns:     pathPatterns,
-		SetHeaders:       setHeaders,
-		HideHeaders:      m.HideHeaders,
+		Middlewares:      m.Middlewares,
 		IdleTimeout:      idleTimeout,
 		WakeTimeout:      wakeTimeout,
 		StopMethod:       stopMethod,

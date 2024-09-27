@@ -132,7 +132,8 @@ func TestApplyLabel(t *testing.T) {
 	ExpectEqual(t, b.Scheme, "http")
 	ExpectEqual(t, b.Port, "1234")
 	ExpectEqual(t, c.Scheme, "https")
-	ExpectEqual(t, c.Port, "1111")
+	// map does not necessary follow the order above
+	ExpectEqualAny(t, c.Port, []string{"1111", "1234"})
 }
 
 func TestApplyLabelWithRef(t *testing.T) {
@@ -142,9 +143,9 @@ func TestApplyLabelWithRef(t *testing.T) {
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b,c",
 			"proxy.#1.host":   "localhost",
-			"proxy.*.port":    "1111",
 			"proxy.#1.port":   "4444",
 			"proxy.#2.port":   "9999",
+			"proxy.#3.port":   "1111",
 			"proxy.#3.scheme": "https",
 		},
 		Ports: []types.Port{

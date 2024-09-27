@@ -38,6 +38,17 @@ func ExpectEqual[T comparable](t *testing.T, got T, want T) {
 	}
 }
 
+func ExpectEqualAny[T comparable](t *testing.T, got T, wants []T) {
+	t.Helper()
+	for _, want := range wants {
+		if got == want {
+			return
+		}
+	}
+	t.Errorf("expected any of:\n%v, got\n%v", wants, got)
+	t.FailNow()
+}
+
 func ExpectDeepEqual[T any](t *testing.T, got T, want T) {
 	t.Helper()
 	if !reflect.DeepEqual(got, want) {

@@ -31,25 +31,48 @@ type Config struct {
 	reloadReq     chan struct{}
 }
 
-func Load() (*Config, E.NestedError) {
-	cfg := &Config{
+var instance *Config
+
+func GetConfig() *Config {
+	return instance
+}
+
+func Load() E.NestedError {
+	if instance != nil {
+		return nil
+	}
+	instance = &Config{
+		value:          M.DefaultConfig(),
 		proxyProviders: F.NewMapOf[string, *PR.Provider](),
 		l:              logrus.WithField("module", "config"),
 		watcher:        W.NewFileWatcher(common.ConfigFileName),
 		reloadReq:      make(chan struct{}, 1),
 	}
-	return cfg, cfg.load()
+	return instance.load()
 }
 
 func Validate(data []byte) E.NestedError {
 	return U.ValidateYaml(U.GetSchema(common.ConfigSchemaPath), data)
 }
 
+func MatchDomains() []string {
+	if instance == nil {
+		logrus.Panic("config has not been loaded, please check if there is any errors")
+	}
+	return instance.value.MatchDomains
+}
+
 func (cfg *Config) Value() M.Config {
+	if cfg == nil {
+		logrus.Panic("config has not been loaded, please check if there is any errors")
+	}
 	return *cfg.value
 }
 
 func (cfg *Config) GetAutoCertProvider() *autocert.Provider {
+	if instance == nil {
+		logrus.Panic("config has not been loaded, please check if there is any errors")
+	}
 	return cfg.autocertProvider
 }
 
@@ -61,13 +84,11 @@ func (cfg *Config) Dispose() {
 	cfg.stopProviders()
 }
 
-func (cfg *Config) Reload() E.NestedError {
+func (cfg *Config) Reload() (err E.NestedError) {
 	cfg.stopProviders()
-	if err := cfg.load(); err.HasError() {
-		return err
-	}
+	err = cfg.load()
 	cfg.StartProxyProviders()
-	return nil
+	return
 }
 
 func (cfg *Config) StartProxyProviders() {
@@ -126,28 +147,28 @@ func (cfg *Config) load() (res E.NestedError) {
 	data, err := E.Check(os.ReadFile(common.ConfigPath))
 	if err.HasError() {
 		b.Add(E.FailWith("read config", err))
-		return
+		logrus.Fatal(b.Build())
 	}
 
 	if !common.NoSchemaValidation {
 		if err = Validate(data); err.HasError() {
 			b.Add(E.FailWith("schema validation", err))
-			return
+			logrus.Fatal(b.Build())
 		}
 	}
 
 	model := M.DefaultConfig()
 	if err := E.From(yaml.Unmarshal(data, model)); err.HasError() {
 		b.Add(E.FailWith("parse config", err))
-		return
+		logrus.Fatal(b.Build())
 	}
 
 	// errors are non fatal below
-	b.WithSeverity(E.SeverityWarning)
 	b.Add(cfg.initAutoCert(&model.AutoCert))
 	b.Add(cfg.loadProviders(&model.Providers))
 
 	cfg.value = model
+	R.SetFindMuxDomains(model.MatchDomains)
 	return
 }
 

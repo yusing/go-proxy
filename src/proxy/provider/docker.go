@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"regexp"
 	"strconv"
+	"strings"
 
+	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/docker"
 	E "github.com/yusing/go-proxy/error"
 	M "github.com/yusing/go-proxy/models"
@@ -17,6 +19,7 @@ type DockerProvider struct {
 }
 
 var AliasRefRegex = regexp.MustCompile(`#\d+`)
+var AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
 
 func DockerProviderImpl(dockerHost string) (ProviderImpl, E.NestedError) {
 	hostname, err := D.ParseDockerHostname(dockerHost)
@@ -152,6 +155,20 @@ func (p *DockerProvider) applyLabel(container D.Container, entries M.RawEntries,
 	b := E.NewBuilder("errors in label %s", key)
 	defer b.To(&res)
 
+	refErr := E.NewBuilder("errors parsing alias references")
+	replaceIndexRef := func(ref string) string {
+		index, err := strconv.Atoi(ref[1:])
+		if err != nil {
+			refErr.Add(E.Invalid("integer", ref))
+			return ref
+		}
+		if index < 1 || index > len(container.Aliases) {
+			refErr.Add(E.OutOfRange("index", ref))
+			return ref
+		}
+		return container.Aliases[index-1]
+	}
+
 	lbl, err := D.ParseLabel(key, val)
 	if err.HasError() {
 		b.Add(err.Subject(key))
@@ -163,22 +180,14 @@ func (p *DockerProvider) applyLabel(container D.Container, entries M.RawEntries,
 		// apply label for all aliases
 		entries.RangeAll(func(a string, e *M.RawEntry) {
 			if err = D.ApplyLabel(e, lbl); err.HasError() {
-				b.Add(err.Subject(lbl.Target))
+				b.Add(err.Subjectf("alias %s", lbl.Target))
 			}
 		})
 	} else {
-		refErr := E.NewBuilder("errors parsing alias references")
-		lbl.Target = AliasRefRegex.ReplaceAllStringFunc(lbl.Target, func(ref string) string {
-			index, err := strconv.Atoi(ref[1:])
-			if err != nil {
-				refErr.Add(E.Invalid("integer", ref))
-				return ref
-			}
-			if index < 1 || index > len(container.Aliases) {
-				refErr.Add(E.OutOfRange("index", ref))
-				return ref
-			}
-			return container.Aliases[index-1]
+		lbl.Target = AliasRefRegex.ReplaceAllStringFunc(lbl.Target, replaceIndexRef)
+		lbl.Target = AliasRefRegexOld.ReplaceAllStringFunc(lbl.Target, func(s string) string {
+			logrus.Warnf("%q should now be %q, old syntax will be removed in a future version", lbl, strings.ReplaceAll(lbl.String(), "$", "#"))
+			return replaceIndexRef(s)
 		})
 		if refErr.HasError() {
 			b.Add(refErr.Build())
@@ -190,7 +199,7 @@ func (p *DockerProvider) applyLabel(container D.Container, entries M.RawEntries,
 			return
 		}
 		if err = D.ApplyLabel(config, lbl); err.HasError() {
-			b.Add(err.Subject(lbl.Target))
+			b.Add(err.Subjectf("alias %s", lbl.Target))
 		}
 	}
 	return

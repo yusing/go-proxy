@@ -9,17 +9,10 @@ import (
 type (
 	NestedError = *nestedError
 	nestedError struct {
-		subject  string
-		err      error
-		extras   []nestedError
-		severity Severity
+		subject string
+		err     error
+		extras  []nestedError
 	}
-	Severity uint8
-)
-
-const (
-	SeverityWarning Severity = iota
-	SeverityFatal
 )
 
 func From(err error) NestedError {
@@ -164,36 +157,12 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	return ne
 }
 
-func (ne NestedError) Severity(s Severity) NestedError {
-	if ne == nil {
-		return ne
-	}
-	ne.severity = s
-	return ne
-}
-
-func (ne NestedError) Warn() NestedError {
-	if ne == nil {
-		return ne
-	}
-	ne.severity = SeverityWarning
-	return ne
-}
-
 func (ne NestedError) NoError() bool {
 	return ne == nil
 }
 
 func (ne NestedError) HasError() bool {
 	return ne != nil
-}
-
-func (ne NestedError) IsFatal() bool {
-	return ne != nil && ne.severity == SeverityFatal
-}
-
-func (ne NestedError) IsWarning() bool {
-	return ne != nil && ne.severity == SeverityWarning
 }
 
 func errorf(format string, args ...any) NestedError {

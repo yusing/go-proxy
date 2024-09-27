@@ -1,7 +1,13 @@
-package proxy
+// Copyright 2011 The Go Authors.
+// Modified from the Go project under the a BSD-style License (https://cs.opensource.google/go/go/+/refs/tags/go1.23.1:src/net/http/httputil/reverseproxy.go)
+// https://cs.opensource.google/go/go/+/master:LICENSE
 
-// A small mod on net/http/httputil/reverseproxy.go
-// that doubled the performance
+package http
+
+// This is a small mod on net/http/httputil/reverseproxy.go
+// that boosts performance in some cases
+// and compatible to other modules of this project
+// Copyright (c) 2024 yusing
 
 import (
 	"context"
@@ -54,6 +60,21 @@ type ProxyRequest struct {
 func (r *ProxyRequest) SetXForwarded() {
 	clientIP, _, err := net.SplitHostPort(r.In.RemoteAddr)
 	if err == nil {
+		r.Out.Header.Set("X-Forwarded-For", clientIP)
+	} else {
+		r.Out.Header.Del("X-Forwarded-For")
+	}
+	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
+	if r.In.TLS == nil {
+		r.Out.Header.Set("X-Forwarded-Proto", "http")
+	} else {
+		r.Out.Header.Set("X-Forwarded-Proto", "https")
+	}
+}
+
+func (r *ProxyRequest) AddXForwarded() {
+	clientIP, _, err := net.SplitHostPort(r.In.RemoteAddr)
+	if err == nil {
 		prior := r.Out.Header["X-Forwarded-For"]
 		if len(prior) > 0 {
 			clientIP = strings.Join(prior, ", ") + ", " + clientIP
@@ -103,28 +124,6 @@ type ReverseProxy struct {
 	// The transport used to perform proxy requests.
 	// If nil, http.DefaultTransport is used.
 	Transport http.RoundTripper
-
-	// FlushInterval specifies the flush interval
-	// to flush to the client while copying the
-	// response body.
-	// If zero, no periodic flushing is done.
-	// A negative value means to flush immediately
-	// after each write to the client.
-	// The FlushInterval is ignored when ReverseProxy
-	// recognizes a response as a streaming response, or
-	// if its ContentLength is -1; for such responses, writes
-	// are flushed to the client immediately.
-	// FlushInterval time.Duration
-
-	// ErrorLog specifies an optional logger for errors
-	// that occur when attempting to proxy the request.
-	// If nil, logging is done via the log package's standard logger.
-	// ErrorLog *log.Logger
-
-	// BufferPool optionally specifies a buffer pool to
-	// get byte slices for use by io.CopyBuffer when
-	// copying HTTP response bodies.
-	// BufferPool BufferPool
 
 	// ModifyResponse is an optional function that modifies the
 	// Response from the backend. It is called if the backend
@@ -208,36 +207,11 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 //		},
 //	}
 //
-// TODO: headers in ModifyResponse
-func NewReverseProxy(target *url.URL, transport http.RoundTripper, entry *ReverseProxyEntry) *ReverseProxy {
-	// check on init rather than on request
-	var setHeaders = func(r *http.Request) {}
-	var hideHeaders = func(r *http.Request) {}
-	if len(entry.SetHeaders) > 0 {
-		setHeaders = func(r *http.Request) {
-			h := entry.SetHeaders.Clone()
-			for k, vv := range h {
-				if k == "Host" {
-					r.Host = vv[0]
-				} else {
-					r.Header[k] = vv
-				}
-			}
-		}
-	}
-	if len(entry.HideHeaders) > 0 {
-		hideHeaders = func(r *http.Request) {
-			for _, k := range entry.HideHeaders {
-				r.Header.Del(k)
-			}
-		}
-	}
+
+func NewReverseProxy(target *url.URL, transport http.RoundTripper) *ReverseProxy {
 	rp := &ReverseProxy{
 		Rewrite: func(pr *ProxyRequest) {
 			rewriteRequestURL(pr.Out, target)
-			// pr.SetXForwarded()
-			setHeaders(pr.Out)
-			hideHeaders(pr.Out)
 		}, Transport: transport,
 	}
 	rp.ServeHTTP = rp.serveHTTP
@@ -254,6 +228,23 @@ func rewriteRequestURL(req *http.Request, target *url.URL) {
 	} else {
 		req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
 	}
+}
+
+// Hop-by-hop headers. These are removed when sent to the backend.
+// As of RFC 7230, hop-by-hop headers are required to appear in the
+// Connection header field. These are the headers defined by the
+// obsoleted RFC 2616 (section 13.5.1) and are used for backward
+// compatibility.
+var hopHeaders = []string{
+	"Connection",
+	"Proxy-Connection", // non-standard but still sent by libcurl and rejected by e.g. google
+	"Keep-Alive",
+	"Proxy-Authenticate",
+	"Proxy-Authorization",
+	"Te",      // canonicalized version of "TE"
+	"Trailer", // not Trailers per URL above; https://www.rfc-editor.org/errata_search.php?eid=4522
+	"Transfer-Encoding",
+	"Upgrade",
 }
 
 func copyHeader(dst, src http.Header) {
@@ -331,11 +322,13 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	outreq.Close = false
 
-	reqUpType := upgradeType(outreq.Header)
+	reqUpType := UpgradeType(outreq.Header)
 	if !IsPrint(reqUpType) {
 		p.errorHandler(rw, req, fmt.Errorf("client tried to switch to invalid protocol %q", reqUpType))
 		return
 	}
+
+	RemoveHopByHopHeaders(outreq.Header)
 
 	// Issue 21096: tell backend applications that care about trailer support
 	// that we support trailers. (We do, but we don't go out of our way to
@@ -458,16 +451,34 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func upgradeType(h http.Header) string {
+func UpgradeType(h http.Header) string {
 	if !httpguts.HeaderValuesContainsToken(h["Connection"], "Upgrade") {
 		return ""
 	}
 	return h.Get("Upgrade")
 }
 
+// RemoveHopByHopHeaders removes hop-by-hop headers.
+func RemoveHopByHopHeaders(h http.Header) {
+	// RFC 7230, section 6.1: Remove headers listed in the "Connection" header.
+	for _, f := range h["Connection"] {
+		for _, sf := range strings.Split(f, ",") {
+			if sf = textproto.TrimString(sf); sf != "" {
+				h.Del(sf)
+			}
+		}
+	}
+	// RFC 2616, section 13.5.1: Remove a set of known hop-by-hop headers.
+	// This behavior is superseded by the RFC 7230 Connection header, but
+	// preserve it for backwards compatibility.
+	for _, f := range hopHeaders {
+		h.Del(f)
+	}
+}
+
 func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.Request, res *http.Response) {
-	reqUpType := upgradeType(req.Header)
-	resUpType := upgradeType(res.Header)
+	reqUpType := UpgradeType(req.Header)
+	resUpType := UpgradeType(res.Header)
 	if !IsPrint(resUpType) { // We know reqUpType is ASCII, it's checked by the caller.
 		p.errorHandler(rw, req, fmt.Errorf("backend tried to switch to invalid protocol %q", resUpType))
 	}

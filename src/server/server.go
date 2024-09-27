@@ -84,6 +84,11 @@ func NewServer(opt Options) (s *server) {
 	}
 }
 
+// Start will start the http and https servers.
+//
+// If both are not set, this does nothing.
+//
+// Start() is non-blocking
 func (s *server) Start() {
 	if s.http == nil && s.https == nil {
 		return

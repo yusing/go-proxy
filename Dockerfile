@@ -9,15 +9,15 @@ COPY src/go.mod src/go.sum ./
 
 # Utilize build cache
 RUN --mount=type=cache,target="/go/pkg/mod" \
-    go mod download
+    go mod graph | awk '{if ($1 !~ "@") print $2}' | xargs go get
 
-# Now copy the remaining files
-COPY src/ ./
+ENV GOCACHE=/root/.cache/go-build
 
 # Build the application with better caching
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
-    CGO_ENABLED=0 GOOS=linux go build -pgo=auto -o go-proxy ./
+    --mount=type=bind,src=src,dst=/src \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s' -pgo=auto -o /go-proxy .
 
 # Stage 2: Final image
 FROM scratch
@@ -28,7 +28,7 @@ LABEL maintainer="yusing@6uo.me"
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # copy binary
-COPY --from=builder /src/go-proxy /app/
+COPY --from=builder /go-proxy /app/
 
 # copy schema directory
 COPY schema/ /app/schema/

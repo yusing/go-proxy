@@ -14,14 +14,13 @@ type (
 	RawEntry struct {
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string            `yaml:"-" json:"-"`
-		Scheme       string            `yaml:"scheme" json:"scheme"`
-		Host         string            `yaml:"host" json:"host"`
-		Port         string            `yaml:"port" json:"port"`
-		NoTLSVerify  bool              `yaml:"no_tls_verify" json:"no_tls_verify"` // https proxy only
-		PathPatterns []string          `yaml:"path_patterns" json:"path_patterns"` // http(s) proxy only
-		SetHeaders   map[string]string `yaml:"set_headers" json:"set_headers"`     // http(s) proxy only
-		HideHeaders  []string          `yaml:"hide_headers" json:"hide_headers"`   // http(s) proxy only
+		Alias        string           `yaml:"-" json:"-"`
+		Scheme       string           `yaml:"scheme" json:"scheme"`
+		Host         string           `yaml:"host" json:"host"`
+		Port         string           `yaml:"port" json:"port"`
+		NoTLSVerify  bool             `yaml:"no_tls_verify" json:"no_tls_verify"` // https proxy only
+		PathPatterns []string         `yaml:"path_patterns" json:"path_patterns"` // http(s) proxy only
+		Middlewares  D.NestedLabelMap `yaml:"middlewares" json:"middlewares"`
 
 		/* Docker only */
 		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`
@@ -44,12 +43,16 @@ func (e *RawEntry) FillMissingFields() bool {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
-		e.Scheme = "tcp"
+		if e.Scheme == "" {
+			e.Scheme = "tcp"
+		}
 	} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
-		e.Scheme = "http"
+		if e.Scheme == "" {
+			e.Scheme = "http"
+		}
 	} else if pp == "" && e.Scheme == "https" {
 		pp = "443"
 	} else if pp == "" {

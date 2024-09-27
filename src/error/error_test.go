@@ -31,11 +31,11 @@ func TestErrorNestedIs(t *testing.T) {
 
 	err = Failure("some reason")
 	ExpectTrue(t, err.Is(ErrFailure))
-	ExpectFalse(t, err.Is(ErrAlreadyExist))
+	ExpectFalse(t, err.Is(ErrDuplicated))
 
-	err.With(AlreadyExist("something", ""))
+	err.With(Duplicated("something", ""))
 	ExpectTrue(t, err.Is(ErrFailure))
-	ExpectTrue(t, err.Is(ErrAlreadyExist))
+	ExpectTrue(t, err.Is(ErrDuplicated))
 	ExpectFalse(t, err.Is(ErrInvalid))
 }
 
