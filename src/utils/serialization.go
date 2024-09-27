@@ -108,13 +108,13 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 
 func Deserialize(src SerializedObject, target any) E.NestedError {
 	// convert data fields to lower no-snake
-	// convert target fields to lower
+	// convert target fields to lower no-snake
 	// then check if the field of data is in the target
 	mapping := make(map[string]string)
 	t := reflect.TypeOf(target).Elem()
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		snakeCaseField := strings.ToLower(field.Name)
+		snakeCaseField := ToLowerNoSnake(field.Name)
 		mapping[snakeCaseField] = field.Name
 	}
 	tValue := reflect.ValueOf(target)
@@ -122,7 +122,7 @@ func Deserialize(src SerializedObject, target any) E.NestedError {
 		return E.Invalid("value", "nil")
 	}
 	for k, v := range src {
-		kCleaned := toLowerNoSnake(k)
+		kCleaned := ToLowerNoSnake(k)
 		if fieldName, ok := mapping[kCleaned]; ok {
 			prop := reflect.ValueOf(target).Elem().FieldByName(fieldName)
 			propType := prop.Type()
@@ -175,7 +175,7 @@ func DeserializeJson(j map[string]string, target any) E.NestedError {
 	return E.From(json.Unmarshal(data, target))
 }
 
-func toLowerNoSnake(s string) string {
+func ToLowerNoSnake(s string) string {
 	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
 }
 

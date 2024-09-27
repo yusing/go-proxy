@@ -108,12 +108,12 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 	}
 
 	// find if namespace has value parser
-	pm, ok := valueParserMap.Load(l.Namespace)
+	pm, ok := valueParserMap.Load(U.ToLowerNoSnake(l.Namespace))
 	if !ok {
 		return l, nil
 	}
 	// find if attribute has value parser
-	p, ok := pm[l.Attribute]
+	p, ok := pm[U.ToLowerNoSnake(l.Attribute)]
 	if !ok {
 		return l, nil
 	}
@@ -127,7 +127,11 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 }
 
 func RegisterNamespace(namespace string, pm ValueParserMap) {
-	valueParserMap.Store(namespace, pm)
+	pmCleaned := make(ValueParserMap, len(pm))
+	for k, v := range pm {
+		pmCleaned[U.ToLowerNoSnake(k)] = v
+	}
+	valueParserMap.Store(U.ToLowerNoSnake(namespace), pmCleaned)
 }
 
 func GetRegisteredNamespaces() map[string][]string {

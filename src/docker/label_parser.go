@@ -49,7 +49,7 @@ func YamlLikeMappingParser(allowDuplicate bool) func(string) (any, E.NestedError
 		for _, line := range lines {
 			parts := strings.SplitN(line, ":", 2)
 			if len(parts) != 2 {
-				return nil, E.Invalid("syntax", line)
+				return nil, E.Invalid("syntax", line).With("too many colons")
 			}
 			key := strings.TrimSpace(parts[0])
 			val := strings.TrimSpace(parts[1])

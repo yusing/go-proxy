@@ -74,7 +74,7 @@ func newForwardAuth() (fa *forwardAuth) {
 		}
 		faWithOpts.m = &Middleware{
 			impl:   faWithOpts,
-			before: fa.forward,
+			before: faWithOpts.forward,
 		}
 
 		err := U.Deserialize(optsRaw, faWithOpts.forwardAuthOpts)

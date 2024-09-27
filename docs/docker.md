@@ -62,20 +62,23 @@
 
 ## Labels
 
+**Parts surrounded by `[]` are optional**
+
 ### Syntax
 
-| Label                    | Description                                                                                                                                                         | Example                        | Default                     | Accepted values                                                           |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ | --------------------------- | ------------------------------------------------------------------------- |
-| `proxy.aliases`          | comma separated aliases for subdomain and label matching                                                                                                            | `gitlab,gitlab-reg,gitlab-ssh` | `container_name`            | any                                                                       |
-| `proxy.exclude`          | to be excluded from `go-proxy`                                                                                                                                      |                                | false                       | boolean                                                                   |
-| `proxy.idle_timeout`     | time for idle (no traffic) before put it into sleep **(http/s only)**<br> _**NOTE: idlewatcher will only be enabled containers that has non-empty `idle_timeout`**_ | `1h`                           | empty or `0` **(disabled)** | `number[unit]...`, e.g. `1m30s`                                           |
-| `proxy.wake_timeout`     | time to wait for target site to be ready                                                                                                                            |                                | `30s`                       | `number[unit]...`                                                         |
-| `proxy.stop_method`      | method to stop after `idle_timeout`                                                                                                                                 |                                | `stop`                      | `stop`, `pause`, `kill`                                                   |
-| `proxy.stop_timeout`     | time to wait for stop command                                                                                                                                       |                                | `10s`                       | `number[unit]...`                                                         |
-| `proxy.stop_signal`      | signal sent to container for `stop` and `kill` methods                                                                                                              |                                | docker's default            | `SIGINT`, `SIGTERM`, `SIGHUP`, `SIGQUIT` and those without **SIG** prefix |
-| `proxy.<alias>.<field>`  | set field for specific alias                                                                                                                                        | `proxy.gitlab-ssh.scheme`      | N/A                         | N/A                                                                       |
-| `proxy.#<index>.<field>` | set field for specific alias at index (starting from **1**)                                                                                                         | `proxy.#3.port`                | N/A                         | N/A                                                                       |
-| `proxy.*.<field>`        | set field for all aliases                                                                                                                                           | `proxy.*.set_headers`          | N/A                         | N/A                                                                       |
+| Label                                        | Description                                                                                                                                                         | Example                                                                                                                                                                                                                     | Default                     | Accepted values                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | ------------------------------------------------------------------------- |
+| `proxy.aliases`                              | comma separated aliases for subdomain and label matching                                                                                                            | `gitlab,gitlab-reg,gitlab-ssh`                                                                                                                                                                                              | `container_name`            | any                                                                       |
+| `proxy.exclude`                              | to be excluded from `go-proxy`                                                                                                                                      |                                                                                                                                                                                                                             | false                       | boolean                                                                   |
+| `proxy.idle_timeout`                         | time for idle (no traffic) before put it into sleep **(http/s only)**<br> _**NOTE: idlewatcher will only be enabled containers that has non-empty `idle_timeout`**_ | `1h`                                                                                                                                                                                                                        | empty or `0` **(disabled)** | `number[unit]...`, e.g. `1m30s`                                           |
+| `proxy.wake_timeout`                         | time to wait for target site to be ready                                                                                                                            |                                                                                                                                                                                                                             | `30s`                       | `number[unit]...`                                                         |
+| `proxy.stop_method`                          | method to stop after `idle_timeout`                                                                                                                                 |                                                                                                                                                                                                                             | `stop`                      | `stop`, `pause`, `kill`                                                   |
+| `proxy.stop_timeout`                         | time to wait for stop command                                                                                                                                       |                                                                                                                                                                                                                             | `10s`                       | `number[unit]...`                                                         |
+| `proxy.stop_signal`                          | signal sent to container for `stop` and `kill` methods                                                                                                              |                                                                                                                                                                                                                             | docker's default            | `SIGINT`, `SIGTERM`, `SIGHUP`, `SIGQUIT` and those without **SIG** prefix |
+| `proxy.<alias>.<field>`                      | set field for specific alias                                                                                                                                        | `proxy.gitlab-ssh.scheme`                                                                                                                                                                                                   | N/A                         | N/A                                                                       |
+| `proxy.#<index>.<field>`                     | set field for specific alias at index (starting from **1**)                                                                                                         | `proxy.#3.port`                                                                                                                                                                                                             | N/A                         | N/A                                                                       |
+| `proxy.*.<field>`                            | set field for all aliases                                                                                                                                           | `proxy.*.set_headers`                                                                                                                                                                                                       | N/A                         | N/A                                                                       |
+| `proxy.?.middlewares.<middleware>[.<field>]` | enable and set field for specific middleware                                                                                                                        | **?** here means `<alias>` / `$<index>` / `*` <ul><li>`proxy.#1.middlewares.modify_request.set_headers`</li><li>`proxy.*.middlewares.modify_response.hide_headers`</li><li>`proxy.app1.middlewares.redirect_http`</li></ul> | N/A                         | Middleware specific<br>See [middlewares.md](middlewares.md) for more      |
 
 ### Fields
 
@@ -87,8 +90,7 @@
 | `port`          | proxy port **(tcp/udp)**                                                                       | `0:first_port`                                                                   | `x:y` <br><ul><li>**x**: port for `go-proxy` to listen on.<br>**x** can be 0, which means listen on a random port</li><li>**y**: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
 | `no_tls_verify` | whether skip tls verify **(https only)**                                                       | `false`                                                                          | boolean                                                                                                                                                                                                                 |
 | `path_patterns` | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | `/` **(proxy all requests)**                                                     | yaml style list[<sup>1</sup>](#list-example) of ([path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                                                                                                    |
-| `set_headers`   | header to set **(http/s only)**                                                                | empty                                                                            | yaml style key-value mapping[<sup>2</sup>](#key-value-mapping-example) of header-value pairs                                                                                                                            |
-| `hide_headers`  | header to hide **(http/s only)**                                                               | empty                                                                            | yaml style list[<sup>1</sup>](#list-example) of headers                                                                                                                                                                 |
+
 
 [🔼Back to top](#table-of-content)
 
@@ -101,12 +103,9 @@ services:
   nginx:
     ...
     labels:
-      # values from duplicated header keys will be combined
-      proxy.nginx.set_headers: | # remember to add the '|'
+      proxy.nginx.middlewares.modify_request.set_headers: | # remember to add the '|'
         X-Custom-Header1: value1, value2
-        X-Custom-Header2: value3
-        X-Custom-Header2: value4
-      # X-Custom-Header2 will be "value3, value4"
+        X-Custom-Header2: value3, value4
 ```
 
 File Provider
@@ -114,10 +113,11 @@ File Provider
 ```yaml
 service_a:
     host: service_a.internal
-    set_headers:
-        # do not duplicate header keys, as it is not allowed in YAML
-        X-Custom-Header1: value1, value2
-        X-Custom-Header2: value3
+    middlewares:
+        modify_request:
+            set_headers:
+                X-Custom-Header1: value1, value2
+                X-Custom-Header2: value3
 ```
 
 [🔼Back to top](#table-of-content)
@@ -134,12 +134,12 @@ services:
       proxy.nginx.path_patterns: | # remember to add the '|'
         - GET /
         - POST /auth
-      proxy.nginx.hide_headers: | # remember to add the '|'
+      proxy.nginx.middlewares.modify_request.hide_headers: | # remember to add the '|'
         - X-Custom-Header1
         - X-Custom-Header2
 ```
 
-File Provider
+Include file
 
 ```yaml
 service_a:
@@ -147,9 +147,11 @@ service_a:
     path_patterns:
         - GET /
         - POST /auth
-    hide_headers:
-        - X-Custom-Header1
-        - X-Custom-Header2
+    middlewares:
+        modify_request:
+            hide_headers:
+                - X-Custom-Header1
+                - X-Custom-Header2
 ```
 
 [🔼Back to top](#table-of-content)
@@ -209,10 +211,10 @@ services:
         restart: unless-stopped
         labels:
             - proxy.aliases=adg,adg-dns,adg-setup
-            - proxy.$1.port=80
-            - proxy.$2.scheme=udp
-            - proxy.$2.port=20000:dns
-            - proxy.$3.port=3000
+            - proxy.#1.port=80
+            - proxy.#2.scheme=udp
+            - proxy.#2.port=20000:dns
+            - proxy.#3.port=3000
         volumes:
             - adg-work:/opt/adguardhome/work
             - adg-conf:/opt/adguardhome/conf
@@ -245,8 +247,8 @@ services:
         labels:
             - proxy.aliases=pal1,pal2
             - proxy.*.scheme=udp
-            - proxy.$1.port=20002:8211
-            - proxy.$2.port=20003:27015
+            - proxy.#1.port=20002:8211
+            - proxy.#2.port=20003:27015
         environment: ...
         volumes:
             - palworld:/palworld
