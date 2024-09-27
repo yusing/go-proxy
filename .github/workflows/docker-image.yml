@@ -142,6 +142,6 @@ jobs:
                   format: "sarif"
                   output: "trivy-results.sarif"
             - name: Upload Trivy SARIF Report
-              uses: github/codeql-action/upload-sarif@v2
+              uses: github/codeql-action/upload-sarif@v3
               with:
                   sarif_file: "trivy-results.sarif"

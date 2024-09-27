@@ -39,8 +39,8 @@ func FromJson(json types.ContainerJSON, dockerHost string) Container {
 	ports := make([]types.Port, 0)
 	for k, bindings := range json.NetworkSettings.Ports {
 		for _, v := range bindings {
-			pubPort, _ := strconv.Atoi(v.HostPort)
-			privPort, _ := strconv.Atoi(k.Port())
+			pubPort, _ := strconv.ParseUint(v.HostPort, 10, 16)
+			privPort, _ := strconv.ParseUint(k.Port(), 10, 16)
 			ports = append(ports, types.Port{
 				IP:          v.HostIP,
 				PublicPort:  uint16(pubPort),

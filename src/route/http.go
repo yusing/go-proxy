@@ -1,6 +1,7 @@
 package route
 
 import (
+	"fmt"
 	"sync"
 
 	"net/http"
@@ -48,7 +49,7 @@ func SetFindMuxDomains(domains []string) {
 	if len(domains) == 0 {
 		findMuxFunc = findMuxAnyDomain
 	} else {
-		findMuxFunc = findMuxByDomain(domains)
+		findMuxFunc = findMuxByDomains(domains)
 	}
 }
 
@@ -169,44 +170,47 @@ func (u *URL) MarshalText() (text []byte, err error) {
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findMuxFunc(r.Host)
 	if err != nil {
-		err = E.Failure("request").
-			Subjectf("%s %s%s", r.Method, r.Host, r.URL.Path).
-			With(err)
-		http.Error(w, err.String(), http.StatusNotFound)
-		logrus.Error(err)
+		http.Error(w, err.Error(), http.StatusNotFound)
+		logrus.Error(E.Failure("request").
+			Subjectf("%s %s", r.Method, r.URL.String()).
+			With(err))
 		return
 	}
 	mux.ServeHTTP(w, r)
 }
 
-func findMuxAnyDomain(host string) (*http.ServeMux, E.NestedError) {
+func findMuxAnyDomain(host string) (*http.ServeMux, error) {
 	hostSplit := strings.Split(host, ".")
 	n := len(hostSplit)
 	if n <= 2 {
-		return nil, E.Missing("subdomain")
+		return nil, fmt.Errorf("missing subdomain in url")
 	}
 	sd := strings.Join(hostSplit[:n-2], ".")
 	if r, ok := httpRoutes.Load(PT.Alias(sd)); ok {
 		return r.mux, nil
 	}
-	return nil, E.NotExist("route", sd)
+	return nil, fmt.Errorf("no such route: %s", sd)
 }
 
-func findMuxByDomain(domains []string) func(host string) (*http.ServeMux, E.NestedError) {
-	return func(host string) (*http.ServeMux, E.NestedError) {
+func findMuxByDomains(domains []string) func(host string) (*http.ServeMux, error) {
+	return func(host string) (*http.ServeMux, error) {
 		var subdomain string
+
 		for _, domain := range domains {
-			subdomain = strings.TrimSuffix(subdomain, domain)
-			if subdomain != domain {
+			if !strings.HasPrefix(domain, ".") {
+				domain = "." + domain
+			}
+			subdomain = strings.TrimSuffix(host, domain)
+			if len(subdomain) < len(host) {
 				break
 			}
 		}
-		if subdomain == "" { // not matched
-			return nil, E.Invalid("host", host)
+		if len(subdomain) == len(host) { // not matched
+			return nil, fmt.Errorf("%s does not match any base domain", host)
 		}
 		if r, ok := httpRoutes.Load(PT.Alias(subdomain)); ok {
 			return r.mux, nil
 		}
-		return nil, E.NotExist("route", subdomain)
+		return nil, fmt.Errorf("no such route: %s", subdomain)
 	}
 }
