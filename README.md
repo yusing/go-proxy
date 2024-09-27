@@ -107,27 +107,7 @@ Copy [`.vscode/settings.example.json`](.vscode/settings.example.json) to `.vscod
 
 ### Config File
 
-See [config.example.yml](config.example.yml) for more
-
-```yaml
-# autocert configuration
-autocert:
-    email: # ACME Email
-    domains: # a list of domains for cert registration
-    provider: # DNS Challenge provider
-    options: # provider specific options
-        - ...
-# reverse proxy providers configuration
-providers:
-    include:
-        - providers.yml
-        - other_file_1.yml
-        - ...
-    docker:
-        local: $DOCKER_HOST
-        remote-1: tcp://10.0.2.1:2375
-        remote-2: ssh://root:1234@10.0.2.2
-```
+See [config.example.yml](config.example.yml)
 
 [🔼Back to top](#table-of-content)
 

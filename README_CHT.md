@@ -18,6 +18,10 @@
   - [重點](#重點)
   - [入門指南](#入門指南)
     - [安裝](#安裝)
+    - [命令行參數](#命令行參數)
+    - [環境變量](#環境變量)
+    - [VSCode 中使用 JSON Schema](#vscode-中使用-json-schema)
+    - [配置文件](#配置文件)
     - [透過文件配置](#透過文件配置)
   - [展示](#展示)
     - [idlesleeper](#idlesleeper)
@@ -101,27 +105,7 @@
 
 ### 配置文件
 
-參見 [config.example.yml](config.example.yml) 了解更多
-
-```yaml
-# autocert 配置
-autocert:
-    email: # ACME 電子郵件
-    domains: # 域名列表
-    provider: # DNS 供應商
-    options: # 供應商個別配置
-        - ...
-# 配置文件 / docker
-providers:
-    include:
-        - providers.yml
-        - other_file_1.yml
-        - ...
-    docker:
-        local: $DOCKER_HOST
-        remote-1: tcp://10.0.2.1:2375
-        remote-2: ssh://root:1234@10.0.2.2
-```
+參見 [config.example.yml](config.example.yml)
 
 [🔼 返回頂部](#目錄)
 
