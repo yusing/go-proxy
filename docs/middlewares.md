@@ -18,7 +18,7 @@
       - [Set X-Forwarded-\*](#set-x-forwarded-)
     - [Forward Authorization header (experimental)](#forward-authorization-header-experimental)
   - [Examples](#examples)
-    - [Authentik](#authentik)
+    - [Authentik (untested, experimental)](#authentik-untested-experimental)
 
 <!-- TOC -->
 
@@ -292,7 +292,7 @@ http:
 
 ## Examples
 
-### Authentik
+### Authentik (untested, experimental)
 
 ```yaml
 # docker compose
@@ -306,6 +306,28 @@ services:
       proxy.authentik.middlewares.set_x_forwarded:
       proxy.authentik.middlewares.modify_request.add_headers: |
         Strict-Transport-Security: "max-age=63072000" always
+
+  whoami:
+    image: containous/whoami
+    container_name: whoami
+    ports:
+      - 80
+    labels:
+      proxy.#1.middlewares.forward_auth.address: https://your_authentik_forward_address
+      proxy.#1.middlewares.forward_auth.trustForwardHeader: true
+      proxy.#1.middlewares.forward_auth.authResponseHeaders: |
+        - X-authentik-username
+        - X-authentik-groups
+        - X-authentik-email
+        - X-authentik-name
+        - X-authentik-uid
+        - X-authentik-jwt
+        - X-authentik-meta-jwks
+        - X-authentik-meta-outpost
+        - X-authentik-meta-provider
+        - X-authentik-meta-app
+        - X-authentik-meta-version
+    restart: unless-stopped
 ```
 
 [🔼Back to top](#table-of-content)
