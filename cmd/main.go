@@ -76,6 +76,10 @@ func main() {
 		return
 	}
 
+	for _, dir := range common.RequiredDirectories {
+		prepareDirectory(dir)
+	}
+
 	err := config.Load()
 	if err != nil {
 		logrus.Warn(err)
@@ -185,6 +189,14 @@ func main() {
 		onShutdown.ForEach(func(f func()) {
 			l.Warnf("%s() is still running", funcName(f))
 		})
+	}
+}
+
+func prepareDirectory(dir string) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			logrus.Fatalf("failed to create directory %s: %v", dir, err)
+		}
 	}
 }
 

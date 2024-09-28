@@ -10,8 +10,8 @@ import (
 )
 
 var (
-	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION")
-	IsDebug            = GetEnvBool("GOPROXY_DEBUG")
+	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", false)
+	IsDebug            = GetEnvBool("GOPROXY_DEBUG", false)
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,
@@ -29,13 +29,17 @@ var (
 	APIHTTPURL = GetAddrEnv("GOPROXY_API_ADDR", "127.0.0.1:8888", "http")
 )
 
-func GetEnvBool(key string) bool {
-	return U.ParseBool(os.Getenv(key))
+func GetEnvBool(key string, defaultValue bool) bool {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		return defaultValue
+	}
+	return U.ParseBool(value)
 }
 
 func GetEnv(key, defaultValue string) string {
 	value, ok := os.LookupEnv(key)
-	if !ok {
+	if !ok || value == "" {
 		value = defaultValue
 	}
 	return value

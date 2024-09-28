@@ -51,3 +51,7 @@ rapid-crash:
 
 debug-list-containers:
 	bash -c 'echo -e "GET /containers/json HTTP/1.0\r\n" | sudo netcat -U /var/run/docker.sock | tail -n +9 | jq'
+
+ci-test:
+	mkdir -p /tmp/artifacts
+	act -n --artifact-server-path /tmp/artifacts -s GITHUB_TOKEN="$$(gh auth token)"

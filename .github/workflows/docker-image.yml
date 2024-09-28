@@ -11,7 +11,7 @@ env:
 jobs:
     build:
         name: Build multi-platform Docker image
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
 
         permissions:
             contents: read
@@ -83,7 +83,7 @@ jobs:
                   if-no-files-found: error
                   retention-days: 1
     merge:
-        runs-on: ubuntu-latest
+        runs-on: self-hosted
         needs:
             - build
         permissions:

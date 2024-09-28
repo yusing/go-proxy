@@ -34,6 +34,14 @@ const (
 	ErrorPagesBasePath = "error_pages"
 )
 
+var (
+	RequiredDirectories = []string{
+		ConfigBasePath,
+		SchemaBasePath,
+		ErrorPagesBasePath,
+	}
+)
+
 const DockerHostFromEnv = "$DOCKER_HOST"
 
 const (

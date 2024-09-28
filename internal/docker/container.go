@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
-	"github.com/sirupsen/logrus"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -32,9 +31,6 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		StopTimeout:        res.getDeleteLabel(LabelStopTimeout),
 		StopSignal:         res.getDeleteLabel(LabelStopSignal),
 		Running:            c.Status == "running" || c.State == "running",
-	}
-	if res.NetworkMode == "" {
-		logrus.Debugf("%v", res.NetworkSettings.Networks)
 	}
 	return
 }
