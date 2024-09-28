@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/sirupsen/logrus"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -32,6 +33,9 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		StopSignal:         res.getDeleteLabel(LabelStopSignal),
 		Running:            c.Status == "running" || c.State == "running",
 	}
+	if res.NetworkMode == "" {
+		logrus.Debugf("%v", res.NetworkSettings.Networks)
+	}
 	return
 }
 
@@ -48,7 +52,7 @@ func FromJson(json types.ContainerJSON, dockerHost string) Container {
 			})
 		}
 	}
-	return FromDocker(&types.Container{
+	cont := FromDocker(&types.Container{
 		ID:     json.ID,
 		Names:  []string{json.Name},
 		Image:  json.Image,
@@ -57,6 +61,8 @@ func FromJson(json types.ContainerJSON, dockerHost string) Container {
 		State:  json.State.Status,
 		Status: json.State.Status,
 	}, dockerHost)
+	cont.NetworkMode = string(json.HostConfig.NetworkMode)
+	return cont
 }
 
 func (c Container) getDeleteLabel(label string) string {
