@@ -44,6 +44,7 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 		if r.Host != common.APIHTTPAddr {
 			Logger.Warnf("invalid request to API server with host: %s, expected: %s", r.Host, common.APIHTTPAddr)
 			w.WriteHeader(http.StatusNotFound)
+			w.Write([]byte("invalid request"))
 			return
 		}
 		f(w, r)
