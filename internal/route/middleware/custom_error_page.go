@@ -10,40 +10,15 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/api/v1/error_page"
+	"github.com/yusing/go-proxy/internal/common"
 	gpHTTP "github.com/yusing/go-proxy/internal/http"
 )
 
-const staticFilePathPrefix = "/$gperrorpage/"
-
 var CustomErrorPage = &Middleware{
 	before: func(next http.Handler, w ResponseWriter, r *Request) {
-		path := r.URL.Path
-		if path != "" && path[0] != '/' {
-			path = "/" + path
+		if !ServeStaticErrorPageFile(w, r) {
+			next.ServeHTTP(w, r)
 		}
-		if strings.HasPrefix(path, staticFilePathPrefix) {
-			filename := path[len(staticFilePathPrefix):]
-			file, ok := error_page.GetStaticFile(filename)
-			if !ok {
-				http.NotFound(w, r)
-				errPageLogger.Errorf("unable to load resource %s", filename)
-			} else {
-				ext := filepath.Ext(filename)
-				switch ext {
-				case ".html":
-					w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				case ".js":
-					w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
-				case ".css":
-					w.Header().Set("Content-Type", "text/css; charset=utf-8")
-				default:
-					errPageLogger.Errorf("unexpected file type %q for %s", ext, filename)
-				}
-				w.Write(file)
-			}
-			return
-		}
-		next.ServeHTTP(w, r)
 	},
 	modifyResponse: func(resp *Response) error {
 		// only handles non-success status code and html/plain content type
@@ -65,6 +40,36 @@ var CustomErrorPage = &Middleware{
 		}
 		return nil
 	},
+}
+
+func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
+	path := r.URL.Path
+	if path != "" && path[0] != '/' {
+		path = "/" + path
+	}
+	if strings.HasPrefix(path, common.StaticFilePathPrefix) {
+		filename := path[len(common.StaticFilePathPrefix):]
+		file, ok := error_page.GetStaticFile(filename)
+		if !ok {
+			errPageLogger.Errorf("unable to load resource %s", filename)
+			return false
+		} else {
+			ext := filepath.Ext(filename)
+			switch ext {
+			case ".html":
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			case ".js":
+				w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			case ".css":
+				w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			default:
+				errPageLogger.Errorf("unexpected file type %q for %s", ext, filename)
+			}
+			w.Write(file)
+			return true
+		}
+	}
+	return false
 }
 
 var errPageLogger = logrus.WithField("middleware", "error_page")

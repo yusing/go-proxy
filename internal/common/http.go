@@ -23,3 +23,5 @@ var (
 		return clone
 	}()
 )
+
+const StaticFilePathPrefix = "/$gperrorpage/"

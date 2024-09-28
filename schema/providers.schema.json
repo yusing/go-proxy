@@ -64,8 +64,7 @@
         "port": {},
         "no_tls_verify": {},
         "path_patterns": {},
-        "set_headers": {},
-        "hide_headers": {}
+        "middlewares": {}
       },
       "additionalProperties": false,
       "allOf": [
@@ -121,24 +120,8 @@
                   }
                 ]
               },
-              "set_headers": {
-                "type": "object",
-                "description": "Proxy headers to set",
-                "additionalProperties": {
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": {
-                      "type": "string"
-                    }
-                  }
-                }
-              },
-              "hide_headers": {
-                "type": "array",
-                "description": "Proxy headers to hide",
-                "items": {
-                  "type": "string"
-                }
+              "middlewares": {
+                "type": "object"
               }
             }
           },
@@ -156,10 +139,7 @@
               "path_patterns": {
                 "not": true
               },
-              "set_headers": {
-                "not": true
-              },
-              "hide_headers": {
+              "middlewares": {
                 "not": true
               }
             },

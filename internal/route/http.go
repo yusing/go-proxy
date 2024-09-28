@@ -1,9 +1,7 @@
 package route
 
 import (
-	"encoding/json"
 	"fmt"
-	"slices"
 	"sync"
 
 	"net/http"
@@ -11,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/internal/api/v1/error_page"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -172,20 +171,18 @@ func (u *URL) MarshalText() (text []byte, err error) {
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findMuxFunc(r.Host)
 	if err != nil {
-		logrus.Error(E.Failure("request").
-			Subjectf("%s %s", r.Method, r.URL.String()).
-			With(err))
-		acceptTypes := r.Header.Values("Accept")
-		switch {
-		case slices.Contains(acceptTypes, "text/html"):
-
-		case slices.Contains(acceptTypes, "application/json"):
-			w.WriteHeader(http.StatusNotFound)
-			json.NewEncoder(w).Encode(map[string]string{
-				"error": err.Error(),
-			})
-		default:
-			http.Error(w, err.Error(), http.StatusNotFound)
+		if !middleware.ServeStaticErrorPageFile(w, r) {
+			logrus.Error(E.Failure("request").
+				Subjectf("%s %s", r.Method, r.URL.String()).
+				With(err))
+			errorPage, ok := error_page.GetErrorPageByStatus(http.StatusNotFound)
+			if ok {
+				w.WriteHeader(http.StatusNotFound)
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				w.Write(errorPage)
+			} else {
+				http.Error(w, err.Error(), http.StatusNotFound)
+			}
 		}
 		return
 	}

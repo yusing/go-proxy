@@ -71,8 +71,13 @@ Example:
 Hot-reloading is **supported**, you can **edit**, **rename** or **delete** files **without restarting**. Changes will be reflected after page reload
 
 Error page will be served if:
--   status code is not in range of 200 to 300
--   content type is `text/html`, `application/xhtml+xml` or `text/plain`
+
+- route does not exist or domain does not match any of `match_domains`
+
+or 
+
+- status code is not in range of 200 to 300, and
+- content type is `text/html`, `application/xhtml+xml` or `text/plain`
 
 Error page will be served:
 
