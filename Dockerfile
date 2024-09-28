@@ -5,7 +5,7 @@ RUN apk add --no-cache tzdata
 WORKDIR /src
 
 # Only copy go.mod and go.sum initially for better caching
-COPY src/go.mod src/go.sum ./
+COPY go.mod go.sum /src
 
 # Utilize build cache
 RUN --mount=type=cache,target="/go/pkg/mod" \
@@ -16,8 +16,10 @@ ENV GOCACHE=/root/.cache/go-build
 # Build the application with better caching
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
-    --mount=type=bind,src=src,dst=/src \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s' -pgo=auto -o /go-proxy .
+    --mount=type=bind,src=cmd,dst=/src/cmd \
+    --mount=type=bind,src=internal,dst=/src/internal \
+    CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s' -pgo=auto -o /app/go-proxy ./cmd && \
+    mkdir /app/error_pages /app/certs
 
 # Stage 2: Final image
 FROM scratch
@@ -28,7 +30,7 @@ LABEL maintainer="yusing@6uo.me"
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # copy binary
-COPY --from=builder /go-proxy /app/
+COPY --from=builder /app /
 
 # copy schema directory
 COPY schema/ /app/schema/

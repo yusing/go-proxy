@@ -3,8 +3,7 @@ compose.yml
 config*/
 certs*/
 bin/
-
-templates/codemirror/
+error_pages/
 
 logs/
 log/
@@ -13,7 +12,8 @@ log/
 
 go.work.sum
 
-!src/**/
+!cmd/**/
+!internal/**/
 
 todo.md
 

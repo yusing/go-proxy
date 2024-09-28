@@ -8,6 +8,7 @@
   - [Table of content](#table-of-content)
   - [Available middlewares](#available-middlewares)
     - [Redirect http](#redirect-http)
+    - [Custom error pages](#custom-error-pages)
     - [Modify request or response](#modify-request-or-response)
       - [Set headers](#set-headers)
       - [Add headers](#add-headers)
@@ -43,6 +44,56 @@ server {
     listen 80;
     server_name domain.tld;
     return 301 https://$host$request_uri;
+}
+```
+
+[🔼Back to top](#table-of-content)
+
+### Custom error pages
+
+To enable custom error pages, mount a folder containing your `html`, `js`, `css` files to `/app/error_pages` of _go-proxy_ container **(subfolders are ignored, please place all files in root directory)**
+
+Any path under `error_pages` directory (e.g. `href` tag), should starts with `/$gperrorpage/`
+
+Example:
+```html
+<html>
+<head>
+    <title>404 Not Found</title>
+    <link type="text/css" rel="stylesheet" href="/$gperrorpage/style.css" />
+</head>
+<body>
+    ...
+</body>
+</html>
+```
+
+Hot-reloading is **supported**, you can **edit**, **rename** or **delete** files **without restarting**. Changes will be reflected after page reload
+
+Error page will be served if:
+-   status code is not in range of 200 to 300
+-   content type is `text/html`, `application/xhtml+xml` or `text/plain`
+
+Error page will be served:
+
+- from file `<statusCode>.html` if exists
+- otherwise from `404.html`
+- if they don't exist, original response will be served
+
+```yaml
+# docker labels
+proxy.app1.middlewares.custom_error_page:
+
+# include file
+app1:
+  middlewares:
+    custom_error_page:
+```
+
+nginx equivalent:
+```nginx
+location / {
+    try_files $uri $uri/ /error_pages/404.html =404;
 }
 ```
 
@@ -89,6 +140,8 @@ location / {
 }
 ```
 
+[🔼Back to top](#table-of-content)
+
 #### Add headers
 
 ```yaml
@@ -113,6 +166,8 @@ location / {
     more_set_headers "X-Custom-Header2: value3";
 }
 ```
+
+[🔼Back to top](#table-of-content)
 
 #### Hide headers
 
@@ -171,6 +226,8 @@ app1:
       set_x_forwarded:
 ```
 
+[🔼Back to top](#table-of-content)
+
 ### Forward Authorization header (experimental)
 
 Fields:
@@ -226,6 +283,8 @@ http:
             - session_id
 ```
 
+[🔼Back to top](#table-of-content)
+
 ## Examples
 
 ### Authentik
@@ -243,3 +302,5 @@ services:
       proxy.authentik.middlewares.modify_request.add_headers: |
         Strict-Transport-Security: "max-age=63072000" always
 ```
+
+[🔼Back to top](#table-of-content)
