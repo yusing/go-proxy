@@ -30,7 +30,7 @@ LABEL maintainer="yusing@6uo.me"
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 
 # copy binary
-COPY --from=builder /app /
+COPY --from=builder /app /app
 
 # copy schema directory
 COPY schema/ /app/schema/
