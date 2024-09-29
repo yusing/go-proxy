@@ -1,33 +1,34 @@
 services:
-  frontend:
-    image: ghcr.io/yusing/go-proxy-frontend:latest
-    container_name: go-proxy-frontend
-    restart: unless-stopped
-    network_mode: host
-    labels:
-      - proxy.aliases=gp
-      - proxy.gp.port=3000
-    depends_on:
-      - app
-  app:
-    image: ghcr.io/yusing/go-proxy:latest
-    container_name: go-proxy
-    restart: always
-    network_mode: host
-    environment:
-      # (Optional) change this to your timezone to get correct log timestamp
-      TZ: ETC/UTC
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - ./config:/app/config
+    frontend:
+        image: ghcr.io/yusing/go-proxy-frontend:latest
+        container_name: go-proxy-frontend
+        restart: unless-stopped
+        network_mode: host
+        # if you also want to proxy the WebUI and access it via gp.y.z
+        # labels:
+        #   - proxy.aliases=gp
+        #   - proxy.gp.port=3000
+        depends_on:
+            - app
+    app:
+        image: ghcr.io/yusing/go-proxy:latest
+        container_name: go-proxy
+        restart: always
+        network_mode: host
+        environment:
+            # (Optional) change this to your timezone to get correct log timestamp
+            TZ: ETC/UTC
+        volumes:
+            - /var/run/docker.sock:/var/run/docker.sock
+            - ./config:/app/config
 
-      # (Optional) choose one of below to enable https
-      # 1. use existing certificate
-      # if your cert is not named `cert.crt` change `cert_path` in `config/config.yml`
-      # if your cert key is not named `priv.key` change `key_path` in `config/config.yml`
+            # (Optional) choose one of below to enable https
+            # 1. use existing certificate
+            # if your cert is not named `cert.crt` change `cert_path` in `config/config.yml`
+            # if your cert key is not named `priv.key` change `key_path` in `config/config.yml`
 
-      # - /path/to/certs:/app/certs
+            # - /path/to/certs:/app/certs
 
-      # 2. use autocert, certs will be stored in ./certs (or other path you specify)
+            # 2. use autocert, certs will be stored in ./certs (or other path you specify)
 
-      # - ./certs:/app/certs
+            # - ./certs:/app/certs
