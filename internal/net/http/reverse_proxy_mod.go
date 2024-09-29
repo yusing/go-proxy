@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/textproto"
@@ -58,39 +57,6 @@ type ProxyRequest struct {
 //		r.Out.Header["X-Forwarded-For"] = r.In.Header["X-Forwarded-For"]
 //		r.SetXForwarded()
 //	}
-func (r *ProxyRequest) SetXForwarded() {
-	clientIP, _, err := net.SplitHostPort(r.In.RemoteAddr)
-	if err == nil {
-		r.Out.Header.Set("X-Forwarded-For", clientIP)
-	} else {
-		r.Out.Header.Del("X-Forwarded-For")
-	}
-	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-	if r.In.TLS == nil {
-		r.Out.Header.Set("X-Forwarded-Proto", "http")
-	} else {
-		r.Out.Header.Set("X-Forwarded-Proto", "https")
-	}
-}
-
-func (r *ProxyRequest) AddXForwarded() {
-	clientIP, _, err := net.SplitHostPort(r.In.RemoteAddr)
-	if err == nil {
-		prior := r.Out.Header["X-Forwarded-For"]
-		if len(prior) > 0 {
-			clientIP = strings.Join(prior, ", ") + ", " + clientIP
-		}
-		r.Out.Header.Set("X-Forwarded-For", clientIP)
-	} else {
-		r.Out.Header.Del("X-Forwarded-For")
-	}
-	r.Out.Header.Set("X-Forwarded-Host", r.In.Host)
-	if r.In.TLS == nil {
-		r.Out.Header.Set("X-Forwarded-Proto", "http")
-	} else {
-		r.Out.Header.Set("X-Forwarded-Proto", "https")
-	}
-}
 
 // ReverseProxy is an HTTP Handler that takes an incoming request and
 // sends it to another server, proxying the response back to the

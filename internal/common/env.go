@@ -11,7 +11,8 @@ import (
 
 var (
 	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", false)
-	IsDebug            = GetEnvBool("GOPROXY_DEBUG", false)
+	IsTest             = GetEnvBool("GOPROXY_TEST", false)
+	IsDebug            = GetEnvBool("GOPROXY_DEBUG", IsTest)
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,

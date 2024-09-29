@@ -17,8 +17,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	gpHTTP "github.com/yusing/go-proxy/internal/http"
-	U "github.com/yusing/go-proxy/internal/utils"
+	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 )
 
 type (
@@ -44,50 +43,50 @@ const (
 	xForwardedPort   = "X-Forwarded-Port"
 )
 
-var ForwardAuth = newForwardAuth()
-var faLogger = logrus.WithField("middleware", "ForwardAuth")
-
-func newForwardAuth() (fa *forwardAuth) {
-	fa = new(forwardAuth)
+var ForwardAuth = func() *forwardAuth {
+	fa := new(forwardAuth)
 	fa.m = new(Middleware)
 	fa.m.labelParserMap = D.ValueParserMap{
 		"trust_forward_header":         D.BoolParser,
 		"auth_response_headers":        D.YamlStringListParser,
 		"add_auth_cookies_to_response": D.YamlStringListParser,
 	}
-	fa.m.withOptions = func(optsRaw OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError) {
-		tr, ok := rp.Transport.(*http.Transport)
-		if ok {
-			tr = tr.Clone()
-		} else {
-			tr = common.DefaultTransport.Clone()
-		}
+	fa.m.withOptions = NewForwardAuthfunc
+	return fa
+}()
+var faLogger = logrus.WithField("middleware", "ForwardAuth")
 
-		faWithOpts := new(forwardAuth)
-		faWithOpts.forwardAuthOpts = new(forwardAuthOpts)
-		faWithOpts.client = http.Client{
-			CheckRedirect: func(r *Request, via []*Request) error {
-				return http.ErrUseLastResponse
-			},
-			Timeout:   30 * time.Second,
-			Transport: tr,
-		}
-		faWithOpts.m = &Middleware{
-			impl:   faWithOpts,
-			before: faWithOpts.forward,
-		}
-
-		err := U.Deserialize(optsRaw, faWithOpts.forwardAuthOpts)
-		if err != nil {
-			return nil, E.FailWith("set options", err)
-		}
-		_, err = E.Check(url.Parse(faWithOpts.Address))
-		if err != nil {
-			return nil, E.Invalid("address", faWithOpts.Address)
-		}
-		return faWithOpts.m, nil
+func NewForwardAuthfunc(optsRaw OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError) {
+	tr, ok := rp.Transport.(*http.Transport)
+	if ok {
+		tr = tr.Clone()
+	} else {
+		tr = common.DefaultTransport.Clone()
 	}
-	return
+
+	faWithOpts := new(forwardAuth)
+	faWithOpts.forwardAuthOpts = new(forwardAuthOpts)
+	faWithOpts.client = http.Client{
+		CheckRedirect: func(r *Request, via []*Request) error {
+			return http.ErrUseLastResponse
+		},
+		Timeout:   30 * time.Second,
+		Transport: tr,
+	}
+	faWithOpts.m = &Middleware{
+		impl:   faWithOpts,
+		before: faWithOpts.forward,
+	}
+
+	err := Deserialize(optsRaw, faWithOpts.forwardAuthOpts)
+	if err != nil {
+		return nil, E.FailWith("set options", err)
+	}
+	_, err = E.Check(url.Parse(faWithOpts.Address))
+	if err != nil {
+		return nil, E.Invalid("address", faWithOpts.Address)
+	}
+	return faWithOpts.m, nil
 }
 
 func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request) {

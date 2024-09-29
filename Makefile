@@ -15,7 +15,7 @@ build:
 		go build -ldflags '${BUILD_FLAG}' -pgo=auto -o bin/go-proxy ./cmd
 
 test:
-	go test ./internal/...
+	GOPROXY_TEST=1 go test ./internal/...
 
 up:
 	docker compose up -d
@@ -31,6 +31,9 @@ get:
 
 debug:
 	make BUILD_FLAG="" build && sudo GOPROXY_DEBUG=1 bin/go-proxy
+
+run-test:
+	make BUILD_FLAG="" build && sudo GOPROXY_TEST=1 bin/go-proxy
 
 run:
 	make build && sudo bin/go-proxy

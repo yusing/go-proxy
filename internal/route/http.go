@@ -13,10 +13,10 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
-	. "github.com/yusing/go-proxy/internal/http"
+	. "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
-	"github.com/yusing/go-proxy/internal/route/middleware"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 

@@ -5,7 +5,6 @@ import (
 
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
@@ -21,9 +20,7 @@ type (
 	}
 )
 
-var ModifyResponse = newModifyResponse()
-
-func newModifyResponse() (mr *modifyResponse) {
+var ModifyResponse = func() (mr *modifyResponse) {
 	mr = new(modifyResponse)
 	mr.m = new(Middleware)
 	mr.m.labelParserMap = D.ValueParserMap{
@@ -31,20 +28,22 @@ func newModifyResponse() (mr *modifyResponse) {
 		"add_headers":  D.YamlLikeMappingParser(true),
 		"hide_headers": D.YamlStringListParser,
 	}
-	mr.m.withOptions = func(optsRaw OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError) {
-		mrWithOpts := new(modifyResponse)
-		mrWithOpts.m = &Middleware{
-			impl:           mrWithOpts,
-			modifyResponse: mrWithOpts.modifyResponse,
-		}
-		mrWithOpts.modifyResponseOpts = new(modifyResponseOpts)
-		err := U.Deserialize(optsRaw, mrWithOpts.modifyResponseOpts)
-		if err != nil {
-			return nil, E.FailWith("set options", err)
-		}
-		return mrWithOpts.m, nil
-	}
+	mr.m.withOptions = NewModifyResponse
 	return
+}()
+
+func NewModifyResponse(optsRaw OptionsRaw, _ *ReverseProxy) (*Middleware, E.NestedError) {
+	mr := new(modifyResponse)
+	mr.m = &Middleware{
+		impl:           mr,
+		modifyResponse: mr.modifyResponse,
+	}
+	mr.modifyResponseOpts = new(modifyResponseOpts)
+	err := Deserialize(optsRaw, mr.modifyResponseOpts)
+	if err != nil {
+		return nil, E.FailWith("set options", err)
+	}
+	return mr.m, nil
 }
 
 func (mr *modifyResponse) modifyResponse(resp *http.Response) error {

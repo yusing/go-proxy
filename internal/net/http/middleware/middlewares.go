@@ -17,14 +17,16 @@ func Get(name string) (middleware *Middleware, ok bool) {
 // initialize middleware names and label parsers
 func init() {
 	middlewares = map[string]*Middleware{
-		"set_x_forwarded":   SetXForwarded,
-		"add_x_forwarded":   AddXForwarded,
-		"redirect_http":     RedirectHTTP,
-		"forward_auth":      ForwardAuth.m,
-		"modify_response":   ModifyResponse.m,
-		"modify_request":    ModifyRequest.m,
-		"error_page":        CustomErrorPage,
-		"custom_error_page": CustomErrorPage,
+		"set_x_forwarded":    SetXForwarded,
+		"add_x_forwarded":    AddXForwarded,
+		"redirect_http":      RedirectHTTP,
+		"forward_auth":       ForwardAuth.m,
+		"modify_response":    ModifyResponse.m,
+		"modify_request":     ModifyRequest.m,
+		"error_page":         CustomErrorPage,
+		"custom_error_page":  CustomErrorPage,
+		"real_ip":            RealIP.m,
+		"cloudflare_real_ip": CloudflareRealIP.m,
 	}
 	names := make(map[*Middleware][]string)
 	for name, m := range middlewares {

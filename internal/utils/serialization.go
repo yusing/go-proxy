@@ -107,6 +107,9 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 }
 
 func Deserialize(src SerializedObject, target any) E.NestedError {
+	if src == nil || target == nil {
+		return nil
+	}
 	// convert data fields to lower no-snake
 	// convert target fields to lower no-snake
 	// then check if the field of data is in the target

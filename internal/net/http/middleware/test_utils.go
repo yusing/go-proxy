@@ -10,7 +10,7 @@ import (
 	"net/url"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	gpHTTP "github.com/yusing/go-proxy/internal/http"
+	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 )
 
 //go:embed test_data/sample_headers.json

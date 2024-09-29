@@ -5,7 +5,8 @@ import (
 
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	gpHTTP "github.com/yusing/go-proxy/internal/http"
+	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
+	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
@@ -20,7 +21,7 @@ type (
 	Cookie         = http.Cookie
 
 	BeforeFunc         func(next http.Handler, w ResponseWriter, r *Request)
-	RewriteFunc        func(req *ProxyRequest)
+	RewriteFunc        func(req *Request)
 	ModifyResponseFunc func(resp *Response) error
 	CloneWithOptFunc   func(opts OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError)
 
@@ -41,6 +42,8 @@ type (
 		impl           any
 	}
 )
+
+var Deserialize = U.Deserialize
 
 func (m *Middleware) Name() string {
 	return m.name
@@ -80,7 +83,7 @@ func PatchReverseProxy(rp *ReverseProxy, middlewares map[string]OptionsRaw) (res
 	for name, opts := range middlewares {
 		m, ok := Get(name)
 		if !ok {
-			invalidM.Addf("%s", name)
+			invalidM.Add(E.NotExist("middleware", name))
 			continue
 		}
 
@@ -118,13 +121,12 @@ func PatchReverseProxy(rp *ReverseProxy, middlewares map[string]OptionsRaw) (res
 	}
 
 	if len(rewrites) > 0 {
-		if rp.Rewrite != nil {
-			rewrites = append([]RewriteFunc{rp.Rewrite}, rewrites...)
-		}
-		rp.Rewrite = func(req *ProxyRequest) {
+		origServeHTTP = rp.ServeHTTP
+		rp.ServeHTTP = func(w http.ResponseWriter, r *http.Request) {
 			for _, rewrite := range rewrites {
-				rewrite(req)
+				rewrite(r)
 			}
+			origServeHTTP(w, r)
 		}
 	}
 

@@ -11,7 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/api/v1/error_page"
 	"github.com/yusing/go-proxy/internal/common"
-	gpHTTP "github.com/yusing/go-proxy/internal/http"
+	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 )
 
 var CustomErrorPage = &Middleware{
