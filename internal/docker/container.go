@@ -16,6 +16,7 @@ type Container struct {
 
 func FromDocker(c *types.Container, dockerHost string) (res Container) {
 	res.Container = c
+	isExplicit := c.Labels[LabelAliases] != ""
 	res.ProxyProperties = &ProxyProperties{
 		DockerHost:         dockerHost,
 		ContainerName:      res.getName(),
@@ -25,6 +26,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		NetworkMode:        c.HostConfig.NetworkMode,
 		Aliases:            res.getAliases(),
 		IsExcluded:         U.ParseBool(res.getDeleteLabel(LabelExclude)),
+		IsExplicit:         isExplicit,
 		IdleTimeout:        res.getDeleteLabel(LabelIdleTimeout),
 		WakeTimeout:        res.getDeleteLabel(LabelWakeTimeout),
 		StopMethod:         res.getDeleteLabel(LabelStopMethod),

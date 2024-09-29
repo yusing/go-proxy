@@ -42,7 +42,7 @@ func NewHandler(cfg *config.Config) http.Handler {
 func checkHost(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != common.APIHTTPAddr {
-			Logger.Warnf("invalid request to API server with host: %s, expected: %s", r.Host, common.APIHTTPAddr)
+			Logger.Warnf("invalid request to API server with host: %s, expect %s", r.Host, common.APIHTTPAddr)
 			w.WriteHeader(http.StatusNotFound)
 			w.Write([]byte("invalid request"))
 			return

@@ -30,7 +30,12 @@ providers:
   docker:
     # $DOCKER_HOST implies environment variable `DOCKER_HOST` or unix:///var/run/docker.sock by default
     local: $DOCKER_HOST
-
+    # explicit only mode
+    # only containers with explicit aliases will be proxied
+    # add "!" after provider name to enable explicit only mode
+    #
+    # local!: $DOCKER_HOST
+    #
     # add more docker providers if needed
     # for value format, see https://docs.docker.com/reference/cli/dockerd/
     #

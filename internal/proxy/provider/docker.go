@@ -16,17 +16,18 @@ import (
 
 type DockerProvider struct {
 	dockerHost, hostname string
+	ExplicitOnly         bool
 }
 
 var AliasRefRegex = regexp.MustCompile(`#\d+`)
 var AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
 
-func DockerProviderImpl(dockerHost string) (ProviderImpl, E.NestedError) {
+func DockerProviderImpl(dockerHost string, explicitOnly bool) (ProviderImpl, E.NestedError) {
 	hostname, err := D.ParseDockerHostname(dockerHost)
 	if err.HasError() {
 		return nil, err
 	}
-	return &DockerProvider{dockerHost: dockerHost, hostname: hostname}, nil
+	return &DockerProvider{dockerHost, hostname, explicitOnly}, nil
 }
 
 func (p *DockerProvider) String() string {
@@ -122,11 +123,12 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 
 // Returns a list of proxy entries for a container.
 // Always non-nil
-func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (M.RawEntries, E.NestedError) {
-	entries := M.NewProxyEntries()
+func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (entries M.RawEntries, _ E.NestedError) {
+	entries = M.NewProxyEntries()
 
-	if container.IsExcluded {
-		return entries, nil
+	if container.IsExcluded ||
+		!container.IsExplicit && p.ExplicitOnly {
+		return
 	}
 
 	// init entries map for all aliases

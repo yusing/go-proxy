@@ -56,6 +56,9 @@ func newProvider(name string, t ProviderType) *Provider {
 
 func NewFileProvider(filename string) (p *Provider, err E.NestedError) {
 	name := path.Base(filename)
+	if name == "" {
+		return nil, E.Invalid("file name", "empty")
+	}
 	p = newProvider(name, ProviderTypeFile)
 	p.ProviderImpl, err = FileProviderImpl(filename)
 	if err != nil {
@@ -66,8 +69,17 @@ func NewFileProvider(filename string) (p *Provider, err E.NestedError) {
 }
 
 func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.NestedError) {
+	if name == "" {
+		return nil, E.Invalid("provider name", "empty")
+	}
+	explicitOnly := false
+	if name[len(name)-1] == '!' {
+		explicitOnly = true
+		name = name[:len(name)-1]
+	}
+
 	p = newProvider(name, ProviderTypeDocker)
-	p.ProviderImpl, err = DockerProviderImpl(dockerHost)
+	p.ProviderImpl, err = DockerProviderImpl(dockerHost, explicitOnly)
 	if err != nil {
 		return nil, err
 	}

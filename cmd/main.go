@@ -84,7 +84,7 @@ func main() {
 	if err != nil {
 		logrus.Warn(err)
 	}
-	cfg := config.GetConfig()
+	cfg := config.GetInstance()
 
 	switch args.Command {
 	case common.CommandListConfigs:

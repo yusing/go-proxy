@@ -33,7 +33,7 @@ type Config struct {
 
 var instance *Config
 
-func GetConfig() *Config {
+func GetInstance() *Config {
 	return instance
 }
 
