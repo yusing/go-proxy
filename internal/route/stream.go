@@ -99,6 +99,10 @@ func (r *StreamRoute) Stop() E.NestedError {
 	}
 }
 
+func (r *StreamRoute) Started() bool {
+	return r.started.Load()
+}
+
 func (r *StreamRoute) grAcceptConnections() {
 	defer r.wg.Done()
 

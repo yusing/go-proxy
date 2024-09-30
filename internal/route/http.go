@@ -133,6 +133,10 @@ func (r *HTTPRoute) Start() E.NestedError {
 		}
 	}
 
+	if r.entry.IsDocker() && !r.entry.ContainerRunning {
+		return nil
+	}
+
 	r.mux = http.NewServeMux()
 	for _, p := range r.PathPatterns {
 		r.mux.HandleFunc(string(p), r.handler.ServeHTTP)
@@ -158,6 +162,10 @@ func (r *HTTPRoute) Stop() E.NestedError {
 	r.mux = nil
 	httpRoutes.Delete(r.Alias)
 	return nil
+}
+
+func (r *HTTPRoute) Started() bool {
+	return r.mux != nil
 }
 
 func (u *URL) String() string {

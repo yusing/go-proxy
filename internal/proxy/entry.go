@@ -43,6 +43,10 @@ func (rp *ReverseProxyEntry) UseIdleWatcher() bool {
 	return rp.IdleTimeout > 0 && rp.DockerHost != ""
 }
 
+func (rp *ReverseProxyEntry) IsDocker() bool {
+	return rp.DockerHost != ""
+}
+
 func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
 	if !m.FillMissingFields() {
 		return nil, E.Missing("fields")

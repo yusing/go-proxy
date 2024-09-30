@@ -34,6 +34,7 @@ func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 		}
 		obj["provider"] = p.GetName()
 		obj["type"] = string(r.Type())
+		obj["started"] = r.Started()
 		routes[alias] = obj
 	})
 	return routes

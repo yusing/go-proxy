@@ -22,6 +22,7 @@ type (
 	RouteImpl interface {
 		Start() E.NestedError
 		Stop() E.NestedError
+		Started() bool
 		String() string
 	}
 	RouteType string
@@ -41,14 +42,14 @@ const (
 var NewRoutes = F.NewMapOf[string, Route]
 
 func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
-	rt, err := P.ValidateEntry(en)
+	entry, err := P.ValidateEntry(en)
 	if err != nil {
 		return nil, err
 	}
 
 	var t RouteType
-
-	switch e := rt.(type) {
+	var rt RouteImpl
+	switch e := entry.(type) {
 	case *P.StreamEntry:
 		rt, err = NewStreamRoute(e)
 		t = RouteTypeStream
@@ -61,7 +62,7 @@ func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
 	if err != nil {
 		return nil, err
 	}
-	return &route{RouteImpl: rt.(RouteImpl), entry: en, type_: t}, nil
+	return &route{RouteImpl: rt, entry: en, type_: t}, nil
 }
 
 func (rt *route) Entry() *M.RawEntry {

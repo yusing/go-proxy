@@ -315,11 +315,6 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header.Set("Upgrade", reqUpType)
 	}
 
-	outreq.Header.Del("Forwarded")
-	// outreq.Header.Del("X-Forwarded-For")
-	// outreq.Header.Del("X-Forwarded-Host")
-	// outreq.Header.Del("X-Forwarded-Proto")
-
 	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
 		// If we aren't the first proxy retain prior
 		// X-Forwarded-For information as a comma+space
@@ -333,6 +328,14 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 			outreq.Header.Set("X-Forwarded-For", clientIP)
 		}
 	}
+	if req.TLS == nil {
+		outreq.Header.Set("X-Forwarded-Proto", "http")
+		outreq.Header.Set("X-Forwarded-Scheme", "http")
+	} else {
+		outreq.Header.Set("X-Forwarded-Proto", "https")
+		outreq.Header.Set("X-Forwarded-Scheme", "https")
+	}
+	outreq.Header.Set("X-Forwarded-Host", req.Host)
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
 		// If the outbound request doesn't have a User-Agent header set,

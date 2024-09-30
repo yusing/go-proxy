@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	. "github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -72,11 +73,11 @@ func (e *RawEntry) FillMissingFields() bool {
 			// try to fallback to first public port
 			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
 				pp = fmt.Sprint(p.PublicPort)
-			}
-			// ignore only if it is NOT RUNNING
-			// because stopped containers
-			// will have empty port mapping got from docker
-			if e.Running {
+			} else if e.Running {
+				// ignore only if it is NOT RUNNING
+				// because stopped containers
+				// will have empty port mapping got from docker
+				logrus.Debugf("ignored port %s for %s", pp, e.ContainerName)
 				return false
 			}
 		}
