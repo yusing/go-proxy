@@ -9,12 +9,15 @@
   - [Available middlewares](#available-middlewares)
     - [Redirect http](#redirect-http)
     - [Custom error pages](#custom-error-pages)
+    - [Real IP](#real-ip)
+      - [Custom](#custom)
+      - [Cloudflare](#cloudflare)
     - [Modify request or response](#modify-request-or-response)
       - [Set headers](#set-headers)
       - [Add headers](#add-headers)
       - [Hide headers](#hide-headers)
     - [X-Forwarded-\* Headers](#x-forwarded--headers)
-      - [Add X-Forwarded-\*](#add-x-forwarded-)
+      - [Hide X-Forwarded-\*](#hide-x-forwarded-)
       - [Set X-Forwarded-\*](#set-x-forwarded-)
     - [Forward Authorization header (experimental)](#forward-authorization-header-experimental)
   - [Examples](#examples)
@@ -100,6 +103,67 @@ nginx equivalent:
 location / {
     try_files $uri $uri/ /error_pages/404.html =404;
 }
+```
+
+[🔼Back to top](#table-of-content)
+
+### Real IP
+
+Check https://nginx.org/en/docs/http/ngx_http_realip_module.html for explaination of options
+
+#### Custom
+
+```yaml
+# docker labels
+proxy.app1.middlewares.real_ip.header: X-Real-IP
+proxy.app1.middlewares.real_ip.from: |
+  - 127.0.0.1
+  - 192.168.0.0/16
+  - 10.0.0.0/8
+proxy.app1.middlewares.real_ip.recursive: true
+
+# include file
+app1:
+  middlewares:
+    real_ip:
+      header: X-Real-IP
+      from:
+        - 127.0.0.1
+        - 192.168.0.0/16
+        - 10.0.0.0/8
+      recursive: true
+```
+
+nginx equivalent:
+```nginx
+location / {
+    set_real_ip_from 127.0.0.1;
+    set_real_ip_from 192.168.0.0/16;
+    set_real_ip_from 10.0.0.0/8;
+
+    real_ip_header    X-Real-IP;
+    real_ip_recursive on;
+}
+```
+
+#### Cloudflare
+
+This is a preset for Cloudflare
+
+- `header`: `CF-Connecting-IP`
+- `from`: CIDR List of Cloudflare IPs from (updated every hour)
+  - https://www.cloudflare.com/ips-v4
+  - https://www.cloudflare.com/ips-v6
+- `recursive`: true
+
+```yaml
+# docker labels
+proxy.app1.middlewares.cloudflare_real_ip:
+
+# include file
+app1:
+  middlewares:
+    cloudflare_real_ip:
 ```
 
 [🔼Back to top](#table-of-content)
@@ -199,21 +263,23 @@ location / {
 }
 ```
 
+[🔼Back to top](#table-of-content)
+
 ### X-Forwarded-* Headers
 
-#### Add X-Forwarded-*
+#### Hide X-Forwarded-*
 
-Append `X-Forwarded-*` headers to existing headers
+Remove `Forwarded` and `X-Forwarded-*` headers before request
 
 ```yaml
 # docker labels
-proxy.app1.middlewares.modify_request.add_x_forwarded:
+proxy.app1.middlewares.modify_request.hide_x_forwarded:
 
 # include file
 app1:
   middlewares:
     modify_request:
-      add_x_forwarded:
+      hide_x_forwarded:
 ```
 
 #### Set X-Forwarded-*

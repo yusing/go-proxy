@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
 )
 
@@ -18,7 +19,7 @@ func Get(name string) (middleware *Middleware, ok bool) {
 func init() {
 	middlewares = map[string]*Middleware{
 		"set_x_forwarded":    SetXForwarded,
-		"add_x_forwarded":    AddXForwarded,
+		"hide_x_forwarded":   HideXForwarded,
 		"redirect_http":      RedirectHTTP,
 		"forward_auth":       ForwardAuth.m,
 		"modify_response":    ModifyResponse.m,
@@ -44,4 +45,28 @@ func init() {
 			m.name = names[0]
 		}
 	}
+	// TODO: seperate from init()
+	// b := E.NewBuilder("failed to load middlewares")
+	// middlewareDefs, err := U.ListFiles(common.MiddlewareDefsBasePath, 0)
+	// if err != nil {
+	// 	logrus.Errorf("failed to list middleware definitions: %s", err)
+	// 	return
+	// }
+	// for _, defFile := range middlewareDefs {
+	// 	mws, err := BuildMiddlewaresFromYAML(defFile)
+	// 	for name, m := range mws {
+	// 		if _, ok := middlewares[name]; ok {
+	// 			b.Add(E.Duplicated("middleware", name))
+	// 			continue
+	// 		}
+	// 		middlewares[name] = m
+	// 		logger.Infof("middleware %s loaded from %s", name, path.Base(defFile))
+	// 	}
+	// 	b.Add(err.Subject(defFile))
+	// }
+	// if b.HasError() {
+	// 	logger.Error(b.Build())
+	// }
 }
+
+var logger = logrus.WithField("module", "middlewares")

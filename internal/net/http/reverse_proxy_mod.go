@@ -15,11 +15,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptrace"
 	"net/textproto"
 	"net/url"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http/httpguts"
@@ -65,28 +67,35 @@ type ProxyRequest struct {
 // 1xx responses are forwarded to the client if the underlying
 // transport supports ClientTrace.Got1xxResponse.
 type ReverseProxy struct {
-	// Rewrite must be a function which modifies
+	// Director is a function which modifies
 	// the request into a new request to be sent
 	// using Transport. Its response is then copied
 	// back to the original client unmodified.
-	// Rewrite must not access the provided ProxyRequest
-	// or its contents after returning.
+	// Director must not access the provided Request
+	// after returning.
 	//
-	// The Forwarded, X-Forwarded, X-Forwarded-Host,
-	// and X-Forwarded-Proto headers are removed from the
-	// outbound request before Rewrite is called. See also
-	// the ProxyRequest.SetXForwarded method.
+	// By default, the X-Forwarded-For header is set to the
+	// value of the client IP address. If an X-Forwarded-For
+	// header already exists, the client IP is appended to the
+	// existing values. As a special case, if the header
+	// exists in the Request.Header map but has a nil value
+	// (such as when set by the Director func), the X-Forwarded-For
+	// header is not modified.
 	//
-	// Unparsable query parameters are removed from the
-	// outbound request before Rewrite is called.
-	// The Rewrite function may copy the inbound URL's
-	// RawQuery to the outbound URL to preserve the original
-	// parameter string. Note that this can lead to security
-	// issues if the proxy's interpretation of query parameters
-	// does not match that of the downstream server.
+	// To prevent IP spoofing, be sure to delete any pre-existing
+	// X-Forwarded-For header coming from the client or
+	// an untrusted proxy.
+	//
+	// Hop-by-hop headers are removed from the request after
+	// Director returns, which can remove headers added by
+	// Director. Use a Rewrite function instead to ensure
+	// modifications to the request are preserved.
+	//
+	// Unparsable query parameters are removed from the outbound
+	// request if Request.Form is set after Director returns.
 	//
 	// At most one of Rewrite or Director may be set.
-	Rewrite func(*ProxyRequest)
+	Director func(*http.Request)
 
 	// The transport used to perform proxy requests.
 	// If nil, http.DefaultTransport is used.
@@ -104,13 +113,6 @@ type ReverseProxy struct {
 	ModifyResponse func(*http.Response) error
 
 	ServeHTTP http.HandlerFunc
-}
-
-// A BufferPool is an interface for getting and returning temporary
-// byte slices for use by [io.CopyBuffer].
-type BufferPool interface {
-	Get() []byte
-	Put([]byte)
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -169,10 +171,14 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 //
 
 func NewReverseProxy(target *url.URL, transport http.RoundTripper) *ReverseProxy {
+	if transport == nil {
+		panic("nil transport")
+	}
 	rp := &ReverseProxy{
-		Rewrite: func(pr *ProxyRequest) {
-			rewriteRequestURL(pr.Out, target)
-		}, Transport: transport,
+		Director: func(req *http.Request) {
+			rewriteRequestURL(req, target)
+		},
+		Transport: transport,
 	}
 	rp.ServeHTTP = rp.serveHTTP
 	return rp
@@ -187,6 +193,14 @@ func rewriteRequestURL(req *http.Request, target *url.URL) {
 		req.URL.RawQuery = targetQuery + req.URL.RawQuery
 	} else {
 		req.URL.RawQuery = targetQuery + "&" + req.URL.RawQuery
+	}
+}
+
+func copyHeader(dst, src http.Header) {
+	for k, vv := range src {
+		for _, v := range vv {
+			dst.Add(k, v)
+		}
 	}
 }
 
@@ -205,14 +219,6 @@ var hopHeaders = []string{
 	"Trailer", // not Trailers per URL above; https://www.rfc-editor.org/errata_search.php?eid=4522
 	"Transfer-Encoding",
 	"Upgrade",
-}
-
-func copyHeader(dst, src http.Header) {
-	for k, vv := range src {
-		for _, v := range vv {
-			dst.Add(k, v)
-		}
-	}
 }
 
 func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err error, writeHeader bool) {
@@ -282,6 +288,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header = make(http.Header) // Issue 33142: historical behavior was to always allocate
 	}
 
+	p.Director(outreq)
 	outreq.Close = false
 
 	reqUpType := UpgradeType(outreq.Header)
@@ -313,12 +320,19 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	// outreq.Header.Del("X-Forwarded-Host")
 	// outreq.Header.Del("X-Forwarded-Proto")
 
-	pr := &ProxyRequest{
-		In:  req,
-		Out: outreq,
+	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
+		// If we aren't the first proxy retain prior
+		// X-Forwarded-For information as a comma+space
+		// separated list and fold multiple headers into one.
+		prior, ok := outreq.Header["X-Forwarded-For"]
+		omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
+		if len(prior) > 0 {
+			clientIP = strings.Join(prior, ", ") + ", " + clientIP
+		}
+		if !omit {
+			outreq.Header.Set("X-Forwarded-For", clientIP)
+		}
 	}
-	p.Rewrite(pr)
-	outreq = pr.Out
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
 		// If the outbound request doesn't have a User-Agent header set,
@@ -326,15 +340,21 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header.Set("User-Agent", "")
 	}
 
+	var (
+		roundTripMutex sync.Mutex
+		roundTripDone  bool
+	)
 	trace := &httptrace.ClientTrace{
 		Got1xxResponse: func(code int, header textproto.MIMEHeader) error {
-			h := rw.Header()
-			// copyHeader(h, http.Header(header))
-			for k, vv := range header {
-				for _, v := range vv {
-					h.Add(k, v)
-				}
+			roundTripMutex.Lock()
+			defer roundTripMutex.Unlock()
+			if roundTripDone {
+				// If RoundTrip has returned, don't try to further modify
+				// the ResponseWriter's header map.
+				return nil
 			}
+			h := rw.Header()
+			copyHeader(h, http.Header(header))
 			rw.WriteHeader(code)
 
 			// Clear headers, it's not automatically done by ResponseWriter.WriteHeader() for 1xx responses
@@ -345,6 +365,9 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	outreq = outreq.WithContext(httptrace.WithClientTrace(outreq.Context(), trace))
 
 	res, err := transport.RoundTrip(outreq)
+	roundTripMutex.Lock()
+	roundTripDone = true
+	roundTripMutex.Unlock()
 	if err != nil {
 		p.errorHandler(rw, outreq, err, false)
 		errMsg := err.Error()
@@ -370,6 +393,8 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 		p.handleUpgradeResponse(rw, outreq, res)
 		return
 	}
+
+	RemoveHopByHopHeaders(res.Header)
 
 	if !p.modifyResponse(rw, res, outreq) {
 		return
