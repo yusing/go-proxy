@@ -110,24 +110,42 @@ func Deserialize(src SerializedObject, target any) E.NestedError {
 	if src == nil || target == nil {
 		return nil
 	}
+
+	tValue := reflect.ValueOf(target)
+	mapping := make(map[string]string)
+
+	if tValue.Kind() == reflect.Ptr {
+		tValue = tValue.Elem()
+	}
+
 	// convert data fields to lower no-snake
 	// convert target fields to lower no-snake
 	// then check if the field of data is in the target
-	mapping := make(map[string]string)
-	t := reflect.TypeOf(target).Elem()
-	for i := 0; i < t.NumField(); i++ {
-		field := t.Field(i)
-		snakeCaseField := ToLowerNoSnake(field.Name)
-		mapping[snakeCaseField] = field.Name
+
+	if tValue.Kind() == reflect.Struct {
+		t := reflect.TypeOf(target).Elem()
+		for i := 0; i < t.NumField(); i++ {
+			field := t.Field(i)
+			snakeCaseField := ToLowerNoSnake(field.Name)
+			mapping[snakeCaseField] = field.Name
+		}
+	} else if tValue.Kind() == reflect.Map && tValue.Type().Key().Kind() == reflect.String {
+		if tValue.IsNil() {
+			tValue.Set(reflect.MakeMap(tValue.Type()))
+		}
+		for k := range src {
+			// TODO: type check
+			tValue.SetMapIndex(reflect.ValueOf(ToLowerNoSnake(k)), reflect.ValueOf(src[k]))
+		}
+		return nil
+	} else {
+		return E.Unsupported("target type", fmt.Sprintf("%T", target))
 	}
-	tValue := reflect.ValueOf(target)
-	if tValue.IsZero() {
-		return E.Invalid("value", "nil")
-	}
+
 	for k, v := range src {
 		kCleaned := ToLowerNoSnake(k)
 		if fieldName, ok := mapping[kCleaned]; ok {
-			prop := reflect.ValueOf(target).Elem().FieldByName(fieldName)
+			prop := tValue.FieldByName(fieldName)
 			propType := prop.Type()
 			isPtr := prop.Kind() == reflect.Ptr
 			if prop.CanSet() {
@@ -157,7 +175,14 @@ func Deserialize(src SerializedObject, target any) E.NestedError {
 					}
 					prop.Set(propNew)
 				default:
-					return E.Invalid("conversion", k).Extraf("from %s to %s", vType, propType)
+					obj, ok := val.Interface().(SerializedObject)
+					if !ok {
+						return E.Invalid("conversion", k).Extraf("from %s to %s", vType, propType)
+					}
+					err := Deserialize(obj, prop.Addr().Interface())
+					if err.HasError() {
+						return E.Failure("set field").With(err).Subject(k)
+					}
 				}
 			} else {
 				return E.Unsupported("field", k).Extraf("type %s is not settable", propType)

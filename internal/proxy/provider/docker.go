@@ -12,6 +12,7 @@ import (
 	M "github.com/yusing/go-proxy/internal/models"
 	R "github.com/yusing/go-proxy/internal/route"
 	W "github.com/yusing/go-proxy/internal/watcher"
+	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
 type DockerProvider struct {
@@ -80,10 +81,17 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 
 func (p *DockerProvider) shouldIgnore(container D.Container) bool {
 	return container.IsExcluded ||
-		!container.IsExplicit && p.ExplicitOnly
+		!container.IsExplicit && p.ExplicitOnly ||
+		strings.HasSuffix(container.ContainerName, "-old")
 }
 
 func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
+	switch event.Action {
+	case events.ActionContainerStart, events.ActionContainerDie:
+		break
+	default:
+		return
+	}
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 
