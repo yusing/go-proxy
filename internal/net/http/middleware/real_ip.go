@@ -110,7 +110,7 @@ func (ri *realIP) isInCIDRList(ip net.IP) bool {
 func (ri *realIP) setRealIP(req *Request) {
 	clientIPStr, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
-		realIPLogger.Debugf("failed to split host port from %s: %s", req.RemoteAddr, err)
+		realIPLogger.Debugf("failed to split host port %s", err)
 	}
 	clientIP := net.ParseIP(clientIPStr)
 
@@ -152,6 +152,4 @@ func (ri *realIP) setRealIP(req *Request) {
 	req.Header.Set(ri.Header, lastNonTrustedIP)
 	req.Header.Set("X-Real-IP", lastNonTrustedIP)
 	req.Header.Set("X-Forwarded-For", lastNonTrustedIP)
-
-	realIPLogger.Debugf("real ip %s", lastNonTrustedIP)
 }
