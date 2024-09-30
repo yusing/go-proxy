@@ -91,7 +91,14 @@ func main() {
 		printJSON(cfg.Value())
 		return
 	case common.CommandListRoutes:
-		printJSON(cfg.RoutesByAlias())
+		routes, err := apiUtils.ListRoutes()
+		if err.HasError() {
+			log.Printf("failed to connect to api server: %s", err)
+			log.Printf("falling back to config file")
+			printJSON(cfg.RoutesByAlias())
+		} else {
+			printJSON(routes)
+		}
 		return
 	case common.CommandDebugListEntries:
 		printJSON(cfg.DumpEntries())

@@ -124,9 +124,3 @@ jobs:
             - name: Inspect image
               run: |
                   docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
-
-            - name: Tag as latest
-              if: startsWith(github.ref, 'refs/tags/') && !contains(github.ref_name, '-')
-              run: |
-                  docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-                  docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest

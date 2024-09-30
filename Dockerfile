@@ -5,11 +5,11 @@ RUN apk add --no-cache tzdata
 WORKDIR /src
 
 # Only copy go.mod and go.sum initially for better caching
-COPY go.mod go.sum /src
+COPY go.mod go.sum /src/
 
 # Utilize build cache
 RUN --mount=type=cache,target="/go/pkg/mod" \
-    go mod graph | awk '{if ($1 !~ "@") print $2}' | xargs go get
+    go mod download -x
 
 ENV GOCACHE=/root/.cache/go-build
 

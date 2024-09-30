@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,4 +29,21 @@ func ReloadServer() E.NestedError {
 		return failure.Extraf("unable to read response body")
 	}
 	return nil
+}
+
+func ListRoutes() (map[string]map[string]any, E.NestedError) {
+	resp, err := httpClient.Get(fmt.Sprintf("%s/v1/list/routes", common.APIHTTPURL))
+	if err != nil {
+		return nil, E.From(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, E.Failure("list routes").Extraf("status code: %v", resp.StatusCode)
+	}
+	var routes map[string]map[string]any
+	err = json.NewDecoder(resp.Body).Decode(&routes)
+	if err != nil {
+		return nil, E.From(err)
+	}
+	return routes, nil
 }
