@@ -2,6 +2,7 @@ package error
 
 import (
 	stderrors "errors"
+	"reflect"
 )
 
 var (
@@ -13,6 +14,7 @@ var (
 	ErrMissing     = stderrors.New("missing")
 	ErrDuplicated  = stderrors.New("duplicated")
 	ErrOutOfRange  = stderrors.New("out of range")
+	ErrTypeError   = stderrors.New("type error")
 )
 
 const fmtSubjectWhat = "%w %v: %q"
@@ -57,6 +59,10 @@ func Duplicated(subject, what any) NestedError {
 	return errorf("%w %v: %v", ErrDuplicated, subject, what)
 }
 
-func OutOfRange(subject string, value any) NestedError {
+func OutOfRange(subject any, value any) NestedError {
 	return errorf("%v %w: %v", subject, ErrOutOfRange, value)
+}
+
+func TypeError(subject any, from, to reflect.Value) NestedError {
+	return errorf("%v %w: %T -> %T", subject, ErrTypeError, from.Interface(), to.Interface())
 }

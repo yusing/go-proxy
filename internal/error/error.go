@@ -182,8 +182,7 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	if strings.Contains(format, "%w") {
 		panic("Subjectf format should not contain %w")
 	}
-	ne.subject = fmt.Sprintf(format, args...)
-	return ne
+	return ne.Subject(fmt.Sprintf(format, args...))
 }
 
 func (ne NestedError) JSONObject() jsonNestedError {
