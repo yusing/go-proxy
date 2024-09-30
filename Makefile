@@ -27,7 +27,7 @@ logs:
 	docker compose logs -f
 
 get:
-	cd cmd && go get -u && go mod tidy && cd ..
+	go get -u ./cmd && go mod tidy
 
 debug:
 	make BUILD_FLAG="" build && sudo GOPROXY_DEBUG=1 bin/go-proxy

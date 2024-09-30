@@ -20,6 +20,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 	res.ProxyProperties = &ProxyProperties{
 		DockerHost:         dockerHost,
 		ContainerName:      res.getName(),
+		ContainerID:        c.ID,
 		ImageName:          res.getImageName(),
 		PublicPortMapping:  res.getPublicPortMapping(),
 		PrivatePortMapping: res.getPrivatePortMapping(),

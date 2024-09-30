@@ -58,7 +58,7 @@ var realIPOptsDefault = func() *realIPOpts {
 
 var realIPLogger = logrus.WithField("middleware", "RealIP")
 
-func NewRealIP(opts OptionsRaw, _ *ReverseProxy) (*Middleware, E.NestedError) {
+func NewRealIP(opts OptionsRaw) (*Middleware, E.NestedError) {
 	riWithOpts := new(realIP)
 	riWithOpts.m = &Middleware{
 		impl:    riWithOpts,
@@ -67,7 +67,7 @@ func NewRealIP(opts OptionsRaw, _ *ReverseProxy) (*Middleware, E.NestedError) {
 	riWithOpts.realIPOpts = realIPOptsDefault()
 	err := Deserialize(opts, riWithOpts.realIPOpts)
 	if err != nil {
-		return nil, E.FailWith("set options", err)
+		return nil, err
 	}
 	return riWithOpts.m, nil
 }

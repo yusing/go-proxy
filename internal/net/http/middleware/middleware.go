@@ -23,7 +23,7 @@ type (
 	BeforeFunc         func(next http.Handler, w ResponseWriter, r *Request)
 	RewriteFunc        func(req *Request)
 	ModifyResponseFunc func(resp *Response) error
-	CloneWithOptFunc   func(opts OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError)
+	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.NestedError)
 
 	OptionsRaw = map[string]any
 	Options    any
@@ -55,7 +55,7 @@ func (m *Middleware) String() string {
 
 func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError) {
 	if len(optsRaw) != 0 && m.withOptions != nil {
-		if mWithOpt, err := m.withOptions(optsRaw, rp); err != nil {
+		if mWithOpt, err := m.withOptions(optsRaw); err != nil {
 			return nil, err
 		} else {
 			return mWithOpt, nil

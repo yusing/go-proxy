@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
@@ -31,6 +30,7 @@ type (
 		TrustForwardHeader       bool
 		AuthResponseHeaders      []string
 		AddAuthCookiesToResponse []string
+		transport                http.RoundTripper
 	}
 )
 
@@ -56,35 +56,35 @@ var ForwardAuth = func() *forwardAuth {
 }()
 var faLogger = logrus.WithField("middleware", "ForwardAuth")
 
-func NewForwardAuthfunc(optsRaw OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError) {
-	tr, ok := rp.Transport.(*http.Transport)
-	if ok {
-		tr = tr.Clone()
-	} else {
-		tr = common.DefaultTransport.Clone()
-	}
-
+func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	faWithOpts := new(forwardAuth)
 	faWithOpts.forwardAuthOpts = new(forwardAuthOpts)
+	err := Deserialize(optsRaw, faWithOpts.forwardAuthOpts)
+	if err != nil {
+		return nil, err
+	}
+	_, err = E.Check(url.Parse(faWithOpts.Address))
+	if err != nil {
+		return nil, E.Invalid("address", faWithOpts.Address)
+	}
+
+	faWithOpts.m = &Middleware{
+		impl:   faWithOpts,
+		before: faWithOpts.forward,
+	}
+
+	// TODO: use tr from reverse proxy
+	tr, ok := faWithOpts.forwardAuthOpts.transport.(*http.Transport)
+	if ok {
+		tr = tr.Clone()
+	}
+
 	faWithOpts.client = http.Client{
 		CheckRedirect: func(r *Request, via []*Request) error {
 			return http.ErrUseLastResponse
 		},
 		Timeout:   30 * time.Second,
 		Transport: tr,
-	}
-	faWithOpts.m = &Middleware{
-		impl:   faWithOpts,
-		before: faWithOpts.forward,
-	}
-
-	err := Deserialize(optsRaw, faWithOpts.forwardAuthOpts)
-	if err != nil {
-		return nil, E.FailWith("set options", err)
-	}
-	_, err = E.Check(url.Parse(faWithOpts.Address))
-	if err != nil {
-		return nil, E.Invalid("address", faWithOpts.Address)
 	}
 	return faWithOpts.m, nil
 }

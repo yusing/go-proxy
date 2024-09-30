@@ -78,12 +78,17 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 	return routes, errors.Build()
 }
 
+func (p *DockerProvider) shouldIgnore(container D.Container) bool {
+	return container.IsExcluded ||
+		!container.IsExplicit && p.ExplicitOnly
+}
+
 func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 
 	routes.RangeAll(func(k string, v R.Route) {
-		if v.Entry().ContainerName == event.ActorName {
+		if v.Entry().ContainerID == event.ActorID {
 			b.Add(v.Stop())
 			routes.Delete(k)
 			res.nRemoved++
@@ -101,6 +106,11 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 		b.Add(E.FailWith("inspect container", err))
 		return
 	}
+
+	if p.shouldIgnore(cont) {
+		return
+	}
+
 	entries, err := p.entriesFromContainerLabels(cont)
 	b.Add(err)
 
@@ -126,8 +136,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (entries M.RawEntries, _ E.NestedError) {
 	entries = M.NewProxyEntries()
 
-	if container.IsExcluded ||
-		!container.IsExplicit && p.ExplicitOnly {
+	if p.shouldIgnore(container) {
 		return
 	}
 

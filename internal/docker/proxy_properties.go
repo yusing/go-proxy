@@ -6,6 +6,7 @@ type PortMapping = map[string]types.Port
 type ProxyProperties struct {
 	DockerHost         string      `yaml:"-" json:"docker_host"`
 	ContainerName      string      `yaml:"-" json:"container_name"`
+	ContainerID        string      `yaml:"-" json:"container_id"`
 	ImageName          string      `yaml:"-" json:"image_name"`
 	PublicPortMapping  PortMapping `yaml:"-" json:"public_port_mapping"`  // non-zero publicPort:types.Port
 	PrivatePortMapping PortMapping `yaml:"-" json:"private_port_mapping"` // privatePort:types.Port

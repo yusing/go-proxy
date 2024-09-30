@@ -89,7 +89,7 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 			return nil
 		}
 		unregIdleWatcher = func() {
-			idlewatcher.Unregister(entry.ContainerName)
+			idlewatcher.Unregister(entry)
 			rp.Transport = trans
 		}
 	}

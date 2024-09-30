@@ -32,7 +32,7 @@ var ModifyResponse = func() (mr *modifyResponse) {
 	return
 }()
 
-func NewModifyResponse(optsRaw OptionsRaw, _ *ReverseProxy) (*Middleware, E.NestedError) {
+func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	mr := new(modifyResponse)
 	mr.m = &Middleware{
 		impl:           mr,
@@ -41,7 +41,7 @@ func NewModifyResponse(optsRaw OptionsRaw, _ *ReverseProxy) (*Middleware, E.Nest
 	mr.modifyResponseOpts = new(modifyResponseOpts)
 	err := Deserialize(optsRaw, mr.modifyResponseOpts)
 	if err != nil {
-		return nil, E.FailWith("set options", err)
+		return nil, err
 	}
 	return mr.m, nil
 }

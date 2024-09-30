@@ -49,8 +49,6 @@ func (b Builder) Addf(format string, args ...any) Builder {
 func (b Builder) Build() NestedError {
 	if len(b.errors) == 0 {
 		return nil
-	} else if len(b.errors) == 1 {
-		return b.errors[0].Subjectf("%s", b.message)
 	}
 	return Join(b.message, b.errors...)
 }

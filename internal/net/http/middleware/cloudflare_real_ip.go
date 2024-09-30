@@ -34,7 +34,7 @@ var CloudflareRealIP = &realIP{
 	},
 }
 
-func NewCloudflareRealIP(_ OptionsRaw, _ *ReverseProxy) (*Middleware, E.NestedError) {
+func NewCloudflareRealIP(_ OptionsRaw) (*Middleware, E.NestedError) {
 	cri := new(realIP)
 	cri.m = &Middleware{
 		impl: cri,

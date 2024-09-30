@@ -17,6 +17,8 @@ const (
 	ConfigFileName        = "config.yml"
 	ConfigExampleFileName = "config.example.yml"
 	ConfigPath            = ConfigBasePath + "/" + ConfigFileName
+
+	MiddlewareDefsBasePath = ConfigBasePath + "/middlewares"
 )
 
 const (

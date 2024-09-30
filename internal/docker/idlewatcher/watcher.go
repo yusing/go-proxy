@@ -63,7 +63,9 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 	watcherMapMu.Lock()
 	defer watcherMapMu.Unlock()
 
-	if w, ok := watcherMap[entry.ContainerName]; ok {
+	key := entry.ContainerID
+
+	if w, ok := watcherMap[key]; ok {
 		w.refCount.Add(1)
 		w.ReverseProxyEntry = entry
 		return w, nil
@@ -85,7 +87,7 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 	w.refCount.Add(1)
 	w.stopByMethod = w.getStopCallback()
 
-	watcherMap[w.ContainerName] = w
+	watcherMap[key] = w
 
 	go func() {
 		newWatcherCh <- w
@@ -94,8 +96,8 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 	return w, nil
 }
 
-func Unregister(containerName string) {
-	if w, ok := watcherMap[containerName]; ok {
+func Unregister(entry *P.ReverseProxyEntry) {
+	if w, ok := watcherMap[entry.ContainerID]; ok {
 		w.refCount.Add(-1)
 	}
 }
@@ -118,7 +120,7 @@ func Start() {
 				w.refCount.Wait() // wait for 0 ref count
 
 				w.client.Close()
-				delete(watcherMap, w.ContainerName)
+				delete(watcherMap, w.ContainerID)
 				w.l.Debug("unregistered")
 				mainLoopWg.Done()
 			}()
@@ -138,29 +140,29 @@ func (w *watcher) PatchRoundTripper(rtp http.RoundTripper) roundTripper {
 }
 
 func (w *watcher) containerStop() error {
-	return w.client.ContainerStop(w.ctx, w.ContainerName, container.StopOptions{
+	return w.client.ContainerStop(w.ctx, w.ContainerID, container.StopOptions{
 		Signal:  string(w.StopSignal),
 		Timeout: &w.StopTimeout})
 }
 
 func (w *watcher) containerPause() error {
-	return w.client.ContainerPause(w.ctx, w.ContainerName)
+	return w.client.ContainerPause(w.ctx, w.ContainerID)
 }
 
 func (w *watcher) containerKill() error {
-	return w.client.ContainerKill(w.ctx, w.ContainerName, string(w.StopSignal))
+	return w.client.ContainerKill(w.ctx, w.ContainerID, string(w.StopSignal))
 }
 
 func (w *watcher) containerUnpause() error {
-	return w.client.ContainerUnpause(w.ctx, w.ContainerName)
+	return w.client.ContainerUnpause(w.ctx, w.ContainerID)
 }
 
 func (w *watcher) containerStart() error {
-	return w.client.ContainerStart(w.ctx, w.ContainerName, container.StartOptions{})
+	return w.client.ContainerStart(w.ctx, w.ContainerID, container.StartOptions{})
 }
 
 func (w *watcher) containerStatus() (string, E.NestedError) {
-	json, err := w.client.ContainerInspect(w.ctx, w.ContainerName)
+	json, err := w.client.ContainerInspect(w.ctx, w.ContainerID)
 	if err != nil {
 		return "", E.FailWith("inspect container", err)
 	}
@@ -219,7 +221,7 @@ func (w *watcher) watchUntilCancel() {
 	dockerEventCh, dockerEventErrCh := dockerWatcher.EventsWithOptions(w.ctx, W.DockerListOptions{
 		Filters: W.NewDockerFilter(
 			W.DockerFilterContainer,
-			W.DockerrFilterContainerName(w.ContainerName),
+			W.DockerrFilterContainer(w.ContainerID),
 			W.DockerFilterStart,
 			W.DockerFilterStop,
 			W.DockerFilterDie,

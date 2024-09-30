@@ -28,6 +28,7 @@ type (
 		StopSignal       T.Signal
 		DockerHost       string
 		ContainerName    string
+		ContainerID      string
 		ContainerRunning bool
 	}
 	StreamEntry struct {
@@ -115,6 +116,7 @@ func validateRPEntry(m *M.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry 
 		StopSignal:       stopSignal,
 		DockerHost:       m.DockerHost,
 		ContainerName:    m.ContainerName,
+		ContainerID:      m.ContainerID,
 		ContainerRunning: m.Running,
 	}
 }

@@ -37,8 +37,8 @@ var (
 	dockerWatcherRetryInterval = 3 * time.Second
 )
 
-func DockerrFilterContainerName(name string) filters.KeyValuePair {
-	return filters.Arg("container", name)
+func DockerrFilterContainer(nameOrID string) filters.KeyValuePair {
+	return filters.Arg("container", nameOrID)
 }
 
 func NewDockerWatcher(host string) DockerWatcher {
