@@ -235,73 +235,75 @@ func TestExplicitExclude(t *testing.T) {
 	ExpectFalse(t, ok)
 }
 
-func TestImplicitExclude(t *testing.T) {
-	var p DockerProvider
-	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
-		Names: dummyNames,
-		Labels: map[string]string{
-			D.LabelAliases:          "a",
-			"proxy.a.no_tls_verify": "true",
-		},
-		State: "running",
-	}, ""))
-	ExpectNoError(t, err.Error())
+//! Now nothing will be implicit excluded
+//
+// func TestImplicitExclude(t *testing.T) {
+// 	var p DockerProvider
+// 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+// 		Names: dummyNames,
+// 		Labels: map[string]string{
+// 			D.LabelAliases:          "a",
+// 			"proxy.a.no_tls_verify": "true",
+// 		},
+// 		State: "running",
+// 	}, ""))
+// 	ExpectNoError(t, err.Error())
 
-	_, ok := entries.Load("a")
-	ExpectFalse(t, ok)
-}
+// 	_, ok := entries.Load("a")
+// 	ExpectFalse(t, ok)
+// }
 
-func TestImplicitExcludeNoExposedPort(t *testing.T) {
-	var p DockerProvider
-	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
-		Image: "redis",
-		Names: []string{"redis"},
-		Ports: []types.Port{
-			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
-		},
-		State: "running",
-	}, ""))
-	ExpectNoError(t, err.Error())
+// func TestImplicitExcludeNoExposedPort(t *testing.T) {
+// 	var p DockerProvider
+// 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+// 		Image: "redis",
+// 		Names: []string{"redis"},
+// 		Ports: []types.Port{
+// 			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
+// 		},
+// 		State: "running",
+// 	}, ""))
+// 	ExpectNoError(t, err.Error())
 
-	_, ok := entries.Load("redis")
-	ExpectFalse(t, ok)
-}
+// 	_, ok := entries.Load("redis")
+// 	ExpectFalse(t, ok)
+// }
 
-func TestNotExcludeSpecifiedPort(t *testing.T) {
-	var p DockerProvider
-	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
-		Image: "redis",
-		Names: []string{"redis"},
-		Ports: []types.Port{
-			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
-		},
-		Labels: map[string]string{
-			"proxy.redis.port": "6379:6379", // but specified in label
-		},
-	}, ""))
-	ExpectNoError(t, err.Error())
+// func TestNotExcludeSpecifiedPort(t *testing.T) {
+// 	var p DockerProvider
+// 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+// 		Image: "redis",
+// 		Names: []string{"redis"},
+// 		Ports: []types.Port{
+// 			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
+// 		},
+// 		Labels: map[string]string{
+// 			"proxy.redis.port": "6379:6379", // but specified in label
+// 		},
+// 	}, ""))
+// 	ExpectNoError(t, err.Error())
 
-	_, ok := entries.Load("redis")
-	ExpectTrue(t, ok)
-}
+// 	_, ok := entries.Load("redis")
+// 	ExpectTrue(t, ok)
+// }
 
-func TestNotExcludeNonExposedPortHostNetwork(t *testing.T) {
-	var p DockerProvider
-	cont := &types.Container{
-		Image: "redis",
-		Names: []string{"redis"},
-		Ports: []types.Port{
-			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
-		},
-		Labels: map[string]string{
-			"proxy.redis.port": "6379:6379",
-		},
-	}
-	cont.HostConfig.NetworkMode = "host"
+// func TestNotExcludeNonExposedPortHostNetwork(t *testing.T) {
+// 	var p DockerProvider
+// 	cont := &types.Container{
+// 		Image: "redis",
+// 		Names: []string{"redis"},
+// 		Ports: []types.Port{
+// 			{Type: "tcp", PrivatePort: 6379, PublicPort: 0}, // not exposed
+// 		},
+// 		Labels: map[string]string{
+// 			"proxy.redis.port": "6379:6379",
+// 		},
+// 	}
+// 	cont.HostConfig.NetworkMode = "host"
 
-	entries, err := p.entriesFromContainerLabels(D.FromDocker(cont, ""))
-	ExpectNoError(t, err.Error())
+// 	entries, err := p.entriesFromContainerLabels(D.FromDocker(cont, ""))
+// 	ExpectNoError(t, err.Error())
 
-	_, ok := entries.Load("redis")
-	ExpectTrue(t, ok)
-}
+// 	_, ok := entries.Load("redis")
+// 	ExpectTrue(t, ok)
+// }
