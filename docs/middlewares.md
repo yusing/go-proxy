@@ -12,7 +12,7 @@
     - [Real IP](#real-ip)
       - [Custom](#custom)
       - [Cloudflare](#cloudflare)
-    - [Modify request or response](#modify-request-or-response)
+    - [CIDR Whitelist](#cidr-whitelist)
       - [Set headers](#set-headers)
       - [Add headers](#add-headers)
       - [Hide headers](#hide-headers)
@@ -147,6 +147,8 @@ location / {
 }
 ```
 
+[🔼Back to top](#table-of-content)
+
 #### Cloudflare
 
 This is a preset for Cloudflare
@@ -168,6 +170,28 @@ app1:
 ```
 
 [🔼Back to top](#table-of-content)
+
+### CIDR Whitelist
+
+```yaml
+# docker labels
+proxy.app1.middlewares.cidr_whitelist.allow: |
+  - 10.0.0.0/8
+  - 192.168.0.0/16
+# optional (default: 403)
+proxy.app1.middlewares.cidr_whitelist.status_code: 403
+# optional (default: "IP not allowed")
+proxy.app1.middlewares.cidr_whitelist.message: "IP not allowed"
+
+# include file
+app1:
+  middlewares:
+    whitelist:
+      cidr:
+        - 10.0.0.0/8
+        - 192.168.0.0/16
+      status_code: 403          # default
+      message: "IP not allowed" # default
 
 ### Modify request or response
 
@@ -364,6 +388,8 @@ Middleware compose is a way to create reusable middlewares in file(s), just like
 You may use them with `<middleware_name>@file`
 
 See [example](../internal/net/http/middleware/test_data/middleware_compose.yml)
+
+[🔼Back to top](#table-of-content)
 
 ## Examples
 
