@@ -33,6 +33,7 @@ func init() {
 		"customerrorpage":  CustomErrorPage,
 		"realip":           RealIP.m,
 		"cloudflarerealip": CloudflareRealIP.m,
+		"cidrwhitelist":    CIDRWhiteList.m,
 	}
 	names := make(map[*Middleware][]string)
 	for name, m := range middlewares {
@@ -50,10 +51,11 @@ func init() {
 			m.name = names[0]
 		}
 	}
+}
 
-	// TODO: seperate from init()
+func LoadComposeFiles() {
 	b := E.NewBuilder("failed to load middlewares")
-	middlewareDefs, err := U.ListFiles(common.MiddlewareDefsBasePath, 0)
+	middlewareDefs, err := U.ListFiles(common.MiddlewareComposeBasePath, 0)
 	if err != nil {
 		logrus.Errorf("failed to list middleware definitions: %s", err)
 		return

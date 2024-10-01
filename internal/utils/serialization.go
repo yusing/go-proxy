@@ -13,7 +13,7 @@ import (
 )
 
 type SerializedObject = map[string]any
-type Convertor interface {
+type Converter interface {
 	ConvertFrom(value any) (any, E.NestedError)
 }
 
@@ -188,7 +188,7 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 //   - error: the error occurred during conversion, or nil if no error occurred.
 func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 	srcT := src.Type()
-	dstVT := dst.Type()
+	dstT := dst.Type()
 
 	if src.Kind() == reflect.Interface {
 		src = src.Elem()
@@ -199,31 +199,36 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 		return E.From(fmt.Errorf("%w type %T is unsettable", E.ErrUnsupported, dst.Interface()))
 	}
 
-	switch {
-	case srcT.AssignableTo(dstVT):
-		dst.Set(src)
-	case srcT.ConvertibleTo(dstVT):
-		dst.Set(src.Convert(dstVT))
-	case srcT.Kind() == reflect.Map:
-		if dstVT.Kind() != reflect.Map {
-			return E.TypeError("map", srcT, dstVT)
+	if dst.Kind() == reflect.Pointer {
+		if dst.IsNil() {
+			dst.Set(reflect.New(dstT.Elem()))
 		}
+		dst = dst.Elem()
+		dstT = dst.Type()
+	}
+
+	switch {
+	case srcT.AssignableTo(dstT):
+		dst.Set(src)
+	case srcT.ConvertibleTo(dstT):
+		dst.Set(src.Convert(dstT))
+	case srcT.Kind() == reflect.Map:
 		obj, ok := src.Interface().(SerializedObject)
 		if !ok {
-			return E.TypeError("map", srcT, dstVT)
+			return E.TypeMismatch[SerializedObject](src.Interface())
 		}
 		err := Deserialize(obj, dst.Addr().Interface())
 		if err != nil {
 			return err
 		}
 	case srcT.Kind() == reflect.Slice:
-		if dstVT.Kind() != reflect.Slice {
-			return E.TypeError("slice", srcT, dstVT)
+		if dstT.Kind() != reflect.Slice {
+			return E.TypeError("slice", srcT, dstT)
 		}
-		newSlice := reflect.MakeSlice(dstVT, 0, src.Len())
+		newSlice := reflect.MakeSlice(dstT, 0, src.Len())
 		i := 0
 		for _, v := range src.Seq2() {
-			tmp := reflect.New(dstVT.Elem()).Elem()
+			tmp := reflect.New(dstT.Elem()).Elem()
 			err := Convert(v, tmp)
 			if err != nil {
 				return err.Subjectf("[%d]", i)
@@ -233,16 +238,27 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 		}
 		dst.Set(newSlice)
 	default:
-		// check if Convertor is implemented
-		if converter, ok := dst.Interface().(Convertor); ok {
-			converted, err := converter.ConvertFrom(src.Interface())
-			if err != nil {
-				return err
+		var converter Converter
+		var ok bool
+		// check if (*T).Convertor is implemented
+		if converter, ok = dst.Addr().Interface().(Converter); !ok {
+			// check if (T).Convertor is implemented
+			converter, ok = dst.Interface().(Converter)
+			if !ok {
+				return E.TypeError("conversion", srcT, dstT)
 			}
-			dst.Set(reflect.ValueOf(converted))
-			return nil
 		}
-		return E.TypeError("conversion", srcT, dstVT)
+
+		converted, err := converter.ConvertFrom(src.Interface())
+		if err != nil {
+			return err
+		}
+		c := reflect.ValueOf(converted)
+		if c.Kind() == reflect.Ptr {
+			c = c.Elem()
+		}
+		dst.Set(c)
+		return nil
 	}
 
 	return nil

@@ -20,6 +20,7 @@
       - [Hide X-Forwarded-\*](#hide-x-forwarded-)
       - [Set X-Forwarded-\*](#set-x-forwarded-)
     - [Forward Authorization header (experimental)](#forward-authorization-header-experimental)
+  - [Middleware Compose](#middleware-compose)
   - [Examples](#examples)
     - [Authentik (untested, experimental)](#authentik-untested-experimental)
 
@@ -355,6 +356,14 @@ http:
 ```
 
 [🔼Back to top](#table-of-content)
+
+## Middleware Compose
+
+Middleware compose is a way to create reusable middlewares in file(s), just like docker compose.
+
+You may use them with `<middleware_name>@file`
+
+See [example](../internal/net/http/middleware/test_data/middleware_compose.yml)
 
 ## Examples
 

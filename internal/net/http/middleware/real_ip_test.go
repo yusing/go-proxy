@@ -45,14 +45,5 @@ func TestSetRealIP(t *testing.T) {
 		// ExpectEqual(t, ri.impl.(*realIP).Recursive, optExpected.Recursive)
 		ExpectDeepEqual(t, ri.impl.(*realIP).realIPOpts, optExpected)
 	})
-
-	// t.Run("request_headers", func(t *testing.T) {
-	// 	result, err := newMiddlewareTest(ModifyRequest.m, &testArgs{
-	// 		middlewareOpt: opts,
-	// 	})
-	// 	ExpectNoError(t, err.Error())
-	// 	ExpectEqual(t, result.RequestHeaders.Get("User-Agent"), "go-proxy/v0.5.0")
-	// 	ExpectTrue(t, slices.Contains(result.RequestHeaders.Values("Accept-Encoding"), "test-value"))
-	// 	ExpectEqual(t, result.RequestHeaders.Get("Accept"), "")
-	// })
+	// TODO test
 }

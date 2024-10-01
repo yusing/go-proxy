@@ -1,6 +1,7 @@
 package docker
 
 import (
+	"strconv"
 	"strings"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -75,4 +76,12 @@ func BoolParser(value string) (any, E.NestedError) {
 	default:
 		return nil, E.Invalid("boolean value", value)
 	}
+}
+
+func IntParser(value string) (any, E.NestedError) {
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		return 0, E.Invalid("integer value", value)
+	}
+	return i, nil
 }

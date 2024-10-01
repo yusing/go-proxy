@@ -24,6 +24,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -80,8 +81,9 @@ func main() {
 		prepareDirectory(dir)
 	}
 
-	err := config.Load()
-	if err != nil {
+	middleware.LoadComposeFiles()
+
+	if err := config.Load(); err != nil {
 		logrus.Warn(err)
 	}
 	cfg := config.GetInstance()
@@ -113,11 +115,6 @@ func main() {
 	}
 
 	cfg.StartProxyProviders()
-
-	if err.HasError() {
-		l.Warn(err)
-	}
-
 	cfg.WatchChanges()
 
 	onShutdown.Add(docker.CloseAllClients)
@@ -132,7 +129,7 @@ func main() {
 
 	if autocert != nil {
 		ctx, cancel := context.WithCancel(context.Background())
-		if err = autocert.Setup(ctx); err != nil {
+		if err := autocert.Setup(ctx); err != nil {
 			l.Fatal(err)
 		} else {
 			onShutdown.Add(cancel)
