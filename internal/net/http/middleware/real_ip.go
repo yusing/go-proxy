@@ -2,11 +2,11 @@ package middleware
 
 import (
 	"net"
-	"strings"
 
 	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/types"
 )
 
 // https://nginx.org/en/docs/http/ngx_http_realip_module.html
@@ -20,7 +20,7 @@ type realIPOpts struct {
 	// Header is the name of the header to use for the real client IP
 	Header string
 	// From is a list of Address / CIDRs to trust
-	From []*net.IPNet
+	From []*types.CIDR
 	/*
 		If recursive search is disabled,
 		the original client address that matches one of the trusted addresses is replaced by
@@ -35,7 +35,7 @@ type realIPOpts struct {
 var RealIP = &realIP{
 	m: &Middleware{
 		labelParserMap: D.ValueParserMap{
-			"from":      CIDRListParser,
+			"from":      D.YamlStringListParser,
 			"recursive": D.BoolParser,
 		},
 		withOptions: NewRealIP,
@@ -45,14 +45,7 @@ var RealIP = &realIP{
 var realIPOptsDefault = func() *realIPOpts {
 	return &realIPOpts{
 		Header: "X-Real-IP",
-		From: []*net.IPNet{
-			{IP: net.IPv4(127, 0, 0, 1), Mask: net.CIDRMask(8, 32)},
-			{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
-			{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
-			{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
-			{IP: net.ParseIP("fc00::"), Mask: net.CIDRMask(7, 128)},
-			{IP: net.ParseIP("fe80::"), Mask: net.CIDRMask(10, 128)},
-		},
+		From:   []*types.CIDR{},
 	}
 }
 
@@ -70,31 +63,6 @@ func NewRealIP(opts OptionsRaw) (*Middleware, E.NestedError) {
 		return nil, err
 	}
 	return riWithOpts.m, nil
-}
-
-func CIDRListParser(s string) (any, E.NestedError) {
-	sl, err := D.YamlStringListParser(s)
-	if err != nil {
-		return nil, err
-	}
-
-	b := E.NewBuilder("invalid CIDR(s)")
-
-	CIDRs := sl.([]string)
-	res := make([]*net.IPNet, 0, len(CIDRs))
-
-	for _, cidr := range CIDRs {
-		if !strings.Contains(cidr, "/") {
-			cidr += "/32" // single IP
-		}
-		_, ipnet, err := net.ParseCIDR(cidr)
-		if err != nil {
-			b.Add(E.Invalid("CIDR", cidr))
-			continue
-		}
-		res = append(res, ipnet)
-	}
-	return res, b.Build()
 }
 
 func (ri *realIP) isInCIDRList(ip net.IP) bool {

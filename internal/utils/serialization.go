@@ -12,6 +12,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type SerializedObject = map[string]any
+type Convertor interface {
+	ConvertFrom(value any) (any, E.NestedError)
+}
+
 func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
 	var i any
 
@@ -89,7 +94,7 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 			} else if field.Anonymous {
 				// If the field is an embedded struct, add its fields to the result
 				fieldMap, err := Serialize(value.Field(i).Interface())
-				if err.HasError() {
+				if err != nil {
 					return nil, err
 				}
 				for k, v := range fieldMap {
@@ -106,90 +111,138 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 	return result, nil
 }
 
-func Deserialize(src SerializedObject, target any) E.NestedError {
-	if src == nil || target == nil {
+// Deserialize takes a SerializedObject and a target value, and assigns the values in the SerializedObject to the target value.
+// Deserialize ignores case differences between the field names in the SerializedObject and the target.
+//
+// The target value must be a struct or a map[string]any.
+// If the target value is a struct, the SerializedObject will be deserialized into the struct fields.
+// If the target value is a map[string]any, the SerializedObject will be deserialized into the map.
+//
+// The function returns an error if the target value is not a struct or a map[string]any, or if there is an error during deserialization.
+func Deserialize(src SerializedObject, dst any) E.NestedError {
+	if src == nil || dst == nil {
 		return nil
 	}
 
-	tValue := reflect.ValueOf(target)
-	mapping := make(map[string]string)
+	dstV := reflect.ValueOf(dst)
+	dstT := dstV.Type()
 
-	if tValue.Kind() == reflect.Ptr {
-		tValue = tValue.Elem()
+	if dstV.Kind() == reflect.Ptr {
+		dstV = dstV.Elem()
+		dstT = dstV.Type()
 	}
 
 	// convert data fields to lower no-snake
 	// convert target fields to lower no-snake
 	// then check if the field of data is in the target
 
-	if tValue.Kind() == reflect.Struct {
-		t := reflect.TypeOf(target).Elem()
-		for i := 0; i < t.NumField(); i++ {
-			field := t.Field(i)
-			snakeCaseField := ToLowerNoSnake(field.Name)
-			mapping[snakeCaseField] = field.Name
+	// TODO: use E.Builder to collect errors from all fields
+
+	if dstV.Kind() == reflect.Struct {
+		mapping := make(map[string]reflect.Value)
+		for i := 0; i < dstV.NumField(); i++ {
+			field := dstT.Field(i)
+			mapping[ToLowerNoSnake(field.Name)] = dstV.Field(i)
 		}
-	} else if tValue.Kind() == reflect.Map && tValue.Type().Key().Kind() == reflect.String {
-		if tValue.IsNil() {
-			tValue.Set(reflect.MakeMap(tValue.Type()))
+		for k, v := range src {
+			if field, ok := mapping[ToLowerNoSnake(k)]; ok {
+				err := Convert(reflect.ValueOf(v), field)
+				if err != nil {
+					return err.Subject(k)
+				}
+			} else {
+				return E.Unexpected("field", k)
+			}
+		}
+	} else if dstV.Kind() == reflect.Map && dstT.Key().Kind() == reflect.String {
+		if dstV.IsNil() {
+			dstV.Set(reflect.MakeMap(dstT))
 		}
 		for k := range src {
-			// TODO: type check
-			tValue.SetMapIndex(reflect.ValueOf(ToLowerNoSnake(k)), reflect.ValueOf(src[k]))
+			tmp := reflect.New(dstT.Elem()).Elem()
+			err := Convert(reflect.ValueOf(src[k]), tmp)
+			if err != nil {
+				return err.Subject(k)
+			}
+			dstV.SetMapIndex(reflect.ValueOf(ToLowerNoSnake(k)), tmp)
 		}
 		return nil
 	} else {
-		return E.Unsupported("target type", fmt.Sprintf("%T", target))
+		return E.Unsupported("target type", fmt.Sprintf("%T", dst))
 	}
 
-	for k, v := range src {
-		kCleaned := ToLowerNoSnake(k)
-		if fieldName, ok := mapping[kCleaned]; ok {
-			prop := tValue.FieldByName(fieldName)
-			propType := prop.Type()
-			isPtr := prop.Kind() == reflect.Ptr
-			if prop.CanSet() {
-				val := reflect.ValueOf(v)
-				vType := val.Type()
-				switch {
-				case isPtr && vType.ConvertibleTo(propType.Elem()):
-					ptr := reflect.New(propType.Elem())
-					ptr.Elem().Set(val.Convert(propType.Elem()))
-					prop.Set(ptr)
-				case vType.ConvertibleTo(propType):
-					prop.Set(val.Convert(propType))
-				case isPtr:
-					var vSerialized SerializedObject
-					vSerialized, ok = v.(SerializedObject)
-					if !ok {
-						if vType.ConvertibleTo(reflect.TypeFor[SerializedObject]()) {
-							vSerialized = val.Convert(reflect.TypeFor[SerializedObject]()).Interface().(SerializedObject)
-						} else {
-							return E.Failure(fmt.Sprintf("convert %s (%T) to %s", k, v, reflect.TypeFor[SerializedObject]()))
-						}
-					}
-					propNew := reflect.New(propType.Elem())
-					err := Deserialize(vSerialized, propNew.Interface())
-					if err.HasError() {
-						return E.Failure("set field").With(err).Subject(k)
-					}
-					prop.Set(propNew)
-				default:
-					obj, ok := val.Interface().(SerializedObject)
-					if !ok {
-						return E.Invalid("conversion", k).Extraf("from %s to %s", vType, propType)
-					}
-					err := Deserialize(obj, prop.Addr().Interface())
-					if err.HasError() {
-						return E.Failure("set field").With(err).Subject(k)
-					}
-				}
-			} else {
-				return E.Unsupported("field", k).Extraf("type %s is not settable", propType)
-			}
-		} else {
-			return E.Unexpected("field", k)
+	return nil
+}
+
+// Convert attempts to convert the src to dst.
+//
+// If src is a map, it is deserialized into dst.
+// If src is a slice, each of its elements are converted and stored in dst.
+// For any other type, it is converted using the reflect.Value.Convert function (if possible).
+//
+// If dst is not settable, an error is returned.
+// If src cannot be converted to dst, an error is returned.
+// If any error occurs during conversion (e.g. deserialization), it is returned.
+//
+// Returns:
+//   - error: the error occurred during conversion, or nil if no error occurred.
+func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
+	srcT := src.Type()
+	dstVT := dst.Type()
+
+	if src.Kind() == reflect.Interface {
+		src = src.Elem()
+		srcT = src.Type()
+	}
+
+	if !dst.CanSet() {
+		return E.From(fmt.Errorf("%w type %T is unsettable", E.ErrUnsupported, dst.Interface()))
+	}
+
+	switch {
+	case srcT.AssignableTo(dstVT):
+		dst.Set(src)
+	case srcT.ConvertibleTo(dstVT):
+		dst.Set(src.Convert(dstVT))
+	case srcT.Kind() == reflect.Map:
+		if dstVT.Kind() != reflect.Map {
+			return E.TypeError("map", srcT, dstVT)
 		}
+		obj, ok := src.Interface().(SerializedObject)
+		if !ok {
+			return E.TypeError("map", srcT, dstVT)
+		}
+		err := Deserialize(obj, dst.Addr().Interface())
+		if err != nil {
+			return err
+		}
+	case srcT.Kind() == reflect.Slice:
+		if dstVT.Kind() != reflect.Slice {
+			return E.TypeError("slice", srcT, dstVT)
+		}
+		newSlice := reflect.MakeSlice(dstVT, 0, src.Len())
+		i := 0
+		for _, v := range src.Seq2() {
+			tmp := reflect.New(dstVT.Elem()).Elem()
+			err := Convert(v, tmp)
+			if err != nil {
+				return err.Subjectf("[%d]", i)
+			}
+			newSlice = reflect.Append(newSlice, tmp)
+			i++
+		}
+		dst.Set(newSlice)
+	default:
+		// check if Convertor is implemented
+		if converter, ok := dst.Interface().(Convertor); ok {
+			converted, err := converter.ConvertFrom(src.Interface())
+			if err != nil {
+				return err
+			}
+			dst.Set(reflect.ValueOf(converted))
+			return nil
+		}
+		return E.TypeError("conversion", srcT, dstVT)
 	}
 
 	return nil
@@ -197,7 +250,7 @@ func Deserialize(src SerializedObject, target any) E.NestedError {
 
 func DeserializeJson(j map[string]string, target any) E.NestedError {
 	data, err := E.Check(json.Marshal(j))
-	if err.HasError() {
+	if err != nil {
 		return err
 	}
 	return E.From(json.Unmarshal(data, target))
@@ -206,5 +259,3 @@ func DeserializeJson(j map[string]string, target any) E.NestedError {
 func ToLowerNoSnake(s string) string {
 	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
 }
-
-type SerializedObject = map[string]any

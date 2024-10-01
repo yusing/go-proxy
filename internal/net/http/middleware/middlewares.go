@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"path"
 	"strings"
 
@@ -15,27 +16,27 @@ import (
 var middlewares map[string]*Middleware
 
 func Get(name string) (middleware *Middleware, ok bool) {
-	middleware, ok = middlewares[name]
+	middleware, ok = middlewares[strings.ToLower(name)]
 	return
 }
 
 // initialize middleware names and label parsers
 func init() {
 	middlewares = map[string]*Middleware{
-		"set_x_forwarded":    SetXForwarded,
-		"hide_x_forwarded":   HideXForwarded,
-		"redirect_http":      RedirectHTTP,
-		"forward_auth":       ForwardAuth.m,
-		"modify_response":    ModifyResponse.m,
-		"modify_request":     ModifyRequest.m,
-		"error_page":         CustomErrorPage,
-		"custom_error_page":  CustomErrorPage,
-		"real_ip":            RealIP.m,
-		"cloudflare_real_ip": CloudflareRealIP.m,
+		"setxforwarded":    SetXForwarded,
+		"hidexforwarded":   HideXForwarded,
+		"redirecthttp":     RedirectHTTP,
+		"forwardauth":      ForwardAuth.m,
+		"modifyresponse":   ModifyResponse.m,
+		"modifyrequest":    ModifyRequest.m,
+		"errorpage":        CustomErrorPage,
+		"customerrorpage":  CustomErrorPage,
+		"realip":           RealIP.m,
+		"cloudflarerealip": CloudflareRealIP.m,
 	}
 	names := make(map[*Middleware][]string)
 	for name, m := range middlewares {
-		names[m] = append(names[m], name)
+		names[m] = append(names[m], http.CanonicalHeaderKey(name))
 		// register middleware name to docker label parsr
 		// in order to parse middleware_name.option=value into correct type
 		if m.labelParserMap != nil {
@@ -49,6 +50,7 @@ func init() {
 			m.name = names[0]
 		}
 	}
+
 	// TODO: seperate from init()
 	b := E.NewBuilder("failed to load middlewares")
 	middlewareDefs, err := U.ListFiles(common.MiddlewareDefsBasePath, 0)
@@ -57,7 +59,7 @@ func init() {
 		return
 	}
 	for _, defFile := range middlewareDefs {
-		mws, err := BuildMiddlewaresFromYAML(defFile)
+		mws, err := BuildMiddlewaresFromComposeFile(defFile)
 		for name, m := range mws {
 			if _, ok := middlewares[name]; ok {
 				b.Add(E.Duplicated("middleware", name))

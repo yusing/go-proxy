@@ -2,6 +2,7 @@ package error
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 )
 
@@ -24,7 +25,6 @@ func NewBuilder(format string, args ...any) Builder {
 func (b Builder) Add(err NestedError) Builder {
 	if err != nil {
 		b.Lock()
-		// TODO: if err severity is higher than b.severity, update b.severity
 		b.errors = append(b.errors, err)
 		b.Unlock()
 	}
@@ -49,6 +49,8 @@ func (b Builder) Addf(format string, args ...any) Builder {
 func (b Builder) Build() NestedError {
 	if len(b.errors) == 0 {
 		return nil
+	} else if len(b.errors) == 1 && !strings.ContainsRune(b.message, ' ') {
+		return b.errors[0].Subject(b.message)
 	}
 	return Join(b.message, b.errors...)
 }

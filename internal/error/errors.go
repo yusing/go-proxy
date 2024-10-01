@@ -6,15 +6,16 @@ import (
 )
 
 var (
-	ErrFailure     = stderrors.New("failed")
-	ErrInvalid     = stderrors.New("invalid")
-	ErrUnsupported = stderrors.New("unsupported")
-	ErrUnexpected  = stderrors.New("unexpected")
-	ErrNotExists   = stderrors.New("does not exist")
-	ErrMissing     = stderrors.New("missing")
-	ErrDuplicated  = stderrors.New("duplicated")
-	ErrOutOfRange  = stderrors.New("out of range")
-	ErrTypeError   = stderrors.New("type error")
+	ErrFailure      = stderrors.New("failed")
+	ErrInvalid      = stderrors.New("invalid")
+	ErrUnsupported  = stderrors.New("unsupported")
+	ErrUnexpected   = stderrors.New("unexpected")
+	ErrNotExists    = stderrors.New("does not exist")
+	ErrMissing      = stderrors.New("missing")
+	ErrDuplicated   = stderrors.New("duplicated")
+	ErrOutOfRange   = stderrors.New("out of range")
+	ErrTypeError    = stderrors.New("type error")
+	ErrTypeMismatch = stderrors.New("type mismatch")
 )
 
 const fmtSubjectWhat = "%w %v: %q"
@@ -63,6 +64,14 @@ func OutOfRange(subject any, value any) NestedError {
 	return errorf("%v %w: %v", subject, ErrOutOfRange, value)
 }
 
-func TypeError(subject any, from, to reflect.Value) NestedError {
-	return errorf("%v %w: %T -> %T", subject, ErrTypeError, from.Interface(), to.Interface())
+func TypeError(subject any, from, to reflect.Type) NestedError {
+	return errorf("%v %w: %s -> %s\n", subject, ErrTypeError, from, to)
+}
+
+func TypeError2(subject any, from, to reflect.Value) NestedError {
+	return TypeError(subject, from.Type(), to.Type())
+}
+
+func TypeMismatch[Expect any](value any) NestedError {
+	return errorf("%w: expect %s got %T", ErrTypeMismatch, reflect.TypeFor[Expect](), value)
 }

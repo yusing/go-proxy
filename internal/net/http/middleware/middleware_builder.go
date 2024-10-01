@@ -8,24 +8,27 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func BuildMiddlewaresFromYAML(filePath string) (middlewares map[string]*Middleware, outErr E.NestedError) {
+func BuildMiddlewaresFromComposeFile(filePath string) (map[string]*Middleware, E.NestedError) {
+	fileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, E.FailWith("read middleware compose file", err)
+	}
+	return BuildMiddlewaresFromYAML(fileContent)
+}
+
+func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, outErr E.NestedError) {
 	b := E.NewBuilder("middlewares compile errors")
 	defer b.To(&outErr)
 
-	var data map[string][]map[string]any
-	fileContent, err := os.ReadFile(filePath)
-	if err != nil {
-		b.Add(E.FailWith("read file", err))
-		return
-	}
-	err = yaml.Unmarshal(fileContent, &data)
+	var rawMap map[string][]map[string]any
+	err := yaml.Unmarshal(data, &rawMap)
 	if err != nil {
 		b.Add(E.FailWith("toml unmarshal", err))
 		return
 	}
 	middlewares = make(map[string]*Middleware)
-	for name, defs := range data {
-		chainErr := E.NewBuilder("errors in middleware chain %s", name)
+	for name, defs := range rawMap {
+		chainErr := E.NewBuilder(name)
 		chain := make([]*Middleware, 0, len(defs))
 		for i, def := range defs {
 			if def["use"] == nil || def["use"].(string) == "" {
@@ -39,9 +42,9 @@ func BuildMiddlewaresFromYAML(filePath string) (middlewares map[string]*Middlewa
 				continue
 			}
 			delete(def, "use")
-			m, err := base.withOptions(def)
+			m, err := base.WithOptionsClone(def)
 			if err != nil {
-				chainErr.Add(err.Subjectf("%s.%d", name, i))
+				chainErr.Add(err.Subjectf("item%d", i))
 				continue
 			}
 			chain = append(chain, m)

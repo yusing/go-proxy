@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"encoding/json"
 	"net/http"
 
 	D "github.com/yusing/go-proxy/internal/docker"
@@ -53,7 +54,14 @@ func (m *Middleware) String() string {
 	return m.name
 }
 
-func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw, rp *ReverseProxy) (*Middleware, E.NestedError) {
+func (m *Middleware) MarshalJSON() ([]byte, error) {
+	return json.MarshalIndent(map[string]any{
+		"name":    m.name,
+		"options": m.impl,
+	}, "", "  ")
+}
+
+func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	if len(optsRaw) != 0 && m.withOptions != nil {
 		if mWithOpt, err := m.withOptions(optsRaw); err != nil {
 			return nil, err
@@ -87,7 +95,7 @@ func PatchReverseProxy(rp *ReverseProxy, middlewares map[string]OptionsRaw) (res
 			continue
 		}
 
-		m, err := m.WithOptionsClone(opts, rp)
+		m, err := m.WithOptionsClone(opts)
 		if err != nil {
 			invalidOpts.Add(err.Subject(name))
 			continue

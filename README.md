@@ -11,6 +11,8 @@
 
 A lightweight, easy-to-use, and [performant](docs/benchmark_result.md) reverse proxy with a web UI.
 
+_Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
+
 ## Table of content
 
 <!-- TOC -->

@@ -166,6 +166,8 @@ func (ne NestedError) Subject(s any) NestedError {
 	}
 	if ne.subject == "" {
 		ne.subject = subject
+	} else if !strings.ContainsRune(subject, ' ') || strings.ContainsRune(ne.subject, '.') {
+		ne.subject = fmt.Sprintf("%s.%s", subject, ne.subject)
 	} else {
 		ne.subject = fmt.Sprintf("%s > %s", subject, ne.subject)
 	}
