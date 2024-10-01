@@ -388,6 +388,8 @@ http:
 
 Middleware compose is a way to create reusable middlewares in file(s), just like docker compose.
 
+Files will be loaded from `config/middlewares`
+
 You may use them with `<middleware_name>@file`
 
 See [example](../internal/net/http/middleware/test_data/middleware_compose.yml)
