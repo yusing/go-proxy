@@ -13,6 +13,7 @@
       - [Custom](#custom)
       - [Cloudflare](#cloudflare)
     - [CIDR Whitelist](#cidr-whitelist)
+    - [Modify request or response](#modify-request-or-response)
       - [Set headers](#set-headers)
       - [Add headers](#add-headers)
       - [Hide headers](#hide-headers)
@@ -208,6 +209,8 @@ app1:
     modify_response:
       field:
 ```
+
+### Modify request or response
 
 #### Set headers
 
