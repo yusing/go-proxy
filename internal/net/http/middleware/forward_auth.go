@@ -34,15 +34,6 @@ type (
 	}
 )
 
-const (
-	xForwardedFor    = "X-Forwarded-For"
-	xForwardedMethod = "X-Forwarded-Method"
-	xForwardedHost   = "X-Forwarded-Host"
-	xForwardedProto  = "X-Forwarded-Proto"
-	xForwardedURI    = "X-Forwarded-Uri"
-	xForwardedPort   = "X-Forwarded-Port"
-)
-
 var ForwardAuth = func() *forwardAuth {
 	fa := new(forwardAuth)
 	fa.m = new(Middleware)

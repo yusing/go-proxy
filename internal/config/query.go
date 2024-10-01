@@ -27,6 +27,9 @@ func (cfg *Config) DumpProviders() map[string]*PR.Provider {
 func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 	routes := make(map[string]U.SerializedObject)
 	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
+		if !r.Started() {
+			return
+		}
 		obj, err := U.Serialize(r)
 		if err.HasError() {
 			cfg.l.Error(err)
@@ -46,6 +49,9 @@ func (cfg *Config) Statistics() map[string]any {
 	providerStats := make(map[string]any)
 
 	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
+		if !r.Started() {
+			return
+		}
 		s, ok := providerStats[p.GetName()]
 		if !ok {
 			s = make(map[string]int)

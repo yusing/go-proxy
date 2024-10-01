@@ -11,6 +11,7 @@ import (
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/internal/error"
 	P "github.com/yusing/go-proxy/internal/proxy"
+	PT "github.com/yusing/go-proxy/internal/proxy/fields"
 )
 
 type StreamRoute struct {
@@ -57,7 +58,7 @@ func (r *StreamRoute) String() string {
 }
 
 func (r *StreamRoute) Start() E.NestedError {
-	if r.started.Load() {
+	if r.Port.ListeningPort == PT.NoPort || r.started.Load() {
 		return nil
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())

@@ -133,7 +133,9 @@ func (r *HTTPRoute) Start() E.NestedError {
 		}
 	}
 
-	if r.entry.IsDocker() && !r.entry.ContainerRunning {
+	if r.entry.URL.Port() == "0" ||
+		r.entry.IsDocker() && !r.entry.ContainerRunning {
+		// TODO: if it use idlewatcher, set mux to dummy mux
 		return nil
 	}
 

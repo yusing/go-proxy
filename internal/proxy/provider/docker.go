@@ -163,8 +163,8 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (entr
 	}
 
 	// remove all entries that failed to fill in missing fields
-	entries.RemoveAll(func(re *M.RawEntry) bool {
-		return !re.FillMissingFields()
+	entries.RangeAll(func(_ string, re *M.RawEntry) {
+		re.FillMissingFields()
 	})
 
 	return entries, errors.Build().Subject(container.ContainerName)

@@ -16,7 +16,7 @@ import (
 var middlewares map[string]*Middleware
 
 func Get(name string) (middleware *Middleware, ok bool) {
-	middleware, ok = middlewares[strings.ToLower(name)]
+	middleware, ok = middlewares[U.ToLowerNoSnake(name)]
 	return
 }
 

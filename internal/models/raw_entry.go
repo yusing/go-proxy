@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	. "github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -32,7 +31,7 @@ type (
 
 var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
-func (e *RawEntry) FillMissingFields() bool {
+func (e *RawEntry) FillMissingFields() {
 	isDocker := e.ProxyProperties != nil
 	if !isDocker {
 		e.ProxyProperties = &D.ProxyProperties{}
@@ -59,7 +58,7 @@ func (e *RawEntry) FillMissingFields() bool {
 	} else if pp == "" {
 		if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
 			pp = fmt.Sprint(p.PrivatePort)
-		} else {
+		} else if !isDocker {
 			pp = "80"
 		}
 	}
@@ -73,12 +72,6 @@ func (e *RawEntry) FillMissingFields() bool {
 			// try to fallback to first public port
 			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
 				pp = fmt.Sprint(p.PublicPort)
-			} else if e.Running {
-				// ignore only if it is NOT RUNNING
-				// because stopped containers
-				// will have empty port mapping got from docker
-				logrus.Debugf("ignored port %s for %s", pp, e.ContainerName)
-				return false
 			}
 		}
 	}
@@ -120,7 +113,9 @@ func (e *RawEntry) FillMissingFields() bool {
 
 	e.Port = joinPorts(lp, pp, extra)
 
-	return true
+	if e.Port == "" {
+		e.Port = "0"
+	}
 }
 
 func (e *RawEntry) splitPorts() (lp string, pp string, extra string) {

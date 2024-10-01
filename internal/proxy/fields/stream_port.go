@@ -12,7 +12,7 @@ type StreamPort struct {
 	ProxyPort     Port `json:"proxy"`
 }
 
-func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
+func ValidateStreamPort(p string) (_ StreamPort, err E.NestedError) {
 	split := strings.Split(p, ":")
 
 	switch len(split) {
@@ -21,24 +21,26 @@ func ValidateStreamPort(p string) (StreamPort, E.NestedError) {
 	case 2:
 		break
 	default:
-		return ErrStreamPort, E.Invalid("stream port", p).With("too many colons")
+		err = E.Invalid("stream port", p).With("too many colons")
+		return
 	}
 
 	listeningPort, err := ValidatePort(split[0])
 	if err != nil {
-		return ErrStreamPort, err.Subject("listening port")
+		err = err.Subject("listening port")
+		return
 	}
 
 	proxyPort, err := ValidatePort(split[1])
 
 	if err.Is(E.ErrOutOfRange) {
-		return ErrStreamPort, err.Subject("proxy port")
-	} else if proxyPort == 0 {
-		return ErrStreamPort, E.Invalid("proxy port", p)
+		err = err.Subject("proxy port")
+		return
 	} else if err != nil {
 		proxyPort, err = parseNameToPort(split[1])
 		if err != nil {
-			return ErrStreamPort, E.Invalid("proxy port", proxyPort)
+			err = E.Invalid("proxy port", proxyPort)
+			return
 		}
 	}
 
@@ -52,5 +54,3 @@ func parseNameToPort(name string) (Port, E.NestedError) {
 	}
 	return Port(port), nil
 }
-
-var ErrStreamPort = StreamPort{ErrPort, ErrPort}

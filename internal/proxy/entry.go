@@ -48,9 +48,7 @@ func (rp *ReverseProxyEntry) IsDocker() bool {
 }
 
 func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
-	if !m.FillMissingFields() {
-		return nil, E.Missing("fields")
-	}
+	m.FillMissingFields()
 
 	scheme, err := T.NewScheme(m.Scheme)
 	if err.HasError() {
