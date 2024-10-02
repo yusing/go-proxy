@@ -38,6 +38,7 @@ func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 		obj["provider"] = p.GetName()
 		obj["type"] = string(r.Type())
 		obj["started"] = r.Started()
+		obj["raw"] = r.Entry()
 		routes[alias] = obj
 	})
 	return routes
@@ -46,29 +47,16 @@ func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 func (cfg *Config) Statistics() map[string]any {
 	nTotalStreams := 0
 	nTotalRPs := 0
-	providerStats := make(map[string]any)
+	providerStats := make(map[string]PR.ProviderStats)
 
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
-		if !r.Started() {
-			return
-		}
-		s, ok := providerStats[p.GetName()]
-		if !ok {
-			s = make(map[string]int)
-		}
-
-		stats := s.(map[string]int)
-		switch r.Type() {
-		case R.RouteTypeStream:
-			stats["num_streams"]++
-			nTotalStreams++
-		case R.RouteTypeReverseProxy:
-			stats["num_reverse_proxies"]++
-			nTotalRPs++
-		default:
-			panic("bug: should not reach here")
-		}
+	cfg.proxyProviders.RangeAll(func(name string, p *PR.Provider) {
+		providerStats[name] = p.Statistics()
 	})
+
+	for _, stats := range providerStats {
+		nTotalRPs += stats.NumRPs
+		nTotalStreams += stats.NumStreams
+	}
 
 	return map[string]any{
 		"num_total_streams":         nTotalStreams,

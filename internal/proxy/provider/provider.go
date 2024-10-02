@@ -31,8 +31,13 @@ type (
 		OnEvent(event W.Event, routes R.Routes) EventResult
 		String() string
 	}
-	ProviderType string
-	EventResult  struct {
+	ProviderType  string
+	ProviderStats struct {
+		NumRPs     int          `json:"num_reverse_proxies"`
+		NumStreams int          `json:"num_streams"`
+		Type       ProviderType `json:"type"`
+	}
+	EventResult struct {
 		nRemoved int
 		nAdded   int
 		err      E.NestedError
@@ -162,6 +167,24 @@ func (p *Provider) LoadRoutes() E.NestedError {
 		return err
 	}
 	return E.FailWith("loading routes", err)
+}
+
+func (p *Provider) Statistics() ProviderStats {
+	numRPs := 0
+	numStreams := 0
+	p.routes.RangeAll(func(_ string, r R.Route) {
+		switch r.Type() {
+		case R.RouteTypeReverseProxy:
+			numRPs++
+		case R.RouteTypeStream:
+			numStreams++
+		}
+	})
+	return ProviderStats{
+		NumRPs:     numRPs,
+		NumStreams: numStreams,
+		Type:       p.t,
+	}
 }
 
 func (p *Provider) watchEvents() {

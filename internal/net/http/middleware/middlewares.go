@@ -20,6 +20,10 @@ func Get(name string) (middleware *Middleware, ok bool) {
 	return
 }
 
+func All() map[string]*Middleware {
+	return middlewares
+}
+
 // initialize middleware names and label parsers
 func init() {
 	middlewares = map[string]*Middleware{

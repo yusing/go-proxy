@@ -23,9 +23,7 @@ func ListFiles(dir string, maxDepth int) ([]string, error) {
 			if err != nil {
 				return nil, err
 			}
-			for _, subEntry := range subEntries {
-				files = append(files, path.Join(dir, entry.Name(), subEntry))
-			}
+			files = append(files, subEntries...)
 		} else {
 			files = append(files, path.Join(dir, entry.Name()))
 		}

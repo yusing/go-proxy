@@ -12,6 +12,9 @@ import (
 var Logger = logrus.WithField("module", "api")
 
 func HandleErr(w http.ResponseWriter, r *http.Request, origErr error, code ...int) {
+	if origErr == nil {
+		return
+	}
 	err := E.From(origErr).Subjectf("%s %s", r.Method, r.URL)
 	Logger.Error(err)
 	if len(code) > 0 {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
@@ -41,7 +42,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	var validateErr E.NestedError
 	if filename == common.ConfigFileName {
 		validateErr = config.Validate(content)
-	} else {
+	} else if !strings.HasPrefix(filename, path.Base(common.MiddlewareComposeBasePath)) {
 		validateErr = provider.Validate(content)
 	}
 
