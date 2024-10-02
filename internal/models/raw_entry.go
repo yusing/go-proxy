@@ -8,7 +8,6 @@ import (
 	. "github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	H "github.com/yusing/go-proxy/internal/homepage"
-	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -38,11 +37,6 @@ func (e *RawEntry) FillMissingFields() {
 	isDocker := e.ProxyProperties != nil
 	if !isDocker {
 		e.ProxyProperties = &D.ProxyProperties{}
-	}
-
-	if e.Homepage == nil {
-		e.Homepage = H.HomePageItemDefault()
-		e.Homepage.Name = U.Title(e.Alias)
 	}
 
 	lp, pp, extra := e.splitPorts()

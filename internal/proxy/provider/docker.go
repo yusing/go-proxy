@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	H "github.com/yusing/go-proxy/internal/homepage"
 	M "github.com/yusing/go-proxy/internal/models"
 	R "github.com/yusing/go-proxy/internal/route"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -184,6 +185,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (entr
 			Alias:           a,
 			Host:            p.hostname,
 			ProxyProperties: container.ProxyProperties,
+			Homepage:        &H.HomePageItem{},
 		})
 	}
 

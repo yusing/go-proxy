@@ -1,6 +1,10 @@
 package config
 
 import (
+	"fmt"
+	"strings"
+
+	"github.com/yusing/go-proxy/internal/common"
 	H "github.com/yusing/go-proxy/internal/homepage"
 	M "github.com/yusing/go-proxy/internal/models"
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
@@ -26,12 +30,51 @@ func (cfg *Config) DumpProviders() map[string]*PR.Provider {
 }
 
 func (cfg *Config) HomepageConfig() H.HomePageConfig {
+	var proto, port string
+	domains := cfg.value.MatchDomains
+	cert, _ := cfg.autocertProvider.GetCert(nil)
+	if cert != nil {
+		proto = "https"
+		port = common.ProxyHTTPPort
+	} else {
+		proto = "http"
+		port = common.ProxyHTTPSPort
+	}
+
 	hpCfg := H.NewHomePageConfig()
 	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
 		if !r.Started() {
 			return
 		}
-		hpCfg.Add(*r.Entry().Homepage)
+
+		entry := r.Entry()
+		item := entry.Homepage
+		if item == nil {
+			item = &H.HomePageItem{}
+		}
+
+		if item.Name == "" {
+			item.Name = U.Title(alias)
+		}
+
+		if p.GetType() == PR.ProviderTypeDocker {
+			if item.Category == "" {
+				item.Category = "Docker"
+			}
+			item.SourceType = string(PR.ProviderTypeDocker)
+		} else if p.GetType() == PR.ProviderTypeFile {
+			if item.Category == "" {
+				item.Category = "Others"
+			}
+			item.SourceType = string(PR.ProviderTypeFile)
+		}
+
+		if item.URL == "" && r.Type() == R.RouteTypeReverseProxy {
+			if len(domains) > 0 {
+				item.URL = fmt.Sprintf("%s://%s.%s:%s", proto, strings.ToLower(alias), domains[0], port)
+			}
+		}
+		hpCfg.Add(item)
 	})
 	return hpCfg
 }
