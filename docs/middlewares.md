@@ -193,6 +193,7 @@ app1:
         - 192.168.0.0/16
       status_code: 403          # default
       message: "IP not allowed" # default
+```
 
 ### Modify request or response
 
@@ -209,8 +210,6 @@ app1:
     modify_response:
       field:
 ```
-
-### Modify request or response
 
 #### Set headers
 
