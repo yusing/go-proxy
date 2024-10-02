@@ -16,6 +16,7 @@ const (
 	ListConfigFiles     = "config_files"
 	ListMiddlewares     = "middlewares"
 	ListMiddlewareTrace = "middleware_trace"
+	ListMatchDomains    = "match_domains"
 )
 
 func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
@@ -33,6 +34,8 @@ func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		listMiddlewares(w, r)
 	case ListMiddlewareTrace:
 		listMiddlewareTrace(w, r)
+	case ListMatchDomains:
+		listMatchDomains(cfg, w, r)
 	default:
 		U.HandleErr(w, r, U.ErrInvalidKey("what"), http.StatusBadRequest)
 	}
@@ -70,4 +73,8 @@ func listMiddlewareTrace(w http.ResponseWriter, r *http.Request) {
 
 func listMiddlewares(w http.ResponseWriter, r *http.Request) {
 	U.HandleErr(w, r, U.RespondJson(w, middleware.All()))
+}
+
+func listMatchDomains(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
+	U.HandleErr(w, r, U.RespondJson(w, cfg.Value().MatchDomains))
 }
