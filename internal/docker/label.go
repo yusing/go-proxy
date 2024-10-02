@@ -6,7 +6,6 @@ import (
 
 	E "github.com/yusing/go-proxy/internal/error"
 	U "github.com/yusing/go-proxy/internal/utils"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 /*
@@ -23,8 +22,6 @@ type (
 		Value     any
 	}
 	NestedLabelMap map[string]U.SerializedObject
-	ValueParser    func(string) (any, E.NestedError)
-	ValueParserMap map[string]ValueParser
 )
 
 func (l *Label) String() string {
@@ -107,45 +104,5 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 		l.Value = nestedLabel
 	}
 
-	// find if namespace has value parser
-	pm, ok := valueParserMap.Load(U.ToLowerNoSnake(l.Namespace))
-	if !ok {
-		return l, nil
-	}
-	// find if attribute has value parser
-	p, ok := pm[U.ToLowerNoSnake(l.Attribute)]
-	if !ok {
-		return l, nil
-	}
-	// try to parse value
-	v, err := p(value)
-	if err.HasError() {
-		return nil, err.Subject(label)
-	}
-	l.Value = v
 	return l, nil
 }
-
-func RegisterNamespace(namespace string, pm ValueParserMap) {
-	pmCleaned := make(ValueParserMap, len(pm))
-	for k, v := range pm {
-		pmCleaned[U.ToLowerNoSnake(k)] = v
-	}
-	valueParserMap.Store(U.ToLowerNoSnake(namespace), pmCleaned)
-}
-
-func GetRegisteredNamespaces() map[string][]string {
-	r := make(map[string][]string)
-
-	valueParserMap.RangeAll(func(ns string, vpm ValueParserMap) {
-		r[ns] = make([]string, 0, len(vpm))
-		for attr := range vpm {
-			r[ns] = append(r[ns], attr)
-		}
-	})
-
-	return r
-}
-
-// namespace:target.attribute -> func(string) (any, error)
-var valueParserMap = F.NewMapOf[string, ValueParserMap]()

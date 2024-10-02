@@ -119,9 +119,9 @@ Check https://nginx.org/en/docs/http/ngx_http_realip_module.html for explainatio
 # docker labels
 proxy.app1.middlewares.real_ip.header: X-Real-IP
 proxy.app1.middlewares.real_ip.from: |
-  - 127.0.0.1
-  - 192.168.0.0/16
-  - 10.0.0.0/8
+  127.0.0.1
+  192.168.0.0/16
+  10.0.0.0/8
 proxy.app1.middlewares.real_ip.recursive: true
 
 # include file
@@ -177,8 +177,8 @@ app1:
 ```yaml
 # docker labels
 proxy.app1.middlewares.cidr_whitelist.allow: |
-  - 10.0.0.0/8
-  - 192.168.0.0/16
+  10.0.0.0/8
+  192.168.0.0/16
 # optional (default: 403)
 proxy.app1.middlewares.cidr_whitelist.status_code: 403
 # optional (default: "IP not allowed")
@@ -270,8 +270,8 @@ location / {
 ```yaml
 # docker labels
 proxy.app1.middlewares.modify_request.hide_headers: |
-  - X-Custom-Header1
-  - X-Custom-Header2
+  X-Custom-Header1
+  X-Custom-Header2
 
 # include file
 app1:
@@ -339,11 +339,11 @@ Fields:
 proxy.app1.middlewares.forward_auth.address: https://auth.example.com
 proxy.app1.middlewares.forward_auth.trust_forward_header: true
 proxy.app1.middlewares.forward_auth.auth_response_headers: |
-  - X-Auth-Token
-  - X-Auth-User
+  X-Auth-Token
+  X-Auth-User
 proxy.app1.middlewares.forward_auth.add_auth_cookies_to_response: |
-  - uid
-  - session_id
+  uid
+  session_id
 
 # include file
 app1:
@@ -421,17 +421,17 @@ services:
       proxy.#1.middlewares.forward_auth.address: https://your_authentik_forward_address
       proxy.#1.middlewares.forward_auth.trustForwardHeader: true
       proxy.#1.middlewares.forward_auth.authResponseHeaders: |
-        - X-authentik-username
-        - X-authentik-groups
-        - X-authentik-email
-        - X-authentik-name
-        - X-authentik-uid
-        - X-authentik-jwt
-        - X-authentik-meta-jwks
-        - X-authentik-meta-outpost
-        - X-authentik-meta-provider
-        - X-authentik-meta-app
-        - X-authentik-meta-version
+        X-authentik-username
+        X-authentik-groups
+        X-authentik-email
+        X-authentik-name
+        X-authentik-uid
+        X-authentik-jwt
+        X-authentik-meta-jwks
+        X-authentik-meta-outpost
+        X-authentik-meta-provider
+        X-authentik-meta-app
+        X-authentik-meta-version
     restart: unless-stopped
 ```
 

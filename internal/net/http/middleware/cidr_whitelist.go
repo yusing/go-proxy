@@ -4,7 +4,6 @@ import (
 	"net"
 	"net/http"
 
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/types"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -24,13 +23,7 @@ type cidrWhitelistOpts struct {
 }
 
 var CIDRWhiteList = &cidrWhitelist{
-	m: &Middleware{
-		labelParserMap: D.ValueParserMap{
-			"allow":      D.YamlStringListParser,
-			"statusCode": D.IntParser,
-		},
-		withOptions: NewCIDRWhitelist,
-	},
+	m: &Middleware{withOptions: NewCIDRWhitelist},
 }
 
 var cidrWhitelistDefaults = func() *cidrWhitelistOpts {

@@ -40,10 +40,13 @@ func NewHandler(cfg *config.Config) http.Handler {
 
 // allow only requests to API server with host matching common.APIHTTPAddr
 func checkHost(f http.HandlerFunc) http.HandlerFunc {
+	if common.IsDebug {
+		return f
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != common.APIHTTPAddr {
 			Logger.Warnf("invalid request to API server with host: %s, expect %s", r.Host, common.APIHTTPAddr)
-			w.WriteHeader(http.StatusNotFound)
+			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte("invalid request"))
 			return
 		}

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -36,9 +35,8 @@ type (
 		before         BeforeFunc         // runs before ReverseProxy.ServeHTTP
 		modifyResponse ModifyResponseFunc // runs after ReverseProxy.ModifyResponse
 
-		withOptions    CloneWithOptFunc
-		labelParserMap D.ValueParserMap
-		impl           any
+		withOptions CloneWithOptFunc
+		impl        any
 
 		parent   *Middleware
 		children []*Middleware
@@ -92,7 +90,7 @@ func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.Nested
 		m.name,
 		m.before,
 		m.modifyResponse,
-		nil, nil,
+		nil,
 		m.impl,
 		m.parent,
 		m.children,

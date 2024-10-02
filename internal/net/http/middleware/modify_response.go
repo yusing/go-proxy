@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/yusing/go-proxy/internal/common"
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
@@ -21,17 +20,9 @@ type (
 	}
 )
 
-var ModifyResponse = func() (mr *modifyResponse) {
-	mr = new(modifyResponse)
-	mr.m = new(Middleware)
-	mr.m.labelParserMap = D.ValueParserMap{
-		"set_headers":  D.YamlLikeMappingParser(true),
-		"add_headers":  D.YamlLikeMappingParser(true),
-		"hide_headers": D.YamlStringListParser,
-	}
-	mr.m.withOptions = NewModifyResponse
-	return
-}()
+var ModifyResponse = &modifyResponse{
+	m: &Middleware{withOptions: NewModifyResponse},
+}
 
 func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	mr := new(modifyResponse)

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"github.com/yusing/go-proxy/internal/common"
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
@@ -19,17 +18,9 @@ type (
 	}
 )
 
-var ModifyRequest = func() *modifyRequest {
-	mr := new(modifyRequest)
-	mr.m = new(Middleware)
-	mr.m.labelParserMap = D.ValueParserMap{
-		"set_headers":  D.YamlLikeMappingParser(true),
-		"add_headers":  D.YamlLikeMappingParser(true),
-		"hide_headers": D.YamlStringListParser,
-	}
-	mr.m.withOptions = NewModifyRequest
-	return mr
-}()
+var ModifyRequest = &modifyRequest{
+	m: &Middleware{withOptions: NewModifyRequest},
+}
 
 func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	mr := new(modifyRequest)

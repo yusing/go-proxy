@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 )
@@ -33,17 +32,9 @@ type (
 	}
 )
 
-var ForwardAuth = func() *forwardAuth {
-	fa := new(forwardAuth)
-	fa.m = new(Middleware)
-	fa.m.labelParserMap = D.ValueParserMap{
-		"trust_forward_header":         D.BoolParser,
-		"auth_response_headers":        D.YamlStringListParser,
-		"add_auth_cookies_to_response": D.YamlStringListParser,
-	}
-	fa.m.withOptions = NewForwardAuthfunc
-	return fa
-}()
+var ForwardAuth = &forwardAuth{
+	m: &Middleware{withOptions: NewForwardAuthfunc},
+}
 
 func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	faWithOpts := new(forwardAuth)

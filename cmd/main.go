@@ -116,10 +116,6 @@ func main() {
 		printJSON(trace)
 	}
 
-	if common.IsDebug {
-		printJSON(docker.GetRegisteredNamespaces())
-	}
-
 	cfg.StartProxyProviders()
 	cfg.WatchChanges()
 

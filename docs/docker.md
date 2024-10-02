@@ -6,6 +6,7 @@
 
 - [Docker compose guide](#docker-compose-guide)
   - [Table of content](#table-of-content)
+  - [Suggestions](#suggestions)
   - [Additional setup](#additional-setup)
   - [Labels](#labels)
     - [Syntax](#syntax)
@@ -15,6 +16,30 @@
   - [Troubleshooting](#troubleshooting)
   - [Docker compose examples](#docker-compose-examples)
     - [Services URLs for above examples](#services-urls-for-above-examples)
+
+## Suggestions
+
+In order for labels to work correctly in `compose.yml`:
+
+1. `key: value` mapping is suggested for label, instead of `- key=value`
+2. you need to add `|` in the end for multiline strings.
+
+Example
+
+```yaml
+services:
+  app:
+    ...
+    container_name: app
+    labels:
+      proxy.app.middlewares.modify_request.set_headers: |
+        X-Custom-Header1: value1, value2
+        X-Custom-Header2: value3
+      proxy.app.middlewares.modify_request.hide_headers: |
+        X-Custom-Header4
+        X-Custom-Header5
+        X-Custom-Header6
+```
 
 ## Additional setup
 
@@ -89,7 +114,7 @@
 | `port`          | proxy port **(http/s)**                                                                        | first port returned from docker                                                  | number in range of `1 - 65535`                                                                                                                                                                                          |
 | `port`          | proxy port **(tcp/udp)**                                                                       | `0:first_port`                                                                   | `x:y` <br><ul><li>**x**: port for `go-proxy` to listen on.<br>**x** can be 0, which means listen on a random port</li><li>**y**: port or [_service name_](../src/common/constants.go#L55) of target container</li></ul> |
 | `no_tls_verify` | whether skip tls verify **(https only)**                                                       | `false`                                                                          | boolean                                                                                                                                                                                                                 |
-| `path_patterns` | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | `/` **(proxy all requests)**                                                     | yaml style list[<sup>1</sup>](#list-example) of ([path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                                                                                                    |
+| `path_patterns` | proxy path patterns **(http/s only)**<br> only requests that matched a pattern will be proxied | `/` **(proxy all requests)**                                                     | list[<sup>1</sup>](#list-example) of ([path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux))                                                                                                               |
 
 
 [🔼Back to top](#table-of-content)
@@ -132,11 +157,11 @@ services:
     ...
     labels:
       proxy.nginx.path_patterns: | # remember to add the '|'
-        - GET /
-        - POST /auth
+        GET /
+        POST /auth
       proxy.nginx.middlewares.modify_request.hide_headers: | # remember to add the '|'
-        - X-Custom-Header1
-        - X-Custom-Header2
+        X-Custom-Header1
+        X-Custom-Header2
 ```
 
 Include file
@@ -145,8 +170,8 @@ Include file
 service_a:
     host: service_a.internal
     path_patterns:
-        - GET /
-        - POST /auth
+        GET /
+        POST /auth
     middlewares:
         modify_request:
             hide_headers:

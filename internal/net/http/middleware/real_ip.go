@@ -3,7 +3,6 @@ package middleware
 import (
 	"net"
 
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/types"
 )
@@ -32,13 +31,7 @@ type realIPOpts struct {
 }
 
 var RealIP = &realIP{
-	m: &Middleware{
-		labelParserMap: D.ValueParserMap{
-			"from":      D.YamlStringListParser,
-			"recursive": D.BoolParser,
-		},
-		withOptions: NewRealIP,
-	},
+	m: &Middleware{withOptions: NewRealIP},
 }
 
 var realIPOptsDefault = func() *realIPOpts {

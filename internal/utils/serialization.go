@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/santhosh-tekuri/jsonschema"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -210,17 +212,16 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 	switch {
 	case srcT.AssignableTo(dstT):
 		dst.Set(src)
+		return nil
 	case srcT.ConvertibleTo(dstT):
 		dst.Set(src.Convert(dstT))
+		return nil
 	case srcT.Kind() == reflect.Map:
 		obj, ok := src.Interface().(SerializedObject)
 		if !ok {
 			return E.TypeMismatch[SerializedObject](src.Interface())
 		}
-		err := Deserialize(obj, dst.Addr().Interface())
-		if err != nil {
-			return err
-		}
+		return Deserialize(obj, dst.Addr().Interface())
 	case srcT.Kind() == reflect.Slice:
 		if dstT.Kind() != reflect.Slice {
 			return E.TypeError("slice", srcT, dstT)
@@ -237,31 +238,112 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 			i++
 		}
 		dst.Set(newSlice)
-	default:
-		var converter Converter
-		var ok bool
-		// check if (*T).Convertor is implemented
-		if converter, ok = dst.Addr().Interface().(Converter); !ok {
-			// check if (T).Convertor is implemented
-			converter, ok = dst.Interface().(Converter)
-			if !ok {
-				return E.TypeError("conversion", srcT, dstT)
-			}
-		}
-
-		converted, err := converter.ConvertFrom(src.Interface())
-		if err != nil {
+		return nil
+	case src.Kind() == reflect.String:
+		if convertible, err := ConvertString(src.String(), dst); convertible {
 			return err
 		}
-		c := reflect.ValueOf(converted)
-		if c.Kind() == reflect.Ptr {
-			c = c.Elem()
-		}
-		dst.Set(c)
-		return nil
 	}
 
+	var converter Converter
+	var ok bool
+	// check if (*T).Convertor is implemented
+	if converter, ok = dst.Addr().Interface().(Converter); !ok {
+		// check if (T).Convertor is implemented
+		converter, ok = dst.Interface().(Converter)
+		if !ok {
+			return E.TypeError("conversion", srcT, dstT)
+		}
+	}
+
+	converted, err := converter.ConvertFrom(src.Interface())
+	if err != nil {
+		return err
+	}
+	c := reflect.ValueOf(converted)
+	if c.Kind() == reflect.Ptr {
+		c = c.Elem()
+	}
+	dst.Set(c)
 	return nil
+}
+
+func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.NestedError) {
+	convertible = true
+	// primitive types / simple types
+	switch dst.Kind() {
+	case reflect.Bool:
+		b, err := strconv.ParseBool(src)
+		if err != nil {
+			convErr = E.Invalid("boolean", src)
+			return
+		}
+		dst.Set(reflect.ValueOf(b))
+		return
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		i, err := strconv.ParseInt(src, 10, 64)
+		if err != nil {
+			convErr = E.Invalid("int", src)
+			return
+		}
+		dst.Set(reflect.ValueOf(i))
+		return
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		i, err := strconv.ParseUint(src, 10, 64)
+		if err != nil {
+			convErr = E.Invalid("uint", src)
+			return
+		}
+		dst.Set(reflect.ValueOf(i))
+		return
+	}
+	// yaml like
+	lines := strings.Split(strings.TrimSpace(src), "\n")
+	for i := range lines {
+		lines[i] = strings.TrimSpace(lines[i])
+	}
+	var tmp any
+	switch dst.Kind() {
+	case reflect.Slice:
+		// one liner is comma seperated list
+		if len(lines) == 0 {
+			dst.Set(reflect.ValueOf(CommaSeperatedList(src)))
+			return
+		}
+		sl := make([]string, 0, len(lines))
+		for _, line := range lines {
+			line = strings.TrimLeftFunc(line, func(r rune) bool {
+				return r == '-' || unicode.IsSpace(r)
+			})
+			if line == "" {
+				continue
+			}
+			sl = append(sl, line)
+		}
+		tmp = sl
+	case reflect.Map:
+		m := make(map[string]string, len(lines))
+		for i, line := range lines {
+			parts := strings.Split(line, ":")
+			if len(parts) < 2 {
+				convErr = E.Invalid("map", "missing colon").Subjectf("line#%d", i+1).With(line)
+				return
+			}
+			if len(parts) > 2 {
+				convErr = E.Invalid("map", "too many colons").Subjectf("line#%d", i+1).With(line)
+				return
+			}
+			k := strings.TrimSpace(parts[0])
+			v := strings.TrimSpace(parts[1])
+			m[k] = v
+		}
+		tmp = m
+	}
+	if tmp == nil {
+		convertible = false
+		return
+	}
+	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
 func DeserializeJson(j map[string]string, target any) E.NestedError {

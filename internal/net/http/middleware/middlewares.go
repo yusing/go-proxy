@@ -8,7 +8,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
-	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
@@ -42,11 +41,6 @@ func init() {
 	names := make(map[*Middleware][]string)
 	for name, m := range middlewares {
 		names[m] = append(names[m], http.CanonicalHeaderKey(name))
-		// register middleware name to docker label parsr
-		// in order to parse middleware_name.option=value into correct type
-		if m.labelParserMap != nil {
-			D.RegisterNamespace(name, m.labelParserMap)
-		}
 	}
 	for m, names := range names {
 		if len(names) > 1 {

@@ -30,9 +30,7 @@ var (
 )
 
 var CloudflareRealIP = &realIP{
-	m: &Middleware{
-		withOptions: NewCloudflareRealIP,
-	},
+	m: &Middleware{withOptions: NewCloudflareRealIP},
 }
 
 func NewCloudflareRealIP(_ OptionsRaw) (*Middleware, E.NestedError) {

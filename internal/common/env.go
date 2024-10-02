@@ -2,8 +2,10 @@ package common
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -35,14 +37,11 @@ func GetEnvBool(key string, defaultValue bool) bool {
 	if !ok || value == "" {
 		return defaultValue
 	}
-	switch strings.ToLower(value) {
-	case "true", "yes", "1":
-		return true
-	case "false", "no", "0":
-		return false
-	default:
-		return defaultValue
+	b, err := strconv.ParseBool(value)
+	if err != nil {
+		log.Fatalf("Invalid boolean value: %s", value)
 	}
+	return b
 }
 
 func GetEnv(key, defaultValue string) string {
