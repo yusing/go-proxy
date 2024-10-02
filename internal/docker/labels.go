@@ -3,7 +3,8 @@ package docker
 const (
 	WildcardAlias = "*"
 
-	NSProxy = "proxy"
+	NSProxy    = "proxy"
+	NSHomePage = "homepage"
 
 	LabelAliases     = NSProxy + ".aliases"
 	LabelExclude     = NSProxy + ".exclude"

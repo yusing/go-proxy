@@ -1,6 +1,7 @@
 package config
 
 import (
+	H "github.com/yusing/go-proxy/internal/homepage"
 	M "github.com/yusing/go-proxy/internal/models"
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
 	R "github.com/yusing/go-proxy/internal/route"
@@ -22,6 +23,17 @@ func (cfg *Config) DumpProviders() map[string]*PR.Provider {
 		entries[name] = p
 	})
 	return entries
+}
+
+func (cfg *Config) HomepageConfig() H.HomePageConfig {
+	hpCfg := H.NewHomePageConfig()
+	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
+		if !r.Started() {
+			return
+		}
+		hpCfg.Add(*r.Entry().Homepage)
+	})
+	return hpCfg
 }
 
 func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {

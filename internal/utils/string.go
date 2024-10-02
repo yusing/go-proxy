@@ -5,8 +5,12 @@ import (
 	"strconv"
 	"strings"
 
-	E "github.com/yusing/go-proxy/internal/error"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
+
+// TODO: support other languages
+var titleCaser = cases.Title(language.AmericanEnglish)
 
 func CommaSeperatedList(s string) []string {
 	res := strings.Split(s, ",")
@@ -16,8 +20,8 @@ func CommaSeperatedList(s string) []string {
 	return res
 }
 
-func IntParser(value string) (int, E.NestedError) {
-	return E.Check(strconv.Atoi(value))
+func Title(s string) string {
+	return titleCaser.String(s)
 }
 
 func ExtractPort(fullURL string) (int, error) {

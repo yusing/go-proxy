@@ -7,6 +7,8 @@ import (
 
 	. "github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
+	H "github.com/yusing/go-proxy/internal/homepage"
+	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -18,9 +20,10 @@ type (
 		Scheme       string           `yaml:"scheme" json:"scheme"`
 		Host         string           `yaml:"host" json:"host"`
 		Port         string           `yaml:"port" json:"port"`
-		NoTLSVerify  bool             `yaml:"no_tls_verify" json:"no_tls_verify"` // https proxy only
-		PathPatterns []string         `yaml:"path_patterns" json:"path_patterns"` // http(s) proxy only
-		Middlewares  D.NestedLabelMap `yaml:"middlewares" json:"middlewares"`
+		NoTLSVerify  bool             `yaml:"no_tls_verify" json:"no_tls_verify,omitempty"` // https proxy only
+		PathPatterns []string         `yaml:"path_patterns" json:"path_patterns,omitempty"` // http(s) proxy only
+		Middlewares  D.NestedLabelMap `yaml:"middlewares" json:"middlewares,omitempty"`
+		Homepage     *H.HomePageItem  `yaml:"homepage" json:"homepage"`
 
 		/* Docker only */
 		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`
@@ -35,6 +38,11 @@ func (e *RawEntry) FillMissingFields() {
 	isDocker := e.ProxyProperties != nil
 	if !isDocker {
 		e.ProxyProperties = &D.ProxyProperties{}
+	}
+
+	if e.Homepage == nil {
+		e.Homepage = H.HomePageItemDefault()
+		e.Homepage.Name = U.Title(e.Alias)
 	}
 
 	lp, pp, extra := e.splitPorts()
