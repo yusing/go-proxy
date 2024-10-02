@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"net"
-	"net/http"
 
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -52,11 +51,8 @@ var realIPOptsDefault = func() *realIPOpts {
 func NewRealIP(opts OptionsRaw) (*Middleware, E.NestedError) {
 	riWithOpts := new(realIP)
 	riWithOpts.m = &Middleware{
-		impl: riWithOpts,
-		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
-			riWithOpts.setRealIP(r)
-			next(w, r)
-		},
+		impl:   riWithOpts,
+		before: Rewrite(riWithOpts.setRealIP),
 	}
 	riWithOpts.realIPOpts = realIPOptsDefault()
 	err := Deserialize(opts, riWithOpts.realIPOpts)

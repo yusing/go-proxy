@@ -87,7 +87,7 @@ func (p *DockerProvider) shouldIgnore(container D.Container) bool {
 
 func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
 	switch event.Action {
-	case events.ActionContainerStart, events.ActionContainerDie:
+	case events.ActionContainerStart, events.ActionContainerStop:
 		break
 	default:
 		return
@@ -96,12 +96,42 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 	defer b.To(&res.err)
 
 	routes.RangeAll(func(k string, v R.Route) {
-		if v.Entry().ContainerID == event.ActorID {
+		if v.Entry().ContainerID == event.ActorID ||
+			v.Entry().ContainerName == event.ActorName {
 			b.Add(v.Stop())
 			routes.Delete(k)
 			res.nRemoved++
 		}
 	})
+
+	if res.nRemoved == 0 { // id & container name changed
+		// load all routes (rescan)
+		routesNew, err := p.LoadRoutesImpl()
+		routesOld := routes
+		if routesNew.Size() == 0 {
+			b.Add(E.FailWith("rescan routes", err))
+			return
+		}
+		routesNew.Range(func(k string, v R.Route) bool {
+			if !routesOld.Has(k) {
+				routesOld.Store(k, v)
+				b.Add(v.Start())
+				res.nAdded++
+				return false
+			}
+			return true
+		})
+		routesOld.Range(func(k string, v R.Route) bool {
+			if !routesNew.Has(k) {
+				b.Add(v.Stop())
+				routesOld.Delete(k)
+				res.nRemoved++
+				return false
+			}
+			return true
+		})
+		return
+	}
 
 	client, err := D.ConnectClient(p.dockerHost)
 	if err.HasError() {

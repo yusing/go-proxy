@@ -176,7 +176,9 @@ func (p *Provider) watchEvents() {
 		case event := <-events:
 			res := p.OnEvent(event, p.routes)
 			l.Infof("%s event %q", event.Type, event)
-			l.Infof("%d route added, %d routes removed", res.nAdded, res.nRemoved)
+			if res.nAdded > 0 || res.nRemoved > 0 {
+				l.Infof("%d route added, %d routes removed", res.nAdded, res.nRemoved)
+			}
 			if res.err.HasError() {
 				l.Error(res.err)
 			}

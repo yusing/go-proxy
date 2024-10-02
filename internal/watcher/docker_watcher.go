@@ -96,6 +96,8 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			}
 		}
 
+		defer w.client.Close()
+
 		w.Debugf("client connected")
 
 		cEventCh, cErrCh := w.client.Events(eventsCtx, options)

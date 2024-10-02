@@ -97,11 +97,6 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	_, exists := httpRoutes.Load(entry.Alias)
-	if exists {
-		return nil, E.Duplicated("HTTPRoute alias", entry.Alias)
-	}
-
 	r := &HTTPRoute{
 		Alias:            entry.Alias,
 		TargetURL:        (*URL)(entry.URL),
