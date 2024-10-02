@@ -7,6 +7,7 @@ import (
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/types"
+	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type cidrWhitelist struct {
@@ -19,7 +20,7 @@ type cidrWhitelistOpts struct {
 	StatusCode int
 	Message    string
 
-	trustedAddr map[string]struct{} // cache for trusted IPs
+	cachedAddr F.Map[string, bool] // cache for trusted IPs
 }
 
 var CIDRWhiteList = &cidrWhitelist{
@@ -28,15 +29,16 @@ var CIDRWhiteList = &cidrWhitelist{
 			"allow":      D.YamlStringListParser,
 			"statusCode": D.IntParser,
 		},
+		withOptions: NewCIDRWhitelist,
 	},
 }
 
 var cidrWhitelistDefaults = func() *cidrWhitelistOpts {
 	return &cidrWhitelistOpts{
-		Allow:       []*types.CIDR{},
-		StatusCode:  http.StatusForbidden,
-		Message:     "IP not allowed",
-		trustedAddr: make(map[string]struct{}),
+		Allow:      []*types.CIDR{},
+		StatusCode: http.StatusForbidden,
+		Message:    "IP not allowed",
+		cachedAddr: F.NewMapOf[string, bool](),
 	}
 }
 
@@ -57,23 +59,32 @@ func NewCIDRWhitelist(opts OptionsRaw) (*Middleware, E.NestedError) {
 	return wl.m, nil
 }
 
-func (wl *cidrWhitelist) checkIP(next http.Handler, w ResponseWriter, r *Request) {
-	var ok bool
-	if _, ok = wl.trustedAddr[r.RemoteAddr]; !ok {
-		ip := net.IP(r.RemoteAddr)
+func (wl *cidrWhitelist) checkIP(next http.HandlerFunc, w ResponseWriter, r *Request) {
+	var allow, ok bool
+	if allow, ok = wl.cachedAddr.Load(r.RemoteAddr); !ok {
+		ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
+		if err != nil {
+			ipStr = r.RemoteAddr
+		}
+		ip := net.ParseIP(ipStr)
 		for _, cidr := range wl.cidrWhitelistOpts.Allow {
 			if cidr.Contains(ip) {
-				wl.trustedAddr[r.RemoteAddr] = struct{}{}
-				ok = true
+				wl.cachedAddr.Store(r.RemoteAddr, true)
+				allow = true
+				wl.m.AddTracef("client %s is allowed", ipStr).With("allowed CIDR", cidr)
 				break
 			}
 		}
+		if !allow {
+			wl.cachedAddr.Store(r.RemoteAddr, false)
+			wl.m.AddTracef("client %s is forbidden", ipStr).With("allowed CIDRs", wl.cidrWhitelistOpts.Allow)
+		}
 	}
-	if !ok {
+	if !allow {
 		w.WriteHeader(wl.StatusCode)
 		w.Write([]byte(wl.Message))
 		return
 	}
 
-	next.ServeHTTP(w, r)
+	next(w, r)
 }

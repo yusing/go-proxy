@@ -67,10 +67,10 @@ func LoadComposeFiles() {
 				b.Add(E.Duplicated("middleware", name))
 				continue
 			}
-			middlewares[name] = m
+			middlewares[U.ToLowerNoSnake(name)] = m
 			logger.Infof("middleware %s loaded from %s", name, path.Base(defFile))
 		}
-		b.Add(err.Subject(defFile))
+		b.Add(err.Subject(path.Base(defFile)))
 	}
 	if b.HasError() {
 		logger.Error(b.Build())

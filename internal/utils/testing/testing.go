@@ -2,9 +2,22 @@ package utils
 
 import (
 	"errors"
+	"os"
 	"reflect"
 	"testing"
+
+	"github.com/yusing/go-proxy/internal/common"
 )
+
+func init() {
+	if common.IsTest {
+		os.Args = append([]string{os.Args[0], "-test.v"}, os.Args[1:]...)
+	}
+}
+
+func IgnoreError[Result any](r Result, _ error) Result {
+	return r
+}
 
 func ExpectNoError(t *testing.T, err error) {
 	t.Helper()

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	D "github.com/yusing/go-proxy/internal/docker"
@@ -21,7 +22,7 @@ type (
 	Header         = http.Header
 	Cookie         = http.Cookie
 
-	BeforeFunc         func(next http.Handler, w ResponseWriter, r *Request)
+	BeforeFunc         func(next http.HandlerFunc, w ResponseWriter, r *Request)
 	RewriteFunc        func(req *Request)
 	ModifyResponseFunc func(resp *Response) error
 	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.NestedError)
@@ -33,20 +34,35 @@ type (
 		name string
 
 		before         BeforeFunc         // runs before ReverseProxy.ServeHTTP
-		rewrite        RewriteFunc        // runs after ReverseProxy.Rewrite
 		modifyResponse ModifyResponseFunc // runs after ReverseProxy.ModifyResponse
-
-		transport http.RoundTripper
 
 		withOptions    CloneWithOptFunc
 		labelParserMap D.ValueParserMap
 		impl           any
+
+		parent   *Middleware
+		children []*Middleware
+		trace    bool
 	}
 )
 
 var Deserialize = U.Deserialize
 
+func Rewrite(r RewriteFunc) BeforeFunc {
+	return func(next http.HandlerFunc, w ResponseWriter, req *Request) {
+		r(req)
+		next(w, req)
+	}
+}
+
 func (m *Middleware) Name() string {
+	return m.name
+}
+
+func (m *Middleware) Fullname() string {
+	if m.parent != nil {
+		return m.parent.Fullname() + "." + m.name
+	}
 	return m.name
 }
 
@@ -72,14 +88,21 @@ func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.Nested
 
 	// WithOptionsClone is called only once
 	// set withOptions and labelParser will not be used after that
-	return &Middleware{m.name, m.before, m.rewrite, m.modifyResponse, m.transport, nil, nil, m.impl}, nil
+	return &Middleware{
+		m.name,
+		m.before,
+		m.modifyResponse,
+		nil, nil,
+		m.impl,
+		m.parent,
+		m.children,
+		false,
+	}, nil
 }
 
 // TODO: check conflict or duplicates
-func PatchReverseProxy(rp *ReverseProxy, middlewares map[string]OptionsRaw) (res E.NestedError) {
-	befores := make([]BeforeFunc, 0, len(middlewares))
-	rewrites := make([]RewriteFunc, 0, len(middlewares))
-	modResps := make([]ModifyResponseFunc, 0, len(middlewares))
+func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (res E.NestedError) {
+	middlewares := make([]*Middleware, 0, len(middlewaresMap))
 
 	invalidM := E.NewBuilder("invalid middlewares")
 	invalidOpts := E.NewBuilder("invalid options")
@@ -88,7 +111,7 @@ func PatchReverseProxy(rp *ReverseProxy, middlewares map[string]OptionsRaw) (res
 		invalidM.To(&res)
 	}()
 
-	for name, opts := range middlewares {
+	for name, opts := range middlewaresMap {
 		m, ok := Get(name)
 		if !ok {
 			invalidM.Add(E.NotExist("middleware", name))
@@ -100,56 +123,35 @@ func PatchReverseProxy(rp *ReverseProxy, middlewares map[string]OptionsRaw) (res
 			invalidOpts.Add(err.Subject(name))
 			continue
 		}
-		if m.before != nil {
-			befores = append(befores, m.before)
-		}
-		if m.rewrite != nil {
-			rewrites = append(rewrites, m.rewrite)
-		}
-		if m.modifyResponse != nil {
-			modResps = append(modResps, m.modifyResponse)
-		}
+		middlewares = append(middlewares, m)
 	}
 
 	if invalidM.HasError() {
 		return
 	}
 
-	origServeHTTP := rp.ServeHTTP
-	for i, before := range befores {
-		if i < len(befores)-1 {
-			rp.ServeHTTP = func(w ResponseWriter, r *Request) {
-				before(rp.ServeHTTP, w, r)
+	patchReverseProxy(rpName, rp, middlewares)
+	return
+}
+
+func patchReverseProxy(rpName string, rp *ReverseProxy, middlewares []*Middleware) {
+	mid := BuildMiddlewareFromChain(rpName, middlewares)
+
+	if mid.before != nil {
+		ori := rp.ServeHTTP
+		rp.ServeHTTP = func(w http.ResponseWriter, r *http.Request) {
+			mid.before(ori, w, r)
+		}
+	}
+
+	if mid.modifyResponse != nil {
+		if rp.ModifyResponse != nil {
+			ori := rp.ModifyResponse
+			rp.ModifyResponse = func(res *http.Response) error {
+				return errors.Join(mid.modifyResponse(res), ori(res))
 			}
 		} else {
-			rp.ServeHTTP = func(w ResponseWriter, r *Request) {
-				before(origServeHTTP, w, r)
-			}
+			rp.ModifyResponse = mid.modifyResponse
 		}
 	}
-
-	if len(rewrites) > 0 {
-		origServeHTTP = rp.ServeHTTP
-		rp.ServeHTTP = func(w http.ResponseWriter, r *http.Request) {
-			for _, rewrite := range rewrites {
-				rewrite(r)
-			}
-			origServeHTTP(w, r)
-		}
-	}
-
-	if len(modResps) > 0 {
-		if rp.ModifyResponse != nil {
-			modResps = append([]ModifyResponseFunc{rp.ModifyResponse}, modResps...)
-		}
-		rp.ModifyResponse = func(res *Response) error {
-			b := E.NewBuilder("errors in middleware ModifyResponse")
-			for _, mr := range modResps {
-				b.AddE(mr(res))
-			}
-			return b.Build().Error()
-		}
-	}
-
-	return
 }

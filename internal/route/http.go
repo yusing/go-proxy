@@ -68,7 +68,7 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	rp := NewReverseProxy(entry.URL, trans)
 
 	if len(entry.Middlewares) > 0 {
-		err := middleware.PatchReverseProxy(rp, entry.Middlewares)
+		err := middleware.PatchReverseProxy(string(entry.Alias), rp, entry.Middlewares)
 		if err != nil {
 			return nil, err
 		}

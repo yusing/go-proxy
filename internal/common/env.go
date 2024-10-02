@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/sirupsen/logrus"
-	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 var (
 	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", false)
-	IsTest             = GetEnvBool("GOPROXY_TEST", false)
+	IsTest             = GetEnvBool("GOPROXY_TEST", false) || strings.HasSuffix(os.Args[0], ".test")
 	IsDebug            = GetEnvBool("GOPROXY_DEBUG", IsTest)
 
 	ProxyHTTPAddr,
@@ -35,7 +35,14 @@ func GetEnvBool(key string, defaultValue bool) bool {
 	if !ok || value == "" {
 		return defaultValue
 	}
-	return U.ParseBool(value)
+	switch strings.ToLower(value) {
+	case "true", "yes", "1":
+		return true
+	case "false", "no", "0":
+		return false
+	default:
+		return defaultValue
+	}
 }
 
 func GetEnv(key, defaultValue string) string {

@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 )
@@ -20,6 +21,9 @@ var testHeaders http.Header
 const testHost = "example.com"
 
 func init() {
+	if !common.IsTest {
+		return
+	}
 	tmp := map[string]string{}
 	err := json.Unmarshal(testHeadersRaw, &tmp)
 	if err != nil {
@@ -31,13 +35,15 @@ func init() {
 	}
 }
 
-type requestHeaderRecorder struct {
+type requestRecorder struct {
 	parent     http.RoundTripper
-	reqHeaders http.Header
+	headers    http.Header
+	remoteAddr string
 }
 
-func (rt *requestHeaderRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
-	rt.reqHeaders = req.Header
+func (rt *requestRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+	rt.headers = req.Header
+	rt.remoteAddr = req.RemoteAddr
 	if rt.parent != nil {
 		return rt.parent.RoundTrip(req)
 	}
@@ -46,6 +52,7 @@ func (rt *requestHeaderRecorder) RoundTrip(req *http.Request) (*http.Response, e
 		Header:     testHeaders,
 		Body:       io.NopCloser(bytes.NewBufferString("OK")),
 		Request:    req,
+		TLS:        req.TLS,
 	}, nil
 }
 
@@ -53,6 +60,7 @@ type TestResult struct {
 	RequestHeaders  http.Header
 	ResponseHeaders http.Header
 	ResponseStatus  int
+	RemoteAddr      string
 	Data            []byte
 }
 
@@ -65,7 +73,7 @@ type testArgs struct {
 
 func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.NestedError) {
 	var body io.Reader
-	var rt = new(requestHeaderRecorder)
+	var rr = new(requestRecorder)
 	var proxyURL *url.URL
 	var requestTarget string
 	var err error
@@ -98,17 +106,16 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.N
 		if err != nil {
 			return nil, E.From(err)
 		}
-		rt.parent = http.DefaultTransport
+		rr.parent = http.DefaultTransport
 	} else {
 		proxyURL, _ = url.Parse("https://" + testHost) // dummy url, no actual effect
 	}
-	rp := gpHTTP.NewReverseProxy(proxyURL, rt)
-	setOptErr := PatchReverseProxy(rp, map[string]OptionsRaw{
-		middleware.name: args.middlewareOpt,
-	})
+	rp := gpHTTP.NewReverseProxy(proxyURL, rr)
+	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr
 	}
+	patchReverseProxy(middleware.name, rp, []*Middleware{mid})
 	rp.ServeHTTP(w, req)
 	resp := w.Result()
 	defer resp.Body.Close()
@@ -117,9 +124,10 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.N
 		return nil, E.From(err)
 	}
 	return &TestResult{
-		RequestHeaders:  rt.reqHeaders,
+		RequestHeaders:  rr.headers,
 		ResponseHeaders: resp.Header,
 		ResponseStatus:  resp.StatusCode,
+		RemoteAddr:      rr.remoteAddr,
 		Data:            data,
 	}, nil
 }

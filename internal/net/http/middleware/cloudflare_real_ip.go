@@ -39,12 +39,13 @@ func NewCloudflareRealIP(_ OptionsRaw) (*Middleware, E.NestedError) {
 	cri := new(realIP)
 	cri.m = &Middleware{
 		impl: cri,
-		rewrite: func(r *Request) {
+		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
 			cidrs := tryFetchCFCIDR()
 			if cidrs != nil {
 				cri.From = cidrs
 			}
 			cri.setRealIP(r)
+			next(w, r)
 		},
 	}
 	cri.realIPOpts = &realIPOpts{

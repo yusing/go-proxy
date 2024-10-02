@@ -8,7 +8,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 )
 
-var httpClient = &http.Client{
+var HTTPClient = &http.Client{
 	Timeout: common.ConnectionTimeout,
 	Transport: &http.Transport{
 		Proxy:             http.ProxyFromEnvironment,
@@ -21,3 +21,7 @@ var httpClient = &http.Client{
 		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	},
 }
+
+var Get = HTTPClient.Get
+var Post = HTTPClient.Post
+var Head = HTTPClient.Head

@@ -3,6 +3,7 @@ package middleware
 import (
 	"net/http"
 
+	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 )
@@ -34,9 +35,11 @@ var ModifyResponse = func() (mr *modifyResponse) {
 
 func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	mr := new(modifyResponse)
-	mr.m = &Middleware{
-		impl:           mr,
-		modifyResponse: mr.modifyResponse,
+	mr.m = &Middleware{impl: mr}
+	if common.IsDebug {
+		mr.m.modifyResponse = mr.modifyResponseWithTrace
+	} else {
+		mr.m.modifyResponse = mr.modifyResponse
 	}
 	mr.modifyResponseOpts = new(modifyResponseOpts)
 	err := Deserialize(optsRaw, mr.modifyResponseOpts)
@@ -57,4 +60,11 @@ func (mr *modifyResponse) modifyResponse(resp *http.Response) error {
 		resp.Header.Del(k)
 	}
 	return nil
+}
+
+func (mr *modifyResponse) modifyResponseWithTrace(resp *http.Response) error {
+	mr.m.AddTraceResponse("before modify response", resp)
+	err := mr.modifyResponse(resp)
+	mr.m.AddTraceResponse("after modify response", resp)
+	return err
 }

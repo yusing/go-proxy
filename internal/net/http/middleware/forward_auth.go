@@ -13,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
@@ -45,7 +44,6 @@ var ForwardAuth = func() *forwardAuth {
 	fa.m.withOptions = NewForwardAuthfunc
 	return fa
 }()
-var faLogger = logrus.WithField("middleware", "ForwardAuth")
 
 func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	faWithOpts := new(forwardAuth)
@@ -80,7 +78,7 @@ func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	return faWithOpts.m, nil
 }
 
-func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request) {
+func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Request) {
 	gpHTTP.RemoveHop(req.Header)
 
 	faReq, err := http.NewRequestWithContext(
@@ -90,7 +88,7 @@ func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request
 		nil,
 	)
 	if err != nil {
-		faLogger.Debugf("new request err to %s: %s", fa.Address, err)
+		fa.m.AddTracef("new request err to %s", fa.Address).With("error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -103,7 +101,7 @@ func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request
 
 	faResp, err := fa.client.Do(faReq)
 	if err != nil {
-		faLogger.Debugf("failed to call %s: %s", fa.Address, err)
+		fa.m.AddTracef("failed to call %s", fa.Address).With("error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -111,7 +109,7 @@ func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request
 
 	body, err := io.ReadAll(faResp.Body)
 	if err != nil {
-		faLogger.Debugf("failed to read response body from %s: %s", fa.Address, err)
+		fa.m.AddTracef("failed to read response body from %s", fa.Address).With("error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -122,7 +120,7 @@ func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request
 
 		redirectURL, err := faResp.Location()
 		if err != nil {
-			faLogger.Debugf("failed to get location from %s: %s", fa.Address, err)
+			fa.m.AddTracef("failed to get location from %s", fa.Address).With("error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		} else if redirectURL.String() != "" {
@@ -132,7 +130,7 @@ func (fa *forwardAuth) forward(next http.Handler, w ResponseWriter, req *Request
 		w.WriteHeader(faResp.StatusCode)
 
 		if _, err = w.Write(body); err != nil {
-			faLogger.Debugf("failed to write response body from %s: %s", fa.Address, err)
+			fa.m.AddTracef("failed to write response body from %s", fa.Address).With("error", err)
 		}
 		return
 	}

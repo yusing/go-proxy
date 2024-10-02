@@ -18,7 +18,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/api"
-	apiUtils "github.com/yusing/go-proxy/internal/api/v1/utils"
+	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	"github.com/yusing/go-proxy/internal/docker"
@@ -57,7 +57,7 @@ func main() {
 	}
 
 	if args.Command == common.CommandReload {
-		if err := apiUtils.ReloadServer(); err.HasError() {
+		if err := query.ReloadServer(); err.HasError() {
 			log.Fatal(err)
 		}
 		log.Print("ok")
@@ -93,7 +93,7 @@ func main() {
 		printJSON(cfg.Value())
 		return
 	case common.CommandListRoutes:
-		routes, err := apiUtils.ListRoutes()
+		routes, err := query.ListRoutes()
 		if err.HasError() {
 			log.Printf("failed to connect to api server: %s", err)
 			log.Printf("falling back to config file")
@@ -108,6 +108,12 @@ func main() {
 	case common.CommandDebugListProviders:
 		printJSON(cfg.DumpProviders())
 		return
+	case common.CommandDebugListMTrace:
+		trace, err := query.ListMiddlewareTraces()
+		if err.HasError() {
+			log.Fatal(err)
+		}
+		printJSON(trace)
 	}
 
 	if common.IsDebug {

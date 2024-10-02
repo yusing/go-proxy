@@ -32,3 +32,7 @@ func (cidr *CIDR) Contains(ip net.IP) bool {
 func (cidr *CIDR) String() string {
 	return (*net.IPNet)(cidr).String()
 }
+
+func (cidr *CIDR) Equals(other *CIDR) bool {
+	return (*net.IPNet)(cidr).IP.Equal(other.IP) && cidr.Mask.String() == other.Mask.String()
+}

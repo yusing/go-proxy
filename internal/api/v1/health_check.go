@@ -1,21 +1,22 @@
-package utils
+package v1
 
 import (
 	"net"
 	"net/http"
 
+	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 )
 
 func IsSiteHealthy(url string) bool {
 	// try HEAD first
 	// if HEAD is not allowed, try GET
-	resp, err := httpClient.Head(url)
+	resp, err := U.Head(url)
 	if resp != nil {
 		resp.Body.Close()
 	}
 	if err != nil && resp != nil && resp.StatusCode == http.StatusMethodNotAllowed {
-		_, err = httpClient.Get(url)
+		_, err = U.Get(url)
 	}
 	if resp != nil {
 		resp.Body.Close()

@@ -83,13 +83,14 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
 ### Commands line arguments
 
-| Argument    | Description                      | Example                    |
-| ----------- | -------------------------------- | -------------------------- |
-| empty       | start proxy server               |                            |
-| `validate`  | validate config and exit         |                            |
-| `reload`    | trigger a force reload of config |                            |
-| `ls-config` | list config and exit             | `go-proxy ls-config \| jq` |
-| `ls-route`  | list proxy entries and exit      | `go-proxy ls-route \| jq`  |
+| Argument          | Description                                          | Example                          |
+| ----------------- | ---------------------------------------------------- | -------------------------------- |
+| empty             | start proxy server                                   |                                  |
+| `validate`        | validate config and exit                             |                                  |
+| `reload`          | trigger a force reload of config                     |                                  |
+| `ls-config`       | list config and exit                                 | `go-proxy ls-config \| jq`       |
+| `ls-route`        | list proxy entries and exit                          | `go-proxy ls-route \| jq`        |
+| `debug-ls-mtrace` | list middleware trace **(works only in debug mode)** | `go-proxy debug-ls-mtrace \| jq` |
 
 **run with `docker exec go-proxy /app/go-proxy <command>`**
 

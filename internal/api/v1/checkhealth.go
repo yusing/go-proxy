@@ -25,10 +25,10 @@ func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, U.ErrNotFound("target", target), http.StatusNotFound)
 		return
 	case route.Type() == R.RouteTypeReverseProxy:
-		ok = U.IsSiteHealthy(route.URL().String())
+		ok = IsSiteHealthy(route.URL().String())
 	case route.Type() == R.RouteTypeStream:
 		entry := route.Entry()
-		ok = U.IsStreamHealthy(
+		ok = IsStreamHealthy(
 			strings.Split(entry.Scheme, ":")[1], // target scheme
 			fmt.Sprintf("%s:%v", entry.Host, strings.Split(entry.Port, ":")[1]),
 		)

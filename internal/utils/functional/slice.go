@@ -1,19 +1,25 @@
 package functional
 
+import (
+	"encoding/json"
+	"sync"
+)
+
 type Slice[T any] struct {
-	s []T
+	s  []T
+	mu sync.Mutex
 }
 
 func NewSlice[T any]() *Slice[T] {
-	return &Slice[T]{make([]T, 0)}
+	return &Slice[T]{s: make([]T, 0)}
 }
 
 func NewSliceN[T any](n int) *Slice[T] {
-	return &Slice[T]{make([]T, n)}
+	return &Slice[T]{s: make([]T, n)}
 }
 
 func NewSliceFrom[T any](s []T) *Slice[T] {
-	return &Slice[T]{s}
+	return &Slice[T]{s: s}
 }
 
 func (s *Slice[T]) Size() int {
@@ -46,6 +52,30 @@ func (s *Slice[T]) AddRange(other *Slice[T]) *Slice[T] {
 	return s
 }
 
+func (s *Slice[T]) SafeAdd(e T) *Slice[T] {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Add(e)
+}
+
+func (s *Slice[T]) SafeAddRange(other *Slice[T]) *Slice[T] {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.AddRange(other)
+}
+
+func (s *Slice[T]) Pop() T {
+	v := s.s[len(s.s)-1]
+	s.s = s.s[:len(s.s)-1]
+	return v
+}
+
+func (s *Slice[T]) SafePop() T {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.Pop()
+}
+
 func (s *Slice[T]) ForEach(do func(T)) {
 	for _, v := range s.s {
 		do(v)
@@ -57,7 +87,7 @@ func (s *Slice[T]) Map(m func(T) T) *Slice[T] {
 	for i, v := range s.s {
 		n[i] = m(v)
 	}
-	return &Slice[T]{n}
+	return &Slice[T]{s: n}
 }
 
 func (s *Slice[T]) Filter(f func(T) bool) *Slice[T] {
@@ -67,5 +97,13 @@ func (s *Slice[T]) Filter(f func(T) bool) *Slice[T] {
 			n = append(n, v)
 		}
 	}
-	return &Slice[T]{n}
+	return &Slice[T]{s: n}
+}
+
+func (s *Slice[T]) String() string {
+	out, err := json.MarshalIndent(s.s, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+	return string(out)
 }

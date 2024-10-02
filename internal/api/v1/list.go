@@ -8,19 +8,28 @@ import (
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
+	"github.com/yusing/go-proxy/internal/net/http/middleware"
+)
+
+const (
+	ListRoutes          = "routes"
+	ListConfigFiles     = "config_files"
+	ListMiddlewareTrace = "middleware_trace"
 )
 
 func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	what := r.PathValue("what")
 	if what == "" {
-		what = "routes"
+		what = ListRoutes
 	}
 
 	switch what {
-	case "routes":
+	case ListRoutes:
 		listRoutes(cfg, w, r)
-	case "config_files":
+	case ListConfigFiles:
 		listConfigFiles(w, r)
+	case ListMiddlewareTrace:
+		listMiddlewareTrace(w, r)
 	default:
 		U.HandleErr(w, r, U.ErrInvalidKey("what"), http.StatusBadRequest)
 	}
@@ -53,6 +62,15 @@ func listConfigFiles(w http.ResponseWriter, r *http.Request) {
 		filenames[i] = f.Name()
 	}
 	resp, err := json.Marshal(filenames)
+	if err != nil {
+		U.HandleErr(w, r, err)
+		return
+	}
+	w.Write(resp)
+}
+
+func listMiddlewareTrace(w http.ResponseWriter, r *http.Request) {
+	resp, err := json.Marshal(middleware.GetAllTrace())
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return

@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net"
+	"net/http"
 )
 
 const (
@@ -14,7 +15,7 @@ const (
 )
 
 var SetXForwarded = &Middleware{
-	rewrite: func(req *Request) {
+	before: func(next http.HandlerFunc, w ResponseWriter, req *Request) {
 		req.Header.Del("Forwarded")
 		req.Header.Del(xForwardedFor)
 		req.Header.Del(xForwardedHost)
@@ -23,7 +24,7 @@ var SetXForwarded = &Middleware{
 		if err == nil {
 			req.Header.Set(xForwardedFor, clientIP)
 		} else {
-			req.Header.Del(xForwardedFor)
+			req.Header.Set(xForwardedFor, req.RemoteAddr)
 		}
 		req.Header.Set(xForwardedHost, req.Host)
 		if req.TLS == nil {
@@ -31,14 +32,16 @@ var SetXForwarded = &Middleware{
 		} else {
 			req.Header.Set(xForwardedProto, "https")
 		}
+		next(w, req)
 	},
 }
 
 var HideXForwarded = &Middleware{
-	rewrite: func(req *Request) {
+	before: func(next http.HandlerFunc, w ResponseWriter, req *Request) {
 		req.Header.Del("Forwarded")
 		req.Header.Del(xForwardedFor)
 		req.Header.Del(xForwardedHost)
 		req.Header.Del(xForwardedProto)
+		next(w, req)
 	},
 }

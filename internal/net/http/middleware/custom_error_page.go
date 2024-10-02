@@ -15,9 +15,9 @@ import (
 )
 
 var CustomErrorPage = &Middleware{
-	before: func(next http.Handler, w ResponseWriter, r *Request) {
+	before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
 		if !ServeStaticErrorPageFile(w, r) {
-			next.ServeHTTP(w, r)
+			next(w, r)
 		}
 	},
 	modifyResponse: func(resp *Response) error {

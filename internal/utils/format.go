@@ -42,6 +42,10 @@ func FormatDuration(d time.Duration) string {
 	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
 }
 
+func FormatTime(t time.Time) string {
+	return t.Format("2006-01-02 15:04:05")
+}
+
 func ParseBool(s string) bool {
 	switch strings.ToLower(s) {
 	case "1", "true", "yes", "on":

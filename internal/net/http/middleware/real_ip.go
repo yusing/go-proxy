@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"net"
+	"net/http"
 
-	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/types"
@@ -49,13 +49,14 @@ var realIPOptsDefault = func() *realIPOpts {
 	}
 }
 
-var realIPLogger = logrus.WithField("middleware", "RealIP")
-
 func NewRealIP(opts OptionsRaw) (*Middleware, E.NestedError) {
 	riWithOpts := new(realIP)
 	riWithOpts.m = &Middleware{
-		impl:    riWithOpts,
-		rewrite: riWithOpts.setRealIP,
+		impl: riWithOpts,
+		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
+			riWithOpts.setRealIP(r)
+			next(w, r)
+		},
 	}
 	riWithOpts.realIPOpts = realIPOptsDefault()
 	err := Deserialize(opts, riWithOpts.realIPOpts)
@@ -78,7 +79,7 @@ func (ri *realIP) isInCIDRList(ip net.IP) bool {
 func (ri *realIP) setRealIP(req *Request) {
 	clientIPStr, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
-		realIPLogger.Debugf("failed to split host port %s", err)
+		clientIPStr = req.RemoteAddr
 	}
 	clientIP := net.ParseIP(clientIPStr)
 
@@ -90,7 +91,7 @@ func (ri *realIP) setRealIP(req *Request) {
 		}
 	}
 	if !isTrusted {
-		realIPLogger.Debugf("client ip %s is not trusted", clientIP)
+		ri.m.AddTracef("client ip %s is not trusted", clientIP).With("allowed CIDRs", ri.From)
 		return
 	}
 
@@ -98,7 +99,7 @@ func (ri *realIP) setRealIP(req *Request) {
 	var lastNonTrustedIP string
 
 	if len(realIPs) == 0 {
-		realIPLogger.Debugf("no real ip found in header %q", ri.Header)
+		ri.m.AddTracef("no real ip found in header %s", ri.Header).WithRequest(req)
 		return
 	}
 
@@ -110,14 +111,16 @@ func (ri *realIP) setRealIP(req *Request) {
 				lastNonTrustedIP = r
 			}
 		}
-		if lastNonTrustedIP == "" {
-			realIPLogger.Debugf("no non-trusted ip found in header %q", ri.Header)
-			return
-		}
+	}
+
+	if lastNonTrustedIP == "" {
+		ri.m.AddTracef("no non-trusted ip found").With("allowed CIDRs", ri.From).With("ips", realIPs)
+		return
 	}
 
 	req.RemoteAddr = lastNonTrustedIP
 	req.Header.Set(ri.Header, lastNonTrustedIP)
 	req.Header.Set("X-Real-IP", lastNonTrustedIP)
-	req.Header.Set("X-Forwarded-For", lastNonTrustedIP)
+	req.Header.Set(xForwardedFor, lastNonTrustedIP)
+	ri.m.AddTracef("set real ip %s", lastNonTrustedIP)
 }
