@@ -58,7 +58,7 @@ func (r *StreamRoute) String() string {
 }
 
 func (r *StreamRoute) Start() E.NestedError {
-	if r.Port.ListeningPort == PT.NoPort || r.started.Load() {
+	if r.Port.ProxyPort == PT.NoPort || r.started.Load() {
 		return nil
 	}
 	r.ctx, r.cancel = context.WithCancel(context.Background())

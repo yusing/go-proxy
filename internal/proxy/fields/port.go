@@ -33,9 +33,8 @@ func (p Port) String() string {
 }
 
 const (
-	MinPort  = 0
-	MaxPort  = 65535
-	ErrPort  = Port(-1)
-	NoPort   = Port(-1)
-	ZeroPort = Port(0)
+	MinPort = 0
+	MaxPort = 65535
+	ErrPort = Port(-1)
+	NoPort  = Port(0)
 )
