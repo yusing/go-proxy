@@ -10,7 +10,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/api/v1/error_page"
-	"github.com/yusing/go-proxy/internal/common"
 	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 )
 
@@ -47,8 +46,8 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
 	if path != "" && path[0] != '/' {
 		path = "/" + path
 	}
-	if strings.HasPrefix(path, common.StaticFilePathPrefix) {
-		filename := path[len(common.StaticFilePathPrefix):]
+	if strings.HasPrefix(path, gpHTTP.StaticFilePathPrefix) {
+		filename := path[len(gpHTTP.StaticFilePathPrefix):]
 		file, ok := error_page.GetStaticFile(filename)
 		if !ok {
 			errPageLogger.Errorf("unable to load resource %s", filename)

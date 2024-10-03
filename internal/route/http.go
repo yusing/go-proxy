@@ -10,7 +10,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/api/v1/error_page"
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/net/http"
@@ -68,9 +67,9 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	var unregIdleWatcher func()
 
 	if entry.NoTLSVerify {
-		trans = common.DefaultTransportNoTLS.Clone()
+		trans = DefaultTransportNoTLS.Clone()
 	} else {
-		trans = common.DefaultTransport.Clone()
+		trans = DefaultTransport.Clone()
 	}
 
 	rp := NewReverseProxy(entry.URL, trans)

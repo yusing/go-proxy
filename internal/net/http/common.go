@@ -1,4 +1,4 @@
-package common
+package http
 
 import (
 	"crypto/tls"
@@ -13,10 +13,13 @@ var (
 		KeepAlive: 60 * time.Second,
 	}
 	DefaultTransport = &http.Transport{
-		Proxy:               http.ProxyFromEnvironment,
-		DialContext:         defaultDialer.DialContext,
-		MaxIdleConnsPerHost: 1000,
-		IdleConnTimeout:     90 * time.Second,
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           defaultDialer.DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
 	}
 	DefaultTransportNoTLS = func() *http.Transport {
 		var clone = DefaultTransport.Clone()
