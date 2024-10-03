@@ -79,7 +79,7 @@ func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.Neste
 	}
 
 	p = newProvider(name, ProviderTypeDocker)
-	p.ProviderImpl, err = DockerProviderImpl(dockerHost, p.IsExplicitOnly())
+	p.ProviderImpl, err = DockerProviderImpl(name, dockerHost, p.IsExplicitOnly())
 	if err != nil {
 		return nil, err
 	}

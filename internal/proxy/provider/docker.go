@@ -16,23 +16,23 @@ import (
 )
 
 type DockerProvider struct {
-	dockerHost, hostname string
-	ExplicitOnly         bool
+	name, dockerHost, hostname string
+	ExplicitOnly               bool
 }
 
 var AliasRefRegex = regexp.MustCompile(`#\d+`)
 var AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
 
-func DockerProviderImpl(dockerHost string, explicitOnly bool) (ProviderImpl, E.NestedError) {
+func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, E.NestedError) {
 	hostname, err := D.ParseDockerHostname(dockerHost)
 	if err.HasError() {
 		return nil, err
 	}
-	return &DockerProvider{dockerHost, hostname, explicitOnly}, nil
+	return &DockerProvider{name, dockerHost, hostname, explicitOnly}, nil
 }
 
 func (p *DockerProvider) String() string {
-	return fmt.Sprintf("docker:%s", p.dockerHost)
+	return fmt.Sprintf("docker: %s", p.name)
 }
 
 func (p *DockerProvider) NewWatcher() W.Watcher {
