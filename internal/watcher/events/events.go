@@ -53,10 +53,20 @@ var DockerEventMap = map[dockerEvents.Action]Action{
 	dockerEvents.ActionDie:   ActionContainerDie,
 }
 
-var dockerActionNameMap = func() (m map[Action]string) {
+var fileActionNameMap = map[Action]string{
+	ActionFileWritten: "written",
+	ActionFileCreated: "created",
+	ActionFileDeleted: "deleted",
+	ActionFileRenamed: "renamed",
+}
+
+var actionNameMap = func() (m map[Action]string) {
 	m = make(map[Action]string, len(DockerEventMap))
 	for k, v := range DockerEventMap {
 		m[v] = string(k)
+	}
+	for k, v := range fileActionNameMap {
+		m[k] = v
 	}
 	return
 }()
@@ -66,7 +76,7 @@ func (e Event) String() string {
 }
 
 func (a Action) String() string {
-	return dockerActionNameMap[a]
+	return actionNameMap[a]
 }
 
 func (a Action) IsContainerWake() bool {
