@@ -224,7 +224,13 @@ var hopHeaders = []string{
 }
 
 func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err error, writeHeader bool) {
-	logger.Errorf("http proxy to %s failed: %s", r.URL.String(), err)
+	switch {
+	case errors.Is(err, context.Canceled),
+		errors.Is(err, io.EOF):
+		logger.Debugf("http proxy to %s error: %s", r.URL.String(), err)
+	default:
+		logger.Errorf("http proxy to %s error: %s", r.URL.String(), err)
+	}
 	if writeHeader {
 		rw.WriteHeader(http.StatusBadGateway)
 	}
