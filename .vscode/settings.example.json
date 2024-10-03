@@ -6,8 +6,7 @@
     ],
     "https://github.com/yusing/go-proxy/raw/main/schema/providers.schema.json": [
       "providers.example.yml",
-      "*.providers.yml",
-      "providers.yml"
+      "*.yml"
     ]
   }
 }

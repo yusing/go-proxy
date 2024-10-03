@@ -64,7 +64,59 @@
         "port": {},
         "no_tls_verify": {},
         "path_patterns": {},
-        "middlewares": {}
+        "middlewares": {},
+        "homepage": {
+          "title": "Dashboard config",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "show": {
+              "description": "Show on dashboard",
+              "type": "boolean",
+              "default": true
+            },
+            "name": {
+              "description": "Display name",
+              "type": "string"
+            },
+            "icon": {
+              "description": "Display icon",
+              "type": "string",
+              "oneOf": [
+                {
+                  "pattern": "^(png|svg)\\/[\\w\\d-_]+\\.(png|svg)$",
+                  "description": "Icon from walkxcode/dashboard-icons",
+                  "errorMessage": "must be png/filename.png or svg/filename.svg"
+                },
+                {
+                  "pattern": "^https?://",
+                  "description": "Absolute URI"
+                },
+                {
+                  "pattern": "^@target/",
+                  "description": "Relative URI to target"
+                }
+              ]
+            },
+            "url": {
+              "description": "App URL override",
+              "type": "string",
+              "format": "uri"
+            },
+            "category": {
+              "description": "Category",
+              "type": "string"
+            },
+            "description": {
+              "description": "Description",
+              "type": "string"
+            },
+            "widget_config": {
+              "description": "Widget config",
+              "type": "object"
+            }
+          }
+        }
       },
       "additionalProperties": false,
       "allOf": [
