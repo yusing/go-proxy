@@ -71,16 +71,10 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
-			if item.Icon == "" {
-				item.Icon = "🐳"
-			}
 			item.SourceType = string(PR.ProviderTypeDocker)
 		} else if p.GetType() == PR.ProviderTypeFile {
 			if item.Category == "" {
 				item.Category = "Others"
-			}
-			if item.Icon == "" {
-				item.Icon = "🔗"
 			}
 			item.SourceType = string(PR.ProviderTypeFile)
 		}
@@ -90,6 +84,7 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 				item.URL = fmt.Sprintf("%s://%s.%s:%s", proto, strings.ToLower(alias), domains[0], port)
 			}
 		}
+		item.AltURL = r.URL().String()
 
 		hpCfg.Add(&item)
 	})

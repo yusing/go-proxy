@@ -16,6 +16,7 @@ var (
 		Proxy:               http.ProxyFromEnvironment,
 		DialContext:         defaultDialer.DialContext,
 		MaxIdleConnsPerHost: 1000,
+		IdleConnTimeout:     90 * time.Second,
 	}
 	DefaultTransportNoTLS = func() *http.Transport {
 		var clone = DefaultTransport.Clone()

@@ -8,13 +8,14 @@ type (
 		Show         bool           `yaml:"show" json:"show"`
 		Name         string         `yaml:"name" json:"name"`
 		Icon         string         `yaml:"icon" json:"icon"`
-		URL          string         `yaml:"url" json:"url"` // URL or unicodes
+		URL          string         `yaml:"url" json:"url"` // alias + domain
 		Category     string         `yaml:"category" json:"category"`
 		Description  string         `yaml:"description" json:"description"`
 		WidgetConfig map[string]any `yaml:",flow" json:"widget_config"`
 
 		SourceType  string `yaml:"-" json:"source_type"`
 		Initialized bool   `yaml:"-" json:"-"`
+		AltURL      string `yaml:"-" json:"alt_url"` // original proxy target
 	}
 )
 

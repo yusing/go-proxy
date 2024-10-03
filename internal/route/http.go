@@ -27,7 +27,7 @@ type (
 		PathPatterns PT.PathPatterns `json:"path_patterns"`
 
 		entry   *P.ReverseProxyEntry
-		mux     *http.ServeMux
+		mux     http.Handler
 		handler *ReverseProxy
 
 		regIdleWatcher   func() E.NestedError
@@ -36,15 +36,23 @@ type (
 
 	URL          url.URL
 	SubdomainKey = PT.Alias
+
+	ReverseProxyHandler struct {
+		*ReverseProxy
+	}
 )
 
 var (
 	findMuxFunc = findMuxAnyDomain
 
-	httpRoutes   = F.NewMapOf[SubdomainKey, *HTTPRoute]()
+	httpRoutes   = F.NewMapOf[string, *HTTPRoute]()
 	httpRoutesMu sync.Mutex
 	globalMux    = http.NewServeMux() // TODO: support regex subdomain matching
 )
+
+func (rp ReverseProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rp.ReverseProxy.ServeHTTP(w, r)
+}
 
 func SetFindMuxDomains(domains []string) {
 	if len(domains) == 0 {
@@ -134,12 +142,17 @@ func (r *HTTPRoute) Start() E.NestedError {
 		return nil
 	}
 
-	r.mux = http.NewServeMux()
-	for _, p := range r.PathPatterns {
-		r.mux.HandleFunc(string(p), r.handler.ServeHTTP)
+	if len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/" {
+		r.mux = ReverseProxyHandler{r.handler}
+	} else {
+		mux := http.NewServeMux()
+		for _, p := range r.PathPatterns {
+			mux.HandleFunc(string(p), r.handler.ServeHTTP)
+		}
+		r.mux = mux
 	}
 
-	httpRoutes.Store(r.Alias, r)
+	httpRoutes.Store(string(r.Alias), r)
 	return nil
 }
 
@@ -157,7 +170,7 @@ func (r *HTTPRoute) Stop() E.NestedError {
 	}
 
 	r.mux = nil
-	httpRoutes.Delete(r.Alias)
+	httpRoutes.Delete(string(r.Alias))
 	return nil
 }
 
@@ -194,21 +207,21 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	mux.ServeHTTP(w, r)
 }
 
-func findMuxAnyDomain(host string) (*http.ServeMux, error) {
+func findMuxAnyDomain(host string) (http.Handler, error) {
 	hostSplit := strings.Split(host, ".")
 	n := len(hostSplit)
 	if n <= 2 {
 		return nil, fmt.Errorf("missing subdomain in url")
 	}
 	sd := strings.Join(hostSplit[:n-2], ".")
-	if r, ok := httpRoutes.Load(PT.Alias(sd)); ok {
+	if r, ok := httpRoutes.Load(sd); ok {
 		return r.mux, nil
 	}
 	return nil, fmt.Errorf("no such route: %s", sd)
 }
 
-func findMuxByDomains(domains []string) func(host string) (*http.ServeMux, error) {
-	return func(host string) (*http.ServeMux, error) {
+func findMuxByDomains(domains []string) func(host string) (http.Handler, error) {
+	return func(host string) (http.Handler, error) {
 		var subdomain string
 
 		for _, domain := range domains {
@@ -223,7 +236,7 @@ func findMuxByDomains(domains []string) func(host string) (*http.ServeMux, error
 		if len(subdomain) == len(host) { // not matched
 			return nil, fmt.Errorf("%s does not match any base domain", host)
 		}
-		if r, ok := httpRoutes.Load(PT.Alias(subdomain)); ok {
+		if r, ok := httpRoutes.Load(subdomain); ok {
 			return r.mux, nil
 		}
 		return nil, fmt.Errorf("no such route: %s", subdomain)

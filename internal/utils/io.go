@@ -110,6 +110,10 @@ func Copy(dst *ContextWriter, src *ContextReader) error {
 	return err
 }
 
+func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {
+	return Copy(&ContextWriter{ctx: ctx, Writer: dst}, &ContextReader{ctx: ctx, Reader: src})
+}
+
 func LoadJson[T any](path string, pointer *T) E.NestedError {
 	data, err := E.Check(os.ReadFile(path))
 	if err.HasError() {

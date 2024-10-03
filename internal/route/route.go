@@ -74,7 +74,7 @@ func (rt *route) Type() RouteType {
 }
 
 func (rt *route) URL() *url.URL {
-	url, _ := url.Parse(fmt.Sprintf("%s://%s", rt.entry.Scheme, rt.entry.Host))
+	url, _ := url.Parse(fmt.Sprintf("%s://%s:%s", rt.entry.Scheme, rt.entry.Host, rt.entry.Port))
 	return url
 }
 

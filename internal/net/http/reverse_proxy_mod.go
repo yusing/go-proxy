@@ -25,6 +25,8 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http/httpguts"
+
+	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 // A ProxyRequest contains a request to be rewritten by a [ReverseProxy].
@@ -418,9 +420,11 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 
-	_, err = io.Copy(rw, res.Body)
+	err = U.Copy2(req.Context(), rw, res.Body)
 	if err != nil {
-		p.errorHandler(rw, req, err, true)
+		if !errors.Is(err, context.Canceled) {
+			p.errorHandler(rw, req, err, true)
+		}
 		res.Body.Close()
 		return
 	}
@@ -525,17 +529,9 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 		p.errorHandler(rw, req, fmt.Errorf("response flush: %s", err), true)
 		return
 	}
-	errc := make(chan error, 1)
 
-	go func() {
-		_, err := io.Copy(conn, backConn)
-		errc <- err
-	}()
-	go func() {
-		_, err := io.Copy(backConn, conn)
-		errc <- err
-	}()
-	<-errc
+	bdp := U.NewBidirectionalPipe(req.Context(), conn, backConn)
+	bdp.Start()
 }
 
 func IsPrint(s string) bool {
