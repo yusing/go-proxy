@@ -59,7 +59,12 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 		}
 
 		if item.Name == "" {
-			item.Name = U.Title(alias)
+			item.Name = U.Title(
+				strings.ReplaceAll(
+					strings.ReplaceAll(alias, "-", " "),
+					"_", " ",
+				),
+			)
 		}
 
 		if p.GetType() == PR.ProviderTypeDocker {

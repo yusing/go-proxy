@@ -10,11 +10,11 @@ type (
 		Icon         string         `yaml:"icon" json:"icon"`
 		URL          string         `yaml:"url" json:"url"` // URL or unicodes
 		Category     string         `yaml:"category" json:"category"`
-		SourceType   string         `yaml:"source_type" json:"source_type"`
 		Description  string         `yaml:"description" json:"description"`
 		WidgetConfig map[string]any `yaml:",flow" json:"widget_config"`
 
-		Initialized bool `yaml:"-" json:"-"`
+		SourceType  string `yaml:"-" json:"source_type"`
+		Initialized bool   `yaml:"-" json:"-"`
 	}
 )
 
