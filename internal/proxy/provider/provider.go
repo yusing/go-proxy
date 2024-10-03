@@ -172,6 +172,9 @@ func (p *Provider) Statistics() ProviderStats {
 	numRPs := 0
 	numStreams := 0
 	p.routes.RangeAll(func(_ string, r R.Route) {
+		if !r.Started() {
+			return
+		}
 		switch r.Type() {
 		case R.RouteTypeReverseProxy:
 			numRPs++
