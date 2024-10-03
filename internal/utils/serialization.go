@@ -122,14 +122,21 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 //
 // The function returns an error if the target value is not a struct or a map[string]any, or if there is an error during deserialization.
 func Deserialize(src SerializedObject, dst any) E.NestedError {
-	if src == nil || dst == nil {
-		return nil
+	if src == nil {
+		return E.Invalid("src", "nil")
+	}
+
+	if dst == nil {
+		return E.Invalid("nil dst", fmt.Sprintf("type: %T", dst))
 	}
 
 	dstV := reflect.ValueOf(dst)
 	dstT := dstV.Type()
 
 	if dstV.Kind() == reflect.Ptr {
+		if dstV.IsNil() {
+			return E.Invalid("nil dst", fmt.Sprintf("type: %T", dst))
+		}
 		dstV = dstV.Elem()
 		dstT = dstV.Type()
 	}
@@ -153,7 +160,7 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 					return err.Subject(k)
 				}
 			} else {
-				return E.Unexpected("field", k)
+				return E.Unexpected("field", k).Subjectf("%T", dst)
 			}
 		}
 	} else if dstV.Kind() == reflect.Map && dstT.Key().Kind() == reflect.String {

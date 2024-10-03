@@ -35,10 +35,10 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 	cert, _ := cfg.autocertProvider.GetCert(nil)
 	if cert != nil {
 		proto = "https"
-		port = common.ProxyHTTPPort
+		port = common.ProxyHTTPSPort
 	} else {
 		proto = "http"
-		port = common.ProxyHTTPSPort
+		port = common.ProxyHTTPPort
 	}
 
 	hpCfg := H.NewHomePageConfig()
@@ -49,8 +49,13 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 
 		entry := r.Entry()
 		item := entry.Homepage
-		if item == nil {
-			item = &H.HomePageItem{}
+
+		if !item.Initialized {
+			item.Show = r.Entry().IsExplicit || !p.IsExplicitOnly()
+		}
+
+		if !item.Show || r.Type() != R.RouteTypeReverseProxy {
+			return
 		}
 
 		if item.Name == "" {
@@ -61,20 +66,27 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
+			if item.Icon == "" {
+				item.Icon = "🐳"
+			}
 			item.SourceType = string(PR.ProviderTypeDocker)
 		} else if p.GetType() == PR.ProviderTypeFile {
 			if item.Category == "" {
 				item.Category = "Others"
 			}
+			if item.Icon == "" {
+				item.Icon = "🔗"
+			}
 			item.SourceType = string(PR.ProviderTypeFile)
 		}
 
-		if item.URL == "" && r.Type() == R.RouteTypeReverseProxy {
+		if item.URL == "" {
 			if len(domains) > 0 {
 				item.URL = fmt.Sprintf("%s://%s.%s:%s", proto, strings.ToLower(alias), domains[0], port)
 			}
 		}
-		hpCfg.Add(item)
+
+		hpCfg.Add(&item)
 	})
 	return hpCfg
 }

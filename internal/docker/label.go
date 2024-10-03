@@ -58,7 +58,7 @@ func ApplyLabel[T any](obj *T, l *Label) E.NestedError {
 		}
 		dst, ok := field.Interface().(NestedLabelMap)
 		if !ok {
-			return E.Invalid("type", field.Type())
+			return U.Deserialize(U.SerializedObject{nestedLabel.Namespace: nestedLabel.Value}, field.Addr().Interface())
 		}
 		if dst == nil {
 			field.Set(reflect.MakeMap(reflect.TypeFor[NestedLabelMap]()))

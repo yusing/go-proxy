@@ -77,19 +77,18 @@ func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.Neste
 	if name == "" {
 		return nil, E.Invalid("provider name", "empty")
 	}
-	explicitOnly := false
-	if name[len(name)-1] == '!' {
-		explicitOnly = true
-		name = name[:len(name)-1]
-	}
 
 	p = newProvider(name, ProviderTypeDocker)
-	p.ProviderImpl, err = DockerProviderImpl(dockerHost, explicitOnly)
+	p.ProviderImpl, err = DockerProviderImpl(dockerHost, p.IsExplicitOnly())
 	if err != nil {
 		return nil, err
 	}
 	p.watcher = p.NewWatcher()
 	return
+}
+
+func (p *Provider) IsExplicitOnly() bool {
+	return p.name[len(p.name)-1] == '!'
 }
 
 func (p *Provider) GetName() string {

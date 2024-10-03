@@ -5,13 +5,16 @@ type (
 	HomePageCategory []*HomePageItem
 
 	HomePageItem struct {
+		Show         bool           `yaml:"show" json:"show"`
 		Name         string         `yaml:"name" json:"name"`
-		Icon         string         `yaml:"icon" json:"icon,omitempty"`
-		URL          string         `yaml:"url" json:"url,omitempty"` // URL or unicodes
+		Icon         string         `yaml:"icon" json:"icon"`
+		URL          string         `yaml:"url" json:"url"` // URL or unicodes
 		Category     string         `yaml:"category" json:"category"`
-		SourceType   string         `yaml:"source_type" json:"source_type,omitempty"`
-		Description  string         `yaml:"description" json:"description,omitempty"`
-		WidgetConfig map[string]any `yaml:",flow" json:"widget_config,omitempty"`
+		SourceType   string         `yaml:"source_type" json:"source_type"`
+		Description  string         `yaml:"description" json:"description"`
+		WidgetConfig map[string]any `yaml:",flow" json:"widget_config"`
+
+		Initialized bool `yaml:"-" json:"-"`
 	}
 )
 
