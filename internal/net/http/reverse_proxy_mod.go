@@ -389,7 +389,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 			ProtoMajor:    outreq.ProtoMajor,
 			ProtoMinor:    outreq.ProtoMinor,
 			Header:        make(http.Header),
-			Body:          io.NopCloser(bytes.NewReader([]byte(errMsg))),
+			Body:          io.NopCloser(bytes.NewReader([]byte("Origin server is not reachable."))),
 			Request:       outreq,
 			ContentLength: int64(len(errMsg)),
 			TLS:           outreq.TLS,
