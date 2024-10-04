@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	H "github.com/yusing/go-proxy/internal/homepage"
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
@@ -54,8 +53,6 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 				Show: r.Entry().IsExplicit || !p.IsExplicitOnly(),
 			}
 		}
-
-		logrus.Debugf("%s isexplicit: %v, explicitonly: %v", r, r.Entry().IsExplicit, p.IsExplicitOnly())
 
 		item := entry.Homepage
 

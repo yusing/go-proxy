@@ -15,6 +15,7 @@ type ProxyProperties struct {
 	Aliases     []string `yaml:"-" json:"aliases"`
 	IsExcluded  bool     `yaml:"-" json:"is_excluded"`
 	IsExplicit  bool     `yaml:"-" json:"is_explicit"`
+	IsDatabase  bool     `yaml:"-" json:"is_database"`
 	IdleTimeout string   `yaml:"-" json:"idle_timeout"`
 	WakeTimeout string   `yaml:"-" json:"wake_timeout"`
 	StopMethod  string   `yaml:"-" json:"stop_method"`

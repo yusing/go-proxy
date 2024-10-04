@@ -83,6 +83,7 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 func (p *DockerProvider) shouldIgnore(container D.Container) bool {
 	return container.IsExcluded ||
 		!container.IsExplicit && p.ExplicitOnly ||
+		!container.IsExplicit && container.IsDatabase ||
 		strings.HasSuffix(container.ContainerName, "-old")
 }
 

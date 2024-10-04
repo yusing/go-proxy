@@ -28,6 +28,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 		Aliases:            res.getAliases(),
 		IsExcluded:         U.ParseBool(res.getDeleteLabel(LabelExclude)),
 		IsExplicit:         isExplicit,
+		IsDatabase:         res.isDatabase(),
 		IdleTimeout:        res.getDeleteLabel(LabelIdleTimeout),
 		WakeTimeout:        res.getDeleteLabel(LabelWakeTimeout),
 		StopMethod:         res.getDeleteLabel(LabelStopMethod),
@@ -107,4 +108,36 @@ func (c Container) getPrivatePortMapping() PortMapping {
 		res[fmt.Sprint(v.PrivatePort)] = v
 	}
 	return res
+}
+
+var databaseMPs = map[string]struct{}{
+	"/var/lib/postgresql/data": {},
+	"/var/lib/mysql":           {},
+	"/var/lib/mongodb":         {},
+	"/var/lib/mariadb":         {},
+	"/var/lib/memcached":       {},
+	"/var/lib/rabbitmq":        {},
+}
+
+var databasePrivPorts = map[uint16]struct{}{
+	5432:  {}, // postgres
+	3306:  {}, // mysql, mariadb
+	6379:  {}, // redis
+	11211: {}, // memcached
+	27017: {}, // mongodb
+}
+
+func (c Container) isDatabase() bool {
+	for _, m := range c.Container.Mounts {
+		if _, ok := databaseMPs[m.Destination]; ok {
+			return true
+		}
+	}
+
+	for _, v := range c.Ports {
+		if _, ok := databasePrivPorts[v.PrivatePort]; ok {
+			return true
+		}
+	}
+	return false
 }
