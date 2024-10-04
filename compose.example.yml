@@ -8,6 +8,11 @@ services:
         # labels:
         #   - proxy.aliases=gp
         #   - proxy.gp.port=3000
+
+        # Uncomment and change this if you have changed below
+        #
+        # environment:
+        #     GOPROXY_API_ADDR: 127.0.0.1:8888
         depends_on:
             - app
     app:
@@ -18,6 +23,12 @@ services:
         environment:
             # (Optional) change this to your timezone to get correct log timestamp
             TZ: ETC/UTC
+
+            # Change these if you need
+            #
+            # GOPROXY_HTTP_ADDR: :80
+            # GOPROXY_HTTPS_ADDR: :443
+            # GOPROXY_API_ADDR: 127.0.0.1:8888
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./config:/app/config

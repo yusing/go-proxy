@@ -7,7 +7,7 @@
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![](https://dcbadge.limes.pink/api/server/umReR62nRd)](https://discord.gg/umReR62nRd)
 
-一個輕量化、易用且[高效](docs/benchmark_result.md)的反向代理和端口轉發工具
+一個輕量化、易用且[高效]([docs/benchmark_result.md](https://github.com/yusing/go-proxy/wiki/Benchmarks)))的反向代理和端口轉發工具
 
 ## 目錄
 
@@ -21,8 +21,6 @@
     - [命令行參數](#命令行參數)
     - [環境變量](#環境變量)
     - [VSCode 中使用 JSON Schema](#vscode-中使用-json-schema)
-    - [配置文件](#配置文件)
-    - [透過文件配置](#透過文件配置)
   - [展示](#展示)
     - [idlesleeper](#idlesleeper)
   - [源碼編譯](#源碼編譯)
@@ -33,14 +31,16 @@
     -   不需花費太多時間就能輕鬆配置
     -   支持多個docker節點
     -   除錯簡單
--   自動配置 SSL 證書（參見[可用的 DNS 供應商](docs/dns_providers.md)）
+-   自動配置 SSL 證書（參見[可用的 DNS 供應商](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers)）
 -   透過 Docker 容器自動配置
 -   容器狀態變更時自動熱重載
--   容器閒置時自動暫停/停止，入站時自動喚醒
+-   **idlesleeper** 容器閒置時自動暫停/停止，入站時自動喚醒 (可選, 參見 [展示](#idlesleeper))
 -   HTTP(s) 反向代理
+-   [HTTP middleware](https://github.com/yusing/go-proxy/wiki/Middlewares)
+-   [自訂 error pages](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
 -   TCP/UDP 端口轉發
--   用於配置和監控的前端 Web 面板（[截圖](https://github.com/yusing/go-proxy-frontend?tab=readme-ov-file#screenshots)）
--   支持 linux/amd64、linux/arm64、linux/arm/v7、linux/arm/v6 多平台
+-   Web 面板 (內置App dashboard)
+-   支持 linux/amd64、linux/arm64 平台
 -   使用 **[Go](https://go.dev)** 編寫
 
 [🔼 返回頂部](#目錄)
@@ -70,20 +70,23 @@
 
 5. 大功告成，你可以做一些額外的配置
     - 使用文本編輯器 (推薦 Visual Studio Code [參見 VSCode 使用 schema](#vscode-中使用-json-schema))
-    - 或通過 `http://gp.y.z` 使用網頁配置編輯器
+    - 或通過 `http://localhost:3000` 使用網頁配置編輯器
     - 詳情請參閱 [docker.md](docs/docker.md)
 
 [🔼 返回頂部](#目錄)
 
 ### 命令行參數
 
-| 參數        | 描述           | 示例                       |
-| ----------- | -------------- | -------------------------- |
-| 空          | 啟動代理服務器 |                            |
-| `validate`  | 驗證配置並退出 |                            |
-| `reload`    | 強制刷新配置   |                            |
-| `ls-config` | 列出配置並退出 | `go-proxy ls-config \| jq` |
-| `ls-route`  | 列出路由並退出 | `go-proxy ls-route \| jq`  |
+| 參數                      | 描述                                                                                  | 示例                                |
+| ------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------- |
+| 空                        | 啟動代理服務器                                                                        |                                     |
+| `validate`                | 驗證配置並退出                                                                        |                                     |
+| `reload`                  | 強制刷新配置                                                                          |                                     |
+| `ls-config`               | 列出配置並退出                                                                        | `go-proxy ls-config \| jq`          |
+| `ls-route`                | 列出路由並退出                                                                        | `go-proxy ls-route \| jq`           |
+| `go-proxy ls-route \| jq` |
+| `ls-icons`                | 列出 [dashboard-icons](https://github.com/walkxcode/dashboard-icons/tree/main) 並退出 | `go-proxy ls-icons \| grep adguard` |
+| `debug-ls-mtrace`         | 列出middleware追蹤 **(僅限於 debug 模式)**                                            | `go-proxy debug-ls-mtrace \| jq`    |
 
 **使用 `docker exec go-proxy /app/go-proxy <參數>` 運行**
 
@@ -103,25 +106,12 @@
 
 [🔼 返回頂部](#目錄)
 
-### 配置文件
-
-參見 [config.example.yml](config.example.yml)
-
-[🔼 返回頂部](#目錄)
-
-### 透過文件配置
-
-參見 [Fields](docs/docker.md#fields)
-
-參見範例 [providers.example.yml](providers.example.yml)
-
-[🔼 返回頂部](#目錄)
 
 ## 展示
 
 ### idlesleeper
 
-![idlesleeper](showcase/idlesleeper.webp)
+![idlesleeper](screenshots/idlesleeper.webp)
 
 [🔼 返回頂部](#目錄)
 
