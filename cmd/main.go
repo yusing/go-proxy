@@ -57,7 +57,7 @@ func main() {
 	}
 
 	if args.Command == common.CommandReload {
-		if err := query.ReloadServer(); err.HasError() {
+		if err := query.ReloadServer(); err != nil {
 			log.Fatal(err)
 		}
 		log.Print("ok")
@@ -94,13 +94,20 @@ func main() {
 		return
 	case common.CommandListRoutes:
 		routes, err := query.ListRoutes()
-		if err.HasError() {
+		if err != nil {
 			log.Printf("failed to connect to api server: %s", err)
 			log.Printf("falling back to config file")
 			printJSON(cfg.RoutesByAlias())
 		} else {
 			printJSON(routes)
 		}
+		return
+	case common.CommandListIcons:
+		icons, err := internal.ListAvailableIcons()
+		if err != nil {
+			log.Fatal(err)
+		}
+		printJSON(icons)
 		return
 	case common.CommandDebugListEntries:
 		printJSON(cfg.DumpEntries())
@@ -110,7 +117,7 @@ func main() {
 		return
 	case common.CommandDebugListMTrace:
 		trace, err := query.ListMiddlewareTraces()
-		if err.HasError() {
+		if err != nil {
 			log.Fatal(err)
 		}
 		printJSON(trace)
@@ -213,7 +220,7 @@ func funcName(f func()) string {
 
 func printJSON(obj any) {
 	j, err := E.Check(json.MarshalIndent(obj, "", "  "))
-	if err.HasError() {
+	if err != nil {
 		logrus.Fatal(err)
 	}
 	rawLogger := log.New(os.Stdout, "", 0)

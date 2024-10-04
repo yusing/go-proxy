@@ -85,7 +85,12 @@ func touch(pathname string) {
 }
 func fetch(remoteFilename string, outFileName string) {
 	if hasFileOrDir(outFileName) {
-		return
+		if remoteFilename == outFileName {
+			log.Printf("%q already exists, not overwriting\n", outFileName)
+			return
+		}
+		log.Printf("%q already exists, downloading to %q\n", outFileName, remoteFilename)
+		outFileName = remoteFilename
 	}
 	log.Printf("downloading %q\n", remoteFilename)
 
@@ -111,5 +116,5 @@ func fetch(remoteFilename string, outFileName string) {
 		log.Fatalf("failed to write to file: %s\n", err)
 	}
 
-	log.Printf("downloaded %q\n", outFileName)
+	log.Printf("downloaded to %q\n", outFileName)
 }

@@ -17,6 +17,7 @@ const (
 	CommandValidate           = "validate"
 	CommandListConfigs        = "ls-config"
 	CommandListRoutes         = "ls-routes"
+	CommandListIcons          = "ls-icons"
 	CommandReload             = "reload"
 	CommandDebugListEntries   = "debug-ls-entries"
 	CommandDebugListProviders = "debug-ls-providers"
@@ -29,6 +30,7 @@ var ValidCommands = []string{
 	CommandValidate,
 	CommandListConfigs,
 	CommandListRoutes,
+	CommandListIcons,
 	CommandReload,
 	CommandDebugListEntries,
 	CommandDebugListProviders,
