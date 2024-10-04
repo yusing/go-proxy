@@ -34,6 +34,7 @@ func NewHandler(cfg *config.Config) http.Handler {
 	mux.HandleFunc("POST", "/v1/file/{filename...}", v1.SetFileContent)
 	mux.HandleFunc("PUT", "/v1/file/{filename...}", v1.SetFileContent)
 	mux.HandleFunc("GET", "/v1/stats", wrap(cfg, v1.Stats))
+	mux.HandleFunc("GET", "/v1/stats/ws", wrap(cfg, v1.StatsWS))
 	mux.HandleFunc("GET", "/v1/error_page", error_page.GetHandleFunc())
 	return mux
 }

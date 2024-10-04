@@ -25,7 +25,6 @@ RUN --mount=type=cache,target="/go/pkg/mod" \
 FROM scratch
 
 LABEL maintainer="yusing@6uo.me"
-LABEL proxy.exclude=1
 
 # copy timezone data
 COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
