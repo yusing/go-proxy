@@ -7,8 +7,8 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-	M "github.com/yusing/go-proxy/internal/models"
 	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	W "github.com/yusing/go-proxy/internal/watcher"
 )
@@ -71,7 +71,7 @@ func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 	b := E.NewBuilder("file %q validation failure", p.fileName)
 	defer b.To(&res)
 
-	entries := M.NewProxyEntries()
+	entries := types.NewProxyEntries()
 
 	data, err := E.Check(os.ReadFile(p.path))
 	if err.HasError() {

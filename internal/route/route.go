@@ -5,15 +5,15 @@ import (
 	"net/url"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	M "github.com/yusing/go-proxy/internal/models"
 	P "github.com/yusing/go-proxy/internal/proxy"
+	"github.com/yusing/go-proxy/internal/types"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type (
 	Route interface {
 		RouteImpl
-		Entry() *M.RawEntry
+		Entry() *types.RawEntry
 		Type() RouteType
 		URL() *url.URL
 	}
@@ -29,7 +29,7 @@ type (
 	route     struct {
 		RouteImpl
 		type_ RouteType
-		entry *M.RawEntry
+		entry *types.RawEntry
 	}
 )
 
@@ -41,7 +41,7 @@ const (
 // function alias
 var NewRoutes = F.NewMapOf[string, Route]
 
-func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
+func NewRoute(en *types.RawEntry) (Route, E.NestedError) {
 	entry, err := P.ValidateEntry(en)
 	if err != nil {
 		return nil, err
@@ -65,7 +65,7 @@ func NewRoute(en *M.RawEntry) (Route, E.NestedError) {
 	return &route{RouteImpl: rt, entry: en, type_: t}, nil
 }
 
-func (rt *route) Entry() *M.RawEntry {
+func (rt *route) Entry() *types.RawEntry {
 	return rt.entry
 }
 
@@ -78,11 +78,11 @@ func (rt *route) URL() *url.URL {
 	return url
 }
 
-func FromEntries(entries M.RawEntries) (Routes, E.NestedError) {
+func FromEntries(entries types.RawEntries) (Routes, E.NestedError) {
 	b := E.NewBuilder("errors in routes")
 
 	routes := NewRoutes()
-	entries.RangeAll(func(alias string, entry *M.RawEntry) {
+	entries.RangeAll(func(alias string, entry *types.RawEntry) {
 		entry.Alias = alias
 		r, err := NewRoute(entry)
 		if err.HasError() {

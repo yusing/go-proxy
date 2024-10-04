@@ -7,15 +7,15 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	H "github.com/yusing/go-proxy/internal/homepage"
-	M "github.com/yusing/go-proxy/internal/models"
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
 	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
-func (cfg *Config) DumpEntries() map[string]*M.RawEntry {
-	entries := make(map[string]*M.RawEntry)
+func (cfg *Config) DumpEntries() map[string]*types.RawEntry {
+	entries := make(map[string]*types.RawEntry)
 	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
 		entries[alias] = r.Entry()
 	})

@@ -7,8 +7,8 @@ import (
 
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	M "github.com/yusing/go-proxy/internal/models"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
+	"github.com/yusing/go-proxy/internal/types"
 )
 
 type (
@@ -47,7 +47,7 @@ func (rp *ReverseProxyEntry) IsDocker() bool {
 	return rp.DockerHost != ""
 }
 
-func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
+func ValidateEntry(m *types.RawEntry) (any, E.NestedError) {
 	m.FillMissingFields()
 
 	scheme, err := T.NewScheme(m.Scheme)
@@ -68,7 +68,7 @@ func ValidateEntry(m *M.RawEntry) (any, E.NestedError) {
 	return entry, nil
 }
 
-func validateRPEntry(m *M.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry {
+func validateRPEntry(m *types.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry {
 	var stopTimeOut time.Duration
 
 	host, err := T.ValidateHost(m.Host)
@@ -123,7 +123,7 @@ func validateRPEntry(m *M.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEntry 
 	}
 }
 
-func validateStreamEntry(m *M.RawEntry, b E.Builder) *StreamEntry {
+func validateStreamEntry(m *types.RawEntry, b E.Builder) *StreamEntry {
 	host, err := T.ValidateHost(m.Host)
 	b.Add(err)
 

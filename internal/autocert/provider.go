@@ -15,7 +15,8 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	E "github.com/yusing/go-proxy/internal/error"
-	M "github.com/yusing/go-proxy/internal/models"
+	"github.com/yusing/go-proxy/internal/types"
+
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -29,7 +30,7 @@ type Provider struct {
 	certExpiries CertExpiries
 }
 
-type ProviderGenerator func(M.AutocertProviderOpt) (challenge.Provider, E.NestedError)
+type ProviderGenerator func(types.AutocertProviderOpt) (challenge.Provider, E.NestedError)
 type CertExpiries map[string]time.Time
 
 func (p *Provider) GetCert(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
@@ -280,7 +281,7 @@ func providerGenerator[CT any, PT challenge.Provider](
 	defaultCfg func() *CT,
 	newProvider func(*CT) (PT, error),
 ) ProviderGenerator {
-	return func(opt M.AutocertProviderOpt) (challenge.Provider, E.NestedError) {
+	return func(opt types.AutocertProviderOpt) (challenge.Provider, E.NestedError) {
 		cfg := defaultCfg()
 		err := U.Deserialize(opt, cfg)
 		if err.HasError() {

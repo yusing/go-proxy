@@ -8,12 +8,13 @@ import (
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
 	E "github.com/yusing/go-proxy/internal/error"
-	M "github.com/yusing/go-proxy/internal/models"
+
+	"github.com/yusing/go-proxy/internal/types"
 )
 
-type Config M.AutoCertConfig
+type Config types.AutoCertConfig
 
-func NewConfig(cfg *M.AutoCertConfig) *Config {
+func NewConfig(cfg *types.AutoCertConfig) *Config {
 	if cfg.CertPath == "" {
 		cfg.CertPath = CertFileDefault
 	}

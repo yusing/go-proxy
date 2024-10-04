@@ -8,9 +8,10 @@ import (
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-	M "github.com/yusing/go-proxy/internal/models"
+
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
 	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -19,7 +20,7 @@ import (
 )
 
 type Config struct {
-	value            *M.Config
+	value            *types.Config
 	proxyProviders   F.Map[string, *PR.Provider]
 	autocertProvider *autocert.Provider
 
@@ -42,7 +43,7 @@ func Load() E.NestedError {
 		return nil
 	}
 	instance = &Config{
-		value:          M.DefaultConfig(),
+		value:          types.DefaultConfig(),
 		proxyProviders: F.NewMapOf[string, *PR.Provider](),
 		l:              logrus.WithField("module", "config"),
 		watcher:        W.NewConfigFileWatcher(common.ConfigFileName),
@@ -62,7 +63,7 @@ func MatchDomains() []string {
 	return instance.value.MatchDomains
 }
 
-func (cfg *Config) Value() M.Config {
+func (cfg *Config) Value() types.Config {
 	if cfg == nil {
 		logrus.Panic("config has not been loaded, please check if there is any errors")
 	}
@@ -158,7 +159,7 @@ func (cfg *Config) load() (res E.NestedError) {
 		}
 	}
 
-	model := M.DefaultConfig()
+	model := types.DefaultConfig()
 	if err := E.From(yaml.Unmarshal(data, model)); err.HasError() {
 		b.Add(E.FailWith("parse config", err))
 		logrus.Fatal(b.Build())
@@ -173,7 +174,7 @@ func (cfg *Config) load() (res E.NestedError) {
 	return
 }
 
-func (cfg *Config) initAutoCert(autocertCfg *M.AutoCertConfig) (err E.NestedError) {
+func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.NestedError) {
 	if cfg.autocertProvider != nil {
 		return
 	}
@@ -188,7 +189,7 @@ func (cfg *Config) initAutoCert(autocertCfg *M.AutoCertConfig) (err E.NestedErro
 	return
 }
 
-func (cfg *Config) loadProviders(providers *M.ProxyProviders) (res E.NestedError) {
+func (cfg *Config) loadProviders(providers *types.ProxyProviders) (res E.NestedError) {
 	cfg.l.Debug("loading providers")
 	defer cfg.l.Debug("loaded providers")
 

@@ -1,4 +1,4 @@
-package model
+package types
 
 type Config struct {
 	Providers       ProxyProviders `yaml:",flow" json:"providers"`

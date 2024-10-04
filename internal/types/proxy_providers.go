@@ -1,4 +1,4 @@
-package model
+package types
 
 type ProxyProviders struct {
 	Files  []string          `yaml:"include" json:"include"` // docker, file
