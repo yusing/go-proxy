@@ -13,11 +13,19 @@ type (
 		Description  string         `yaml:"description" json:"description"`
 		WidgetConfig map[string]any `yaml:",flow" json:"widget_config"`
 
-		SourceType  string `yaml:"-" json:"source_type"`
-		Initialized bool   `yaml:"-" json:"-"`
-		AltURL      string `yaml:"-" json:"alt_url"` // original proxy target
+		SourceType string `yaml:"-" json:"source_type"`
+		AltURL     string `yaml:"-" json:"alt_url"` // original proxy target
 	}
 )
+
+func (item *HomePageItem) IsEmpty() bool {
+	return item == nil || (item.Name == "" &&
+		item.Icon == "" &&
+		item.URL == "" &&
+		item.Category == "" &&
+		item.Description == "" &&
+		len(item.WidgetConfig) == 0)
+}
 
 func NewHomePageConfig() HomePageConfig {
 	return HomePageConfig(make(map[string]HomePageCategory))

@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", false)
+	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", true)
 	IsTest             = GetEnvBool("GOPROXY_TEST", false) || strings.HasSuffix(os.Args[0], ".test")
 	IsDebug            = GetEnvBool("GOPROXY_DEBUG", IsTest)
 

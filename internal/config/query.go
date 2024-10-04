@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	H "github.com/yusing/go-proxy/internal/homepage"
 	M "github.com/yusing/go-proxy/internal/models"
@@ -48,10 +49,18 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 		}
 
 		entry := r.Entry()
+		if entry.Homepage == nil {
+			entry.Homepage = &H.HomePageItem{
+				Show: r.Entry().IsExplicit || !p.IsExplicitOnly(),
+			}
+		}
+
+		logrus.Debugf("%s isexplicit: %v, explicitonly: %v", r, r.Entry().IsExplicit, p.IsExplicitOnly())
+
 		item := entry.Homepage
 
-		if !item.Initialized {
-			item.Show = r.Entry().IsExplicit || !p.IsExplicitOnly()
+		if !item.Show && !item.IsEmpty() {
+			item.Show = true
 		}
 
 		if !item.Show || r.Type() != R.RouteTypeReverseProxy {
@@ -86,7 +95,7 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 		}
 		item.AltURL = r.URL().String()
 
-		hpCfg.Add(&item)
+		hpCfg.Add(item)
 	})
 	return hpCfg
 }

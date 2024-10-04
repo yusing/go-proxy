@@ -22,7 +22,7 @@ type (
 		NoTLSVerify  bool             `yaml:"no_tls_verify" json:"no_tls_verify,omitempty"` // https proxy only
 		PathPatterns []string         `yaml:"path_patterns" json:"path_patterns,omitempty"` // http(s) proxy only
 		Middlewares  D.NestedLabelMap `yaml:"middlewares" json:"middlewares,omitempty"`
-		Homepage     H.HomePageItem   `yaml:"homepage" json:"homepage"`
+		Homepage     *H.HomePageItem  `yaml:"homepage" json:"homepage"`
 
 		/* Docker only */
 		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`

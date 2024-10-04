@@ -79,12 +79,6 @@ func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 		return
 	}
 
-	if !common.NoSchemaValidation {
-		if err = Validate(data); err.HasError() {
-			b.Add(err)
-			return
-		}
-	}
 	if err = entries.UnmarshalFromYAML(data); err.HasError() {
 		b.Add(err)
 		return
