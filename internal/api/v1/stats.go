@@ -20,12 +20,16 @@ func Stats(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 }
 
 func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	originPats := cfg.Value().MatchDomains
+	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
+	originPats := make([]string, len(cfg.Value().MatchDomains)+len(localAddresses))
+
 	if len(originPats) == 0 {
 		U.Logger.Warnf("no match domains configured, accepting websocket request from all origins")
 		originPats = []string{"*"}
 	} else {
-		localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
+		for i, domain := range cfg.Value().MatchDomains {
+			originPats[i] = "*." + domain
+		}
 		originPats = append(originPats, localAddresses...)
 	}
 	if common.IsDebug {
