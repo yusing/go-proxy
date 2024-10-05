@@ -293,7 +293,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.N
 			convErr = E.Invalid("int", src)
 			return
 		}
-		dst.Set(reflect.ValueOf(i))
+		dst.Set(reflect.ValueOf(i).Convert(dst.Type()))
 		return
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		i, err := strconv.ParseUint(src, 10, 64)
@@ -301,7 +301,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.N
 			convErr = E.Invalid("uint", src)
 			return
 		}
-		dst.Set(reflect.ValueOf(i))
+		dst.Set(reflect.ValueOf(i).Convert(dst.Type()))
 		return
 	}
 	// yaml like
