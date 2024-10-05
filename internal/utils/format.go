@@ -28,7 +28,7 @@ func FormatDuration(d time.Duration) string {
 	if minutes > 0 {
 		parts = append(parts, fmt.Sprintf("%d minute%s", minutes, pluralize(minutes)))
 	}
-	if seconds > 0 {
+	if seconds > 0 && totalSeconds < 3600 {
 		parts = append(parts, fmt.Sprintf("%d second%s", seconds, pluralize(seconds)))
 	}
 
