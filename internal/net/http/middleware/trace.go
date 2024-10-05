@@ -2,22 +2,22 @@ package middleware
 
 import (
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
+	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 type Trace struct {
-	Time        string         `json:"time,omitempty"`
-	Caller      string         `json:"caller,omitempty"`
-	URL         string         `json:"url,omitempty"`
-	Message     string         `json:"msg"`
-	ReqHeaders  http.Header    `json:"req_headers,omitempty"`
-	RespHeaders http.Header    `json:"resp_headers,omitempty"`
-	RespStatus  int            `json:"resp_status,omitempty"`
-	Additional  map[string]any `json:"additional,omitempty"`
+	Time        string            `json:"time,omitempty"`
+	Caller      string            `json:"caller,omitempty"`
+	URL         string            `json:"url,omitempty"`
+	Message     string            `json:"msg"`
+	ReqHeaders  map[string]string `json:"req_headers,omitempty"`
+	RespHeaders map[string]string `json:"resp_headers,omitempty"`
+	RespStatus  int               `json:"resp_status,omitempty"`
+	Additional  map[string]any    `json:"additional,omitempty"`
 }
 
 type Traces []*Trace
@@ -25,7 +25,7 @@ type Traces []*Trace
 var traces = Traces{}
 var tracesMu sync.Mutex
 
-const MaxTraceNum = 1000
+const MaxTraceNum = 100
 
 func GetAllTrace() []*Trace {
 	return traces
@@ -36,7 +36,7 @@ func (tr *Trace) WithRequest(req *Request) *Trace {
 		return nil
 	}
 	tr.URL = req.RequestURI
-	tr.ReqHeaders = req.Header.Clone()
+	tr.ReqHeaders = gpHTTP.HeaderToMap(req.Header)
 	return tr
 }
 
@@ -45,8 +45,8 @@ func (tr *Trace) WithResponse(resp *Response) *Trace {
 		return nil
 	}
 	tr.URL = resp.Request.RequestURI
-	tr.ReqHeaders = resp.Request.Header.Clone()
-	tr.RespHeaders = resp.Header.Clone()
+	tr.ReqHeaders = gpHTTP.HeaderToMap(resp.Request.Header)
+	tr.RespHeaders = gpHTTP.HeaderToMap(resp.Header)
 	tr.RespStatus = resp.StatusCode
 	return tr
 }
@@ -60,6 +60,18 @@ func (tr *Trace) With(what string, additional any) *Trace {
 		tr.Additional = map[string]any{}
 	}
 	tr.Additional[what] = additional
+	return tr
+}
+
+func (tr *Trace) WithError(err error) *Trace {
+	if tr == nil {
+		return nil
+	}
+
+	if tr.Additional == nil {
+		tr.Additional = map[string]any{}
+	}
+	tr.Additional["error"] = err.Error()
 	return tr
 }
 
