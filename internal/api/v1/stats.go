@@ -24,6 +24,9 @@ func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	if len(originPats) == 0 {
 		U.Logger.Warnf("no match domains configured, accepting websocket request from all origins")
 		originPats = []string{"*"}
+	} else {
+		localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
+		originPats = append(originPats, localAddresses...)
 	}
 	if common.IsDebug {
 		originPats = []string{"*"}
