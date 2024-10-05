@@ -37,36 +37,38 @@ var ForwardAuth = &forwardAuth{
 }
 
 func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
-	faWithOpts := new(forwardAuth)
-	faWithOpts.forwardAuthOpts = new(forwardAuthOpts)
-	err := Deserialize(optsRaw, faWithOpts.forwardAuthOpts)
+	fa := new(forwardAuth)
+	fa.forwardAuthOpts = new(forwardAuthOpts)
+	err := Deserialize(optsRaw, fa.forwardAuthOpts)
 	if err != nil {
 		return nil, err
 	}
-	_, err = E.Check(url.Parse(faWithOpts.Address))
+	_, err = E.Check(url.Parse(fa.Address))
 	if err != nil {
-		return nil, E.Invalid("address", faWithOpts.Address)
+		return nil, E.Invalid("address", fa.Address)
 	}
 
-	faWithOpts.m = &Middleware{
-		impl:   faWithOpts,
-		before: faWithOpts.forward,
+	fa.m = &Middleware{
+		impl:   fa,
+		before: fa.forward,
 	}
 
 	// TODO: use tr from reverse proxy
-	tr, ok := faWithOpts.forwardAuthOpts.transport.(*http.Transport)
+	tr, ok := fa.forwardAuthOpts.transport.(*http.Transport)
 	if ok {
 		tr = tr.Clone()
+	} else {
+		tr = gpHTTP.DefaultTransport.Clone()
 	}
 
-	faWithOpts.client = http.Client{
+	fa.client = http.Client{
 		CheckRedirect: func(r *Request, via []*Request) error {
 			return http.ErrUseLastResponse
 		},
 		Timeout:   30 * time.Second,
 		Transport: tr,
 	}
-	return faWithOpts.m, nil
+	return fa.m, nil
 }
 
 func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Request) {
@@ -106,6 +108,7 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 	}
 
 	if faResp.StatusCode < http.StatusOK || faResp.StatusCode >= http.StatusMultipleChoices {
+		fa.m.AddTracef("status %d", faResp.StatusCode)
 		gpHTTP.CopyHeader(w.Header(), faResp.Header)
 		gpHTTP.RemoveHop(w.Header())
 
@@ -116,6 +119,7 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 			return
 		} else if redirectURL.String() != "" {
 			w.Header().Set("Location", redirectURL.String())
+			fa.m.AddTracef("redirect to %q", redirectURL.String())
 		}
 
 		w.WriteHeader(faResp.StatusCode)

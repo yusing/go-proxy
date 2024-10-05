@@ -277,6 +277,16 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 
 func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.NestedError) {
 	convertible = true
+	if dst.Kind() == reflect.Ptr {
+		if dst.IsNil() {
+			dst.Set(reflect.New(dst.Type().Elem()))
+		}
+		dst = dst.Elem()
+	}
+	if dst.Kind() == reflect.String {
+		dst.SetString(src)
+		return
+	}
 	// primitive types / simple types
 	switch dst.Kind() {
 	case reflect.Bool:

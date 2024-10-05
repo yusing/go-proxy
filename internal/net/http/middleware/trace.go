@@ -16,6 +16,7 @@ type Trace struct {
 	Message     string         `json:"msg"`
 	ReqHeaders  http.Header    `json:"req_headers,omitempty"`
 	RespHeaders http.Header    `json:"resp_headers,omitempty"`
+	RespStatus  int            `json:"resp_status,omitempty"`
 	Additional  map[string]any `json:"additional,omitempty"`
 }
 
@@ -46,6 +47,7 @@ func (tr *Trace) WithResponse(resp *Response) *Trace {
 	tr.URL = resp.Request.RequestURI
 	tr.ReqHeaders = resp.Request.Header.Clone()
 	tr.RespHeaders = resp.Header.Clone()
+	tr.RespStatus = resp.StatusCode
 	return tr
 }
 
