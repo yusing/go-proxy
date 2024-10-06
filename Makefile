@@ -1,18 +1,16 @@
-BUILD_FLAG ?= -s -w
+VERSION ?= $(shell git describe --tags --abbrev=0)
+BUILD_FLAGS ?= -s -w -X github.com/yusing/go-proxy/pkg.version=${VERSION}
+export VERSION
+export BUILD_FLAGS
+export CGO_ENABLED = 0
+export GOOS = linux
 
 .PHONY: all setup build test up restart logs get debug run archive repush rapid-crash debug-list-containers
 
 all: debug
 
-setup:
-	mkdir -p config certs
-	[ -f config/config.yml ] || cp config.example.yml config/config.yml
-	[ -f config/providers.yml ] || touch config/providers.yml
-
 build:
-	mkdir -p bin
-	CGO_ENABLED=0 GOOS=linux \
-		go build -ldflags '${BUILD_FLAG}' -pgo=auto -o bin/go-proxy ./cmd
+	scripts/build.sh
 
 test:
 	GOPROXY_TEST=1 go test ./internal/...
@@ -30,10 +28,10 @@ get:
 	go get -u ./cmd && go mod tidy
 
 debug:
-	make BUILD_FLAG="" build && sudo GOPROXY_DEBUG=1 bin/go-proxy
+	make build && sudo GOPROXY_DEBUG=1 bin/go-proxy
 
 run-test:
-	make BUILD_FLAG="" build && sudo GOPROXY_TEST=1 bin/go-proxy
+	make build && sudo GOPROXY_TEST=1 bin/go-proxy
 
 run:
 	make build && sudo bin/go-proxy

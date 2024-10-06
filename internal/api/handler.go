@@ -24,6 +24,7 @@ func (mux ServeMux) HandleFunc(method, endpoint string, handler http.HandlerFunc
 func NewHandler(cfg *config.Config) http.Handler {
 	mux := NewServeMux()
 	mux.HandleFunc("GET", "/v1", v1.Index)
+	mux.HandleFunc("GET", "/v1/version", v1.GetVersion)
 	mux.HandleFunc("GET", "/v1/checkhealth", wrap(cfg, v1.CheckHealth))
 	mux.HandleFunc("HEAD", "/v1/checkhealth", wrap(cfg, v1.CheckHealth))
 	mux.HandleFunc("POST", "/v1/reload", wrap(cfg, v1.Reload))

@@ -54,7 +54,7 @@ func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	}
 
 	// TODO: use tr from reverse proxy
-	tr, ok := fa.transport.(*http.Transport)
+	tr, ok := fa.forwardAuthOpts.transport.(*http.Transport)
 	if ok {
 		tr = tr.Clone()
 	} else {
@@ -81,7 +81,7 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 		nil,
 	)
 	if err != nil {
-		fa.m.AddTracef("new request err to %s", fa.Address).WithError(err)
+		fa.m.AddTracef("new request err to %s", fa.Address).With("error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -89,13 +89,12 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 	gpHTTP.CopyHeader(faReq.Header, req.Header)
 	gpHTTP.RemoveHop(faReq.Header)
 
-	faReq.Header = gpHTTP.FilterHeaders(faReq.Header, fa.AuthResponseHeaders)
+	gpHTTP.FilterHeaders(faReq.Header, fa.AuthResponseHeaders)
 	fa.setAuthHeaders(req, faReq)
-	fa.m.AddTraceRequest("forward auth request", faReq)
 
 	faResp, err := fa.client.Do(faReq)
 	if err != nil {
-		fa.m.AddTracef("failed to call %s", fa.Address).WithError(err)
+		fa.m.AddTracef("failed to call %s", fa.Address).With("error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -103,19 +102,19 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 
 	body, err := io.ReadAll(faResp.Body)
 	if err != nil {
-		fa.m.AddTracef("failed to read response body from %s", fa.Address).WithError(err)
+		fa.m.AddTracef("failed to read response body from %s", fa.Address).With("error", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
 	if faResp.StatusCode < http.StatusOK || faResp.StatusCode >= http.StatusMultipleChoices {
-		fa.m.AddTraceResponse("forward auth response", faResp)
+		fa.m.AddTracef("status %d", faResp.StatusCode)
 		gpHTTP.CopyHeader(w.Header(), faResp.Header)
 		gpHTTP.RemoveHop(w.Header())
 
 		redirectURL, err := faResp.Location()
 		if err != nil {
-			fa.m.AddTracef("failed to get location from %s", fa.Address).WithError(err)
+			fa.m.AddTracef("failed to get location from %s", fa.Address).With("error", err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		} else if redirectURL.String() != "" {
@@ -126,7 +125,7 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 		w.WriteHeader(faResp.StatusCode)
 
 		if _, err = w.Write(body); err != nil {
-			fa.m.AddTracef("failed to write response body from %s", fa.Address).WithError(err)
+			fa.m.AddTracef("failed to write response body from %s", fa.Address).With("error", err)
 		}
 		return
 	}

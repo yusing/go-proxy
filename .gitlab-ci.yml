@@ -11,5 +11,5 @@ build-image:
     - echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER $CI_REGISTRY --password-stdin
   script:
     - echo building $CI_REGISTRY_IMAGE
-    - docker build --pull -t $CI_REGISTRY_IMAGE .
+    - docker build --no-cache --build-arg VERSION=$CI_COMMIT_REF_NAME -t $CI_REGISTRY_IMAGE .
     - docker push $CI_REGISTRY_IMAGE

@@ -2,6 +2,7 @@ package http
 
 import (
 	"net/http"
+	"slices"
 )
 
 func RemoveHop(h http.Header) {
@@ -24,30 +25,18 @@ func CopyHeader(dst, src http.Header) {
 	}
 }
 
-func FilterHeaders(h http.Header, allowed []string) http.Header {
-	if len(allowed) == 0 {
-		return h
+func FilterHeaders(h http.Header, allowed []string) {
+	if allowed == nil {
+		return
 	}
 
-	filtered := make(http.Header)
-
-	for i, header := range allowed {
-		values := h.Values(header)
-		if len(values) == 0 {
-			continue
-		}
-		filtered[http.CanonicalHeaderKey(allowed[i])] = append([]string(nil), values...)
+	for i := range allowed {
+		allowed[i] = http.CanonicalHeaderKey(allowed[i])
 	}
 
-	return filtered
-}
-
-func HeaderToMap(h http.Header) map[string]string {
-	result := make(map[string]string)
-	for k, v := range h {
-		if len(v) > 0 {
-			result[k] = v[0] // Take the first value
+	for key := range h {
+		if !slices.Contains(allowed, key) {
+			h.Del(key)
 		}
 	}
-	return result
 }

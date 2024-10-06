@@ -1,6 +1,6 @@
 # Stage 1: Builder
 FROM golang:1.23.1-alpine AS builder
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata make
 
 WORKDIR /src
 
@@ -13,13 +13,20 @@ RUN --mount=type=cache,target="/go/pkg/mod" \
 
 ENV GOCACHE=/root/.cache/go-build
 
-# Build the application with better caching
+ARG VERSION
+ENV VERSION=${VERSION}
+
+COPY scripts /src/scripts
+COPY Makefile /src/
+
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
     --mount=type=bind,src=cmd,dst=/src/cmd \
     --mount=type=bind,src=internal,dst=/src/internal \
-    CGO_ENABLED=0 GOOS=linux go build -ldflags '-w -s' -pgo=auto -o /app/go-proxy ./cmd && \
-    mkdir /app/error_pages /app/certs
+    --mount=type=bind,src=pkg,dst=/src/pkg \
+    make build && \
+    mkdir -p /app/error_pages /app/certs && \
+    cp bin/go-proxy /app/go-proxy
 
 # Stage 2: Final image
 FROM scratch

@@ -28,6 +28,7 @@ import (
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/pkg"
 )
 
 func main() {
@@ -54,6 +55,7 @@ func main() {
 			ForceColors:     true,
 			TimestampFormat: "01-02 15:04:05",
 		})
+		logrus.Infof("go-proxy version %s", pkg.GetVersion())
 	}
 
 	if args.Command == common.CommandReload {
