@@ -17,12 +17,6 @@ func (rt roundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*http.Response, error) {
-	// wake the container
-	select {
-	case w.wakeCh <- struct{}{}:
-	default:
-	}
-
 	// target site is ready, passthrough
 	if w.ready.Load() {
 		return origRoundTrip(req)
@@ -53,6 +47,11 @@ func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*ht
 			case <-w.ctx.Done():
 				return
 			default:
+				// wake the container and reset idle timer
+				select {
+				case w.wakeCh <- struct{}{}:
+				default:
+				}
 				resp, err := origRoundTrip(req)
 				if err == nil {
 					w.ready.Store(true)
@@ -75,9 +74,9 @@ func (w *watcher) roundTrip(origRoundTrip roundTripFunc, req *http.Request) (*ht
 			if ctx.Err() == context.DeadlineExceeded {
 				return w.makeErrResp("Timed out waiting for %s to fully wake", w.ContainerName)
 			}
-			return w.makeErrResp("idlewatcher has stopped\n%s", w.ctx.Err().Error())
+			return w.makeErrResp("idlewatcher has stopped\n%s", w.ctx.Err())
 		case <-w.ctx.Done():
-			return w.makeErrResp("idlewatcher has stopped\n%s", w.ctx.Err().Error())
+			return w.makeErrResp("idlewatcher has stopped\n%s", w.ctx.Err())
 		}
 	}
 }

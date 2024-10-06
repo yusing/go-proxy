@@ -170,6 +170,10 @@ func (w *watcher) containerStatus() (string, E.NestedError) {
 }
 
 func (w *watcher) wakeIfStopped() E.NestedError {
+	if w.ready.Load() || w.ContainerRunning {
+		return nil
+	}
+
 	status, err := w.containerStatus()
 
 	if err.HasError() {
@@ -249,9 +253,11 @@ func (w *watcher) watchUntilCancel() {
 			switch {
 			// create / start / unpause
 			case e.Action.IsContainerWake():
+				w.ContainerRunning = true
 				ticker.Reset(w.IdleTimeout)
 				w.l.Info(e)
 			default: // stop / pause / kill
+				w.ContainerRunning = false
 				ticker.Stop()
 				w.ready.Store(false)
 				w.l.Info(e)

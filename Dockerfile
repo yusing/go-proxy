@@ -26,7 +26,7 @@ RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=bind,src=pkg,dst=/src/pkg \
     make build && \
     mkdir -p /app/error_pages /app/certs && \
-    cp bin/go-proxy /app/go-proxy
+    mv bin/go-proxy /app/go-proxy
 
 # Stage 2: Final image
 FROM scratch
