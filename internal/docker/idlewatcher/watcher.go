@@ -26,6 +26,7 @@ type (
 
 		wakeCh   chan struct{}
 		wakeDone chan E.NestedError
+		ticker   *time.Ticker
 
 		ctx      context.Context
 		cancel   context.CancelFunc
@@ -79,8 +80,9 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 		ReverseProxyEntry: entry,
 		client:            client,
 		refCount:          &sync.WaitGroup{},
-		wakeCh:            make(chan struct{}),
+		wakeCh:            make(chan struct{}, 1),
 		wakeDone:          make(chan E.NestedError),
+		ticker:            time.NewTicker(entry.IdleTimeout),
 		l:                 logger.WithField("container", entry.ContainerName),
 	}
 	w.refCount.Add(1)
@@ -116,7 +118,6 @@ func Start() {
 				w.watchUntilCancel()
 				w.refCount.Wait() // wait for 0 ref count
 
-				w.client.Close()
 				delete(watcherMap, w.ContainerID)
 				w.l.Debug("unregistered")
 				mainLoopWg.Done()
@@ -207,10 +208,14 @@ func (w *watcher) getStopCallback() StopCallback {
 	}
 }
 
+func (w *watcher) resetIdleTimer() {
+	w.ticker.Reset(w.IdleTimeout)
+}
+
 func (w *watcher) watchUntilCancel() {
 	defer close(w.wakeCh)
 
-	w.ctx, w.cancel = context.WithCancel(context.Background())
+	w.ctx, w.cancel = context.WithCancel(mainLoopCtx)
 
 	dockerWatcher := W.NewDockerWatcherWithClient(w.client)
 	dockerEventCh, dockerEventErrCh := dockerWatcher.EventsWithOptions(w.ctx, W.DockerListOptions{
@@ -225,14 +230,11 @@ func (w *watcher) watchUntilCancel() {
 			W.DockerFilterUnpause,
 		),
 	})
-
-	ticker := time.NewTicker(w.IdleTimeout)
-	defer ticker.Stop()
+	defer w.ticker.Stop()
+	defer w.client.Close()
 
 	for {
 		select {
-		case <-mainLoopCtx.Done():
-			w.cancel()
 		case <-w.ctx.Done():
 			w.l.Debug("stopped")
 			return
@@ -244,22 +246,24 @@ func (w *watcher) watchUntilCancel() {
 			switch {
 			// create / start / unpause
 			case e.Action.IsContainerWake():
-				ticker.Reset(w.IdleTimeout)
+				w.ContainerRunning = true
+				w.resetIdleTimer()
 				w.l.Info(e)
-			default: // stop / pause / kill
-				ticker.Stop()
+			default: // stop / pause / kil
+				w.ContainerRunning = false
+				w.ticker.Stop()
 				w.ready.Store(false)
 				w.l.Info(e)
 			}
-		case <-ticker.C:
+		case <-w.ticker.C:
 			w.l.Debug("idle timeout")
-			ticker.Stop()
+			w.ticker.Stop()
 			if err := w.stopByMethod(); err != nil && err.IsNot(context.Canceled) {
 				w.l.Error(E.FailWith("stop", err).Extraf("stop method: %s", w.StopMethod))
 			}
 		case <-w.wakeCh:
 			w.l.Debug("wake signal received")
-			ticker.Reset(w.IdleTimeout)
+			w.resetIdleTimer()
 			err := w.wakeIfStopped()
 			if err != nil {
 				w.l.Error(E.FailWith("wake", err))

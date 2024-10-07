@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/tls"
 	"net/http"
+	"strconv"
 	"time"
 
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -38,6 +39,7 @@ func (w *Waker) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Request) {
 	// pass through if container is ready
 	if w.ready.Load() {
+		w.resetIdleTimer()
 		next(rw, r)
 		return
 	}
@@ -45,11 +47,23 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 	ctx, cancel := context.WithTimeout(r.Context(), w.WakeTimeout)
 	defer cancel()
 
-	isCheckRedirect := r.Header.Get(headerCheckRedirect) != ""
+	accept := gphttp.GetAccept(r.Header)
+	acceptHTML := accept.AcceptHTML() || accept.IsEmpty()
+
+	if !acceptHTML {
+		w.l.Debugf("Accept %v", accept)
+	}
+
+	isCheckRedirect := r.Header.Get(headerCheckRedirect) != "" && acceptHTML
 	if !isCheckRedirect {
 		// Send a loading response to the client
+		body := w.makeRespBody("%s waking up...", w.ContainerName)
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-		rw.Write(w.makeRespBody("%s waking up...", w.ContainerName))
+		rw.Header().Set("Content-Length", strconv.Itoa(len(body)))
+		rw.Header().Add("Cache-Control", "no-cache")
+		rw.Header().Add("Cache-Control", "no-store")
+		rw.Header().Add("Cache-Control", "must-revalidate")
+		rw.Write(body)
 		return
 	}
 
@@ -96,7 +110,11 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 		_, err = w.client.Do(wakeReq)
 		if err == nil {
 			w.ready.Store(true)
-			rw.WriteHeader(http.StatusOK)
+			if isCheckRedirect {
+				rw.WriteHeader(http.StatusOK)
+			} else {
+				next(rw, r)
+			}
 			return
 		}
 
