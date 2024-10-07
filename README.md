@@ -72,13 +72,16 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
 4.  Setup `docker-socket-proxy` other docker nodes _(if any)_ (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) and then them inside `config.yml`
 
-5.  Done. You may now do some extra configuration
+5.  Run go-proxy `docker compose up -d` 
+    then list all routes to see if further configurations are needed:
+    `docker exec go-proxy /app/go-proxy ls-routes`
+
+6.  You may now do some extra configuration
     -   With text editor (e.g. Visual Studio Code)
     -   With Web UI via `http://localhost:3000` or `https://gp.y.z`
     -   For more info, [See Wiki]([wiki](https://github.com/yusing/go-proxy/wiki))
 
 [🔼Back to top](#table-of-content)
-|
 
 ### Use JSON Schema in VSCode
 

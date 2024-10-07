@@ -14,7 +14,7 @@ services:
         # Make sure the value is same as `GOPROXY_API_ADDR` below (if you have changed it)
         #
         # environment:
-        #     NEXT_PUBLIC_GOPROXY_API_ADDR: 127.0.0.1:8888
+        #     GOPROXY_API_ADDR: 127.0.0.1:8888
     app:
         image: ghcr.io/yusing/go-proxy:latest
         container_name: go-proxy

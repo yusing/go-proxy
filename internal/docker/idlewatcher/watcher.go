@@ -2,7 +2,6 @@ package idlewatcher
 
 import (
 	"context"
-	"net/http"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -96,10 +95,8 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 	return w, nil
 }
 
-func Unregister(entry *P.ReverseProxyEntry) {
-	if w, ok := watcherMap[entry.ContainerID]; ok {
-		w.refCount.Add(-1)
-	}
+func (w *watcher) Unregister() {
+	w.refCount.Add(-1)
 }
 
 func Start() {
@@ -131,12 +128,6 @@ func Start() {
 func Stop() {
 	mainLoopCancel()
 	mainLoopWg.Wait()
-}
-
-func (w *watcher) PatchRoundTripper(rtp http.RoundTripper) roundTripper {
-	return roundTripper{patched: func(r *http.Request) (*http.Response, error) {
-		return w.roundTrip(rtp.RoundTrip, r)
-	}}
 }
 
 func (w *watcher) containerStop() error {
@@ -253,11 +244,9 @@ func (w *watcher) watchUntilCancel() {
 			switch {
 			// create / start / unpause
 			case e.Action.IsContainerWake():
-				w.ContainerRunning = true
 				ticker.Reset(w.IdleTimeout)
 				w.l.Info(e)
 			default: // stop / pause / kill
-				w.ContainerRunning = false
 				ticker.Stop()
 				w.ready.Store(false)
 				w.l.Info(e)
@@ -272,13 +261,10 @@ func (w *watcher) watchUntilCancel() {
 			w.l.Debug("wake signal received")
 			ticker.Reset(w.IdleTimeout)
 			err := w.wakeIfStopped()
-			if err != nil && err.IsNot(context.Canceled) {
+			if err != nil {
 				w.l.Error(E.FailWith("wake", err))
 			}
-			select {
-			case w.wakeDone <- err: // this is passed to roundtrip
-			default:
-			}
+			w.wakeDone <- err
 		}
 	}
 }

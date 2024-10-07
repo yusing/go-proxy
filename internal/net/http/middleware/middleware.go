@@ -6,15 +6,15 @@ import (
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
 	Error = E.NestedError
 
-	ReverseProxy   = gpHTTP.ReverseProxy
-	ProxyRequest   = gpHTTP.ProxyRequest
+	ReverseProxy   = gphttp.ReverseProxy
+	ProxyRequest   = gphttp.ProxyRequest
 	Request        = http.Request
 	Response       = http.Response
 	ResponseWriter = http.ResponseWriter

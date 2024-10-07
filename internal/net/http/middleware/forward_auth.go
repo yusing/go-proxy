@@ -14,7 +14,7 @@ import (
 	"time"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	gpHTTP "github.com/yusing/go-proxy/internal/net/http"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 )
 
 type (
@@ -58,7 +58,7 @@ func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	if ok {
 		tr = tr.Clone()
 	} else {
-		tr = gpHTTP.DefaultTransport.Clone()
+		tr = gphttp.DefaultTransport.Clone()
 	}
 
 	fa.client = http.Client{
@@ -72,7 +72,7 @@ func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 }
 
 func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Request) {
-	gpHTTP.RemoveHop(req.Header)
+	gphttp.RemoveHop(req.Header)
 
 	faReq, err := http.NewRequestWithContext(
 		req.Context(),
@@ -86,10 +86,10 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 		return
 	}
 
-	gpHTTP.CopyHeader(faReq.Header, req.Header)
-	gpHTTP.RemoveHop(faReq.Header)
+	gphttp.CopyHeader(faReq.Header, req.Header)
+	gphttp.RemoveHop(faReq.Header)
 
-	faReq.Header = gpHTTP.FilterHeaders(faReq.Header, fa.AuthResponseHeaders)
+	faReq.Header = gphttp.FilterHeaders(faReq.Header, fa.AuthResponseHeaders)
 	fa.setAuthHeaders(req, faReq)
 	fa.m.AddTraceRequest("forward auth request", faReq)
 
@@ -110,8 +110,8 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 
 	if faResp.StatusCode < http.StatusOK || faResp.StatusCode >= http.StatusMultipleChoices {
 		fa.m.AddTraceResponse("forward auth response", faResp)
-		gpHTTP.CopyHeader(w.Header(), faResp.Header)
-		gpHTTP.RemoveHop(w.Header())
+		gphttp.CopyHeader(w.Header(), faResp.Header)
+		gphttp.RemoveHop(w.Header())
 
 		redirectURL, err := faResp.Location()
 		if err != nil {
@@ -148,7 +148,7 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 		return
 	}
 
-	next.ServeHTTP(gpHTTP.NewModifyResponseWriter(w, req, func(resp *Response) error {
+	next.ServeHTTP(gphttp.NewModifyResponseWriter(w, req, func(resp *Response) error {
 		fa.setAuthCookies(resp, authCookies)
 		return nil
 	}), req)

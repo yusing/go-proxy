@@ -26,11 +26,8 @@ type (
 		PathPatterns PT.PathPatterns `json:"path_patterns"`
 
 		entry   *P.ReverseProxyEntry
-		mux     http.Handler
-		handler *ReverseProxy
-
-		regIdleWatcher   func() E.NestedError
-		unregIdleWatcher func()
+		handler http.Handler
+		rp      *ReverseProxy
 	}
 
 	URL          url.URL
@@ -63,8 +60,6 @@ func SetFindMuxDomains(domains []string) {
 
 func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	var trans *http.Transport
-	var regIdleWatcher func() E.NestedError
-	var unregIdleWatcher func()
 
 	if entry.NoTLSVerify {
 		trans = DefaultTransportNoTLS.Clone()
@@ -81,37 +76,15 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 		}
 	}
 
-	if entry.UseIdleWatcher() {
-		// allow time for response header up to `WakeTimeout`
-		if entry.WakeTimeout > trans.ResponseHeaderTimeout {
-			trans.ResponseHeaderTimeout = entry.WakeTimeout
-		}
-		regIdleWatcher = func() E.NestedError {
-			watcher, err := idlewatcher.Register(entry)
-			if err.HasError() {
-				return err
-			}
-			// patch round-tripper
-			rp.Transport = watcher.PatchRoundTripper(trans)
-			return nil
-		}
-		unregIdleWatcher = func() {
-			idlewatcher.Unregister(entry)
-			rp.Transport = trans
-		}
-	}
-
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
 	r := &HTTPRoute{
-		Alias:            entry.Alias,
-		TargetURL:        (*URL)(entry.URL),
-		PathPatterns:     entry.PathPatterns,
-		entry:            entry,
-		handler:          rp,
-		regIdleWatcher:   regIdleWatcher,
-		unregIdleWatcher: unregIdleWatcher,
+		Alias:        entry.Alias,
+		TargetURL:    (*URL)(entry.URL),
+		PathPatterns: entry.PathPatterns,
+		entry:        entry,
+		rp:           rp,
 	}
 	return r, nil
 }
@@ -121,60 +94,55 @@ func (r *HTTPRoute) String() string {
 }
 
 func (r *HTTPRoute) Start() E.NestedError {
-	if r.mux != nil {
+	if r.handler != nil {
 		return nil
 	}
 
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if r.regIdleWatcher != nil {
-		if err := r.regIdleWatcher(); err.HasError() {
-			r.unregIdleWatcher = nil
+	if r.entry.UseIdleWatcher() {
+		watcher, err := idlewatcher.Register(r.entry)
+		if err != nil {
 			return err
 		}
-	}
-
-	if !r.entry.UseIdleWatcher() && (r.entry.URL.Port() == "0" ||
-		r.entry.IsDocker() && !r.entry.ContainerRunning) {
-		// TODO: if it use idlewatcher, set mux to dummy mux
+		r.handler = idlewatcher.NewWaker(watcher, r.rp)
+	} else if r.entry.URL.Port() == "0" ||
+		r.entry.IsDocker() && !r.entry.ContainerRunning {
 		return nil
-	}
-
-	if len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/" {
-		r.mux = ReverseProxyHandler{r.handler}
+	} else if len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/" {
+		r.handler = ReverseProxyHandler{r.rp}
 	} else {
 		mux := http.NewServeMux()
 		for _, p := range r.PathPatterns {
-			mux.HandleFunc(string(p), r.handler.ServeHTTP)
+			mux.HandleFunc(string(p), r.rp.ServeHTTP)
 		}
-		r.mux = mux
+		r.handler = mux
 	}
 
 	httpRoutes.Store(string(r.Alias), r)
 	return nil
 }
 
-func (r *HTTPRoute) Stop() E.NestedError {
-	if r.mux == nil {
-		return nil
+func (r *HTTPRoute) Stop() (_ E.NestedError) {
+	if r.handler == nil {
+		return
 	}
 
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if r.unregIdleWatcher != nil {
-		r.unregIdleWatcher()
-		r.unregIdleWatcher = nil
+	if waker, ok := r.handler.(*idlewatcher.Waker); ok {
+		waker.Unregister()
 	}
 
-	r.mux = nil
+	r.handler = nil
 	httpRoutes.Delete(string(r.Alias))
-	return nil
+	return
 }
 
 func (r *HTTPRoute) Started() bool {
-	return r.mux != nil
+	return r.handler != nil
 }
 
 func (u *URL) String() string {
@@ -214,7 +182,7 @@ func findMuxAnyDomain(host string) (http.Handler, error) {
 	}
 	sd := strings.Join(hostSplit[:n-2], ".")
 	if r, ok := httpRoutes.Load(sd); ok {
-		return r.mux, nil
+		return r.handler, nil
 	}
 	return nil, fmt.Errorf("no such route: %s", sd)
 }
@@ -236,7 +204,7 @@ func findMuxByDomains(domains []string) func(host string) (http.Handler, error) 
 			return nil, fmt.Errorf("%s does not match any base domain", host)
 		}
 		if r, ok := httpRoutes.Load(subdomain); ok {
-			return r.mux, nil
+			return r.handler, nil
 		}
 		return nil, fmt.Errorf("no such route: %s", subdomain)
 	}

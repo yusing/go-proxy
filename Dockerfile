@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM golang:1.23.1-alpine AS builder
+FROM golang:1.23.2-alpine AS builder
 RUN apk add --no-cache tzdata make
 
 WORKDIR /src

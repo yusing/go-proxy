@@ -1,4 +1,5 @@
 compose.yml
+*.compose.yml
 
 config*/
 certs*/
@@ -20,3 +21,4 @@ todo.md
 .*.swp
 .aider*
 mtrace.json
+.env

@@ -1,13 +1,13 @@
 module github.com/yusing/go-proxy
 
-go 1.23.1
+go 1.23.2
 
 require (
 	github.com/coder/websocket v1.8.12
 	github.com/docker/cli v27.3.1+incompatible
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
-	github.com/go-acme/lego/v4 v4.19.0
+	github.com/go-acme/lego/v4 v4.19.2
 	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/santhosh-tekuri/jsonschema v1.2.4
 	github.com/sirupsen/logrus v1.9.3
