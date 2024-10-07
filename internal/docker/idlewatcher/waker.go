@@ -45,7 +45,8 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 	ctx, cancel := context.WithTimeout(r.Context(), w.WakeTimeout)
 	defer cancel()
 
-	if r.Header.Get(headerCheckRedirect) == "" {
+	isCheckRedirect := r.Header.Get(headerCheckRedirect) != ""
+	if !isCheckRedirect {
 		// Send a loading response to the client
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 		rw.Write(w.makeRespBody("%s waking up...", w.ContainerName))
@@ -63,7 +64,11 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 
 	// maybe another request came in while we were waiting for the wake
 	if w.ready.Load() {
-		next(rw, r)
+		if isCheckRedirect {
+			rw.WriteHeader(http.StatusOK)
+		} else {
+			next(rw, r)
+		}
 		return
 	}
 
