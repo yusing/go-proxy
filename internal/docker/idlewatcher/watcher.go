@@ -12,6 +12,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	F "github.com/yusing/go-proxy/internal/utils/functional"
 	W "github.com/yusing/go-proxy/internal/watcher"
 )
 
@@ -45,8 +46,10 @@ var (
 	mainLoopCancel context.CancelFunc
 	mainLoopWg     sync.WaitGroup
 
-	watcherMap   = make(map[string]*watcher)
+	watcherMap   = F.NewMapOf[string, *watcher]()
 	watcherMapMu sync.Mutex
+
+	portHistoryMap = F.NewMapOf[PT.Alias, string]()
 
 	newWatcherCh = make(chan *watcher)
 
@@ -65,7 +68,11 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 
 	key := entry.ContainerID
 
-	if w, ok := watcherMap[key]; ok {
+	if entry.URL.Port() != "0" {
+		portHistoryMap.Store(entry.Alias, entry.URL.Port())
+	}
+
+	if w, ok := watcherMap.Load(key); ok {
 		w.refCount.Add(1)
 		w.ReverseProxyEntry = entry
 		return w, nil
@@ -88,7 +95,7 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 	w.refCount.Add(1)
 	w.stopByMethod = w.getStopCallback()
 
-	watcherMap[key] = w
+	watcherMap.Store(key, w)
 
 	go func() {
 		newWatcherCh <- w
@@ -118,7 +125,7 @@ func Start() {
 				w.watchUntilCancel()
 				w.refCount.Wait() // wait for 0 ref count
 
-				delete(watcherMap, w.ContainerID)
+				watcherMap.Delete(w.ContainerID)
 				w.l.Debug("unregistered")
 				mainLoopWg.Done()
 			}()

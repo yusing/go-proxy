@@ -3,6 +3,7 @@ package idlewatcher
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -22,6 +23,20 @@ func NewWaker(w *watcher, rp *gphttp.ReverseProxy) *Waker {
 	if w.NoTLSVerify {
 		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
+	orig := rp.ServeHTTP
+	// workaround for stopped containers port become zero
+	rp.ServeHTTP = func(rw http.ResponseWriter, r *http.Request) {
+		if rp.TargetURL.Port() == "0" {
+			port, ok := portHistoryMap.Load(w.Alias)
+			if !ok {
+				w.l.Errorf("port history not found for %s", w.Alias)
+				http.Error(rw, "internal server error", http.StatusInternalServerError)
+				return
+			}
+			rp.TargetURL.Host = fmt.Sprintf("%s:%v", rp.TargetURL.Hostname(), port)
+		}
+		orig(rw, r)
+	}
 	return &Waker{
 		watcher: w,
 		client: &http.Client{
@@ -37,9 +52,10 @@ func (w *Waker) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Request) {
+	w.resetIdleTimer()
+
 	// pass through if container is ready
 	if w.ready.Load() {
-		w.resetIdleTimer()
 		next(rw, r)
 		return
 	}
@@ -48,14 +64,10 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 	defer cancel()
 
 	accept := gphttp.GetAccept(r.Header)
-	acceptHTML := accept.AcceptHTML() || accept.IsEmpty()
+	acceptHTML := r.Method == http.MethodGet && accept.AcceptHTML()
 
-	if !acceptHTML {
-		w.l.Debugf("Accept %v", accept)
-	}
-
-	isCheckRedirect := r.Header.Get(headerCheckRedirect) != "" && acceptHTML
-	if !isCheckRedirect {
+	isCheckRedirect := r.Header.Get(headerCheckRedirect) != ""
+	if !isCheckRedirect && acceptHTML {
 		// Send a loading response to the client
 		body := w.makeRespBody("%s waking up...", w.ContainerName)
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -106,10 +118,10 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		// we don't care about the response
-		_, err = w.client.Do(wakeReq)
-		if err == nil {
+		wakeResp, err := w.client.Do(wakeReq)
+		if err == nil && wakeResp.StatusCode != http.StatusServiceUnavailable {
 			w.ready.Store(true)
+			w.l.Debug("awaken")
 			if isCheckRedirect {
 				rw.WriteHeader(http.StatusOK)
 			} else {

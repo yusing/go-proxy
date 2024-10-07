@@ -69,36 +69,6 @@ type ProxyRequest struct {
 // 1xx responses are forwarded to the client if the underlying
 // transport supports ClientTrace.Got1xxResponse.
 type ReverseProxy struct {
-	// Director is a function which modifies
-	// the request into a new request to be sent
-	// using Transport. Its response is then copied
-	// back to the original client unmodified.
-	// Director must not access the provided Request
-	// after returning.
-	//
-	// By default, the X-Forwarded-For header is set to the
-	// value of the client IP address. If an X-Forwarded-For
-	// header already exists, the client IP is appended to the
-	// existing values. As a special case, if the header
-	// exists in the Request.Header map but has a nil value
-	// (such as when set by the Director func), the X-Forwarded-For
-	// header is not modified.
-	//
-	// To prevent IP spoofing, be sure to delete any pre-existing
-	// X-Forwarded-For header coming from the client or
-	// an untrusted proxy.
-	//
-	// Hop-by-hop headers are removed from the request after
-	// Director returns, which can remove headers added by
-	// Director. Use a Rewrite function instead to ensure
-	// modifications to the request are preserved.
-	//
-	// Unparsable query parameters are removed from the outbound
-	// request if Request.Form is set after Director returns.
-	//
-	// At most one of Rewrite or Director may be set.
-	Director func(*http.Request)
-
 	// The transport used to perform proxy requests.
 	// If nil, http.DefaultTransport is used.
 	Transport http.RoundTripper
@@ -115,6 +85,8 @@ type ReverseProxy struct {
 	ModifyResponse func(*http.Response) error
 
 	ServeHTTP http.HandlerFunc
+
+	TargetURL *url.URL
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -176,12 +148,7 @@ func NewReverseProxy(target *url.URL, transport http.RoundTripper) *ReverseProxy
 	if transport == nil {
 		panic("nil transport")
 	}
-	rp := &ReverseProxy{
-		Director: func(req *http.Request) {
-			rewriteRequestURL(req, target)
-		},
-		Transport: transport,
-	}
+	rp := &ReverseProxy{Transport: transport, TargetURL: target}
 	rp.ServeHTTP = rp.serveHTTP
 	return rp
 }
@@ -296,7 +263,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header = make(http.Header) // Issue 33142: historical behavior was to always allocate
 	}
 
-	p.Director(outreq)
+	rewriteRequestURL(outreq, p.TargetURL)
 	outreq.Close = false
 
 	reqUpType := UpgradeType(outreq.Header)
