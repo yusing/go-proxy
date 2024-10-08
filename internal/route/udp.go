@@ -51,7 +51,7 @@ func (route *UDPRoute) Setup() error {
 		return err
 	}
 
-	//! this read the allocated listeningPort from orginal ':0'
+	//! this read the allocated listeningPort from original ':0'
 	route.Port.ListeningPort = T.Port(source.LocalAddr().(*net.UDPAddr).Port)
 
 	route.listeningConn = source

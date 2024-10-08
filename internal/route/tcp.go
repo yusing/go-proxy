@@ -36,7 +36,7 @@ func (route *TCPRoute) Setup() error {
 	if err != nil {
 		return err
 	}
-	//! this read the allocated port from orginal ':0'
+	//! this read the allocated port from original ':0'
 	route.Port.ListeningPort = T.Port(in.Addr().(*net.TCPAddr).Port)
 	route.listener = in
 	return nil

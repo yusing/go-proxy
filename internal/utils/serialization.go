@@ -149,9 +149,8 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 
 	if dstV.Kind() == reflect.Struct {
 		mapping := make(map[string]reflect.Value)
-		for i := 0; i < dstV.NumField(); i++ {
-			field := dstT.Field(i)
-			mapping[ToLowerNoSnake(field.Name)] = dstV.Field(i)
+		for _, field := range reflect.VisibleFields(dstT) {
+			mapping[ToLowerNoSnake(field.Name)] = dstV.FieldByName(field.Name)
 		}
 		for k, v := range src {
 			if field, ok := mapping[ToLowerNoSnake(k)]; ok {
@@ -322,7 +321,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.N
 	var tmp any
 	switch dst.Kind() {
 	case reflect.Slice:
-		// one liner is comma seperated list
+		// one liner is comma separated list
 		if len(lines) == 0 {
 			dst.Set(reflect.ValueOf(CommaSeperatedList(src)))
 			return

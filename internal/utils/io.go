@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"sync"
 	"syscall"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -28,10 +29,8 @@ type (
 	}
 
 	Pipe struct {
-		r      ContextReader
-		w      ContextWriter
-		ctx    context.Context
-		cancel context.CancelFunc
+		r ContextReader
+		w ContextWriter
 	}
 
 	BidirectionalPipe struct {
@@ -59,12 +58,9 @@ func (w *ContextWriter) Write(p []byte) (int, error) {
 }
 
 func NewPipe(ctx context.Context, r io.ReadCloser, w io.WriteCloser) *Pipe {
-	_, cancel := context.WithCancel(ctx)
 	return &Pipe{
-		r:      ContextReader{ctx: ctx, Reader: r},
-		w:      ContextWriter{ctx: ctx, Writer: w},
-		ctx:    ctx,
-		cancel: cancel,
+		r: ContextReader{ctx: ctx, Reader: r},
+		w: ContextWriter{ctx: ctx, Writer: w},
 	}
 }
 
@@ -87,22 +83,20 @@ func NewBidirectionalPipe(ctx context.Context, rw1 io.ReadWriteCloser, rw2 io.Re
 	}
 }
 
-func NewBidirectionalPipeIntermediate(ctx context.Context, listener io.ReadCloser, client io.ReadWriteCloser, target io.ReadWriteCloser) *BidirectionalPipe {
-	return &BidirectionalPipe{
-		pSrcDst: NewPipe(ctx, listener, client),
-		pDstSrc: NewPipe(ctx, client, target),
-	}
-}
-
 func (p BidirectionalPipe) Start() error {
-	errCh := make(chan error, 2)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	b := E.NewBuilder("bidirectional pipe error")
 	go func() {
-		errCh <- p.pSrcDst.Start()
+		b.AddE(p.pSrcDst.Start())
+		wg.Done()
 	}()
 	go func() {
-		errCh <- p.pDstSrc.Start()
+		b.AddE(p.pDstSrc.Start())
+		wg.Done()
 	}()
-	return E.JoinE("bidirectional pipe error", <-errCh, <-errCh).Error()
+	wg.Wait()
+	return b.Build().Error()
 }
 
 func Copy(dst *ContextWriter, src *ContextReader) error {

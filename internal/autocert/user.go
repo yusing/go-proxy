@@ -1,8 +1,9 @@
 package autocert
 
 import (
-	"github.com/go-acme/lego/v4/registration"
 	"crypto"
+
+	"github.com/go-acme/lego/v4/registration"
 )
 
 type User struct {

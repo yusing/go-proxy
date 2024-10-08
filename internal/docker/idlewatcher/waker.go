@@ -64,7 +64,7 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 	defer cancel()
 
 	accept := gphttp.GetAccept(r.Header)
-	acceptHTML := r.Method == http.MethodGet && accept.AcceptHTML()
+	acceptHTML := (r.Method == http.MethodGet && accept.AcceptHTML() || r.RequestURI == "/" && accept.IsEmpty())
 
 	isCheckRedirect := r.Header.Get(headerCheckRedirect) != ""
 	if !isCheckRedirect && acceptHTML {
