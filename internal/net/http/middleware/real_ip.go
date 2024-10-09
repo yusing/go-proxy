@@ -4,7 +4,7 @@ import (
 	"net"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/net/types"
 )
 
 // https://nginx.org/en/docs/http/ngx_http_realip_module.html

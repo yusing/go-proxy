@@ -13,7 +13,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/net/types"
 )
 
 const (

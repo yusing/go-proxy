@@ -12,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/types"
 )
 
 //go:embed test_data/sample_headers.json
@@ -110,7 +111,7 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.N
 	} else {
 		proxyURL, _ = url.Parse("https://" + testHost) // dummy url, no actual effect
 	}
-	rp := gphttp.NewReverseProxy(proxyURL, rr)
+	rp := gphttp.NewReverseProxy(types.NewURL(proxyURL), rr)
 	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr

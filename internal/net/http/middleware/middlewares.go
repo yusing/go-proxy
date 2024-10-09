@@ -29,7 +29,6 @@ func init() {
 		"setxforwarded":    SetXForwarded,
 		"hidexforwarded":   HideXForwarded,
 		"redirecthttp":     RedirectHTTP,
-		"forwardauth":      ForwardAuth.m,
 		"modifyresponse":   ModifyResponse.m,
 		"modifyrequest":    ModifyRequest.m,
 		"errorpage":        CustomErrorPage,
@@ -37,6 +36,10 @@ func init() {
 		"realip":           RealIP.m,
 		"cloudflarerealip": CloudflareRealIP.m,
 		"cidrwhitelist":    CIDRWhiteList.m,
+
+		// !experimental
+		"forwardauth": ForwardAuth.m,
+		"oauth2":      OAuth2.m,
 	}
 	names := make(map[*Middleware][]string)
 	for name, m := range middlewares {

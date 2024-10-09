@@ -65,6 +65,10 @@ func (b Builder) To(ptr *NestedError) {
 	}
 }
 
+func (b Builder) String() string {
+	return b.Build().String()
+}
+
 func (b Builder) HasError() bool {
 	return len(b.errors) > 0
 }

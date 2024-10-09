@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/net/types"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 

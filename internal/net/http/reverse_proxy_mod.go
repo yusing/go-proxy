@@ -26,6 +26,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/net/http/httpguts"
 
+	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -86,7 +87,7 @@ type ReverseProxy struct {
 
 	ServeHTTP http.HandlerFunc
 
-	TargetURL *url.URL
+	TargetURL types.URL
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -144,7 +145,7 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 //	}
 //
 
-func NewReverseProxy(target *url.URL, transport http.RoundTripper) *ReverseProxy {
+func NewReverseProxy(target types.URL, transport http.RoundTripper) *ReverseProxy {
 	if transport == nil {
 		panic("nil transport")
 	}
@@ -263,7 +264,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header = make(http.Header) // Issue 33142: historical behavior was to always allocate
 	}
 
-	rewriteRequestURL(outreq, p.TargetURL)
+	rewriteRequestURL(outreq, p.TargetURL.URL)
 	outreq.Close = false
 
 	reqUpType := UpgradeType(outreq.Header)
@@ -348,18 +349,16 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	roundTripMutex.Unlock()
 	if err != nil {
 		p.errorHandler(rw, outreq, err, false)
-		errMsg := err.Error()
 		res = &http.Response{
-			Status:        http.StatusText(http.StatusBadGateway),
-			StatusCode:    http.StatusBadGateway,
-			Proto:         outreq.Proto,
-			ProtoMajor:    outreq.ProtoMajor,
-			ProtoMinor:    outreq.ProtoMinor,
-			Header:        make(http.Header),
-			Body:          io.NopCloser(bytes.NewReader([]byte("Origin server is not reachable."))),
-			Request:       outreq,
-			ContentLength: int64(len(errMsg)),
-			TLS:           outreq.TLS,
+			Status:     http.StatusText(http.StatusBadGateway),
+			StatusCode: http.StatusBadGateway,
+			Proto:      outreq.Proto,
+			ProtoMajor: outreq.ProtoMajor,
+			ProtoMinor: outreq.ProtoMinor,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(bytes.NewReader([]byte("Origin server is not reachable."))),
+			Request:    outreq,
+			TLS:        outreq.TLS,
 		}
 	}
 

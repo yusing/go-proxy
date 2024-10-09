@@ -212,7 +212,7 @@ func (cfg *Config) loadProviders(providers *types.ProxyProviders) (res E.NestedE
 			continue
 		}
 		cfg.proxyProviders.Store(p.GetName(), p)
-		b.Add(p.LoadRoutes().Subject(dockerHost))
+		b.Add(p.LoadRoutes().Subject(p.GetName()))
 	}
 	return
 }

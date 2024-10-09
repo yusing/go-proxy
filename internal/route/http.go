@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"net/http"
-	"net/url"
 	"strings"
 
 	"github.com/sirupsen/logrus"
@@ -13,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
@@ -21,16 +21,14 @@ import (
 
 type (
 	HTTPRoute struct {
-		Alias        PT.Alias        `json:"alias"`
-		TargetURL    *URL            `json:"target_url"`
-		PathPatterns PT.PathPatterns `json:"path_patterns"`
+		*P.ReverseProxyEntry
+		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer,omitempty"`
 
-		entry   *P.ReverseProxyEntry
+		server  *loadbalancer.Server
 		handler http.Handler
 		rp      *ReverseProxy
 	}
 
-	URL          url.URL
 	SubdomainKey = PT.Alias
 
 	ReverseProxyHandler struct {
@@ -80,11 +78,8 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	defer httpRoutesMu.Unlock()
 
 	r := &HTTPRoute{
-		Alias:        entry.Alias,
-		TargetURL:    (*URL)(entry.URL),
-		PathPatterns: entry.PathPatterns,
-		entry:        entry,
-		rp:           rp,
+		ReverseProxyEntry: entry,
+		rp:                rp,
 	}
 	return r, nil
 }
@@ -101,18 +96,19 @@ func (r *HTTPRoute) Start() E.NestedError {
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if r.entry.UseIdleWatcher() {
-		watcher, err := idlewatcher.Register(r.entry)
+	switch {
+	case r.UseIdleWatcher():
+		watcher, err := idlewatcher.Register(r.ReverseProxyEntry)
 		if err != nil {
 			return err
 		}
 		r.handler = idlewatcher.NewWaker(watcher, r.rp)
-	} else if r.entry.URL.Port() == "0" ||
-		r.entry.IsDocker() && !r.entry.ContainerRunning {
+	case r.IsZeroPort() ||
+		r.IsDocker() && !r.ContainerRunning:
 		return nil
-	} else if len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/" {
+	case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
 		r.handler = ReverseProxyHandler{r.rp}
-	} else {
+	default:
 		mux := http.NewServeMux()
 		for _, p := range r.PathPatterns {
 			mux.HandleFunc(string(p), r.rp.ServeHTTP)
@@ -120,7 +116,25 @@ func (r *HTTPRoute) Start() E.NestedError {
 		r.handler = mux
 	}
 
-	httpRoutes.Store(string(r.Alias), r)
+	if r.LoadBalance.Link == "" {
+		httpRoutes.Store(string(r.Alias), r)
+		return nil
+	}
+
+	var lb *loadbalancer.LoadBalancer
+	linked, ok := httpRoutes.Load(string(r.LoadBalance.Link))
+	if ok {
+		lb = linked.LoadBalancer
+	} else {
+		lb = loadbalancer.New(r.LoadBalance)
+		lb.Start()
+		linked = &HTTPRoute{
+			LoadBalancer: lb,
+			handler:      lb,
+		}
+		httpRoutes.Store(string(r.LoadBalance.Link), linked)
+	}
+	lb.AddServer(loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler))
 	return nil
 }
 
@@ -137,20 +151,23 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 	}
 
 	r.handler = nil
-	httpRoutes.Delete(string(r.Alias))
+
+	if r.server != nil {
+		linked, ok := httpRoutes.Load(string(r.LoadBalance.Link))
+		if ok {
+			linked.LoadBalancer.RemoveServer(r.server)
+		}
+		if linked.LoadBalancer.IsEmpty() {
+			httpRoutes.Delete(string(r.LoadBalance.Link))
+		}
+	} else {
+		httpRoutes.Delete(string(r.Alias))
+	}
 	return
 }
 
 func (r *HTTPRoute) Started() bool {
 	return r.handler != nil
-}
-
-func (u *URL) String() string {
-	return (*url.URL)(u).String()
-}
-
-func (u *URL) MarshalText() (text []byte, err error) {
-	return []byte(u.String()), nil
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {

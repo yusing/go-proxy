@@ -8,6 +8,7 @@ import (
 	. "github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	H "github.com/yusing/go-proxy/internal/homepage"
+	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -15,14 +16,15 @@ type (
 	RawEntry struct {
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string           `yaml:"-" json:"-"`
-		Scheme       string           `yaml:"scheme" json:"scheme"`
-		Host         string           `yaml:"host" json:"host"`
-		Port         string           `yaml:"port" json:"port"`
-		NoTLSVerify  bool             `yaml:"no_tls_verify" json:"no_tls_verify,omitempty"` // https proxy only
-		PathPatterns []string         `yaml:"path_patterns" json:"path_patterns,omitempty"` // http(s) proxy only
-		Middlewares  D.NestedLabelMap `yaml:"middlewares" json:"middlewares,omitempty"`
-		Homepage     *H.HomePageItem  `yaml:"homepage" json:"homepage"`
+		Alias        string              `yaml:"-" json:"-"`
+		Scheme       string              `yaml:"scheme" json:"scheme"`
+		Host         string              `yaml:"host" json:"host"`
+		Port         string              `yaml:"port" json:"port"`
+		NoTLSVerify  bool                `yaml:"no_tls_verify" json:"no_tls_verify,omitempty"` // https proxy only
+		PathPatterns []string            `yaml:"path_patterns" json:"path_patterns,omitempty"` // http(s) proxy only
+		LoadBalance  loadbalancer.Config `yaml:"load_balance" json:"load_balance"`
+		Middlewares  D.NestedLabelMap    `yaml:"middlewares" json:"middlewares,omitempty"`
+		Homepage     *H.HomePageItem     `yaml:"homepage" json:"homepage,omitempty"`
 
 		/* Docker only */
 		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`

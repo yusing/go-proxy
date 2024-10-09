@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/net/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 

@@ -2,7 +2,6 @@ package idlewatcher
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -19,10 +18,6 @@ type Waker struct {
 }
 
 func NewWaker(w *watcher, rp *gphttp.ReverseProxy) *Waker {
-	tr := &http.Transport{}
-	if w.NoTLSVerify {
-		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-	}
 	orig := rp.ServeHTTP
 	// workaround for stopped containers port become zero
 	rp.ServeHTTP = func(rw http.ResponseWriter, r *http.Request) {
@@ -41,7 +36,7 @@ func NewWaker(w *watcher, rp *gphttp.ReverseProxy) *Waker {
 		watcher: w,
 		client: &http.Client{
 			Timeout:   1 * time.Second,
-			Transport: tr,
+			Transport: rp.Transport,
 		},
 		rp: rp,
 	}

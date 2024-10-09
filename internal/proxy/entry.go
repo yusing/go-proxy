@@ -7,6 +7,8 @@ import (
 
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
+	net "github.com/yusing/go-proxy/internal/net/types"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	"github.com/yusing/go-proxy/internal/types"
 )
@@ -15,9 +17,10 @@ type (
 	ReverseProxyEntry struct { // real model after validation
 		Alias        T.Alias
 		Scheme       T.Scheme
-		URL          *url.URL
+		URL          net.URL
 		NoTLSVerify  bool
 		PathPatterns T.PathPatterns
+		LoadBalance  loadbalancer.Config
 		Middlewares  D.NestedLabelMap
 
 		/* Docker only */
@@ -45,6 +48,10 @@ func (rp *ReverseProxyEntry) UseIdleWatcher() bool {
 
 func (rp *ReverseProxyEntry) IsDocker() bool {
 	return rp.DockerHost != ""
+}
+
+func (rp *ReverseProxyEntry) IsZeroPort() bool {
+	return rp.URL.Port() == "0"
 }
 
 func ValidateEntry(m *types.RawEntry) (any, E.NestedError) {
@@ -107,9 +114,10 @@ func validateRPEntry(m *types.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEn
 	return &ReverseProxyEntry{
 		Alias:            T.NewAlias(m.Alias),
 		Scheme:           s,
-		URL:              url,
+		URL:              net.NewURL(url),
 		NoTLSVerify:      m.NoTLSVerify,
 		PathPatterns:     pathPatterns,
+		LoadBalance:      m.LoadBalance,
 		Middlewares:      m.Middlewares,
 		IdleTimeout:      idleTimeout,
 		WakeTimeout:      wakeTimeout,
