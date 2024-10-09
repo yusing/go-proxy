@@ -133,7 +133,7 @@ func ConnectClient(host string) (Client, E.NestedError) {
 }
 
 func CloseAllClients() {
-	clientMap.RangeAll(func(_ string, c Client) {
+	clientMap.RangeAllParallel(func(_ string, c Client) {
 		c.Client.Close()
 	})
 	clientMap.Clear()

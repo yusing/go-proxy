@@ -108,7 +108,7 @@ func (route *UDPRoute) CloseListeners() {
 		route.listeningConn.Close()
 		route.listeningConn = nil
 	}
-	route.connMap.RangeAll(func(_ string, conn *UDPConn) {
+	route.connMap.RangeAllParallel(func(_ string, conn *UDPConn) {
 		if err := conn.src.Close(); err != nil {
 			route.l.Errorf("error closing src conn: %s", err)
 		}

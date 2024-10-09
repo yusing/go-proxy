@@ -114,7 +114,7 @@ func (p *Provider) StartAllRoutes() (res E.NestedError) {
 	nStarted := 0
 	nFailed := 0
 
-	p.routes.RangeAll(func(alias string, r R.Route) {
+	p.routes.RangeAllParallel(func(alias string, r R.Route) {
 		if err := r.Start(); err.HasError() {
 			errors.Add(err.Subject(r))
 			nFailed++
@@ -138,7 +138,7 @@ func (p *Provider) StopAllRoutes() (res E.NestedError) {
 
 	nStopped := 0
 	nFailed := 0
-	p.routes.RangeAll(func(alias string, r R.Route) {
+	p.routes.RangeAllParallel(func(alias string, r R.Route) {
 		if err := r.Stop(); err.HasError() {
 			errors.Add(err.Subject(r))
 			nFailed++

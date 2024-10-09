@@ -38,6 +38,10 @@ func (s *Slice[T]) Iterator() []T {
 	return s.s
 }
 
+func (s *Slice[T]) Get(i int) T {
+	return s.s[i]
+}
+
 func (s *Slice[T]) Set(i int, v T) {
 	s.s[i] = v
 }
@@ -74,6 +78,20 @@ func (s *Slice[T]) SafePop() T {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.Pop()
+}
+
+func (s *Slice[T]) Remove(criteria func(T) bool) {
+	for i, v2 := range s.s {
+		if criteria(v2) {
+			s.s = append(s.s[:i], s.s[i+1:]...)
+		}
+	}
+}
+
+func (s *Slice[T]) SafeRemove(criteria func(T) bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.Remove(criteria)
 }
 
 func (s *Slice[T]) ForEach(do func(T)) {

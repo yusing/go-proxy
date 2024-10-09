@@ -46,7 +46,7 @@ func New(cfg Config) *LoadBalancer {
 	lb := &LoadBalancer{Config: cfg, pool: servers{}}
 	mode := cfg.Mode
 	if !cfg.Mode.ValidateUpdate() {
-		logger.Warnf("%s: invalid loadbalancer mode: %s, fallback to %s", cfg.Link, mode, cfg.Mode)
+		logger.Warnf("loadbalancer %s: invalid mode %q, fallback to %s", cfg.Link, mode, cfg.Mode)
 	}
 	switch mode {
 	case RoundRobin:
@@ -69,6 +69,7 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 	lb.sumWeight += srv.Weight
 
 	lb.impl.OnAddServer(srv)
+	logger.Debugf("[add] loadbalancer %s: %d servers available", lb.Link, len(lb.pool))
 }
 
 func (lb *LoadBalancer) RemoveServer(srv *Server) {
@@ -85,7 +86,11 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 	}
 	if lb.IsEmpty() {
 		lb.Stop()
+		return
 	}
+
+	lb.Rebalance()
+	logger.Debugf("[remove] loadbalancer %s: %d servers left", lb.Link, len(lb.pool))
 }
 
 func (lb *LoadBalancer) IsEmpty() bool {
@@ -98,14 +103,14 @@ func (lb *LoadBalancer) Rebalance() {
 	}
 	if lb.sumWeight == 0 { // distribute evenly
 		weightEach := maxWeight / weightType(len(lb.pool))
-		remainer := maxWeight % weightType(len(lb.pool))
+		remainder := maxWeight % weightType(len(lb.pool))
 		for _, s := range lb.pool {
 			s.Weight = weightEach
 			lb.sumWeight += weightEach
-			if remainer > 0 {
+			if remainder > 0 {
 				s.Weight++
+				remainder--
 			}
-			remainer--
 		}
 		return
 	}
@@ -149,17 +154,13 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (lb *LoadBalancer) Start() {
-	if lb.IsEmpty() {
-		return
-	}
-
 	if lb.sumWeight != 0 && lb.sumWeight != maxWeight {
 		msg := E.NewBuilder("loadbalancer %s total weight %d != %d", lb.Link, lb.sumWeight, maxWeight)
 		for _, s := range lb.pool {
 			msg.Addf("%s: %d", s.Name, s.Weight)
 		}
 		lb.Rebalance()
-		inner := E.NewBuilder("After rebalancing")
+		inner := E.NewBuilder("after rebalancing")
 		for _, s := range lb.pool {
 			inner.Addf("%s: %d", s.Name, s.Weight)
 		}
@@ -168,22 +169,16 @@ func (lb *LoadBalancer) Start() {
 	}
 
 	if lb.sumWeight != 0 {
-		log.Warnf("Weighted mode not supported yet")
-	}
-
-	switch lb.Mode {
-	case RoundRobin:
-		lb.impl = lb.newRoundRobin()
-	case LeastConn:
-		lb.impl = lb.newLeastConn()
-	case IPHash:
-		lb.impl = lb.newIPHash()
+		log.Warnf("weighted mode not supported yet")
 	}
 
 	lb.done = make(chan struct{}, 1)
 	lb.ctx, lb.cancel = context.WithCancel(context.Background())
 
 	updateAll := func() {
+		lb.poolMu.Lock()
+		defer lb.poolMu.Unlock()
+
 		var wg sync.WaitGroup
 		wg.Add(len(lb.pool))
 		for _, s := range lb.pool {
@@ -194,6 +189,8 @@ func (lb *LoadBalancer) Start() {
 		}
 		wg.Wait()
 	}
+
+	logger.Debugf("loadbalancer %s started", lb.Link)
 
 	go func() {
 		defer lb.cancel()
@@ -208,16 +205,14 @@ func (lb *LoadBalancer) Start() {
 			case <-lb.ctx.Done():
 				return
 			case <-ticker.C:
-				lb.poolMu.RLock()
 				updateAll()
-				lb.poolMu.RUnlock()
 			}
 		}
 	}()
 }
 
 func (lb *LoadBalancer) Stop() {
-	if lb.impl == nil {
+	if lb.cancel == nil {
 		return
 	}
 
@@ -225,6 +220,8 @@ func (lb *LoadBalancer) Stop() {
 
 	<-lb.done
 	lb.pool = nil
+
+	logger.Debugf("loadbalancer %s stopped", lb.Link)
 }
 
 func (lb *LoadBalancer) availServers() servers {

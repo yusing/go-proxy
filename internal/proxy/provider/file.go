@@ -52,12 +52,12 @@ func (p FileProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) 
 		return
 	}
 
-	routes.RangeAll(func(_ string, v R.Route) {
+	routes.RangeAllParallel(func(_ string, v R.Route) {
 		b.Add(v.Stop())
 	})
 	routes.Clear()
 
-	newRoutes.RangeAll(func(_ string, v R.Route) {
+	newRoutes.RangeAllParallel(func(_ string, v R.Route) {
 		b.Add(v.Start())
 	})
 

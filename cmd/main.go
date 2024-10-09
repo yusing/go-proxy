@@ -11,7 +11,6 @@ import (
 	"reflect"
 	"runtime"
 	"strings"
-	"sync"
 	"syscall"
 	"time"
 
@@ -137,13 +136,11 @@ func main() {
 	signal.Notify(sig, syscall.SIGHUP)
 
 	autocert := cfg.GetAutoCertProvider()
-
 	if autocert != nil {
 		ctx, cancel := context.WithCancel(context.Background())
+		onShutdown.Add(cancel)
 		if err := autocert.Setup(ctx); err != nil {
 			l.Fatal(err)
-		} else {
-			onShutdown.Add(cancel)
 		}
 	} else {
 		l.Info("autocert not configured")
@@ -179,19 +176,15 @@ func main() {
 	// grafully shutdown
 	logrus.Info("shutting down")
 	done := make(chan struct{}, 1)
+	currentIdx := 0
 
-	var wg sync.WaitGroup
-	wg.Add(onShutdown.Size())
-	onShutdown.ForEach(func(f func()) {
-		go func() {
+	go func() {
+		onShutdown.ForEach(func(f func()) {
 			l.Debugf("waiting for %s to complete...", funcName(f))
 			f()
+			currentIdx++
 			l.Debugf("%s done", funcName(f))
-			wg.Done()
-		}()
-	})
-	go func() {
-		wg.Wait()
+		})
 		close(done)
 	}()
 
@@ -201,9 +194,9 @@ func main() {
 		logrus.Info("shutdown complete")
 	case <-timeout:
 		logrus.Info("timeout waiting for shutdown")
-		onShutdown.ForEach(func(f func()) {
-			l.Warnf("%s() is still running", funcName(f))
-		})
+		for i := currentIdx; i < onShutdown.Size(); i++ {
+			l.Warnf("%s() is still running", funcName(onShutdown.Get(i)))
+		}
 	}
 }
 

@@ -220,7 +220,7 @@ func (cfg *Config) loadProviders(providers *types.ProxyProviders) (res E.NestedE
 func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.NestedError) {
 	errors := E.NewBuilder("errors in %s these providers", action)
 
-	cfg.proxyProviders.RangeAll(func(name string, p *PR.Provider) {
+	cfg.proxyProviders.RangeAllParallel(func(name string, p *PR.Provider) {
 		if err := do(p); err.HasError() {
 			errors.Add(err.Subject(p))
 		}

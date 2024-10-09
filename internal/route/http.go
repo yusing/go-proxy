@@ -22,7 +22,7 @@ import (
 type (
 	HTTPRoute struct {
 		*P.ReverseProxyEntry
-		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer,omitempty"`
+		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer"`
 
 		server  *loadbalancer.Server
 		handler http.Handler
@@ -134,7 +134,8 @@ func (r *HTTPRoute) Start() E.NestedError {
 		}
 		httpRoutes.Store(string(r.LoadBalance.Link), linked)
 	}
-	lb.AddServer(loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler))
+	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler)
+	lb.AddServer(r.server)
 	return nil
 }
 
@@ -150,8 +151,6 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 		waker.Unregister()
 	}
 
-	r.handler = nil
-
 	if r.server != nil {
 		linked, ok := httpRoutes.Load(string(r.LoadBalance.Link))
 		if ok {
@@ -160,9 +159,13 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 		if linked.LoadBalancer.IsEmpty() {
 			httpRoutes.Delete(string(r.LoadBalance.Link))
 		}
+		r.server = nil
 	} else {
 		httpRoutes.Delete(string(r.Alias))
 	}
+
+	r.handler = nil
+
 	return
 }
 

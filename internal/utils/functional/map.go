@@ -1,6 +1,8 @@
 package functional
 
 import (
+	"sync"
+
 	"github.com/puzpuzpuz/xsync/v3"
 	"gopkg.in/yaml.v3"
 
@@ -73,6 +75,20 @@ func (m Map[KT, VT]) RangeAll(do func(k KT, v VT)) {
 		do(k, v)
 		return true
 	})
+}
+
+func (m Map[KT, VT]) RangeAllParallel(do func(k KT, v VT)) {
+	var wg sync.WaitGroup
+	wg.Add(m.Size())
+
+	m.Range(func(k KT, v VT) bool {
+		go func() {
+			do(k, v)
+			wg.Done()
+		}()
+		return true
+	})
+	wg.Wait()
 }
 
 func (m Map[KT, VT]) RemoveAll(criteria func(VT) bool) {

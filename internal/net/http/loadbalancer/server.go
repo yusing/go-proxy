@@ -26,7 +26,7 @@ func NewServer(name string, url types.URL, weight weightType, handler http.Handl
 	srv := &Server{
 		Name:    name,
 		URL:     url,
-		Weight:  weightType(weight),
+		Weight:  weight,
 		handler: handler,
 		pinger:  &http.Client{Timeout: 3 * time.Second},
 	}
