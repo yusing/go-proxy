@@ -1,14 +1,14 @@
 package types
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
-	. "github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	H "github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
+	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -16,18 +16,18 @@ type (
 	RawEntry struct {
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string              `yaml:"-" json:"-"`
-		Scheme       string              `yaml:"scheme" json:"scheme"`
-		Host         string              `yaml:"host" json:"host"`
-		Port         string              `yaml:"port" json:"port"`
-		NoTLSVerify  bool                `yaml:"no_tls_verify" json:"no_tls_verify,omitempty"` // https proxy only
-		PathPatterns []string            `yaml:"path_patterns" json:"path_patterns,omitempty"` // http(s) proxy only
-		LoadBalance  loadbalancer.Config `yaml:"load_balance" json:"load_balance"`
-		Middlewares  D.NestedLabelMap    `yaml:"middlewares" json:"middlewares,omitempty"`
-		Homepage     *H.HomePageItem     `yaml:"homepage" json:"homepage,omitempty"`
+		Alias        string              `json:"-" yaml:"-"`
+		Scheme       string              `json:"scheme" yaml:"scheme"`
+		Host         string              `json:"host" yaml:"host"`
+		Port         string              `json:"port" yaml:"port"`
+		NoTLSVerify  bool                `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
+		PathPatterns []string            `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
+		LoadBalance  loadbalancer.Config `json:"load_balance" yaml:"load_balance"`
+		Middlewares  D.NestedLabelMap    `json:"middlewares,omitempty" yaml:"middlewares"`
+		Homepage     *H.HomePageItem     `json:"homepage,omitempty" yaml:"homepage"`
 
 		/* Docker only */
-		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`
+		*D.ProxyProperties `json:"proxy_properties" yaml:"-"`
 	}
 
 	RawEntries = F.Map[string, *RawEntry]
@@ -43,14 +43,14 @@ func (e *RawEntry) FillMissingFields() {
 
 	lp, pp, extra := e.splitPorts()
 
-	if port, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
+	if port, ok := common.ServiceNamePortMapTCP[e.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
 		if e.Scheme == "" {
 			e.Scheme = "tcp"
 		}
-	} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
+	} else if port, ok := common.ImageNamePortMap[e.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
@@ -61,7 +61,7 @@ func (e *RawEntry) FillMissingFields() {
 		pp = "443"
 	} else if pp == "" {
 		if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
-			pp = fmt.Sprint(p.PrivatePort)
+			pp = U.PortString(p.PrivatePort)
 		} else if !isDocker {
 			pp = "80"
 		}
@@ -70,12 +70,12 @@ func (e *RawEntry) FillMissingFields() {
 	// replace private port with public port (if any)
 	if isDocker && e.NetworkMode != "host" {
 		if p, ok := e.PrivatePortMapping[pp]; ok {
-			pp = fmt.Sprint(p.PublicPort)
+			pp = U.PortString(p.PublicPort)
 		}
 		if _, ok := e.PublicPortMapping[pp]; !ok { // port is not exposed, but specified
 			// try to fallback to first public port
 			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
-				pp = fmt.Sprint(p.PublicPort)
+				pp = U.PortString(p.PublicPort)
 			}
 		}
 	}
@@ -87,13 +87,12 @@ func (e *RawEntry) FillMissingFields() {
 	}
 
 	if e.Scheme == "" {
-		if lp != "" {
+		switch {
+		case lp != "":
 			e.Scheme = "tcp"
-		} else if strings.HasSuffix(pp, "443") {
+		case strings.HasSuffix(pp, "443"):
 			e.Scheme = "https"
-		} else if _, ok := WellKnownHTTPPorts[pp]; ok {
-			e.Scheme = "http"
-		} else {
+		default:
 			// assume its http
 			e.Scheme = "http"
 		}
@@ -103,16 +102,16 @@ func (e *RawEntry) FillMissingFields() {
 		e.Host = "localhost"
 	}
 	if e.IdleTimeout == "" {
-		e.IdleTimeout = IdleTimeoutDefault
+		e.IdleTimeout = common.IdleTimeoutDefault
 	}
 	if e.WakeTimeout == "" {
-		e.WakeTimeout = WakeTimeoutDefault
+		e.WakeTimeout = common.WakeTimeoutDefault
 	}
 	if e.StopTimeout == "" {
-		e.StopTimeout = StopTimeoutDefault
+		e.StopTimeout = common.StopTimeoutDefault
 	}
 	if e.StopMethod == "" {
-		e.StopMethod = StopMethodDefault
+		e.StopMethod = common.StopMethodDefault
 	}
 
 	e.Port = joinPorts(lp, pp, extra)

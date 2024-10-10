@@ -30,7 +30,7 @@ func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, 
 	}
 	middlewares = make(map[string]*Middleware)
 	for name, defs := range rawMap {
-		chainErr := E.NewBuilder(name)
+		chainErr := E.NewBuilder("%s", name)
 		chain := make([]*Middleware, 0, len(defs))
 		for i, def := range defs {
 			if def["use"] == nil || def["use"] == "" {
@@ -64,7 +64,7 @@ func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, 
 	return
 }
 
-// TODO: check conflict or duplicates
+// TODO: check conflict or duplicates.
 func BuildMiddlewareFromChain(name string, chain []*Middleware) *Middleware {
 	m := &Middleware{name: name, children: chain}
 

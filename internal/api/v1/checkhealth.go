@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	U "github.com/yusing/go-proxy/internal/api/v1/utils"
+	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/config"
 	R "github.com/yusing/go-proxy/internal/route"
 )
@@ -13,7 +13,7 @@ import (
 func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	target := r.FormValue("target")
 	if target == "" {
-		U.HandleErr(w, r, U.ErrMissingKey("target"), http.StatusBadRequest)
+		HandleErr(w, r, ErrMissingKey("target"), http.StatusBadRequest)
 		return
 	}
 
@@ -22,7 +22,7 @@ func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 
 	switch {
 	case route == nil:
-		U.HandleErr(w, r, U.ErrNotFound("target", target), http.StatusNotFound)
+		HandleErr(w, r, ErrNotFound("target", target), http.StatusNotFound)
 		return
 	case route.Type() == R.RouteTypeReverseProxy:
 		ok = IsSiteHealthy(route.URL().String())

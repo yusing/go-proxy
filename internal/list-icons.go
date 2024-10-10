@@ -4,11 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"time"
-
-	"log"
 
 	"github.com/yusing/go-proxy/internal/utils"
 )
@@ -21,8 +20,10 @@ type GitHubContents struct { //! keep this, may reuse in future
 	Size int    `json:"size"`
 }
 
-const iconsCachePath = "/tmp/icons_cache.json"
-const updateInterval = 1 * time.Hour
+const (
+	iconsCachePath = "/tmp/icons_cache.json"
+	updateInterval = 1 * time.Hour
+)
 
 func ListAvailableIcons() ([]string, error) {
 	owner := "walkxcode"
@@ -30,13 +31,14 @@ func ListAvailableIcons() ([]string, error) {
 	ref := "main"
 
 	var lastUpdate time.Time
-	var icons = make([]string, 0)
+
+	icons := make([]string, 0)
 	info, err := os.Stat(iconsCachePath)
 	if err == nil {
 		lastUpdate = info.ModTime().Local()
 	}
 	if time.Since(lastUpdate) < updateInterval {
-		err := utils.LoadJson(iconsCachePath, &icons)
+		err := utils.LoadJSON(iconsCachePath, &icons)
 		if err == nil {
 			return icons, nil
 		}
@@ -51,7 +53,7 @@ func ListAvailableIcons() ([]string, error) {
 			icons = append(icons, content.Path)
 		}
 	}
-	err = utils.SaveJson(iconsCachePath, &icons, 0o644).Error()
+	err = utils.SaveJSON(iconsCachePath, &icons, 0o644).Error()
 	if err != nil {
 		log.Print("error saving cache", err)
 	}
@@ -59,7 +61,7 @@ func ListAvailableIcons() ([]string, error) {
 }
 
 func getRepoContents(client *http.Client, owner string, repo string, ref string, path string) ([]GitHubContents, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s", owner, repo, path, ref), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s", owner, repo, path, ref), nil)
 	if err != nil {
 		return nil, err
 	}

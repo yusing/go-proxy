@@ -4,9 +4,8 @@ import (
 	"sync"
 
 	"github.com/puzpuzpuz/xsync/v3"
-	"gopkg.in/yaml.v3"
-
 	E "github.com/yusing/go-proxy/internal/error"
+	"gopkg.in/yaml.v3"
 )
 
 type Map[KT comparable, VT any] struct {
@@ -25,6 +24,17 @@ func NewMapFrom[KT comparable, VT any](m map[KT]VT) (res Map[KT, VT]) {
 	return
 }
 
+// MapFind iterates over the map and returns the first value
+// that satisfies the given criteria. The iteration is stopped
+// once a value is found. If no value satisfies the criteria,
+// the function returns the zero value of CT.
+//
+// The criteria function takes a value of type VT and returns a
+// value of type CT and a boolean indicating whether the value
+// satisfies the criteria. The boolean value is used to determine
+// whether the iteration should be stopped.
+//
+// The function is safe for concurrent use.
 func MapFind[KT comparable, VT, CT any](m Map[KT, VT], criteria func(VT) (CT, bool)) (_ CT) {
 	result := make(chan CT, 1)
 
@@ -49,13 +59,15 @@ func MapFind[KT comparable, VT, CT any](m Map[KT, VT], criteria func(VT) (CT, bo
 	}
 }
 
-// MergeFrom add contents from another `Map`, ignore duplicated keys
+// MergeFrom merges the contents of another Map into this one, ignoring duplicated keys.
 //
 // Parameters:
-// - other: `Map` of values to add from
 //
-// Return:
-// - Map: a `Map` of duplicated keys-value pairs
+//	other: Map of values to add from
+//
+// Returns:
+//
+//	Map of duplicated keys-value pairs
 func (m Map[KT, VT]) MergeFrom(other Map[KT, VT]) Map[KT, VT] {
 	dups := NewMapOf[KT, VT]()
 
@@ -70,6 +82,15 @@ func (m Map[KT, VT]) MergeFrom(other Map[KT, VT]) Map[KT, VT] {
 	return dups
 }
 
+// RangeAll calls the given function for each key-value pair in the map.
+//
+// Parameters:
+//
+//	do: function to call for each key-value pair
+//
+// Returns:
+//
+//	nothing
 func (m Map[KT, VT]) RangeAll(do func(k KT, v VT)) {
 	m.Range(func(k KT, v VT) bool {
 		do(k, v)
@@ -77,6 +98,16 @@ func (m Map[KT, VT]) RangeAll(do func(k KT, v VT)) {
 	})
 }
 
+// RangeAllParallel calls the given function for each key-value pair in the map,
+// in parallel. The map is not safe for modification from within the function.
+//
+// Parameters:
+//
+//	do: function to call for each key-value pair
+//
+// Returns:
+//
+//	nothing
 func (m Map[KT, VT]) RangeAllParallel(do func(k KT, v VT)) {
 	var wg sync.WaitGroup
 	wg.Add(m.Size())
@@ -91,6 +122,15 @@ func (m Map[KT, VT]) RangeAllParallel(do func(k KT, v VT)) {
 	wg.Wait()
 }
 
+// RemoveAll removes all key-value pairs from the map where the value matches the given criteria.
+//
+// Parameters:
+//
+//	criteria: function to determine whether a value should be removed
+//
+// Returns:
+//
+//	nothing
 func (m Map[KT, VT]) RemoveAll(criteria func(VT) bool) {
 	m.Range(func(k KT, v VT) bool {
 		if criteria(v) {
@@ -105,6 +145,17 @@ func (m Map[KT, VT]) Has(k KT) bool {
 	return ok
 }
 
+// UnmarshalFromYAML unmarshals a yaml byte slice into the map.
+//
+// It overwrites all existing key-value pairs in the map.
+//
+// Parameters:
+//
+//	data: yaml byte slice to unmarshal
+//
+// Returns:
+//
+//	error: if the unmarshaling fails
 func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) E.NestedError {
 	if m.Size() != 0 {
 		return E.FailedWhy("unmarshal from yaml", "map is not empty")

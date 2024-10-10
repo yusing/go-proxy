@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -9,7 +8,6 @@ import (
 	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/types"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -21,8 +19,10 @@ type DockerProvider struct {
 	ExplicitOnly               bool
 }
 
-var AliasRefRegex = regexp.MustCompile(`#\d+`)
-var AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
+var (
+	AliasRefRegex    = regexp.MustCompile(`#\d+`)
+	AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
+)
 
 func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, E.NestedError) {
 	hostname, err := D.ParseDockerHostname(dockerHost)
@@ -33,7 +33,7 @@ func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImp
 }
 
 func (p *DockerProvider) String() string {
-	return fmt.Sprintf("docker: %s", p.name)
+	return "docker: " + p.name
 }
 
 func (p *DockerProvider) NewWatcher() W.Watcher {
@@ -49,7 +49,7 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 		return routes, E.FailWith("connect to docker", err)
 	}
 
-	errors := E.NewBuilder("errors when parse docker labels")
+	errors := E.NewBuilder("errors in docker labels")
 
 	for _, c := range info.Containers {
 		container := D.FromDocker(&c, p.dockerHost)
@@ -172,7 +172,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 }
 
 // Returns a list of proxy entries for a container.
-// Always non-nil
+// Always non-nil.
 func (p *DockerProvider) entriesFromContainerLabels(container D.Container) (entries types.RawEntries, _ E.NestedError) {
 	entries = types.NewProxyEntries()
 
@@ -206,7 +206,7 @@ func (p *DockerProvider) applyLabel(container D.Container, entries types.RawEntr
 	b := E.NewBuilder("errors in label %s", key)
 	defer b.To(&res)
 
-	refErr := E.NewBuilder("errors parsing alias references")
+	refErr := E.NewBuilder("errors in alias references")
 	replaceIndexRef := func(ref string) string {
 		index, err := strconv.Atoi(ref[1:])
 		if err != nil {
@@ -231,7 +231,7 @@ func (p *DockerProvider) applyLabel(container D.Container, entries types.RawEntr
 		// apply label for all aliases
 		entries.RangeAll(func(a string, e *types.RawEntry) {
 			if err = D.ApplyLabel(e, lbl); err.HasError() {
-				b.Add(err.Subjectf("alias %s", lbl.Target))
+				b.Add(err)
 			}
 		})
 	} else {
@@ -250,7 +250,7 @@ func (p *DockerProvider) applyLabel(container D.Container, entries types.RawEntr
 			return
 		}
 		if err = D.ApplyLabel(config, lbl); err.HasError() {
-			b.Add(err.Subjectf("alias %s", lbl.Target))
+			b.Add(err)
 		}
 	}
 	return

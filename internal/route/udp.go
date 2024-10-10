@@ -65,7 +65,6 @@ func (route *UDPRoute) Accept() (any, error) {
 
 	buffer := make([]byte, udpBufferSize)
 	nRead, srcAddr, err := in.ReadFromUDP(buffer)
-
 	if err != nil {
 		return nil, err
 	}

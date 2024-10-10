@@ -7,10 +7,12 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 )
 
-var configDirWatcher *dirWatcher
-var configDirWatcherMu sync.Mutex
+var (
+	configDirWatcher   *DirWatcher
+	configDirWatcherMu sync.Mutex
+)
 
-// create a new file watcher for file under ConfigBasePath
+// create a new file watcher for file under ConfigBasePath.
 func NewConfigFileWatcher(filename string) Watcher {
 	configDirWatcherMu.Lock()
 	defer configDirWatcherMu.Unlock()

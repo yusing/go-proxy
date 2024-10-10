@@ -15,5 +15,5 @@ func (c Client) Inspect(containerID string) (Container, E.NestedError) {
 	if err != nil {
 		return Container{}, E.From(err)
 	}
-	return FromJson(json, c.key), nil
+	return FromJSON(json, c.key), nil
 }

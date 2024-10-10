@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -9,16 +8,18 @@ import (
 	"os"
 	"path"
 
-	. "github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/common"
 )
 
-var branch = GetEnv("GOPROXY_BRANCH", "v0.5")
-var baseUrl = fmt.Sprintf("https://github.com/yusing/go-proxy/raw/%s", branch)
-var requiredConfigs = []Config{
-	{ConfigBasePath, true, false, ""},
-	{ComposeFileName, false, true, ComposeExampleFileName},
-	{path.Join(ConfigBasePath, ConfigFileName), false, true, ConfigExampleFileName},
-}
+var (
+	branch          = common.GetEnv("GOPROXY_BRANCH", "v0.6")
+	baseURL         = "https://github.com/yusing/go-proxy/raw/" + branch
+	requiredConfigs = []Config{
+		{common.ConfigBasePath, true, false, ""},
+		{common.ComposeFileName, false, true, common.ComposeExampleFileName},
+		{path.Join(common.ConfigBasePath, common.ConfigFileName), false, true, common.ConfigExampleFileName},
+	}
+)
 
 type Config struct {
 	Pathname         string
@@ -31,7 +32,9 @@ func Setup() {
 	log.Println("setting up go-proxy")
 	log.Println("branch:", branch)
 
-	os.Chdir("/setup")
+	if err := os.Chdir("/setup"); err != nil {
+		log.Fatalf("failed: %s\n", err)
+	}
 
 	for _, config := range requiredConfigs {
 		config.setup()
@@ -83,6 +86,7 @@ func touch(pathname string) {
 		log.Fatalf("failed: %s\n", err)
 	}
 }
+
 func fetch(remoteFilename string, outFileName string) {
 	if hasFileOrDir(outFileName) {
 		if remoteFilename == outFileName {
@@ -94,7 +98,7 @@ func fetch(remoteFilename string, outFileName string) {
 	}
 	log.Printf("downloading %q\n", remoteFilename)
 
-	url, err := url.JoinPath(baseUrl, remoteFilename)
+	url, err := url.JoinPath(baseURL, remoteFilename)
 	if err != nil {
 		log.Fatalf("unexpected error: %s\n", err)
 	}
@@ -104,17 +108,19 @@ func fetch(remoteFilename string, outFileName string) {
 		log.Fatalf("http request failed: %s\n", err)
 	}
 
-	defer resp.Body.Close()
-
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		resp.Body.Close()
 		log.Fatalf("error reading response body: %s\n", err)
 	}
 
 	err = os.WriteFile(outFileName, body, 0o644)
 	if err != nil {
+		resp.Body.Close()
 		log.Fatalf("failed to write to file: %s\n", err)
 	}
 
 	log.Printf("downloaded to %q\n", outFileName)
+
+	resp.Body.Close()
 }

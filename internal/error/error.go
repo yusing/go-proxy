@@ -8,16 +8,16 @@ import (
 )
 
 type (
-	NestedError = *nestedError
-	nestedError struct {
+	NestedError     = *NestedErrorImpl
+	NestedErrorImpl struct {
 		subject string
 		err     error
-		extras  []nestedError
+		extras  []NestedErrorImpl
 	}
-	jsonNestedError struct {
-		Subject string
-		Err     string
-		Extras  []jsonNestedError
+	JSONNestedError struct {
+		Subject string            `json:"subject"`
+		Err     string            `json:"error"`
+		Extras  []JSONNestedError `json:"extras,omitempty"`
 	}
 )
 
@@ -25,18 +25,18 @@ func From(err error) NestedError {
 	if IsNil(err) {
 		return nil
 	}
-	return &nestedError{err: err}
+	return &NestedErrorImpl{err: err}
 }
 
 func FromJSON(data []byte) (NestedError, bool) {
-	var j jsonNestedError
+	var j JSONNestedError
 	if err := json.Unmarshal(data, &j); err != nil {
 		return nil, false
 	}
 	if j.Err == "" {
 		return nil, false
 	}
-	extras := make([]nestedError, len(j.Extras))
+	extras := make([]NestedErrorImpl, len(j.Extras))
 	for i, e := range j.Extras {
 		extra, ok := fromJSONObject(e)
 		if !ok {
@@ -44,7 +44,7 @@ func FromJSON(data []byte) (NestedError, bool) {
 		}
 		extras[i] = *extra
 	}
-	return &nestedError{
+	return &NestedErrorImpl{
 		subject: j.Subject,
 		err:     errors.New(j.Err),
 		extras:  extras,
@@ -58,26 +58,26 @@ func Check[T any](obj T, err error) (T, NestedError) {
 }
 
 func Join(message string, err ...NestedError) NestedError {
-	extras := make([]nestedError, len(err))
+	extras := make([]NestedErrorImpl, len(err))
 	nErr := 0
 	for i, e := range err {
 		if e == nil {
 			continue
 		}
 		extras[i] = *e
-		nErr += 1
+		nErr++
 	}
 	if nErr == 0 {
 		return nil
 	}
-	return &nestedError{
+	return &NestedErrorImpl{
 		err:    errors.New(message),
 		extras: extras,
 	}
 }
 
 func JoinE(message string, err ...error) NestedError {
-	b := NewBuilder(message)
+	b := NewBuilder("%s", message)
 	for _, e := range err {
 		b.AddE(e)
 	}
@@ -151,7 +151,7 @@ func (ne NestedError) Extraf(format string, args ...any) NestedError {
 	return ne.With(errorf(format, args...))
 }
 
-func (ne NestedError) Subject(s any) NestedError {
+func (ne NestedError) Subject(s any, sep ...string) NestedError {
 	if ne == nil {
 		return ne
 	}
@@ -164,11 +164,12 @@ func (ne NestedError) Subject(s any) NestedError {
 	default:
 		subject = fmt.Sprint(s)
 	}
-	if ne.subject == "" {
+	switch {
+	case ne.subject == "":
 		ne.subject = subject
-	} else if !strings.ContainsRune(subject, ' ') || strings.ContainsRune(ne.subject, '.') {
-		ne.subject = fmt.Sprintf("%s.%s", subject, ne.subject)
-	} else {
+	case len(sep) > 0:
+		ne.subject = fmt.Sprintf("%s%s%s", subject, sep[0], ne.subject)
+	default:
 		ne.subject = fmt.Sprintf("%s > %s", subject, ne.subject)
 	}
 	return ne
@@ -178,21 +179,15 @@ func (ne NestedError) Subjectf(format string, args ...any) NestedError {
 	if ne == nil {
 		return ne
 	}
-	if strings.Contains(format, "%q") {
-		panic("Subjectf format should not contain %q")
-	}
-	if strings.Contains(format, "%w") {
-		panic("Subjectf format should not contain %w")
-	}
 	return ne.Subject(fmt.Sprintf(format, args...))
 }
 
-func (ne NestedError) JSONObject() jsonNestedError {
-	extras := make([]jsonNestedError, len(ne.extras))
+func (ne NestedError) JSONObject() JSONNestedError {
+	extras := make([]JSONNestedError, len(ne.extras))
 	for i, e := range ne.extras {
 		extras[i] = e.JSONObject()
 	}
-	return jsonNestedError{
+	return JSONNestedError{
 		Subject: ne.subject,
 		Err:     ne.err.Error(),
 		Extras:  extras,
@@ -200,7 +195,10 @@ func (ne NestedError) JSONObject() jsonNestedError {
 }
 
 func (ne NestedError) JSON() []byte {
-	b, _ := json.MarshalIndent(ne.JSONObject(), "", "  ")
+	b, err := json.MarshalIndent(ne.JSONObject(), "", "  ")
+	if err != nil {
+		panic(err)
+	}
 	return b
 }
 
@@ -216,7 +214,7 @@ func errorf(format string, args ...any) NestedError {
 	return From(fmt.Errorf(format, args...))
 }
 
-func fromJSONObject(obj jsonNestedError) (NestedError, bool) {
+func fromJSONObject(obj JSONNestedError) (NestedError, bool) {
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, false
@@ -240,7 +238,7 @@ func (ne NestedError) appendMsg(msg string) NestedError {
 }
 
 func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
-	for i := 0; i < level; i++ {
+	for range level {
 		sb.WriteString("  ")
 	}
 	sb.WriteString(prefix)
@@ -267,7 +265,7 @@ func (ne NestedError) buildError(level int, prefix string) error {
 	var res error
 	var sb strings.Builder
 
-	for i := 0; i < level; i++ {
+	for range level {
 		sb.WriteString("  ")
 	}
 	sb.WriteString(prefix)

@@ -18,9 +18,9 @@ type templateData struct {
 var loadingPage []byte
 var loadingPageTmpl = template.Must(template.New("loading_page").Parse(string(loadingPage)))
 
-const headerCheckRedirect = "X-GoProxy-Check-Redirect"
+const headerCheckRedirect = "X-Goproxy-Check-Redirect"
 
-func (w *watcher) makeRespBody(format string, args ...any) []byte {
+func (w *Watcher) makeRespBody(format string, args ...any) []byte {
 	msg := fmt.Sprintf(format, args...)
 
 	data := new(templateData)

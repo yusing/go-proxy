@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -39,7 +38,7 @@ func FromDocker(c *types.Container, dockerHost string) (res Container) {
 	return
 }
 
-func FromJson(json types.ContainerJSON, dockerHost string) Container {
+func FromJSON(json types.ContainerJSON, dockerHost string) Container {
 	ports := make([]types.Port, 0)
 	for k, bindings := range json.NetworkSettings.Ports {
 		for _, v := range bindings {
@@ -76,9 +75,8 @@ func (c Container) getDeleteLabel(label string) string {
 func (c Container) getAliases() []string {
 	if l := c.getDeleteLabel(LabelAliases); l != "" {
 		return U.CommaSeperatedList(l)
-	} else {
-		return []string{c.getName()}
 	}
+	return []string{c.getName()}
 }
 
 func (c Container) getName() string {
@@ -97,7 +95,7 @@ func (c Container) getPublicPortMapping() PortMapping {
 		if v.PublicPort == 0 {
 			continue
 		}
-		res[fmt.Sprint(v.PublicPort)] = v
+		res[U.PortString(v.PublicPort)] = v
 	}
 	return res
 }
@@ -105,7 +103,7 @@ func (c Container) getPublicPortMapping() PortMapping {
 func (c Container) getPrivatePortMapping() PortMapping {
 	res := make(PortMapping)
 	for _, v := range c.Ports {
-		res[fmt.Sprint(v.PrivatePort)] = v
+		res[U.PortString(v.PrivatePort)] = v
 	}
 	return res
 }

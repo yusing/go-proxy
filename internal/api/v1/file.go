@@ -24,7 +24,7 @@ func GetFileContent(w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, err)
 		return
 	}
-	w.Write(content)
+	U.WriteBody(w, content)
 }
 
 func SetFileContent(w http.ResponseWriter, r *http.Request) {
@@ -47,11 +47,11 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if validateErr != nil {
-		U.RespondJson(w, validateErr.JSONObject(), http.StatusBadRequest)
+		U.RespondJSON(w, r, validateErr.JSONObject(), http.StatusBadRequest)
 		return
 	}
 
-	err = os.WriteFile(path.Join(common.ConfigBasePath, filename), content, 0644)
+	err = os.WriteFile(path.Join(common.ConfigBasePath, filename), content, 0o644)
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return

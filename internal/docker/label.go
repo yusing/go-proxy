@@ -47,7 +47,7 @@ func ApplyLabel[T any](obj *T, l *Label) E.NestedError {
 	case *Label:
 		var field reflect.Value
 		objType := reflect.TypeFor[T]()
-		for i := 0; i < reflect.TypeFor[T]().NumField(); i++ {
+		for i := range reflect.TypeFor[T]().NumField() {
 			if objType.Field(i).Tag.Get("yaml") == l.Attribute {
 				field = reflect.ValueOf(obj).Elem().Field(i)
 				break

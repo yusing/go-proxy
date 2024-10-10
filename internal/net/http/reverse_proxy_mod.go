@@ -24,10 +24,9 @@ import (
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/net/http/httpguts"
-
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"golang.org/x/net/http/httpguts"
 )
 
 // A ProxyRequest contains a request to be rewritten by a [ReverseProxy].
@@ -222,6 +221,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 	transport := p.Transport
 
 	ctx := req.Context()
+	/* trunk-ignore(golangci-lint/revive) */
 	if ctx.Done() != nil {
 		// CloseNotifier predates context.Context, and has been
 		// entirely superseded by it. If the request contains
@@ -460,7 +460,7 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 
 	backConn, ok := res.Body.(io.ReadWriteCloser)
 	if !ok {
-		p.errorHandler(rw, req, fmt.Errorf("internal error: 101 switching protocols response with non-writable body"), true)
+		p.errorHandler(rw, req, errors.New("internal error: 101 switching protocols response with non-writable body"), true)
 		return
 	}
 
@@ -494,21 +494,24 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 	res.Header = rw.Header()
 	res.Body = nil // so res.Write only writes the headers; we have res.Body in backConn above
 	if err := res.Write(brw); err != nil {
+		/* trunk-ignore(golangci-lint/errorlint) */
 		p.errorHandler(rw, req, fmt.Errorf("response write: %s", err), true)
 		return
 	}
 	if err := brw.Flush(); err != nil {
+		/* trunk-ignore(golangci-lint/errorlint) */
 		p.errorHandler(rw, req, fmt.Errorf("response flush: %s", err), true)
 		return
 	}
 
 	bdp := U.NewBidirectionalPipe(req.Context(), conn, backConn)
+	/* trunk-ignore(golangci-lint/errcheck) */
 	bdp.Start()
 }
 
 func IsPrint(s string) bool {
-	for i := 0; i < len(s); i++ {
-		if s[i] < ' ' || s[i] > '~' {
+	for _, r := range s {
+		if r < ' ' || r > '~' {
 			return false
 		}
 	}

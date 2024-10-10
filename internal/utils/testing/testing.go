@@ -92,7 +92,6 @@ func ExpectType[T any](t *testing.T, got any) (_ T) {
 	_, ok := got.(T)
 	if !ok {
 		t.Fatalf("expected type %s, got %s", tExpect, reflect.TypeOf(got).Elem())
-		t.FailNow()
 		return
 	}
 	return got.(T)

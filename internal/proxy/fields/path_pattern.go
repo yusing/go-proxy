@@ -6,8 +6,12 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-type PathPattern string
-type PathPatterns = []PathPattern
+type (
+	PathPattern  string
+	PathPatterns = []PathPattern
+)
+
+var pathPattern = regexp.MustCompile(`^(/[-\w./]*({\$\})?|((GET|POST|DELETE|PUT|HEAD|OPTION) /[-\w./]*({\$\})?))$`)
 
 func NewPathPattern(s string) (PathPattern, E.NestedError) {
 	if len(s) == 0 {
@@ -25,13 +29,11 @@ func ValidatePathPatterns(s []string) (PathPatterns, E.NestedError) {
 	}
 	pp := make(PathPatterns, len(s))
 	for i, v := range s {
-		if pattern, err := NewPathPattern(v); err.HasError() {
+		pattern, err := NewPathPattern(v)
+		if err != nil {
 			return nil, err
-		} else {
-			pp[i] = pattern
 		}
+		pp[i] = pattern
 	}
 	return pp, nil
 }
-
-var pathPattern = regexp.MustCompile(`^(/[-\w./]*({\$\})?|((GET|POST|DELETE|PUT|HEAD|OPTION) /[-\w./]*({\$\})?))$`)

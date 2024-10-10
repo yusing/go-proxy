@@ -99,31 +99,21 @@ func (p *Provider) GetType() ProviderType {
 	return p.t
 }
 
-// to work with json marshaller
+// to work with json marshaller.
 func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
 func (p *Provider) StartAllRoutes() (res E.NestedError) {
-	errors := E.NewBuilder("errors in routes")
+	errors := E.NewBuilder("errors starting routes")
 	defer errors.To(&res)
 
 	// start watcher no matter load success or not
 	go p.watchEvents()
 
-	nStarted := 0
-	nFailed := 0
-
 	p.routes.RangeAllParallel(func(alias string, r R.Route) {
-		if err := r.Start(); err.HasError() {
-			errors.Add(err.Subject(r))
-			nFailed++
-		} else {
-			nStarted++
-		}
+		errors.Add(r.Start().Subject(r))
 	})
-
-	p.l.Debugf("%d routes started, %d failed", nStarted, nFailed)
 	return
 }
 
@@ -133,20 +123,12 @@ func (p *Provider) StopAllRoutes() (res E.NestedError) {
 		p.watcherCancel = nil
 	}
 
-	errors := E.NewBuilder("errors stopping routes for provider %q", p.name)
+	errors := E.NewBuilder("errors stopping routes")
 	defer errors.To(&res)
 
-	nStopped := 0
-	nFailed := 0
 	p.routes.RangeAllParallel(func(alias string, r R.Route) {
-		if err := r.Stop(); err.HasError() {
-			errors.Add(err.Subject(r))
-			nFailed++
-		} else {
-			nStopped++
-		}
+		errors.Add(r.Stop().Subject(r))
 	})
-	p.l.Debugf("%d routes stopped, %d failed", nStopped, nFailed)
 	return
 }
 
@@ -164,6 +146,9 @@ func (p *Provider) LoadRoutes() E.NestedError {
 	if p.routes.Size() > 0 {
 		p.l.Infof("loaded %d routes", p.routes.Size())
 		return err
+	}
+	if err == nil {
+		return nil
 	}
 	return E.FailWith("loading routes", err)
 }

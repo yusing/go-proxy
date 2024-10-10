@@ -30,7 +30,7 @@ type StreamRoute struct {
 type StreamImpl interface {
 	Setup() error
 	Accept() (any, error)
-	Handle(any) error
+	Handle(conn any) error
 	CloseListeners()
 	String() string
 }

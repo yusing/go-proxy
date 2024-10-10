@@ -16,22 +16,23 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/types"
-
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
-type Provider struct {
-	cfg     *Config
-	user    *User
-	legoCfg *lego.Config
-	client  *lego.Client
+type (
+	Provider struct {
+		cfg     *Config
+		user    *User
+		legoCfg *lego.Config
+		client  *lego.Client
 
-	tlsCert      *tls.Certificate
-	certExpiries CertExpiries
-}
+		tlsCert      *tls.Certificate
+		certExpiries CertExpiries
+	}
+	ProviderGenerator func(types.AutocertProviderOpt) (challenge.Provider, E.NestedError)
 
-type ProviderGenerator func(types.AutocertProviderOpt) (challenge.Provider, E.NestedError)
-type CertExpiries map[string]time.Time
+	CertExpiries map[string]time.Time
+)
 
 func (p *Provider) GetCert(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	if p.tlsCert == nil {
@@ -192,8 +193,8 @@ func (p *Provider) registerACME() E.NestedError {
 }
 
 func (p *Provider) saveCert(cert *certificate.Resource) E.NestedError {
-	//* This should have been done in setup
-	//* but double check is always a good choice
+	/* This should have been done in setup
+	but double check is always a good choice.*/
 	_, err := os.Stat(path.Dir(p.cfg.CertPath))
 	if err != nil {
 		if os.IsNotExist(err) {

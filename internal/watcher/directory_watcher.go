@@ -13,7 +13,7 @@ import (
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
-type dirWatcher struct {
+type DirWatcher struct {
 	dir string
 	w   *fsnotify.Watcher
 
@@ -26,7 +26,7 @@ type dirWatcher struct {
 	ctx context.Context
 }
 
-func NewDirectoryWatcher(ctx context.Context, dirPath string) *dirWatcher {
+func NewDirectoryWatcher(ctx context.Context, dirPath string) *DirWatcher {
 	//! subdirectories are not watched
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -35,7 +35,7 @@ func NewDirectoryWatcher(ctx context.Context, dirPath string) *dirWatcher {
 	if err = w.Add(dirPath); err != nil {
 		logrus.Panicf("unable to create fs watcher: %s", err)
 	}
-	helper := &dirWatcher{
+	helper := &DirWatcher{
 		dir:     dirPath,
 		w:       w,
 		fwMap:   F.NewMapOf[string, *fileWatcher](),
@@ -47,11 +47,11 @@ func NewDirectoryWatcher(ctx context.Context, dirPath string) *dirWatcher {
 	return helper
 }
 
-func (h *dirWatcher) Events(_ context.Context) (<-chan Event, <-chan E.NestedError) {
+func (h *DirWatcher) Events(_ context.Context) (<-chan Event, <-chan E.NestedError) {
 	return h.eventCh, h.errCh
 }
 
-func (h *dirWatcher) Add(relPath string) *fileWatcher {
+func (h *DirWatcher) Add(relPath string) Watcher {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -85,7 +85,7 @@ func (h *dirWatcher) Add(relPath string) *fileWatcher {
 	return s
 }
 
-func (h *dirWatcher) start() {
+func (h *DirWatcher) start() {
 	defer close(h.eventCh)
 	defer h.w.Close()
 
