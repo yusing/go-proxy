@@ -15,24 +15,24 @@ import (
 
 type (
 	ReverseProxyEntry struct { // real model after validation
-		Alias        T.Alias
-		Scheme       T.Scheme
-		URL          net.URL
-		NoTLSVerify  bool
-		PathPatterns T.PathPatterns
-		LoadBalance  loadbalancer.Config
-		Middlewares  D.NestedLabelMap
+		Alias        T.Alias             `json:"alias"`
+		Scheme       T.Scheme            `json:"scheme"`
+		URL          net.URL             `json:"url"`
+		NoTLSVerify  bool                `json:"no_tls_verify"`
+		PathPatterns T.PathPatterns      `json:"path_patterns"`
+		LoadBalance  loadbalancer.Config `json:"load_balance"`
+		Middlewares  D.NestedLabelMap    `json:"middlewares"`
 
 		/* Docker only */
-		IdleTimeout      time.Duration
-		WakeTimeout      time.Duration
-		StopMethod       T.StopMethod
-		StopTimeout      int
-		StopSignal       T.Signal
-		DockerHost       string
-		ContainerName    string
-		ContainerID      string
-		ContainerRunning bool
+		IdleTimeout      time.Duration `json:"idle_timeout"`
+		WakeTimeout      time.Duration `json:"wake_timeout"`
+		StopMethod       T.StopMethod  `json:"stop_method"`
+		StopTimeout      int           `json:"stop_timeout"`
+		StopSignal       T.Signal      `json:"stop_signal"`
+		DockerHost       string        `json:"docker_host"`
+		ContainerName    string        `json:"container_name"`
+		ContainerID      string        `json:"container_id"`
+		ContainerRunning bool          `json:"container_running"`
 	}
 	StreamEntry struct {
 		Alias  T.Alias        `json:"alias"`
