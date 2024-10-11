@@ -5,18 +5,17 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	"github.com/yusing/go-proxy/internal/server"
 	"github.com/yusing/go-proxy/internal/utils"
-
-	"github.com/coder/websocket"
-	"github.com/coder/websocket/wsjson"
 )
 
 func Stats(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	U.HandleErr(w, r, U.RespondJson(w, getStats(cfg)))
+	U.RespondJSON(w, r, getStats(cfg))
 }
 
 func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
@@ -42,6 +41,7 @@ func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		U.Logger.Errorf("/stats/ws failed to upgrade websocket: %s", err)
 		return
 	}
+	/* trunk-ignore(golangci-lint/errcheck) */
 	defer conn.CloseNow()
 
 	ctx, cancel := context.WithCancel(context.Background())

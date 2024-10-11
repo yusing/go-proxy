@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
-	"github.com/yusing/go-proxy/internal/api/v1/error_page"
+	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
 	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -36,11 +36,11 @@ func NewHandler(cfg *config.Config) http.Handler {
 	mux.HandleFunc("PUT", "/v1/file/{filename...}", v1.SetFileContent)
 	mux.HandleFunc("GET", "/v1/stats", wrap(cfg, v1.Stats))
 	mux.HandleFunc("GET", "/v1/stats/ws", wrap(cfg, v1.StatsWS))
-	mux.HandleFunc("GET", "/v1/error_page", error_page.GetHandleFunc())
+	mux.HandleFunc("GET", "/v1/error_page", errorpage.GetHandleFunc())
 	return mux
 }
 
-// allow only requests to API server with host matching common.APIHTTPAddr
+// allow only requests to API server with host matching common.APIHTTPAddr.
 func checkHost(f http.HandlerFunc) http.HandlerFunc {
 	if common.IsDebug {
 		return f
@@ -48,8 +48,7 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Host != common.APIHTTPAddr {
 			Logger.Warnf("invalid request to API server with host: %s, expect %s", r.Host, common.APIHTTPAddr)
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte("invalid request"))
+			http.Error(w, "invalid request", http.StatusForbidden)
 			return
 		}
 		f(w, r)

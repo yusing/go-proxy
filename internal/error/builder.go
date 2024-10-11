@@ -21,7 +21,7 @@ func NewBuilder(format string, args ...any) Builder {
 }
 
 // adding nil / nil is no-op,
-// you may safely pass expressions returning error to it
+// you may safely pass expressions returning error to it.
 func (b Builder) Add(err NestedError) Builder {
 	if err != nil {
 		b.Lock()
@@ -37,6 +37,13 @@ func (b Builder) AddE(err error) Builder {
 
 func (b Builder) Addf(format string, args ...any) Builder {
 	return b.Add(errorf(format, args...))
+}
+
+func (b Builder) AddRangeE(errs ...error) Builder {
+	for _, err := range errs {
+		b.AddE(err)
+	}
+	return b
 }
 
 // Build builds a NestedError based on the errors collected in the Builder.
@@ -56,12 +63,13 @@ func (b Builder) Build() NestedError {
 }
 
 func (b Builder) To(ptr *NestedError) {
-	if ptr == nil {
+	switch {
+	case ptr == nil:
 		return
-	} else if *ptr == nil {
+	case *ptr == nil:
 		*ptr = b.Build()
-	} else {
-		(*ptr).With(b.Build())
+	default:
+		(*ptr).extras = append((*ptr).extras, *b.Build())
 	}
 }
 

@@ -1,45 +1,78 @@
 package docker
 
 import (
-	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/sirupsen/logrus"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
-type Container struct {
-	*types.Container
-	*ProxyProperties
-}
+type (
+	PortMapping = map[string]types.Port
+	Container   struct {
+		_ U.NoCopy
 
-func FromDocker(c *types.Container, dockerHost string) (res Container) {
-	res.Container = c
-	isExplicit := c.Labels[LabelAliases] != ""
-	res.ProxyProperties = &ProxyProperties{
-		DockerHost:         dockerHost,
-		ContainerName:      res.getName(),
-		ContainerID:        c.ID,
-		ImageName:          res.getImageName(),
-		PublicPortMapping:  res.getPublicPortMapping(),
-		PrivatePortMapping: res.getPrivatePortMapping(),
-		NetworkMode:        c.HostConfig.NetworkMode,
-		Aliases:            res.getAliases(),
-		IsExcluded:         U.ParseBool(res.getDeleteLabel(LabelExclude)),
-		IsExplicit:         isExplicit,
-		IsDatabase:         res.isDatabase(),
-		IdleTimeout:        res.getDeleteLabel(LabelIdleTimeout),
-		WakeTimeout:        res.getDeleteLabel(LabelWakeTimeout),
-		StopMethod:         res.getDeleteLabel(LabelStopMethod),
-		StopTimeout:        res.getDeleteLabel(LabelStopTimeout),
-		StopSignal:         res.getDeleteLabel(LabelStopSignal),
-		Running:            c.Status == "running" || c.State == "running",
+		DockerHost    string `json:"docker_host" yaml:"-"`
+		ContainerName string `json:"container_name" yaml:"-"`
+		ContainerID   string `json:"container_id" yaml:"-"`
+		ImageName     string `json:"image_name" yaml:"-"`
+
+		Labels map[string]string `json:"labels" yaml:"-"`
+
+		PublicPortMapping  PortMapping `json:"public_ports" yaml:"-"`  // non-zero publicPort:types.Port
+		PrivatePortMapping PortMapping `json:"private_ports" yaml:"-"` // privatePort:types.Port
+		PublicIP           string      `json:"public_ip" yaml:"-"`
+		PrivateIP          string      `json:"private_ip" yaml:"-"`
+		NetworkMode        string      `json:"network_mode" yaml:"-"`
+
+		Aliases     []string `json:"aliases" yaml:"-"`
+		IsExcluded  bool     `json:"is_excluded" yaml:"-"`
+		IsExplicit  bool     `json:"is_explicit" yaml:"-"`
+		IsDatabase  bool     `json:"is_database" yaml:"-"`
+		IdleTimeout string   `json:"idle_timeout" yaml:"-"`
+		WakeTimeout string   `json:"wake_timeout" yaml:"-"`
+		StopMethod  string   `json:"stop_method" yaml:"-"`
+		StopTimeout string   `json:"stop_timeout" yaml:"-"` // stop_method = "stop" only
+		StopSignal  string   `json:"stop_signal" yaml:"-"`  // stop_method = "stop" | "kill" only
+		Running     bool     `json:"running" yaml:"-"`
 	}
+)
+
+func FromDocker(c *types.Container, dockerHost string) (res *Container) {
+	isExplicit := c.Labels[LabelAliases] != ""
+	helper := containerHelper{c}
+	res = &Container{
+		DockerHost:    dockerHost,
+		ContainerName: helper.getName(),
+		ContainerID:   c.ID,
+		ImageName:     helper.getImageName(),
+
+		Labels: c.Labels,
+
+		PublicPortMapping:  helper.getPublicPortMapping(),
+		PrivatePortMapping: helper.getPrivatePortMapping(),
+		NetworkMode:        c.HostConfig.NetworkMode,
+
+		Aliases:     helper.getAliases(),
+		IsExcluded:  U.ParseBool(helper.getDeleteLabel(LabelExclude)),
+		IsExplicit:  isExplicit,
+		IsDatabase:  helper.isDatabase(),
+		IdleTimeout: helper.getDeleteLabel(LabelIdleTimeout),
+		WakeTimeout: helper.getDeleteLabel(LabelWakeTimeout),
+		StopMethod:  helper.getDeleteLabel(LabelStopMethod),
+		StopTimeout: helper.getDeleteLabel(LabelStopTimeout),
+		StopSignal:  helper.getDeleteLabel(LabelStopSignal),
+		Running:     c.Status == "running" || c.State == "running",
+	}
+	res.setPrivateIP(helper)
+	res.setPublicIP()
 	return
 }
 
-func FromJson(json types.ContainerJSON, dockerHost string) Container {
+func FromJSON(json types.ContainerJSON, dockerHost string) *Container {
 	ports := make([]types.Port, 0)
 	for k, bindings := range json.NetworkSettings.Ports {
 		for _, v := range bindings {
@@ -65,79 +98,32 @@ func FromJson(json types.ContainerJSON, dockerHost string) Container {
 	return cont
 }
 
-func (c Container) getDeleteLabel(label string) string {
-	if l, ok := c.Labels[label]; ok {
-		delete(c.Labels, label)
-		return l
+func (c *Container) setPublicIP() {
+	if c.PublicPortMapping == nil {
+		return
 	}
-	return ""
-}
-
-func (c Container) getAliases() []string {
-	if l := c.getDeleteLabel(LabelAliases); l != "" {
-		return U.CommaSeperatedList(l)
-	} else {
-		return []string{c.getName()}
+	if strings.HasPrefix(c.DockerHost, "unix://") {
+		c.PublicIP = "127.0.0.1"
+		return
 	}
-}
-
-func (c Container) getName() string {
-	return strings.TrimPrefix(c.Names[0], "/")
-}
-
-func (c Container) getImageName() string {
-	colonSep := strings.Split(c.Image, ":")
-	slashSep := strings.Split(colonSep[0], "/")
-	return slashSep[len(slashSep)-1]
-}
-
-func (c Container) getPublicPortMapping() PortMapping {
-	res := make(PortMapping)
-	for _, v := range c.Ports {
-		if v.PublicPort == 0 {
-			continue
-		}
-		res[fmt.Sprint(v.PublicPort)] = v
+	url, err := url.Parse(c.DockerHost)
+	if err != nil {
+		logrus.Errorf("invalid docker host %q: %v\nfalling back to 127.0.0.1", c.DockerHost, err)
+		c.PublicIP = "127.0.0.1"
+		return
 	}
-	return res
+	c.PublicIP = url.Hostname()
 }
 
-func (c Container) getPrivatePortMapping() PortMapping {
-	res := make(PortMapping)
-	for _, v := range c.Ports {
-		res[fmt.Sprint(v.PrivatePort)] = v
+func (c *Container) setPrivateIP(helper containerHelper) {
+	if !strings.HasPrefix(c.DockerHost, "unix://") {
+		return
 	}
-	return res
-}
-
-var databaseMPs = map[string]struct{}{
-	"/var/lib/postgresql/data": {},
-	"/var/lib/mysql":           {},
-	"/var/lib/mongodb":         {},
-	"/var/lib/mariadb":         {},
-	"/var/lib/memcached":       {},
-	"/var/lib/rabbitmq":        {},
-}
-
-var databasePrivPorts = map[uint16]struct{}{
-	5432:  {}, // postgres
-	3306:  {}, // mysql, mariadb
-	6379:  {}, // redis
-	11211: {}, // memcached
-	27017: {}, // mongodb
-}
-
-func (c Container) isDatabase() bool {
-	for _, m := range c.Container.Mounts {
-		if _, ok := databaseMPs[m.Destination]; ok {
-			return true
-		}
+	if helper.NetworkSettings == nil {
+		return
 	}
-
-	for _, v := range c.Ports {
-		if _, ok := databasePrivPorts[v.PrivatePort]; ok {
-			return true
-		}
+	for _, v := range helper.NetworkSettings.Networks {
+		c.PrivateIP = v.IPAddress
+		return
 	}
-	return false
 }

@@ -1,10 +1,9 @@
-package error_test
+package error
 
 import (
 	"errors"
 	"testing"
 
-	. "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -88,8 +87,7 @@ func TestErrorNested(t *testing.T) {
 		With("baz").
 		With(inner).
 		With(inner.With(inner2.With(inner3)))
-	want :=
-		`foo failed:
+	want := `foo failed:
   - bar
   - baz
   - inner failed:

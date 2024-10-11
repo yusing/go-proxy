@@ -10,8 +10,8 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-// TODO: stats of each server
-// TODO: support weighted mode
+// TODO: stats of each server.
+// TODO: support weighted mode.
 type (
 	impl interface {
 		ServeHTTP(srvs servers, rw http.ResponseWriter, r *http.Request)

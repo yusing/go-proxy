@@ -21,29 +21,21 @@ type Client struct {
 	l logrus.FieldLogger
 }
 
-func ParseDockerHostname(host string) (string, E.NestedError) {
-	switch host {
-	case common.DockerHostFromEnv, "":
-		return "localhost", nil
-	}
-	url, err := E.Check(client.ParseHostURL(host))
-	if err != nil {
-		return "", E.Invalid("host", host).With(err)
-	}
-	return url.Hostname(), nil
-}
+var (
+	clientMap   F.Map[string, Client] = F.NewMapOf[string, Client]()
+	clientMapMu sync.Mutex
 
-func (c Client) DaemonHostname() string {
-	// DaemonHost should always return a valid host
-	hostname, _ := ParseDockerHostname(c.DaemonHost())
-	return hostname
-}
+	clientOptEnvHost = []client.Opt{
+		client.WithHostFromEnv(),
+		client.WithAPIVersionNegotiation(),
+	}
+)
 
 func (c Client) Connected() bool {
 	return c.Client != nil
 }
 
-// if the client is still referenced, this is no-op
+// if the client is still referenced, this is no-op.
 func (c *Client) Close() error {
 	if c.refCount.Add(-1) > 0 {
 		return nil
@@ -86,6 +78,8 @@ func ConnectClient(host string) (Client, E.NestedError) {
 	var opt []client.Opt
 
 	switch host {
+	case "":
+		return Client{}, E.Invalid("docker host", "empty")
 	case common.DockerHostFromEnv:
 		opt = clientOptEnvHost
 	default:
@@ -139,15 +133,3 @@ func CloseAllClients() {
 	clientMap.Clear()
 	logger.Debug("closed all clients")
 }
-
-var (
-	clientMap   F.Map[string, Client] = F.NewMapOf[string, Client]()
-	clientMapMu sync.Mutex
-
-	clientOptEnvHost = []client.Opt{
-		client.WithHostFromEnv(),
-		client.WithAPIVersionNegotiation(),
-	}
-
-	logger = logrus.WithField("module", "docker")
-)

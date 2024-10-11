@@ -1,33 +1,35 @@
 package types
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
-	. "github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	H "github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
+	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type (
 	RawEntry struct {
+		_ U.NoCopy
+
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string              `yaml:"-" json:"-"`
-		Scheme       string              `yaml:"scheme" json:"scheme"`
-		Host         string              `yaml:"host" json:"host"`
-		Port         string              `yaml:"port" json:"port"`
-		NoTLSVerify  bool                `yaml:"no_tls_verify" json:"no_tls_verify,omitempty"` // https proxy only
-		PathPatterns []string            `yaml:"path_patterns" json:"path_patterns,omitempty"` // http(s) proxy only
-		LoadBalance  loadbalancer.Config `yaml:"load_balance" json:"load_balance"`
-		Middlewares  D.NestedLabelMap    `yaml:"middlewares" json:"middlewares,omitempty"`
-		Homepage     *H.HomePageItem     `yaml:"homepage" json:"homepage,omitempty"`
+		Alias        string              `json:"-" yaml:"-"`
+		Scheme       string              `json:"scheme" yaml:"scheme"`
+		Host         string              `json:"host" yaml:"host"`
+		Port         string              `json:"port" yaml:"port"`
+		NoTLSVerify  bool                `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
+		PathPatterns []string            `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
+		LoadBalance  loadbalancer.Config `json:"load_balance" yaml:"load_balance"`
+		Middlewares  D.NestedLabelMap    `json:"middlewares,omitempty" yaml:"middlewares"`
+		Homepage     *H.HomePageItem     `json:"homepage,omitempty" yaml:"homepage"`
 
 		/* Docker only */
-		*D.ProxyProperties `yaml:"-" json:"proxy_properties"`
+		*D.Container `json:"container" yaml:"-"`
 	}
 
 	RawEntries = F.Map[string, *RawEntry]
@@ -36,21 +38,32 @@ type (
 var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
 func (e *RawEntry) FillMissingFields() {
-	isDocker := e.ProxyProperties != nil
+	isDocker := e.Container != nil
 	if !isDocker {
-		e.ProxyProperties = &D.ProxyProperties{}
+		e.Container = &D.Container{}
+	}
+
+	if e.Host == "" {
+		switch {
+		case e.PrivateIP != "":
+			e.Host = e.PrivateIP
+		case e.PublicIP != "":
+			e.Host = e.PublicIP
+		default:
+			e.Host = "localhost"
+		}
 	}
 
 	lp, pp, extra := e.splitPorts()
 
-	if port, ok := ServiceNamePortMapTCP[e.ImageName]; ok {
+	if port, ok := common.ServiceNamePortMapTCP[e.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
 		if e.Scheme == "" {
 			e.Scheme = "tcp"
 		}
-	} else if port, ok := ImageNamePortMap[e.ImageName]; ok {
+	} else if port, ok := common.ImageNamePortMap[e.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
@@ -61,58 +74,68 @@ func (e *RawEntry) FillMissingFields() {
 		pp = "443"
 	} else if pp == "" {
 		if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
-			pp = fmt.Sprint(p.PrivatePort)
+			pp = U.PortString(p.PrivatePort)
 		} else if !isDocker {
 			pp = "80"
 		}
 	}
 
-	// replace private port with public port (if any)
-	if isDocker && e.NetworkMode != "host" {
+	// replace private port with public port if using public IP.
+	if e.Host == e.PublicIP {
 		if p, ok := e.PrivatePortMapping[pp]; ok {
-			pp = fmt.Sprint(p.PublicPort)
+			pp = U.PortString(p.PublicPort)
 		}
 		if _, ok := e.PublicPortMapping[pp]; !ok { // port is not exposed, but specified
 			// try to fallback to first public port
 			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
-				pp = fmt.Sprint(p.PublicPort)
+				pp = U.PortString(p.PublicPort)
+			}
+		}
+	}
+	// replace public port with private port if using private IP.
+	if e.Host == e.PrivateIP {
+		if p, ok := e.PublicPortMapping[pp]; ok {
+			pp = U.PortString(p.PrivatePort)
+		}
+		if _, ok := e.PrivatePortMapping[pp]; !ok { // port is not exposed, but specified
+			// try to fallback to first private port
+			if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
+				pp = U.PortString(p.PrivatePort)
 			}
 		}
 	}
 
 	if e.Scheme == "" && isDocker {
-		if p, ok := e.PublicPortMapping[pp]; ok && p.Type == "udp" {
+		switch {
+		case e.Host == e.PublicIP && e.PublicPortMapping[pp].Type == "udp":
+			e.Scheme = "udp"
+		case e.Host == e.PrivateIP && e.PrivatePortMapping[pp].Type == "udp":
 			e.Scheme = "udp"
 		}
 	}
 
 	if e.Scheme == "" {
-		if lp != "" {
+		switch {
+		case lp != "":
 			e.Scheme = "tcp"
-		} else if strings.HasSuffix(pp, "443") {
+		case strings.HasSuffix(pp, "443"):
 			e.Scheme = "https"
-		} else if _, ok := WellKnownHTTPPorts[pp]; ok {
-			e.Scheme = "http"
-		} else {
-			// assume its http
+		default: // assume its http
 			e.Scheme = "http"
 		}
 	}
 
-	if e.Host == "" {
-		e.Host = "localhost"
-	}
 	if e.IdleTimeout == "" {
-		e.IdleTimeout = IdleTimeoutDefault
+		e.IdleTimeout = common.IdleTimeoutDefault
 	}
 	if e.WakeTimeout == "" {
-		e.WakeTimeout = WakeTimeoutDefault
+		e.WakeTimeout = common.WakeTimeoutDefault
 	}
 	if e.StopTimeout == "" {
-		e.StopTimeout = StopTimeoutDefault
+		e.StopTimeout = common.StopTimeoutDefault
 	}
 	if e.StopMethod == "" {
-		e.StopMethod = StopMethodDefault
+		e.StopMethod = common.StopMethodDefault
 	}
 
 	e.Port = joinPorts(lp, pp, extra)

@@ -11,13 +11,13 @@ import (
 )
 
 type Waker struct {
-	*watcher
+	*Watcher
 
 	client *http.Client
 	rp     *gphttp.ReverseProxy
 }
 
-func NewWaker(w *watcher, rp *gphttp.ReverseProxy) *Waker {
+func NewWaker(w *Watcher, rp *gphttp.ReverseProxy) *Waker {
 	orig := rp.ServeHTTP
 	// workaround for stopped containers port become zero
 	rp.ServeHTTP = func(rw http.ResponseWriter, r *http.Request) {
@@ -33,7 +33,7 @@ func NewWaker(w *watcher, rp *gphttp.ReverseProxy) *Waker {
 		orig(rw, r)
 	}
 	return &Waker{
-		watcher: w,
+		Watcher: w,
 		client: &http.Client{
 			Timeout:   1 * time.Second,
 			Transport: rp.Transport,
@@ -70,7 +70,9 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 		rw.Header().Add("Cache-Control", "no-cache")
 		rw.Header().Add("Cache-Control", "no-store")
 		rw.Header().Add("Cache-Control", "must-revalidate")
-		rw.Write(body)
+		if _, err := rw.Write(body); err != nil {
+			w.l.Errorf("error writing http response: %s", err)
+		}
 		return
 	}
 

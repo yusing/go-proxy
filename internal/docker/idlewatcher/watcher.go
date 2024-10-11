@@ -17,7 +17,7 @@ import (
 )
 
 type (
-	watcher struct {
+	Watcher struct {
 		*P.ReverseProxyEntry
 
 		client D.Client
@@ -46,17 +46,17 @@ var (
 	mainLoopCancel context.CancelFunc
 	mainLoopWg     sync.WaitGroup
 
-	watcherMap   = F.NewMapOf[string, *watcher]()
+	watcherMap   = F.NewMapOf[string, *Watcher]()
 	watcherMapMu sync.Mutex
 
 	portHistoryMap = F.NewMapOf[PT.Alias, string]()
 
-	newWatcherCh = make(chan *watcher)
+	newWatcherCh = make(chan *Watcher)
 
 	logger = logrus.WithField("module", "idle_watcher")
 )
 
-func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
+func Register(entry *P.ReverseProxyEntry) (*Watcher, E.NestedError) {
 	failure := E.Failure("idle_watcher register")
 
 	if entry.IdleTimeout == 0 {
@@ -83,7 +83,7 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 		return nil, failure.With(err)
 	}
 
-	w := &watcher{
+	w := &Watcher{
 		ReverseProxyEntry: entry,
 		client:            client,
 		refCount:          &sync.WaitGroup{},
@@ -104,7 +104,7 @@ func Register(entry *P.ReverseProxyEntry) (*watcher, E.NestedError) {
 	return w, nil
 }
 
-func (w *watcher) Unregister() {
+func (w *Watcher) Unregister() {
 	w.refCount.Add(-1)
 }
 
@@ -138,29 +138,30 @@ func Stop() {
 	mainLoopWg.Wait()
 }
 
-func (w *watcher) containerStop() error {
+func (w *Watcher) containerStop() error {
 	return w.client.ContainerStop(w.ctx, w.ContainerID, container.StopOptions{
 		Signal:  string(w.StopSignal),
-		Timeout: &w.StopTimeout})
+		Timeout: &w.StopTimeout,
+	})
 }
 
-func (w *watcher) containerPause() error {
+func (w *Watcher) containerPause() error {
 	return w.client.ContainerPause(w.ctx, w.ContainerID)
 }
 
-func (w *watcher) containerKill() error {
+func (w *Watcher) containerKill() error {
 	return w.client.ContainerKill(w.ctx, w.ContainerID, string(w.StopSignal))
 }
 
-func (w *watcher) containerUnpause() error {
+func (w *Watcher) containerUnpause() error {
 	return w.client.ContainerUnpause(w.ctx, w.ContainerID)
 }
 
-func (w *watcher) containerStart() error {
+func (w *Watcher) containerStart() error {
 	return w.client.ContainerStart(w.ctx, w.ContainerID, container.StartOptions{})
 }
 
-func (w *watcher) containerStatus() (string, E.NestedError) {
+func (w *Watcher) containerStatus() (string, E.NestedError) {
 	json, err := w.client.ContainerInspect(w.ctx, w.ContainerID)
 	if err != nil {
 		return "", E.FailWith("inspect container", err)
@@ -168,7 +169,7 @@ func (w *watcher) containerStatus() (string, E.NestedError) {
 	return json.State.Status, nil
 }
 
-func (w *watcher) wakeIfStopped() E.NestedError {
+func (w *Watcher) wakeIfStopped() E.NestedError {
 	if w.ready.Load() || w.ContainerRunning {
 		return nil
 	}
@@ -191,7 +192,7 @@ func (w *watcher) wakeIfStopped() E.NestedError {
 	}
 }
 
-func (w *watcher) getStopCallback() StopCallback {
+func (w *Watcher) getStopCallback() StopCallback {
 	var cb func() error
 	switch w.StopMethod {
 	case PT.StopMethodPause:
@@ -215,11 +216,11 @@ func (w *watcher) getStopCallback() StopCallback {
 	}
 }
 
-func (w *watcher) resetIdleTimer() {
+func (w *Watcher) resetIdleTimer() {
 	w.ticker.Reset(w.IdleTimeout)
 }
 
-func (w *watcher) watchUntilCancel() {
+func (w *Watcher) watchUntilCancel() {
 	defer close(w.wakeCh)
 
 	w.ctx, w.cancel = context.WithCancel(mainLoopCtx)

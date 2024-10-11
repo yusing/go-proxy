@@ -8,14 +8,18 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
+const (
+	mName = "middleware1"
+	mAttr = "prop1"
+	v     = "value1"
+)
+
 func makeLabel(ns, name, attr string) string {
 	return fmt.Sprintf("%s.%s.%s", ns, name, attr)
 }
 
 func TestNestedLabel(t *testing.T) {
-	mName := "middleware1"
 	mAttr := "prop1"
-	v := "value1"
 	pl, err := ParseLabel(makeLabel(NSProxy, "foo", makeLabel("middlewares", mName, mAttr)), v)
 	ExpectNoError(t, err.Error())
 	sGot := ExpectType[*Label](t, pl.Value)
@@ -28,9 +32,6 @@ func TestApplyNestedLabel(t *testing.T) {
 	entry := new(struct {
 		Middlewares NestedLabelMap `yaml:"middlewares"`
 	})
-	mName := "middleware1"
-	mAttr := "prop1"
-	v := "value1"
 	pl, err := ParseLabel(makeLabel(NSProxy, "foo", makeLabel("middlewares", mName, mAttr)), v)
 	ExpectNoError(t, err.Error())
 	err = ApplyLabel(entry, pl)
@@ -42,10 +43,6 @@ func TestApplyNestedLabel(t *testing.T) {
 }
 
 func TestApplyNestedLabelExisting(t *testing.T) {
-	mName := "middleware1"
-	mAttr := "prop1"
-	v := "value1"
-
 	checkAttr := "prop2"
 	checkV := "value2"
 	entry := new(struct {
@@ -71,9 +68,6 @@ func TestApplyNestedLabelExisting(t *testing.T) {
 }
 
 func TestApplyNestedLabelNoAttr(t *testing.T) {
-	mName := "middleware1"
-	v := "value1"
-
 	entry := new(struct {
 		Middlewares NestedLabelMap `yaml:"middlewares"`
 	})

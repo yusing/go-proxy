@@ -9,7 +9,7 @@ import (
 
 func Reload(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	if err := cfg.Reload(); err != nil {
-		U.RespondJson(w, err.JSONObject(), http.StatusInternalServerError)
+		U.RespondJSON(w, r, err.JSONObject(), http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
 	}

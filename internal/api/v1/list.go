@@ -55,7 +55,7 @@ func listRoutes(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	U.HandleErr(w, r, U.RespondJson(w, routes))
+	U.RespondJSON(w, r, routes)
 }
 
 func listConfigFiles(w http.ResponseWriter, r *http.Request) {
@@ -67,21 +67,21 @@ func listConfigFiles(w http.ResponseWriter, r *http.Request) {
 	for i := range files {
 		files[i] = strings.TrimPrefix(files[i], common.ConfigBasePath+"/")
 	}
-	U.HandleErr(w, r, U.RespondJson(w, files))
+	U.RespondJSON(w, r, files)
 }
 
 func listMiddlewareTrace(w http.ResponseWriter, r *http.Request) {
-	U.HandleErr(w, r, U.RespondJson(w, middleware.GetAllTrace()))
+	U.RespondJSON(w, r, middleware.GetAllTrace())
 }
 
 func listMiddlewares(w http.ResponseWriter, r *http.Request) {
-	U.HandleErr(w, r, U.RespondJson(w, middleware.All()))
+	U.RespondJSON(w, r, middleware.All())
 }
 
 func listMatchDomains(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	U.HandleErr(w, r, U.RespondJson(w, cfg.Value().MatchDomains))
+	U.RespondJSON(w, r, cfg.Value().MatchDomains)
 }
 
 func listHomepageConfig(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	U.HandleErr(w, r, U.RespondJson(w, cfg.HomepageConfig()))
+	U.RespondJSON(w, r, cfg.HomepageConfig())
 }

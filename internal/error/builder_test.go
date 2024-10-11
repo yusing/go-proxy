@@ -33,15 +33,13 @@ func TestBuilderNested(t *testing.T) {
 	eb.Add(Failure("Action 2").With(Invalid("Inner", "3")))
 
 	got := eb.Build().String()
-	expected1 :=
-		(`error occurred:
+	expected1 := (`error occurred:
   - Action 1 failed:
     - invalid Inner: 1
     - invalid Inner: 2
   - Action 2 failed:
     - invalid Inner: 3`)
-	expected2 :=
-		(`error occurred:
+	expected2 := (`error occurred:
   - Action 1 failed:
     - invalid Inner: "1"
     - invalid Inner: "2"

@@ -10,7 +10,6 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
-
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -60,7 +59,8 @@ func TestApplyLabelFieldValidity(t *testing.T) {
 		},
 		Ports: []types.Port{
 			{Type: "tcp", PrivatePort: 4567, PublicPort: 8888},
-		}}, ""))
+		},
+	}, ""))
 	ExpectNoError(t, err.Error())
 
 	a, ok := entries.Load("a")
@@ -116,8 +116,8 @@ func TestApplyLabel(t *testing.T) {
 		Ports: []types.Port{
 			{Type: "tcp", PrivatePort: 3333, PublicPort: 1111},
 			{Type: "tcp", PrivatePort: 4444, PublicPort: 1234},
-		}}, "",
-	))
+		},
+	}, ""))
 	a, ok := entries.Load("a")
 	ExpectTrue(t, ok)
 	b, ok := entries.Load("b")
@@ -152,7 +152,8 @@ func TestApplyLabelWithRef(t *testing.T) {
 			{Type: "tcp", PrivatePort: 3333, PublicPort: 9999},
 			{Type: "tcp", PrivatePort: 4444, PublicPort: 5555},
 			{Type: "tcp", PrivatePort: 1111, PublicPort: 2222},
-		}}, ""))
+		},
+	}, ""))
 	a, ok := entries.Load("a")
 	ExpectTrue(t, ok)
 	b, ok := entries.Load("b")
@@ -171,13 +172,14 @@ func TestApplyLabelWithRef(t *testing.T) {
 
 func TestApplyLabelWithRefIndexError(t *testing.T) {
 	var p DockerProvider
-	var c = D.FromDocker(&types.Container{
+	c := D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b",
 			"proxy.#1.host":   "localhost",
 			"proxy.#4.scheme": "https",
-		}}, "")
+		},
+	}, "")
 	_, err := p.entriesFromContainerLabels(c)
 	ExpectError(t, E.ErrOutOfRange, err.Error())
 	ExpectTrue(t, strings.Contains(err.String(), "index out of range"))
@@ -187,14 +189,15 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 		Labels: map[string]string{
 			D.LabelAliases:  "a,b",
 			"proxy.#0.host": "localhost",
-		}}, ""))
+		},
+	}, ""))
 	ExpectError(t, E.ErrOutOfRange, err.Error())
 	ExpectTrue(t, strings.Contains(err.String(), "index out of range"))
 }
 
 func TestStreamDefaultValues(t *testing.T) {
 	var p DockerProvider
-	var c = D.FromDocker(&types.Container{
+	c := D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:          "a",
@@ -202,7 +205,8 @@ func TestStreamDefaultValues(t *testing.T) {
 		},
 		Ports: []types.Port{
 			{Type: "udp", PrivatePort: 1234, PublicPort: 5678},
-		}}, "",
+		},
+	}, "",
 	)
 	entries, err := p.entriesFromContainerLabels(c)
 	ExpectNoError(t, err.Error())
@@ -228,7 +232,8 @@ func TestExplicitExclude(t *testing.T) {
 			D.LabelAliases:          "a",
 			D.LabelExclude:          "true",
 			"proxy.a.no_tls_verify": "true",
-		}}, ""))
+		},
+	}, ""))
 	ExpectNoError(t, err.Error())
 
 	_, ok := entries.Load("a")

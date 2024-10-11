@@ -1,6 +1,10 @@
-package error_page
+package errorpage
 
-import "net/http"
+import (
+	"net/http"
+
+	. "github.com/yusing/go-proxy/internal/api/v1/utils"
+)
 
 func GetHandleFunc() http.HandlerFunc {
 	setup()
@@ -21,5 +25,7 @@ func serveHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "404 not found", http.StatusNotFound)
 		return
 	}
-	w.Write(content)
+	if _, err := w.Write(content); err != nil {
+		HandleErr(w, r, err)
+	}
 }

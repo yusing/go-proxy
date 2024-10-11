@@ -9,7 +9,7 @@ import (
 	"golang.org/x/text/language"
 )
 
-// TODO: support other languages
+// TODO: support other languages.
 var titleCaser = cases.Title(language.AmericanEnglish)
 
 func CommaSeperatedList(s string) []string {
@@ -30,4 +30,8 @@ func ExtractPort(fullURL string) (int, error) {
 		return 0, err
 	}
 	return strconv.Atoi(url.Port())
+}
+
+func PortString(port uint16) string {
+	return strconv.FormatUint(uint64(port), 10)
 }

@@ -1,17 +1,17 @@
 package route
 
 import (
+	"errors"
 	"fmt"
-	"sync"
-
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/api/v1/error_page"
+	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
-	. "github.com/yusing/go-proxy/internal/net/http"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	P "github.com/yusing/go-proxy/internal/proxy"
@@ -26,13 +26,13 @@ type (
 
 		server  *loadbalancer.Server
 		handler http.Handler
-		rp      *ReverseProxy
+		rp      *gphttp.ReverseProxy
 	}
 
 	SubdomainKey = PT.Alias
 
 	ReverseProxyHandler struct {
-		*ReverseProxy
+		*gphttp.ReverseProxy
 	}
 )
 
@@ -41,7 +41,7 @@ var (
 
 	httpRoutes   = F.NewMapOf[string, *HTTPRoute]()
 	httpRoutesMu sync.Mutex
-	globalMux    = http.NewServeMux() // TODO: support regex subdomain matching
+	// globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 )
 
 func (rp ReverseProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -60,12 +60,12 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	var trans *http.Transport
 
 	if entry.NoTLSVerify {
-		trans = DefaultTransportNoTLS.Clone()
+		trans = gphttp.DefaultTransportNoTLS.Clone()
 	} else {
-		trans = DefaultTransport.Clone()
+		trans = gphttp.DefaultTransport.Clone()
 	}
 
-	rp := NewReverseProxy(entry.URL, trans)
+	rp := gphttp.NewReverseProxy(entry.URL, trans)
 
 	if len(entry.Middlewares) > 0 {
 		err := middleware.PatchReverseProxy(string(entry.Alias), rp, entry.Middlewares)
@@ -122,7 +122,7 @@ func (r *HTTPRoute) Start() E.NestedError {
 	}
 
 	var lb *loadbalancer.LoadBalancer
-	linked, ok := httpRoutes.Load(string(r.LoadBalance.Link))
+	linked, ok := httpRoutes.Load(r.LoadBalance.Link)
 	if ok {
 		lb = linked.LoadBalancer
 	} else {
@@ -132,7 +132,7 @@ func (r *HTTPRoute) Start() E.NestedError {
 			LoadBalancer: lb,
 			handler:      lb,
 		}
-		httpRoutes.Store(string(r.LoadBalance.Link), linked)
+		httpRoutes.Store(r.LoadBalance.Link, linked)
 	}
 	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler)
 	lb.AddServer(r.server)
@@ -152,12 +152,12 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 	}
 
 	if r.server != nil {
-		linked, ok := httpRoutes.Load(string(r.LoadBalance.Link))
+		linked, ok := httpRoutes.Load(r.LoadBalance.Link)
 		if ok {
 			linked.LoadBalancer.RemoveServer(r.server)
 		}
 		if linked.LoadBalancer.IsEmpty() {
-			httpRoutes.Delete(string(r.LoadBalance.Link))
+			httpRoutes.Delete(r.LoadBalance.Link)
 		}
 		r.server = nil
 	} else {
@@ -180,11 +180,13 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 			logrus.Error(E.Failure("request").
 				Subjectf("%s %s", r.Method, r.URL.String()).
 				With(err))
-			errorPage, ok := error_page.GetErrorPageByStatus(http.StatusNotFound)
+			errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
 			if ok {
 				w.WriteHeader(http.StatusNotFound)
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				w.Write(errorPage)
+				if _, err := w.Write(errorPage); err != nil {
+					logrus.Errorf("failed to respond error page to %s: %s", r.RemoteAddr, err)
+				}
 			} else {
 				http.Error(w, err.Error(), http.StatusNotFound)
 			}
@@ -198,7 +200,7 @@ func findMuxAnyDomain(host string) (http.Handler, error) {
 	hostSplit := strings.Split(host, ".")
 	n := len(hostSplit)
 	if n <= 2 {
-		return nil, fmt.Errorf("missing subdomain in url")
+		return nil, errors.New("missing subdomain in url")
 	}
 	sd := strings.Join(hostSplit[:n-2], ".")
 	if r, ok := httpRoutes.Load(sd); ok {

@@ -7,7 +7,7 @@ import (
 )
 
 // Recursively lists all files in a directory until `maxDepth` is reached
-// Returns a slice of file paths relative to `dir`
+// Returns a slice of file paths relative to `dir`.
 func ListFiles(dir string, maxDepth int) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {

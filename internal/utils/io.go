@@ -12,7 +12,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-// TODO: move to "utils/io"
+// TODO: move to "utils/io".
 type (
 	FileReader struct {
 		Path string
@@ -108,7 +108,7 @@ func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {
 	return Copy(&ContextWriter{ctx: ctx, Writer: dst}, &ContextReader{ctx: ctx, Reader: src})
 }
 
-func LoadJson[T any](path string, pointer *T) E.NestedError {
+func LoadJSON[T any](path string, pointer *T) E.NestedError {
 	data, err := E.Check(os.ReadFile(path))
 	if err.HasError() {
 		return err
@@ -116,7 +116,7 @@ func LoadJson[T any](path string, pointer *T) E.NestedError {
 	return E.From(json.Unmarshal(data, pointer))
 }
 
-func SaveJson[T any](path string, pointer *T, perm os.FileMode) E.NestedError {
+func SaveJSON[T any](path string, pointer *T, perm os.FileMode) E.NestedError {
 	data, err := E.Check(json.Marshal(pointer))
 	if err.HasError() {
 		return err

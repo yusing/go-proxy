@@ -8,7 +8,6 @@ import (
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/types"

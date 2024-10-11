@@ -2,6 +2,7 @@ package server
 
 import (
 	"crypto/tls"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -11,7 +12,7 @@ import (
 	"golang.org/x/net/context"
 )
 
-type server struct {
+type Server struct {
 	Name         string
 	CertProvider *autocert.Provider
 	http         *http.Server
@@ -38,7 +39,7 @@ func (l LogrusWrapper) Write(b []byte) (int, error) {
 	return l.Logger.WriterLevel(logrus.ErrorLevel).Write(b)
 }
 
-func NewServer(opt Options) (s *server) {
+func NewServer(opt Options) (s *Server) {
 	var httpSer, httpsSer *http.Server
 	var httpHandler http.Handler
 
@@ -76,7 +77,7 @@ func NewServer(opt Options) (s *server) {
 			},
 		}
 	}
-	return &server{
+	return &Server{
 		Name:         opt.Name,
 		CertProvider: opt.CertProvider,
 		http:         httpSer,
@@ -88,8 +89,8 @@ func NewServer(opt Options) (s *server) {
 //
 // If both are not set, this does nothing.
 //
-// Start() is non-blocking
-func (s *server) Start() {
+// Start() is non-blocking.
+func (s *Server) Start() {
 	if s.http == nil && s.https == nil {
 		return
 	}
@@ -112,7 +113,7 @@ func (s *server) Start() {
 	}
 }
 
-func (s *server) Stop() {
+func (s *Server) Stop() {
 	if s.http == nil && s.https == nil {
 		return
 	}
@@ -133,13 +134,13 @@ func (s *server) Stop() {
 	}
 }
 
-func (s *server) Uptime() time.Duration {
+func (s *Server) Uptime() time.Duration {
 	return time.Since(s.startTime)
 }
 
-func (s *server) handleErr(scheme string, err error) {
-	switch err {
-	case nil, http.ErrServerClosed:
+func (s *Server) handleErr(scheme string, err error) {
+	switch {
+	case err == nil, errors.Is(err, http.ErrServerClosed):
 		return
 	default:
 		logrus.Fatalf("failed to start %s %s server: %s", scheme, s.Name, err)

@@ -74,7 +74,7 @@ type testArgs struct {
 
 func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.NestedError) {
 	var body io.Reader
-	var rr = new(requestRecorder)
+	var rr requestRecorder
 	var proxyURL *url.URL
 	var requestTarget string
 	var err error
@@ -87,11 +87,14 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.N
 		body = bytes.NewReader(args.body)
 	}
 
-	if args.scheme == "" || args.scheme == "http" {
+	switch args.scheme {
+	case "":
+		fallthrough
+	case "http":
 		requestTarget = "http://" + testHost
-	} else if args.scheme == "https" {
+	case "https":
 		requestTarget = "https://" + testHost
-	} else {
+	default:
 		panic("typo?")
 	}
 
@@ -111,7 +114,7 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.N
 	} else {
 		proxyURL, _ = url.Parse("https://" + testHost) // dummy url, no actual effect
 	}
-	rp := gphttp.NewReverseProxy(types.NewURL(proxyURL), rr)
+	rp := gphttp.NewReverseProxy(types.NewURL(proxyURL), &rr)
 	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr

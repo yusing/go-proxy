@@ -92,18 +92,18 @@ func userIsAuthenticated(r *http.Request) bool {
 	return true
 }
 
-func exchangeCodeForToken(code string, opts *oAuth2Opts, requestUri string) (string, error) {
+func exchangeCodeForToken(code string, opts *oAuth2Opts, requestURI string) (string, error) {
 	// Prepare the request body
 	data := url.Values{
 		"client_id":     {opts.ClientID},
 		"client_secret": {opts.ClientSecret},
 		"code":          {code},
 		"grant_type":    {"authorization_code"},
-		"redirect_uri":  {requestUri},
+		"redirect_uri":  {requestURI},
 	}
 	resp, err := http.PostForm(opts.TokenURL, data)
 	if err != nil {
-		return "", fmt.Errorf("failed to request token: %v", err)
+		return "", fmt.Errorf("failed to request token: %w", err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
@@ -114,7 +114,7 @@ func exchangeCodeForToken(code string, opts *oAuth2Opts, requestUri string) (str
 		AccessToken string `json:"access_token"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&tokenResp); err != nil {
-		return "", fmt.Errorf("failed to decode token response: %v", err)
+		return "", fmt.Errorf("failed to decode token response: %w", err)
 	}
 	return tokenResp.AccessToken, nil
 }

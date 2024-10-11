@@ -3,6 +3,7 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -14,10 +15,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type SerializedObject = map[string]any
-type Converter interface {
-	ConvertFrom(value any) (any, E.NestedError)
-}
+type (
+	SerializedObject = map[string]any
+	Converter        interface {
+		ConvertFrom(value any) (any, E.NestedError)
+	}
+)
 
 func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
 	var i any
@@ -37,11 +40,16 @@ func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
 		return nil
 	}
 
-	errors := E.NewBuilder("yaml validation error")
-	for _, e := range err.(*jsonschema.ValidationError).Causes {
-		errors.AddE(e)
+	var valErr *jsonschema.ValidationError
+	if !errors.As(err, &valErr) {
+		return E.UnexpectedError(err)
 	}
-	return errors.Build()
+
+	b := E.NewBuilder("yaml validation error")
+	for _, e := range valErr.Causes {
+		b.AddE(e)
+	}
+	return b.Build()
 }
 
 // Serialize converts the given data into a map[string]any representation.
@@ -80,7 +88,7 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 			result[key.String()] = value.MapIndex(key).Interface()
 		}
 	case reflect.Struct:
-		for i := 0; i < value.NumField(); i++ {
+		for i := range value.NumField() {
 			field := value.Type().Field(i)
 			if !field.IsExported() {
 				continue
@@ -91,9 +99,10 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 			}
 
 			// If the json tag is not empty, use it as the key
-			if jsonTag != "" {
+			switch {
+			case jsonTag != "":
 				result[jsonTag] = value.Field(i).Interface()
-			} else if field.Anonymous {
+			case field.Anonymous:
 				// If the field is an embedded struct, add its fields to the result
 				fieldMap, err := Serialize(value.Field(i).Interface())
 				if err != nil {
@@ -102,7 +111,7 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 				for k, v := range fieldMap {
 					result[k] = v
 				}
-			} else {
+			default:
 				result[field.Name] = value.Field(i).Interface()
 			}
 		}
@@ -147,7 +156,8 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 
 	// TODO: use E.Builder to collect errors from all fields
 
-	if dstV.Kind() == reflect.Struct {
+	switch dstV.Kind() {
+	case reflect.Struct:
 		mapping := make(map[string]reflect.Value)
 		for _, field := range reflect.VisibleFields(dstT) {
 			mapping[ToLowerNoSnake(field.Name)] = dstV.FieldByName(field.Name)
@@ -162,7 +172,7 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 				return E.Unexpected("field", k).Subjectf("%T", dst)
 			}
 		}
-	} else if dstV.Kind() == reflect.Map && dstT.Key().Kind() == reflect.String {
+	case reflect.Map:
 		if dstV.IsNil() {
 			dstV.Set(reflect.MakeMap(dstT))
 		}
@@ -174,8 +184,7 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 			}
 			dstV.SetMapIndex(reflect.ValueOf(ToLowerNoSnake(k)), tmp)
 		}
-		return nil
-	} else {
+	default:
 		return E.Unsupported("target type", fmt.Sprintf("%T", dst))
 	}
 
@@ -362,7 +371,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.N
 	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
-func DeserializeJson(j map[string]string, target any) E.NestedError {
+func DeserializeJSON(j map[string]string, target any) E.NestedError {
 	data, err := E.Check(json.Marshal(j))
 	if err != nil {
 		return err
