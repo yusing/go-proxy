@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/yusing/go-proxy/internal/common"
+	E "github.com/yusing/go-proxy/internal/error"
 )
 
 func init() {
@@ -95,4 +96,18 @@ func ExpectType[T any](t *testing.T, got any) (_ T) {
 		return
 	}
 	return got.(T)
+}
+
+func Must[T any](v T, err E.NestedError) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
+}
+
+func Must2[T any](v T, err error) T {
+	if err != nil {
+		panic(err)
+	}
+	return v
 }

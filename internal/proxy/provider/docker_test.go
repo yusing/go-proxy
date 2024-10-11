@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/network"
+	"github.com/docker/docker/client"
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -14,8 +16,9 @@ import (
 )
 
 var dummyNames = []string{"/a"}
+var p DockerProvider
 
-func TestApplyLabelFieldValidity(t *testing.T) {
+func TestApplyLabelWildcard(t *testing.T) {
 	pathPatterns := `
 - /
 - POST /upload/{$}
@@ -57,9 +60,6 @@ func TestApplyLabelFieldValidity(t *testing.T) {
 			"proxy.a.middlewares.middleware2.prop3": "value3",
 			"proxy.a.middlewares.middleware2.prop4": "value4",
 		},
-		Ports: []types.Port{
-			{Type: "tcp", PrivatePort: 4567, PublicPort: 8888},
-		},
 	}, ""))
 	ExpectNoError(t, err.Error())
 
@@ -74,8 +74,8 @@ func TestApplyLabelFieldValidity(t *testing.T) {
 	ExpectEqual(t, a.Host, "app")
 	ExpectEqual(t, b.Host, "app")
 
-	ExpectEqual(t, a.Port, "8888")
-	ExpectEqual(t, b.Port, "8888")
+	ExpectEqual(t, a.Port, "4567")
+	ExpectEqual(t, b.Port, "4567")
 
 	ExpectTrue(t, a.NoTLSVerify)
 	ExpectTrue(t, b.NoTLSVerify)
@@ -102,8 +102,7 @@ func TestApplyLabelFieldValidity(t *testing.T) {
 	ExpectEqual(t, b.StopSignal, "SIGTERM")
 }
 
-func TestApplyLabel(t *testing.T) {
-	var p DockerProvider
+func TestApplyLabelWithAlias(t *testing.T) {
 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
@@ -113,10 +112,6 @@ func TestApplyLabel(t *testing.T) {
 			"proxy.b.port":          "1234",
 			"proxy.c.scheme":        "https",
 		},
-		Ports: []types.Port{
-			{Type: "tcp", PrivatePort: 3333, PublicPort: 1111},
-			{Type: "tcp", PrivatePort: 4444, PublicPort: 1234},
-		},
 	}, ""))
 	a, ok := entries.Load("a")
 	ExpectTrue(t, ok)
@@ -127,18 +122,15 @@ func TestApplyLabel(t *testing.T) {
 
 	ExpectNoError(t, err.Error())
 	ExpectEqual(t, a.Scheme, "http")
-	ExpectEqual(t, a.Port, "1111")
+	ExpectEqual(t, a.Port, "3333")
 	ExpectEqual(t, a.NoTLSVerify, true)
 	ExpectEqual(t, b.Scheme, "http")
 	ExpectEqual(t, b.Port, "1234")
 	ExpectEqual(t, c.Scheme, "https")
-	// map does not necessary follow the order above
-	ExpectEqualAny(t, c.Port, []string{"1111", "1234"})
 }
 
 func TestApplyLabelWithRef(t *testing.T) {
-	var p DockerProvider
-	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+	entries := Must(p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b,c",
@@ -148,12 +140,7 @@ func TestApplyLabelWithRef(t *testing.T) {
 			"proxy.#3.port":   "1111",
 			"proxy.#3.scheme": "https",
 		},
-		Ports: []types.Port{
-			{Type: "tcp", PrivatePort: 3333, PublicPort: 9999},
-			{Type: "tcp", PrivatePort: 4444, PublicPort: 5555},
-			{Type: "tcp", PrivatePort: 1111, PublicPort: 2222},
-		},
-	}, ""))
+	}, "")))
 	a, ok := entries.Load("a")
 	ExpectTrue(t, ok)
 	b, ok := entries.Load("b")
@@ -161,17 +148,15 @@ func TestApplyLabelWithRef(t *testing.T) {
 	c, ok := entries.Load("c")
 	ExpectTrue(t, ok)
 
-	ExpectNoError(t, err.Error())
 	ExpectEqual(t, a.Scheme, "http")
 	ExpectEqual(t, a.Host, "localhost")
-	ExpectEqual(t, a.Port, "5555")
+	ExpectEqual(t, a.Port, "4444")
 	ExpectEqual(t, b.Port, "9999")
 	ExpectEqual(t, c.Scheme, "https")
-	ExpectEqual(t, c.Port, "2222")
+	ExpectEqual(t, c.Port, "1111")
 }
 
 func TestApplyLabelWithRefIndexError(t *testing.T) {
-	var p DockerProvider
 	c := D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
@@ -195,68 +180,137 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 	ExpectTrue(t, strings.Contains(err.String(), "index out of range"))
 }
 
-func TestStreamDefaultValues(t *testing.T) {
-	var p DockerProvider
+func TestPublicIPLocalhost(t *testing.T) {
+	c := D.FromDocker(&types.Container{Names: dummyNames}, client.DefaultDockerHost)
+	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
+	ExpectTrue(t, ok)
+	ExpectEqual(t, raw.PublicIP, "127.0.0.1")
+	ExpectEqual(t, raw.Host, raw.PublicIP)
+}
+
+func TestPublicIPRemote(t *testing.T) {
+	c := D.FromDocker(&types.Container{Names: dummyNames}, "tcp://1.2.3.4:2375")
+	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
+	ExpectTrue(t, ok)
+	ExpectEqual(t, raw.PublicIP, "1.2.3.4")
+	ExpectEqual(t, raw.Host, raw.PublicIP)
+}
+
+func TestPrivateIPLocalhost(t *testing.T) {
 	c := D.FromDocker(&types.Container{
 		Names: dummyNames,
-		Labels: map[string]string{
-			D.LabelAliases:          "a",
-			"proxy.*.no_tls_verify": "true",
+		NetworkSettings: &types.SummaryNetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"network": {
+					IPAddress: "172.17.0.123",
+				},
+			},
+		},
+	}, client.DefaultDockerHost)
+	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
+	ExpectTrue(t, ok)
+	ExpectEqual(t, raw.PrivateIP, "172.17.0.123")
+	ExpectEqual(t, raw.Host, raw.PrivateIP)
+}
+
+func TestPrivateIPRemote(t *testing.T) {
+	c := D.FromDocker(&types.Container{
+		Names: dummyNames,
+		NetworkSettings: &types.SummaryNetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"network": {
+					IPAddress: "172.17.0.123",
+				},
+			},
+		},
+	}, "tcp://1.2.3.4:2375")
+	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
+	ExpectTrue(t, ok)
+	ExpectEqual(t, raw.PrivateIP, "")
+	ExpectEqual(t, raw.PublicIP, "1.2.3.4")
+	ExpectEqual(t, raw.Host, raw.PublicIP)
+}
+
+func TestStreamDefaultValues(t *testing.T) {
+	privPort := uint16(1234)
+	pubPort := uint16(4567)
+	privIP := "172.17.0.123"
+	cont := &types.Container{
+		Names: []string{"a"},
+		NetworkSettings: &types.SummaryNetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"network": {
+					IPAddress: privIP,
+				},
+			},
 		},
 		Ports: []types.Port{
-			{Type: "udp", PrivatePort: 1234, PublicPort: 5678},
+			{Type: "udp", PrivatePort: privPort, PublicPort: pubPort},
 		},
-	}, "",
-	)
-	entries, err := p.entriesFromContainerLabels(c)
-	ExpectNoError(t, err.Error())
+	}
 
-	raw, ok := entries.Load("a")
-	ExpectTrue(t, ok)
+	t.Run("local", func(t *testing.T) {
+		c := D.FromDocker(cont, client.DefaultDockerHost)
 
-	entry, err := P.ValidateEntry(raw)
-	ExpectNoError(t, err.Error())
+		raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
+		ExpectTrue(t, ok)
+		entry := Must(P.ValidateEntry(raw))
 
-	a := ExpectType[*P.StreamEntry](t, entry)
-	ExpectEqual(t, a.Scheme.ListeningScheme, T.Scheme("udp"))
-	ExpectEqual(t, a.Scheme.ProxyScheme, T.Scheme("udp"))
-	ExpectEqual(t, a.Port.ListeningPort, 0)
-	ExpectEqual(t, a.Port.ProxyPort, 5678)
+		a := ExpectType[*P.StreamEntry](t, entry)
+		ExpectEqual(t, a.Scheme.ListeningScheme, T.Scheme("udp"))
+		ExpectEqual(t, a.Scheme.ProxyScheme, T.Scheme("udp"))
+		ExpectEqual(t, a.Host, T.Host(privIP))
+		ExpectEqual(t, a.Port.ListeningPort, 0)
+		ExpectEqual(t, a.Port.ProxyPort, T.Port(privPort))
+	})
+
+	t.Run("remote", func(t *testing.T) {
+		c := D.FromDocker(cont, "tcp://1.2.3.4:2375")
+		raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
+		ExpectTrue(t, ok)
+		entry := Must(P.ValidateEntry(raw))
+
+		a := ExpectType[*P.StreamEntry](t, entry)
+		ExpectEqual(t, a.Scheme.ListeningScheme, T.Scheme("udp"))
+		ExpectEqual(t, a.Scheme.ProxyScheme, T.Scheme("udp"))
+		ExpectEqual(t, a.Host, "1.2.3.4")
+		ExpectEqual(t, a.Port.ListeningPort, 0)
+		ExpectEqual(t, a.Port.ProxyPort, T.Port(pubPort))
+	})
 }
 
 func TestExplicitExclude(t *testing.T) {
-	var p DockerProvider
-	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+	_, ok := Must(p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:          "a",
 			D.LabelExclude:          "true",
 			"proxy.a.no_tls_verify": "true",
 		},
-	}, ""))
-	ExpectNoError(t, err.Error())
-
-	_, ok := entries.Load("a")
+	}, ""))).Load("a")
 	ExpectFalse(t, ok)
 }
 
-//! Now nothing will be implicit excluded
-//
-// func TestImplicitExclude(t *testing.T) {
-// 	var p DockerProvider
-// 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
-// 		Names: dummyNames,
-// 		Labels: map[string]string{
-// 			D.LabelAliases:          "a",
-// 			"proxy.a.no_tls_verify": "true",
-// 		},
-// 		State: "running",
-// 	}, ""))
-// 	ExpectNoError(t, err.Error())
-
-// 	_, ok := entries.Load("a")
-// 	ExpectFalse(t, ok)
-// }
+func TestImplicitExcludeDatabase(t *testing.T) {
+	t.Run("mount path detection", func(t *testing.T) {
+		_, ok := Must(p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+			Names: dummyNames,
+			Mounts: []types.MountPoint{
+				{Source: "/data", Destination: "/var/lib/postgresql/data"},
+			},
+		}, ""))).Load("a")
+		ExpectFalse(t, ok)
+	})
+	t.Run("exposed port detection", func(t *testing.T) {
+		_, ok := Must(p.entriesFromContainerLabels(D.FromDocker(&types.Container{
+			Names: dummyNames,
+			Ports: []types.Port{
+				{Type: "tcp", PrivatePort: 5432, PublicPort: 5432},
+			},
+		}, ""))).Load("a")
+		ExpectFalse(t, ok)
+	})
+}
 
 // func TestImplicitExcludeNoExposedPort(t *testing.T) {
 // 	var p DockerProvider

@@ -85,23 +85,11 @@ func (e *RawEntry) FillMissingFields() {
 		if p, ok := e.PrivatePortMapping[pp]; ok {
 			pp = U.PortString(p.PublicPort)
 		}
-		if _, ok := e.PublicPortMapping[pp]; !ok { // port is not exposed, but specified
-			// try to fallback to first public port
-			if p, ok := F.FirstValueOf(e.PublicPortMapping); ok {
-				pp = U.PortString(p.PublicPort)
-			}
-		}
 	}
 	// replace public port with private port if using private IP.
 	if e.Host == e.PrivateIP {
 		if p, ok := e.PublicPortMapping[pp]; ok {
 			pp = U.PortString(p.PrivatePort)
-		}
-		if _, ok := e.PrivatePortMapping[pp]; !ok { // port is not exposed, but specified
-			// try to fallback to first private port
-			if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
-				pp = U.PortString(p.PrivatePort)
-			}
 		}
 	}
 

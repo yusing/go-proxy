@@ -1,9 +1,10 @@
-package error
+package error_test
 
 import (
 	"errors"
 	"testing"
 
+	. "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
