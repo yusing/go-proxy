@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -101,4 +102,49 @@ func TestStringIntConvert(t *testing.T) {
 	ExpectTrue(t, ok)
 	ExpectNoError(t, err.Error())
 	ExpectEqual(t, test.u64, uint64(127))
+}
+
+type testModel struct {
+	Test testType
+}
+
+type testType struct {
+	foo int
+	bar string
+}
+
+func (c *testType) ConvertFrom(v any) E.NestedError {
+	switch v := v.(type) {
+	case string:
+		c.bar = v
+		return nil
+	case int:
+		c.foo = v
+		return nil
+	default:
+		return E.Invalid("input type", v)
+	}
+}
+
+func TestConvertor(t *testing.T) {
+	t.Run("string", func(t *testing.T) {
+		m := new(testModel)
+		ExpectNoError(t, Deserialize(map[string]any{"Test": "bar"}, m).Error())
+
+		ExpectEqual(t, m.Test.foo, 0)
+		ExpectEqual(t, m.Test.bar, "bar")
+	})
+
+	t.Run("int", func(t *testing.T) {
+		m := new(testModel)
+		ExpectNoError(t, Deserialize(map[string]any{"Test": 123}, m).Error())
+
+		ExpectEqual(t, m.Test.foo, 123)
+		ExpectEqual(t, m.Test.bar, "")
+	})
+
+	t.Run("invalid", func(t *testing.T) {
+		m := new(testModel)
+		ExpectError(t, E.ErrInvalid, Deserialize(map[string]any{"Test": 123.456}, m).Error())
+	})
 }

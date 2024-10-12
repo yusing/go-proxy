@@ -46,7 +46,7 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 	entries := types.NewProxyEntries()
 
 	info, err := D.GetClientInfo(p.dockerHost, true)
-	if err.HasError() {
+	if err != nil {
 		return routes, E.FailWith("connect to docker", err)
 	}
 
@@ -59,7 +59,7 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 		}
 
 		newEntries, err := p.entriesFromContainerLabels(container)
-		if err.HasError() {
+		if err != nil {
 			errors.Add(err)
 		}
 		// although err is not nil
@@ -98,9 +98,9 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 
-	routes.RangeAll(func(k string, v R.Route) {
-		if v.Entry().ContainerID == event.ActorID ||
-			v.Entry().ContainerName == event.ActorName {
+	routes.RangeAll(func(k string, v *R.Route) {
+		if v.Entry.ContainerID == event.ActorID ||
+			v.Entry.ContainerName == event.ActorName {
 			b.Add(v.Stop())
 			routes.Delete(k)
 			res.nRemoved++
@@ -115,7 +115,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 			b.Add(E.FailWith("rescan routes", err))
 			return
 		}
-		routesNew.Range(func(k string, v R.Route) bool {
+		routesNew.Range(func(k string, v *R.Route) bool {
 			if !routesOld.Has(k) {
 				routesOld.Store(k, v)
 				b.Add(v.Start())
@@ -124,7 +124,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 			}
 			return true
 		})
-		routesOld.Range(func(k string, v R.Route) bool {
+		routesOld.Range(func(k string, v *R.Route) bool {
 			if !routesNew.Has(k) {
 				b.Add(v.Stop())
 				routesOld.Delete(k)
@@ -137,13 +137,13 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 	}
 
 	client, err := D.ConnectClient(p.dockerHost)
-	if err.HasError() {
+	if err != nil {
 		b.Add(E.FailWith("connect to docker", err))
 		return
 	}
 	defer client.Close()
 	cont, err := client.Inspect(event.ActorID)
-	if err.HasError() {
+	if err != nil {
 		b.Add(E.FailWith("inspect container", err))
 		return
 	}
@@ -159,7 +159,7 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 		if routes.Has(alias) {
 			b.Add(E.Duplicated("alias", alias))
 		} else {
-			if route, err := R.NewRoute(entry); err.HasError() {
+			if route, err := R.NewRoute(entry); err != nil {
 				b.Add(err)
 			} else {
 				routes.Store(alias, route)
@@ -221,7 +221,7 @@ func (p *DockerProvider) applyLabel(container *D.Container, entries types.RawEnt
 	}
 
 	lbl, err := D.ParseLabel(key, val)
-	if err.HasError() {
+	if err != nil {
 		b.Add(err.Subject(key))
 	}
 	if lbl.Namespace != D.NSProxy {
@@ -230,7 +230,7 @@ func (p *DockerProvider) applyLabel(container *D.Container, entries types.RawEnt
 	if lbl.Target == D.WildcardAlias {
 		// apply label for all aliases
 		entries.RangeAll(func(a string, e *types.RawEntry) {
-			if err = D.ApplyLabel(e, lbl); err.HasError() {
+			if err = D.ApplyLabel(e, lbl); err != nil {
 				b.Add(err)
 			}
 		})
@@ -249,7 +249,7 @@ func (p *DockerProvider) applyLabel(container *D.Container, entries types.RawEnt
 			b.Add(E.NotExist("alias", lbl.Target))
 			return
 		}
-		if err = D.ApplyLabel(config, lbl); err.HasError() {
+		if err = D.ApplyLabel(config, lbl); err != nil {
 			b.Add(err)
 		}
 	}

@@ -1,35 +1,30 @@
 package route
 
 import (
-	"fmt"
-	"net/url"
-
 	E "github.com/yusing/go-proxy/internal/error"
+	url "github.com/yusing/go-proxy/internal/net/types"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	"github.com/yusing/go-proxy/internal/types"
+	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type (
-	Route interface {
-		RouteImpl
-		Entry() *types.RawEntry
-		Type() RouteType
-		URL() *url.URL
+	RouteType string
+	Route     struct {
+		_ U.NoCopy
+		impl
+		Type  RouteType
+		Entry *types.RawEntry
 	}
-	Routes = F.Map[string, Route]
+	Routes = F.Map[string, *Route]
 
-	RouteImpl interface {
+	impl interface {
 		Start() E.NestedError
 		Stop() E.NestedError
 		Started() bool
 		String() string
-	}
-	RouteType string
-	route     struct {
-		RouteImpl
-		type_ RouteType
-		entry *types.RawEntry
+		URL() url.URL
 	}
 )
 
@@ -38,44 +33,36 @@ const (
 	RouteTypeReverseProxy RouteType = "reverse_proxy"
 )
 
-// function alias
-var NewRoutes = F.NewMapOf[string, Route]
+// function alias.
+var NewRoutes = F.NewMap[Routes]
 
-func NewRoute(en *types.RawEntry) (Route, E.NestedError) {
+func NewRoute(en *types.RawEntry) (*Route, E.NestedError) {
 	entry, err := P.ValidateEntry(en)
 	if err != nil {
 		return nil, err
 	}
 
 	var t RouteType
-	var rt RouteImpl
+	var rt impl
+
 	switch e := entry.(type) {
 	case *P.StreamEntry:
-		rt, err = NewStreamRoute(e)
 		t = RouteTypeStream
+		rt, err = NewStreamRoute(e)
 	case *P.ReverseProxyEntry:
-		rt, err = NewHTTPRoute(e)
 		t = RouteTypeReverseProxy
+		rt, err = NewHTTPRoute(e)
 	default:
 		panic("bug: should not reach here")
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &route{RouteImpl: rt, entry: en, type_: t}, nil
-}
-
-func (rt *route) Entry() *types.RawEntry {
-	return rt.entry
-}
-
-func (rt *route) Type() RouteType {
-	return rt.type_
-}
-
-func (rt *route) URL() *url.URL {
-	url, _ := url.Parse(fmt.Sprintf("%s://%s:%s", rt.entry.Scheme, rt.entry.Host, rt.entry.Port))
-	return url
+	return &Route{
+		impl:  rt,
+		Type:  t,
+		Entry: en,
+	}, nil
 }
 
 func FromEntries(entries types.RawEntries) (Routes, E.NestedError) {
@@ -85,7 +72,7 @@ func FromEntries(entries types.RawEntries) (Routes, E.NestedError) {
 	entries.RangeAll(func(alias string, entry *types.RawEntry) {
 		entry.Alias = alias
 		r, err := NewRoute(entry)
-		if err.HasError() {
+		if err != nil {
 			b.Add(err.Subject(alias))
 		} else {
 			routes.Store(alias, r)

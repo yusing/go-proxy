@@ -27,7 +27,7 @@ type (
 	UDPConnMap = F.Map[string, *UDPConn]
 )
 
-var NewUDPConnMap = F.NewMapOf[string, *UDPConn]
+var NewUDPConnMap = F.NewMap[UDPConnMap]
 
 func NewUDPRoute(base *StreamRoute) StreamImpl {
 	return &UDPRoute{

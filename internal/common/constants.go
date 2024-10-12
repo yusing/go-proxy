@@ -19,20 +19,14 @@ const (
 	ConfigPath            = ConfigBasePath + "/" + ConfigFileName
 
 	MiddlewareComposeBasePath = ConfigBasePath + "/middlewares"
-)
 
-const (
 	SchemaBasePath         = "schema"
 	ConfigSchemaPath       = SchemaBasePath + "/config.schema.json"
 	FileProviderSchemaPath = SchemaBasePath + "/providers.schema.json"
-)
 
-const (
 	ComposeFileName        = "compose.yml"
 	ComposeExampleFileName = "compose.example.yml"
-)
 
-const (
 	ErrorPagesBasePath = "error_pages"
 )
 
@@ -46,6 +40,9 @@ var RequiredDirectories = []string{
 const DockerHostFromEnv = "$DOCKER_HOST"
 
 const (
+	HealthCheckIntervalDefault = 5 * time.Second
+	HealthCheckTimeoutDefault  = 5 * time.Second
+
 	IdleTimeoutDefault = "0"
 	WakeTimeoutDefault = "30s"
 	StopTimeoutDefault = "10s"

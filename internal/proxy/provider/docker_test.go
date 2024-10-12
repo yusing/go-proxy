@@ -15,8 +15,10 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-var dummyNames = []string{"/a"}
-var p DockerProvider
+var (
+	dummyNames = []string{"/a"}
+	p          DockerProvider
+)
 
 func TestApplyLabelWildcard(t *testing.T) {
 	pathPatterns := `

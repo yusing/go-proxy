@@ -5,11 +5,12 @@ import (
 	"strings"
 
 	"github.com/yusing/go-proxy/internal/common"
-	D "github.com/yusing/go-proxy/internal/docker"
-	H "github.com/yusing/go-proxy/internal/homepage"
+	"github.com/yusing/go-proxy/internal/docker"
+	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
@@ -18,18 +19,19 @@ type (
 
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string              `json:"-" yaml:"-"`
-		Scheme       string              `json:"scheme" yaml:"scheme"`
-		Host         string              `json:"host" yaml:"host"`
-		Port         string              `json:"port" yaml:"port"`
-		NoTLSVerify  bool                `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
-		PathPatterns []string            `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
-		LoadBalance  loadbalancer.Config `json:"load_balance" yaml:"load_balance"`
-		Middlewares  D.NestedLabelMap    `json:"middlewares,omitempty" yaml:"middlewares"`
-		Homepage     *H.HomePageItem     `json:"homepage,omitempty" yaml:"homepage"`
+		Alias        string                   `json:"-" yaml:"-"`
+		Scheme       string                   `json:"scheme" yaml:"scheme"`
+		Host         string                   `json:"host" yaml:"host"`
+		Port         string                   `json:"port" yaml:"port"`
+		NoTLSVerify  bool                     `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
+		PathPatterns []string                 `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
+		HealthCheck  health.HealthCheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck"`
+		LoadBalance  loadbalancer.Config      `json:"load_balance,omitempty" yaml:"load_balance"`
+		Middlewares  docker.NestedLabelMap    `json:"middlewares,omitempty" yaml:"middlewares"`
+		Homepage     *homepage.Item           `json:"homepage,omitempty" yaml:"homepage"`
 
 		/* Docker only */
-		*D.Container `json:"container" yaml:"-"`
+		*docker.Container `json:"container" yaml:"-"`
 	}
 
 	RawEntries = F.Map[string, *RawEntry]
@@ -40,7 +42,7 @@ var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 func (e *RawEntry) FillMissingFields() {
 	isDocker := e.Container != nil
 	if !isDocker {
-		e.Container = &D.Container{}
+		e.Container = &docker.Container{}
 	}
 
 	if e.Host == "" {
@@ -113,6 +115,9 @@ func (e *RawEntry) FillMissingFields() {
 		}
 	}
 
+	if e.HealthCheck.Interval == 0 {
+		e.HealthCheck.Interval = common.HealthCheckIntervalDefault
+	}
 	if e.IdleTimeout == "" {
 		e.IdleTimeout = common.IdleTimeoutDefault
 	}

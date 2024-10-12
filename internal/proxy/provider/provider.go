@@ -111,7 +111,7 @@ func (p *Provider) StartAllRoutes() (res E.NestedError) {
 	// start watcher no matter load success or not
 	go p.watchEvents()
 
-	p.routes.RangeAllParallel(func(alias string, r R.Route) {
+	p.routes.RangeAllParallel(func(alias string, r *R.Route) {
 		errors.Add(r.Start().Subject(r))
 	})
 	return
@@ -126,17 +126,17 @@ func (p *Provider) StopAllRoutes() (res E.NestedError) {
 	errors := E.NewBuilder("errors stopping routes")
 	defer errors.To(&res)
 
-	p.routes.RangeAllParallel(func(alias string, r R.Route) {
+	p.routes.RangeAllParallel(func(alias string, r *R.Route) {
 		errors.Add(r.Stop().Subject(r))
 	})
 	return
 }
 
-func (p *Provider) RangeRoutes(do func(string, R.Route)) {
+func (p *Provider) RangeRoutes(do func(string, *R.Route)) {
 	p.routes.RangeAll(do)
 }
 
-func (p *Provider) GetRoute(alias string) (R.Route, bool) {
+func (p *Provider) GetRoute(alias string) (*R.Route, bool) {
 	return p.routes.Load(alias)
 }
 
@@ -156,11 +156,11 @@ func (p *Provider) LoadRoutes() E.NestedError {
 func (p *Provider) Statistics() ProviderStats {
 	numRPs := 0
 	numStreams := 0
-	p.routes.RangeAll(func(_ string, r R.Route) {
+	p.routes.RangeAll(func(_ string, r *R.Route) {
 		if !r.Started() {
 			return
 		}
-		switch r.Type() {
+		switch r.Type {
 		case R.RouteTypeReverseProxy:
 			numRPs++
 		case R.RouteTypeStream:
@@ -187,9 +187,17 @@ func (p *Provider) watchEvents() {
 			res := p.OnEvent(event, p.routes)
 			l.Infof("%s event %q", event.Type, event)
 			if res.nAdded > 0 || res.nRemoved > 0 {
-				l.Infof("%d route added, %d routes removed", res.nAdded, res.nRemoved)
+				n := res.nAdded - res.nRemoved
+				switch {
+				case n == 0:
+					l.Infof("%d route(s) reloaded", res.nAdded)
+				case n > 0:
+					l.Infof("%d route(s) added", n)
+				default:
+					l.Infof("%d route(s) removed", -n)
+				}
 			}
-			if res.err.HasError() {
+			if res.err != nil {
 				l.Error(res.err)
 			}
 		case err := <-errs:

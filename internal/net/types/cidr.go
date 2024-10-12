@@ -9,20 +9,21 @@ import (
 
 type CIDR net.IPNet
 
-func (*CIDR) ConvertFrom(val any) (any, E.NestedError) {
-	cidr, ok := val.(string)
+func (cidr *CIDR) ConvertFrom(val any) E.NestedError {
+	cidrStr, ok := val.(string)
 	if !ok {
-		return nil, E.TypeMismatch[string](val)
+		return E.TypeMismatch[string](val)
 	}
 
-	if !strings.Contains(cidr, "/") {
-		cidr += "/32" // single IP
+	if !strings.Contains(cidrStr, "/") {
+		cidrStr += "/32" // single IP
 	}
-	_, ipnet, err := net.ParseCIDR(cidr)
+	_, ipnet, err := net.ParseCIDR(cidrStr)
 	if err != nil {
-		return nil, E.Invalid("CIDR", cidr)
+		return E.Invalid("CIDR", cidr)
 	}
-	return (*CIDR)(ipnet), nil
+	*cidr = CIDR(*ipnet)
+	return nil
 }
 
 func (cidr *CIDR) Contains(ip net.IP) bool {

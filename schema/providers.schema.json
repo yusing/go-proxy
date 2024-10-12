@@ -116,6 +116,61 @@
               "type": "object"
             }
           }
+        },
+        "load_balance": {
+          "type": "object",
+          "properties": {
+            "link": {
+              "type": "string",
+              "description": "Name and subdomain of load-balancer",
+              "format": "uri"
+            },
+            "mode": {
+              "enum": [
+                "round_robin",
+                "least_conn",
+                "ip_hash"
+              ],
+              "description": "Load-balance mode",
+              "default": "roundrobin"
+            },
+            "weight": {
+              "type": "integer",
+              "description": "Reserved for future use",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "options": {
+              "type": "object",
+              "description": "load-balance mode specific options"
+            }
+          }
+        },
+        "healthcheck": {
+          "type": "object",
+          "properties": {
+            "disabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "path": {
+              "type": "string",
+              "description": "Healthcheck path",
+              "default": "/",
+              "format": "uri"
+            },
+            "use_get": {
+              "type": "boolean",
+              "description": "Use GET instead of HEAD",
+              "default": false
+            },
+            "interval": {
+              "type": "string",
+              "description": "Interval for healthcheck (e.g. 5s, 1h25m30s)",
+              "pattern": "^([0-9]+(ms|s|m|h))+$",
+              "default": "5s"
+            }
+          }
         }
       },
       "additionalProperties": false,

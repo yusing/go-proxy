@@ -105,7 +105,7 @@ func ParseLabel(label string, value string) (*Label, E.NestedError) {
 	default:
 		l.Attribute = parts[2]
 		nestedLabel, err := ParseLabel(strings.Join(parts[3:], "."), value)
-		if err.HasError() {
+		if err != nil {
 			return nil, err
 		}
 		l.Value = nestedLabel

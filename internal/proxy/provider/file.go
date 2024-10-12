@@ -47,19 +47,21 @@ func (p FileProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) 
 	defer b.To(&res.err)
 
 	newRoutes, err := p.LoadRoutesImpl()
-	if err.HasError() {
+	if err != nil {
 		b.Add(err)
 		return
 	}
 
-	routes.RangeAllParallel(func(_ string, v R.Route) {
+	res.nRemoved = newRoutes.Size()
+	routes.RangeAllParallel(func(_ string, v *R.Route) {
 		b.Add(v.Stop())
 	})
 	routes.Clear()
 
-	newRoutes.RangeAllParallel(func(_ string, v R.Route) {
+	newRoutes.RangeAllParallel(func(_ string, v *R.Route) {
 		b.Add(v.Start())
 	})
+	res.nAdded = newRoutes.Size()
 
 	routes.MergeFrom(newRoutes)
 	return
@@ -74,12 +76,12 @@ func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 	entries := types.NewProxyEntries()
 
 	data, err := E.Check(os.ReadFile(p.path))
-	if err.HasError() {
+	if err != nil {
 		b.Add(E.FailWith("read file", err))
 		return
 	}
 
-	if err = entries.UnmarshalFromYAML(data); err.HasError() {
+	if err = entries.UnmarshalFromYAML(data); err != nil {
 		b.Add(err)
 		return
 	}

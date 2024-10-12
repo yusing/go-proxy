@@ -1,10 +1,22 @@
 package types
 
-import "net/url"
+import (
+	urlPkg "net/url"
+)
 
-type URL struct{ *url.URL }
+type URL struct {
+	*urlPkg.URL
+}
 
-func NewURL(url *url.URL) URL {
+func ParseURL(url string) (URL, error) {
+	u, err := urlPkg.Parse(url)
+	if err != nil {
+		return URL{}, err
+	}
+	return URL{URL: u}, nil
+}
+
+func NewURL(url *urlPkg.URL) URL {
 	return URL{url}
 }
 
@@ -19,6 +31,10 @@ func (u URL) MarshalText() (text []byte, err error) {
 	return []byte(u.String()), nil
 }
 
-func (u URL) Equals(other URL) bool {
+func (u URL) Equals(other *URL) bool {
 	return u.URL == other.URL || u.String() == other.String()
+}
+
+func (u URL) JoinPath(path string) URL {
+	return URL{u.URL.JoinPath(path)}
 }

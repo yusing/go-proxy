@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 	"unicode"
 
 	"github.com/santhosh-tekuri/jsonschema"
@@ -18,7 +19,7 @@ import (
 type (
 	SerializedObject = map[string]any
 	Converter        interface {
-		ConvertFrom(value any) (any, E.NestedError)
+		ConvertFrom(value any) E.NestedError
 	}
 )
 
@@ -264,23 +265,10 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 	var ok bool
 	// check if (*T).Convertor is implemented
 	if converter, ok = dst.Addr().Interface().(Converter); !ok {
-		// check if (T).Convertor is implemented
-		converter, ok = dst.Interface().(Converter)
-		if !ok {
-			return E.TypeError("conversion", srcT, dstT)
-		}
+		return E.TypeError("conversion", srcT, dstT)
 	}
 
-	converted, err := converter.ConvertFrom(src.Interface())
-	if err != nil {
-		return err
-	}
-	c := reflect.ValueOf(converted)
-	if c.Kind() == reflect.Ptr {
-		c = c.Elem()
-	}
-	dst.Set(c)
-	return nil
+	return converter.ConvertFrom(src.Interface())
 }
 
 func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.NestedError) {
@@ -293,6 +281,20 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.N
 	}
 	if dst.Kind() == reflect.String {
 		dst.SetString(src)
+		return
+	}
+	switch dst.Type() {
+	case reflect.TypeFor[time.Duration]():
+		if src == "" {
+			dst.Set(reflect.Zero(dst.Type()))
+			return
+		}
+		d, err := time.ParseDuration(src)
+		if err != nil {
+			convErr = E.Invalid("duration", src)
+			return
+		}
+		dst.Set(reflect.ValueOf(d))
 		return
 	}
 	// primitive types / simple types

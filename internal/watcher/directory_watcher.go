@@ -26,6 +26,14 @@ type DirWatcher struct {
 	ctx context.Context
 }
 
+// NewDirectoryWatcher returns a DirWatcher instance.
+//
+// The DirWatcher watches the given directory for file system events.
+// Currently, only events on files directly in the given directory are watched, not
+// recursively.
+//
+// Note that the returned DirWatcher is not ready to use until the goroutine
+// started by NewDirectoryWatcher has finished.
 func NewDirectoryWatcher(ctx context.Context, dirPath string) *DirWatcher {
 	//! subdirectories are not watched
 	w, err := fsnotify.NewWatcher()
@@ -70,16 +78,8 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 			close(s.eventCh)
 			close(s.errCh)
 		}()
-		for {
-			select {
-			case <-h.ctx.Done():
-				return
-			case _, ok := <-h.eventCh:
-				if !ok { // directory watcher closed
-					return
-				}
-			}
-		}
+		<-h.ctx.Done()
+		logrus.Debugf("file watcher %s stopped", relPath)
 	}()
 	h.fwMap.Store(relPath, s)
 	return s
@@ -88,6 +88,7 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 func (h *DirWatcher) start() {
 	defer close(h.eventCh)
 	defer h.w.Close()
+	defer logrus.Debugf("directory watcher %s stopped", h.dir)
 
 	for {
 		select {
@@ -121,7 +122,9 @@ func (h *DirWatcher) start() {
 			// send event to directory watcher
 			select {
 			case h.eventCh <- msg:
+				logrus.Debugf("sent event to directory watcher %s", h.dir)
 			default:
+				logrus.Debugf("failed to send event to directory watcher %s", h.dir)
 			}
 
 			// send event to file watcher too
@@ -129,8 +132,12 @@ func (h *DirWatcher) start() {
 			if ok {
 				select {
 				case w.eventCh <- msg:
+					logrus.Debugf("sent event to file watcher %s", relPath)
 				default:
+					logrus.Debugf("failed to send event to file watcher %s", relPath)
 				}
+			} else {
+				logrus.Debugf("file watcher not found: %s", relPath)
 			}
 		case err := <-h.w.Errors:
 			if errors.Is(err, fsnotify.ErrClosed) {

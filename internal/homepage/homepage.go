@@ -1,24 +1,24 @@
 package homepage
 
 type (
-	HomePageConfig   map[string]HomePageCategory
-	HomePageCategory []*HomePageItem
+	Config   map[string]Category
+	Category []*Item
 
-	HomePageItem struct {
-		Show         bool           `yaml:"show" json:"show"`
-		Name         string         `yaml:"name" json:"name"`
-		Icon         string         `yaml:"icon" json:"icon"`
-		URL          string         `yaml:"url" json:"url"` // alias + domain
-		Category     string         `yaml:"category" json:"category"`
-		Description  string         `yaml:"description" json:"description"`
-		WidgetConfig map[string]any `yaml:",flow" json:"widget_config"`
+	Item struct {
+		Show         bool           `json:"show" yaml:"show"`
+		Name         string         `json:"name" yaml:"name"`
+		Icon         string         `json:"icon" yaml:"icon"`
+		URL          string         `json:"url" yaml:"url"` // alias + domain
+		Category     string         `json:"category" yaml:"category"`
+		Description  string         `json:"description" yaml:"description"`
+		WidgetConfig map[string]any `json:"widget_config" yaml:",flow"`
 
-		SourceType string `yaml:"-" json:"source_type"`
-		AltURL     string `yaml:"-" json:"alt_url"` // original proxy target
+		SourceType string `json:"source_type" yaml:"-"`
+		AltURL     string `json:"alt_url" yaml:"-"` // original proxy target
 	}
 )
 
-func (item *HomePageItem) IsEmpty() bool {
+func (item *Item) IsEmpty() bool {
 	return item == nil || (item.Name == "" &&
 		item.Icon == "" &&
 		item.URL == "" &&
@@ -27,17 +27,17 @@ func (item *HomePageItem) IsEmpty() bool {
 		len(item.WidgetConfig) == 0)
 }
 
-func NewHomePageConfig() HomePageConfig {
-	return HomePageConfig(make(map[string]HomePageCategory))
+func NewHomePageConfig() Config {
+	return Config(make(map[string]Category))
 }
 
-func (c *HomePageConfig) Clear() {
-	*c = make(HomePageConfig)
+func (c *Config) Clear() {
+	*c = make(Config)
 }
 
-func (c HomePageConfig) Add(item *HomePageItem) {
+func (c Config) Add(item *Item) {
 	if c[item.Category] == nil {
-		c[item.Category] = make(HomePageCategory, 0)
+		c[item.Category] = make(Category, 0)
 	}
 	c[item.Category] = append(c[item.Category], item)
 }

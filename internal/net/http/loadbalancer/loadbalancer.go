@@ -1,13 +1,12 @@
 package loadbalancer
 
 import (
-	"context"
 	"net/http"
 	"sync"
-	"time"
 
 	"github.com/go-acme/lego/v4/log"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/http/middleware"
 )
 
 // TODO: stats of each server.
@@ -19,20 +18,17 @@ type (
 		OnRemoveServer(srv *Server)
 	}
 	Config struct {
-		Link   string
-		Mode   Mode
-		Weight weightType
+		Link    string                `json:"link" yaml:"link"`
+		Mode    Mode                  `json:"mode" yaml:"mode"`
+		Weight  weightType            `json:"weight" yaml:"weight"`
+		Options middleware.OptionsRaw `json:"options,omitempty" yaml:"options,omitempty"`
 	}
 	LoadBalancer struct {
 		impl
 		Config
 
 		pool   servers
-		poolMu sync.RWMutex
-
-		ctx    context.Context
-		cancel context.CancelFunc
-		done   chan struct{}
+		poolMu sync.Mutex
 
 		sumWeight weightType
 	}
@@ -73,8 +69,8 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 }
 
 func (lb *LoadBalancer) RemoveServer(srv *Server) {
-	lb.poolMu.RLock()
-	defer lb.poolMu.RUnlock()
+	lb.poolMu.Lock()
+	defer lb.poolMu.Unlock()
 
 	lb.impl.OnRemoveServer(srv)
 
@@ -85,7 +81,7 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 		}
 	}
 	if lb.IsEmpty() {
-		lb.Stop()
+		lb.pool = nil
 		return
 	}
 
@@ -171,54 +167,12 @@ func (lb *LoadBalancer) Start() {
 	if lb.sumWeight != 0 {
 		log.Warnf("weighted mode not supported yet")
 	}
-
-	lb.done = make(chan struct{}, 1)
-	lb.ctx, lb.cancel = context.WithCancel(context.Background())
-
-	updateAll := func() {
-		lb.poolMu.Lock()
-		defer lb.poolMu.Unlock()
-
-		var wg sync.WaitGroup
-		wg.Add(len(lb.pool))
-		for _, s := range lb.pool {
-			go func(s *Server) {
-				defer wg.Done()
-				s.checkUpdateAvail(lb.ctx)
-			}(s)
-		}
-		wg.Wait()
-	}
-
 	logger.Debugf("loadbalancer %s started", lb.Link)
-
-	go func() {
-		defer lb.cancel()
-		defer close(lb.done)
-
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		updateAll()
-		for {
-			select {
-			case <-lb.ctx.Done():
-				return
-			case <-ticker.C:
-				updateAll()
-			}
-		}
-	}()
 }
 
 func (lb *LoadBalancer) Stop() {
-	if lb.cancel == nil {
-		return
-	}
-
-	lb.cancel()
-
-	<-lb.done
+	lb.poolMu.Lock()
+	defer lb.poolMu.Unlock()
 	lb.pool = nil
 
 	logger.Debugf("loadbalancer %s stopped", lb.Link)
@@ -228,9 +182,9 @@ func (lb *LoadBalancer) availServers() servers {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
-	avail := servers{}
+	avail := make(servers, 0, len(lb.pool))
 	for _, s := range lb.pool {
-		if s.available.Load() {
+		if s.IsHealthy() {
 			avail = append(avail, s)
 		}
 	}

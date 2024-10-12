@@ -103,7 +103,7 @@ func (cfg *Config) WatchChanges() {
 			case <-cfg.watcherCtx.Done():
 				return
 			case <-cfg.reloadReq:
-				if err := cfg.Reload(); err.HasError() {
+				if err := cfg.Reload(); err != nil {
 					cfg.l.Error(err)
 				}
 			}
@@ -130,9 +130,9 @@ func (cfg *Config) WatchChanges() {
 	}()
 }
 
-func (cfg *Config) forEachRoute(do func(alias string, r R.Route, p *PR.Provider)) {
+func (cfg *Config) forEachRoute(do func(alias string, r *R.Route, p *PR.Provider)) {
 	cfg.proxyProviders.RangeAll(func(_ string, p *PR.Provider) {
-		p.RangeRoutes(func(a string, r R.Route) {
+		p.RangeRoutes(func(a string, r *R.Route) {
 			do(a, r, p)
 		})
 	})
@@ -146,20 +146,20 @@ func (cfg *Config) load() (res E.NestedError) {
 	defer cfg.l.Debug("loaded config")
 
 	data, err := E.Check(os.ReadFile(common.ConfigPath))
-	if err.HasError() {
+	if err != nil {
 		b.Add(E.FailWith("read config", err))
 		logrus.Fatal(b.Build())
 	}
 
 	if !common.NoSchemaValidation {
-		if err = Validate(data); err.HasError() {
+		if err = Validate(data); err != nil {
 			b.Add(E.FailWith("schema validation", err))
 			logrus.Fatal(b.Build())
 		}
 	}
 
 	model := types.DefaultConfig()
-	if err := E.From(yaml.Unmarshal(data, model)); err.HasError() {
+	if err := E.From(yaml.Unmarshal(data, model)); err != nil {
 		b.Add(E.FailWith("parse config", err))
 		logrus.Fatal(b.Build())
 	}
@@ -182,7 +182,7 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Nested
 	defer cfg.l.Debug("initialized autocert")
 
 	cfg.autocertProvider, err = autocert.NewConfig(autocertCfg).GetProvider()
-	if err.HasError() {
+	if err != nil {
 		err = E.FailWith("autocert provider", err)
 	}
 	return
@@ -220,12 +220,12 @@ func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.Neste
 	errors := E.NewBuilder("errors in %s these providers", action)
 
 	cfg.proxyProviders.RangeAllParallel(func(name string, p *PR.Provider) {
-		if err := do(p); err.HasError() {
+		if err := do(p); err != nil {
 			errors.Add(err.Subject(p))
 		}
 	})
 
-	if err := errors.Build(); err.HasError() {
+	if err := errors.Build(); err != nil {
 		cfg.l.Error(err)
 	}
 }

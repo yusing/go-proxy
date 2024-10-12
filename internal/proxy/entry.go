@@ -11,17 +11,19 @@ import (
 	net "github.com/yusing/go-proxy/internal/net/types"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
 	ReverseProxyEntry struct { // real model after validation
-		Alias        T.Alias             `json:"alias"`
-		Scheme       T.Scheme            `json:"scheme"`
-		URL          net.URL             `json:"url"`
-		NoTLSVerify  bool                `json:"no_tls_verify"`
-		PathPatterns T.PathPatterns      `json:"path_patterns"`
-		LoadBalance  loadbalancer.Config `json:"load_balance"`
-		Middlewares  D.NestedLabelMap    `json:"middlewares"`
+		Alias        T.Alias                  `json:"alias"`
+		Scheme       T.Scheme                 `json:"scheme"`
+		URL          net.URL                  `json:"url"`
+		NoTLSVerify  bool                     `json:"no_tls_verify"`
+		PathPatterns T.PathPatterns           `json:"path_patterns"`
+		HealthCheck  health.HealthCheckConfig `json:"healthcheck"`
+		LoadBalance  loadbalancer.Config      `json:"load_balance"`
+		Middlewares  D.NestedLabelMap         `json:"middlewares"`
 
 		/* Docker only */
 		IdleTimeout      time.Duration `json:"idle_timeout"`
@@ -35,10 +37,11 @@ type (
 		ContainerRunning bool          `json:"container_running"`
 	}
 	StreamEntry struct {
-		Alias  T.Alias        `json:"alias"`
-		Scheme T.StreamScheme `json:"scheme"`
-		Host   T.Host         `json:"host"`
-		Port   T.StreamPort   `json:"port"`
+		Alias       T.Alias                  `json:"alias"`
+		Scheme      T.StreamScheme           `json:"scheme"`
+		Host        T.Host                   `json:"host"`
+		Port        T.StreamPort             `json:"port"`
+		Healthcheck health.HealthCheckConfig `json:"healthcheck"`
 	}
 )
 
@@ -58,7 +61,7 @@ func ValidateEntry(m *types.RawEntry) (any, E.NestedError) {
 	m.FillMissingFields()
 
 	scheme, err := T.NewScheme(m.Scheme)
-	if err.HasError() {
+	if err != nil {
 		return nil, err
 	}
 
@@ -69,7 +72,7 @@ func ValidateEntry(m *types.RawEntry) (any, E.NestedError) {
 	} else {
 		entry = validateRPEntry(m, scheme, e)
 	}
-	if err := e.Build(); err.HasError() {
+	if err := e.Build(); err != nil {
 		return nil, err
 	}
 	return entry, nil
@@ -107,7 +110,7 @@ func validateRPEntry(m *types.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEn
 	stopSignal, err := T.ValidateSignal(m.StopSignal)
 	b.Add(err)
 
-	if err.HasError() {
+	if err != nil {
 		return nil
 	}
 
@@ -117,6 +120,7 @@ func validateRPEntry(m *types.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEn
 		URL:              net.NewURL(url),
 		NoTLSVerify:      m.NoTLSVerify,
 		PathPatterns:     pathPatterns,
+		HealthCheck:      m.HealthCheck,
 		LoadBalance:      m.LoadBalance,
 		Middlewares:      m.Middlewares,
 		IdleTimeout:      idleTimeout,
@@ -146,9 +150,10 @@ func validateStreamEntry(m *types.RawEntry, b E.Builder) *StreamEntry {
 	}
 
 	return &StreamEntry{
-		Alias:  T.NewAlias(m.Alias),
-		Scheme: *scheme,
-		Host:   host,
-		Port:   port,
+		Alias:       T.NewAlias(m.Alias),
+		Scheme:      *scheme,
+		Host:        host,
+		Port:        port,
+		Healthcheck: m.HealthCheck,
 	}
 }

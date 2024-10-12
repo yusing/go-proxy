@@ -30,6 +30,8 @@ type (
 	Options    any
 
 	Middleware struct {
+		_ U.NoCopy
+
 		name string
 
 		before         BeforeFunc         // runs before ReverseProxy.ServeHTTP
@@ -77,30 +79,37 @@ func (m *Middleware) MarshalJSON() ([]byte, error) {
 
 func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
 	if len(optsRaw) != 0 && m.withOptions != nil {
-		if mWithOpt, err := m.withOptions(optsRaw); err != nil {
-			return nil, err
-		} else {
-			return mWithOpt, nil
-		}
+		return m.withOptions(optsRaw)
 	}
 
 	// WithOptionsClone is called only once
 	// set withOptions and labelParser will not be used after that
 	return &Middleware{
-		m.name,
-		m.before,
-		m.modifyResponse,
-		nil,
-		m.impl,
-		m.parent,
-		m.children,
-		false,
+		name:           m.name,
+		before:         m.before,
+		modifyResponse: m.modifyResponse,
+		impl:           m.impl,
+		parent:         m.parent,
+		children:       m.children,
 	}, nil
 }
 
-// TODO: check conflict or duplicates
-func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (res E.NestedError) {
-	middlewares := make([]*Middleware, 0, len(middlewaresMap))
+func (m *Middleware) ModifyRequest(next http.HandlerFunc, w ResponseWriter, r *Request) {
+	if m.before != nil {
+		m.before(next, w, r)
+	}
+}
+
+func (m *Middleware) ModifyResponse(resp *Response) error {
+	if m.modifyResponse != nil {
+		return m.modifyResponse(resp)
+	}
+	return nil
+}
+
+// TODO: check conflict or duplicates.
+func createMiddlewares(middlewaresMap map[string]OptionsRaw) (middlewares []*Middleware, res E.NestedError) {
+	middlewares = make([]*Middleware, 0, len(middlewaresMap))
 
 	invalidM := E.NewBuilder("invalid middlewares")
 	invalidOpts := E.NewBuilder("invalid options")
@@ -124,10 +133,15 @@ func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[strin
 		middlewares = append(middlewares, m)
 	}
 
-	if invalidM.HasError() {
+	return
+}
+
+func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.NestedError) {
+	var middlewares []*Middleware
+	middlewares, err = createMiddlewares(middlewaresMap)
+	if err != nil {
 		return
 	}
-
 	patchReverseProxy(rpName, rp, middlewares)
 	return
 }

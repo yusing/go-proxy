@@ -40,6 +40,8 @@ func (b Builder) Addf(format string, args ...any) Builder {
 }
 
 func (b Builder) AddRangeE(errs ...error) Builder {
+	b.Lock()
+	defer b.Unlock()
 	for _, err := range errs {
 		b.AddE(err)
 	}

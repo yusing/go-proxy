@@ -233,7 +233,7 @@ func (p *Provider) certState() CertState {
 	sort.Strings(certDomains)
 
 	if !reflect.DeepEqual(certDomains, wantedDomains) {
-		logger.Debugf("cert domains mismatch: %v != %v", certDomains, p.cfg.Domains)
+		logger.Infof("cert domains mismatch: %v != %v", certDomains, p.cfg.Domains)
 		return CertStateMismatch
 	}
 

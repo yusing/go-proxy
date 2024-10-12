@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/yusing/go-proxy/internal/common"
-	H "github.com/yusing/go-proxy/internal/homepage"
+	"github.com/yusing/go-proxy/internal/homepage"
 	PR "github.com/yusing/go-proxy/internal/proxy/provider"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/types"
@@ -15,8 +15,8 @@ import (
 
 func (cfg *Config) DumpEntries() map[string]*types.RawEntry {
 	entries := make(map[string]*types.RawEntry)
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
-		entries[alias] = r.Entry()
+	cfg.forEachRoute(func(alias string, r *R.Route, p *PR.Provider) {
+		entries[alias] = r.Entry
 	})
 	return entries
 }
@@ -29,7 +29,7 @@ func (cfg *Config) DumpProviders() map[string]*PR.Provider {
 	return entries
 }
 
-func (cfg *Config) HomepageConfig() H.HomePageConfig {
+func (cfg *Config) HomepageConfig() homepage.Config {
 	var proto, port string
 	domains := cfg.value.MatchDomains
 	cert, _ := cfg.autocertProvider.GetCert(nil)
@@ -41,16 +41,16 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 		port = common.ProxyHTTPPort
 	}
 
-	hpCfg := H.NewHomePageConfig()
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
+	hpCfg := homepage.NewHomePageConfig()
+	cfg.forEachRoute(func(alias string, r *R.Route, p *PR.Provider) {
 		if !r.Started() {
 			return
 		}
 
-		entry := r.Entry()
+		entry := r.Entry
 		if entry.Homepage == nil {
-			entry.Homepage = &H.HomePageItem{
-				Show: r.Entry().IsExplicit || !p.IsExplicitOnly(),
+			entry.Homepage = &homepage.Item{
+				Show: r.Entry.IsExplicit || !p.IsExplicitOnly(),
 			}
 		}
 
@@ -60,7 +60,7 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 			item.Show = true
 		}
 
-		if !item.Show || r.Type() != R.RouteTypeReverseProxy {
+		if !item.Show || r.Type != R.RouteTypeReverseProxy {
 			return
 		}
 
@@ -99,19 +99,19 @@ func (cfg *Config) HomepageConfig() H.HomePageConfig {
 
 func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
 	routes := make(map[string]U.SerializedObject)
-	cfg.forEachRoute(func(alias string, r R.Route, p *PR.Provider) {
+	cfg.forEachRoute(func(alias string, r *R.Route, p *PR.Provider) {
 		if !r.Started() {
 			return
 		}
 		obj, err := U.Serialize(r)
-		if err.HasError() {
+		if err != nil {
 			cfg.l.Error(err)
 			return
 		}
 		obj["provider"] = p.GetName()
-		obj["type"] = string(r.Type())
+		obj["type"] = string(r.Type)
 		obj["started"] = r.Started()
-		obj["raw"] = r.Entry()
+		obj["raw"] = r.Entry
 		routes[alias] = obj
 	})
 	return routes
@@ -138,9 +138,9 @@ func (cfg *Config) Statistics() map[string]any {
 	}
 }
 
-func (cfg *Config) FindRoute(alias string) R.Route {
+func (cfg *Config) FindRoute(alias string) *R.Route {
 	return F.MapFind(cfg.proxyProviders,
-		func(p *PR.Provider) (R.Route, bool) {
+		func(p *PR.Provider) (*R.Route, bool) {
 			if route, ok := p.GetRoute(alias); ok {
 				return route, true
 			}

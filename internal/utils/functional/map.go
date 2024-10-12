@@ -24,6 +24,10 @@ func NewMapFrom[KT comparable, VT any](m map[KT]VT) (res Map[KT, VT]) {
 	return
 }
 
+func NewMap[MapType Map[KT, VT], KT comparable, VT any]() Map[KT, VT] {
+	return NewMapOf[KT, VT]()
+}
+
 // MapFind iterates over the map and returns the first value
 // that satisfies the given criteria. The iteration is stopped
 // once a value is found. If no value satisfies the criteria,
@@ -161,7 +165,7 @@ func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) E.NestedError {
 		return E.FailedWhy("unmarshal from yaml", "map is not empty")
 	}
 	tmp := make(map[KT]VT)
-	if err := E.From(yaml.Unmarshal(data, tmp)); err.HasError() {
+	if err := E.From(yaml.Unmarshal(data, tmp)); err != nil {
 		return err
 	}
 	for k, v := range tmp {

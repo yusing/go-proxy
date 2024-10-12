@@ -42,7 +42,6 @@ func TestErrorNestedIs(t *testing.T) {
 func TestIsNil(t *testing.T) {
 	var err NestedError
 	ExpectTrue(t, err.Is(nil))
-	ExpectFalse(t, err.HasError())
 	ExpectTrue(t, err == nil)
 	ExpectTrue(t, err.NoError())
 

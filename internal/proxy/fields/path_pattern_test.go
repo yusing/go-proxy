@@ -37,11 +37,11 @@ var invalidPatterns = []string{
 
 func TestPathPatternRegex(t *testing.T) {
 	for _, pattern := range validPatterns {
-		_, err := NewPathPattern(pattern)
+		_, err := ValidatePathPattern(pattern)
 		U.ExpectNoError(t, err.Error())
 	}
 	for _, pattern := range invalidPatterns {
-		_, err := NewPathPattern(pattern)
+		_, err := ValidatePathPattern(pattern)
 		U.ExpectError2(t, pattern, E.ErrInvalid, err.Error())
 	}
 }

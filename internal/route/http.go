@@ -1,6 +1,7 @@
 package route
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,9 +15,11 @@ import (
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	url "github.com/yusing/go-proxy/internal/net/types"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
@@ -24,9 +27,10 @@ type (
 		*P.ReverseProxyEntry
 		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer"`
 
-		server  *loadbalancer.Server
-		handler http.Handler
-		rp      *gphttp.ReverseProxy
+		healthMon health.HealthMonitor
+		server    *loadbalancer.Server
+		handler   http.Handler
+		rp        *gphttp.ReverseProxy
 	}
 
 	SubdomainKey = PT.Alias
@@ -65,7 +69,7 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 		trans = gphttp.DefaultTransport.Clone()
 	}
 
-	rp := gphttp.NewReverseProxy(entry.URL, trans)
+	rp := gphttp.NewReverseProxy(string(entry.Alias), entry.URL, trans)
 
 	if len(entry.Middlewares) > 0 {
 		err := middleware.PatchReverseProxy(string(entry.Alias), rp, entry.Middlewares)
@@ -81,11 +85,27 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 		ReverseProxyEntry: entry,
 		rp:                rp,
 	}
+	if entry.LoadBalance.Link != "" && entry.HealthCheck.Disabled {
+		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer is enabled", entry.Alias)
+		entry.HealthCheck.Disabled = true
+	}
+	if !entry.HealthCheck.Disabled {
+		r.healthMon = health.NewHTTPHealthMonitor(
+			context.Background(),
+			string(entry.Alias),
+			entry.URL,
+			entry.HealthCheck,
+		)
+	}
 	return r, nil
 }
 
 func (r *HTTPRoute) String() string {
 	return string(r.Alias)
+}
+
+func (r *HTTPRoute) URL() url.URL {
+	return r.ReverseProxyEntry.URL
 }
 
 func (r *HTTPRoute) Start() E.NestedError {
@@ -118,24 +138,13 @@ func (r *HTTPRoute) Start() E.NestedError {
 
 	if r.LoadBalance.Link == "" {
 		httpRoutes.Store(string(r.Alias), r)
-		return nil
+	} else {
+		r.addToLoadBalancer()
 	}
 
-	var lb *loadbalancer.LoadBalancer
-	linked, ok := httpRoutes.Load(r.LoadBalance.Link)
-	if ok {
-		lb = linked.LoadBalancer
-	} else {
-		lb = loadbalancer.New(r.LoadBalance)
-		lb.Start()
-		linked = &HTTPRoute{
-			LoadBalancer: lb,
-			handler:      lb,
-		}
-		httpRoutes.Store(r.LoadBalance.Link, linked)
+	if r.healthMon != nil {
+		r.healthMon.Start()
 	}
-	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler)
-	lb.AddServer(r.server)
 	return nil
 }
 
@@ -164,6 +173,10 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 		httpRoutes.Delete(string(r.Alias))
 	}
 
+	if r.healthMon != nil {
+		r.healthMon.Stop()
+	}
+
 	r.handler = nil
 
 	return
@@ -173,8 +186,30 @@ func (r *HTTPRoute) Started() bool {
 	return r.handler != nil
 }
 
+func (r *HTTPRoute) addToLoadBalancer() {
+	var lb *loadbalancer.LoadBalancer
+	linked, ok := httpRoutes.Load(r.LoadBalance.Link)
+	if ok {
+		lb = linked.LoadBalancer
+	} else {
+		lb = loadbalancer.New(r.LoadBalance)
+		lb.Start()
+		linked = &HTTPRoute{
+			LoadBalancer: lb,
+			handler:      lb,
+		}
+		httpRoutes.Store(r.LoadBalance.Link, linked)
+	}
+	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.healthMon)
+	lb.AddServer(r.server)
+}
+
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findMuxFunc(r.Host)
+	// Why use StatusNotFound instead of StatusBadRequest or StatusBadGateway?
+	// On nginx, when route for domain does not exist, it returns StatusBadGateway.
+	// Then scraper / scanners will know the subdomain is invalid.
+	// With StatusNotFound, they won't know whether it's the path, or the subdomain that is invalid.
 	if err != nil {
 		if !middleware.ServeStaticErrorPageFile(w, r) {
 			logrus.Error(E.Failure("request").

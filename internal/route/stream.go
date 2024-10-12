@@ -10,13 +10,18 @@ import (
 
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/internal/error"
+	url "github.com/yusing/go-proxy/internal/net/types"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type StreamRoute struct {
 	*P.StreamEntry
 	StreamImpl `json:"-"`
+
+	url       url.URL
+	healthMon health.HealthMonitor
 
 	wg     sync.WaitGroup
 	ctx    context.Context
@@ -40,8 +45,14 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	if !entry.Scheme.IsCoherent() {
 		return nil, E.Unsupported("scheme", fmt.Sprintf("%v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme))
 	}
+	url, err := url.ParseURL(fmt.Sprintf("%s://%s:%d", entry.Scheme.ProxyScheme, entry.Host, entry.Port.ProxyPort))
+	if err != nil {
+		// !! should not happen
+		panic(err)
+	}
 	base := &StreamRoute{
 		StreamEntry: entry,
+		url:         url,
 		connCh:      make(chan any, 100),
 	}
 	if entry.Scheme.ListeningScheme.IsTCP() {
@@ -49,12 +60,19 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	} else {
 		base.StreamImpl = NewUDPRoute(base)
 	}
+	if !entry.Healthcheck.Disabled {
+		base.healthMon = health.NewRawHealthMonitor(base.ctx, string(entry.Alias), url, entry.Healthcheck)
+	}
 	base.l = logrus.WithField("route", base.StreamImpl)
 	return base, nil
 }
 
 func (r *StreamRoute) String() string {
 	return fmt.Sprintf("%s stream: %s", r.Scheme, r.Alias)
+}
+
+func (r *StreamRoute) URL() url.URL {
+	return r.url
 }
 
 func (r *StreamRoute) Start() E.NestedError {
@@ -71,6 +89,9 @@ func (r *StreamRoute) Start() E.NestedError {
 	r.wg.Add(2)
 	go r.grAcceptConnections()
 	go r.grHandleConnections()
+	if r.healthMon != nil {
+		r.healthMon.Start()
+	}
 	return nil
 }
 
@@ -78,7 +99,12 @@ func (r *StreamRoute) Stop() E.NestedError {
 	if !r.started.Load() {
 		return nil
 	}
-	l := r.l
+	r.started.Store(false)
+
+	if r.healthMon != nil {
+		r.healthMon.Stop()
+	}
+
 	r.cancel()
 	r.CloseListeners()
 
@@ -92,7 +118,7 @@ func (r *StreamRoute) Stop() E.NestedError {
 	for {
 		select {
 		case <-done:
-			l.Debug("stopped listening")
+			r.l.Debug("stopped listening")
 			return nil
 		case <-timeout:
 			return E.FailedWhy("stop", "timed out")

@@ -86,7 +86,8 @@ type ReverseProxy struct {
 
 	ServeHTTP http.HandlerFunc
 
-	TargetURL types.URL
+	TargetName string
+	TargetURL  types.URL
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -144,11 +145,11 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 //	}
 //
 
-func NewReverseProxy(target types.URL, transport http.RoundTripper) *ReverseProxy {
+func NewReverseProxy(name string, target types.URL, transport http.RoundTripper) *ReverseProxy {
 	if transport == nil {
 		panic("nil transport")
 	}
-	rp := &ReverseProxy{Transport: transport, TargetURL: target}
+	rp := &ReverseProxy{Transport: transport, TargetName: name, TargetURL: target}
 	rp.ServeHTTP = rp.serveHTTP
 	return rp
 }
@@ -194,9 +195,9 @@ func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err
 	switch {
 	case errors.Is(err, context.Canceled),
 		errors.Is(err, io.EOF):
-		logger.Debugf("http proxy to %s error: %s", r.URL.String(), err)
+		logger.Debugf("http proxy to %s(%s) error: %s", p.TargetName, r.URL.String(), err)
 	default:
-		logger.Errorf("http proxy to %s error: %s", r.URL.String(), err)
+		logger.Errorf("http proxy to %s(%s) error: %s", p.TargetName, r.URL.String(), err)
 	}
 	if writeHeader {
 		rw.WriteHeader(http.StatusBadGateway)
