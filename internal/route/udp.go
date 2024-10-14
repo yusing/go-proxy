@@ -20,6 +20,7 @@ type (
 		targetAddr    *net.UDPAddr
 	}
 	UDPConn struct {
+		key string
 		src *net.UDPConn
 		dst *net.UDPConn
 		U.BidirectionalPipe
@@ -28,6 +29,8 @@ type (
 )
 
 var NewUDPConnMap = F.NewMap[UDPConnMap]
+
+const udpBufferSize = 8192
 
 func NewUDPRoute(base *StreamRoute) StreamImpl {
 	return &UDPRoute{
@@ -87,6 +90,7 @@ func (route *UDPRoute) Accept() (any, error) {
 			return nil, err
 		}
 		conn = &UDPConn{
+			key,
 			srcConn,
 			dstConn,
 			U.NewBidirectionalPipe(route.ctx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
@@ -99,7 +103,10 @@ func (route *UDPRoute) Accept() (any, error) {
 }
 
 func (route *UDPRoute) Handle(c any) error {
-	return c.(*UDPConn).Start()
+	conn := c.(*UDPConn)
+	err := conn.Start()
+	route.connMap.Delete(conn.key)
+	return err
 }
 
 func (route *UDPRoute) CloseListeners() {
