@@ -3,24 +3,27 @@ package docker
 import (
 	"net/http"
 	"sync"
-	"sync/atomic"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
-type Client struct {
-	*client.Client
+type (
+	Client       = *SharedClient
+	SharedClient struct {
+		*client.Client
 
-	key      string
-	refCount *atomic.Int32
+		key      string
+		refCount *U.RefCount
 
-	l logrus.FieldLogger
-}
+		l logrus.FieldLogger
+	}
+)
 
 var (
 	clientMap   F.Map[string, Client] = F.NewMapOf[string, Client]()
@@ -32,26 +35,34 @@ var (
 	}
 )
 
-func (c Client) Connected() bool {
-	return c.Client != nil
+func init() {
+	go func() {
+		task := common.NewTask("close all docker client")
+		defer task.Finished()
+		for {
+			select {
+			case <-task.Context().Done():
+				clientMap.RangeAllParallel(func(_ string, c Client) {
+					c.Client.Close()
+				})
+				clientMap.Clear()
+				return
+			}
+		}
+	}()
+}
+
+func (c *SharedClient) Connected() bool {
+	return c != nil && c.Client != nil
 }
 
 // if the client is still referenced, this is no-op.
-func (c *Client) Close() error {
-	if c.refCount.Add(-1) > 0 {
+func (c *SharedClient) Close() error {
+	if !c.Connected() {
 		return nil
 	}
 
-	clientMap.Delete(c.key)
-
-	client := c.Client
-	c.Client = nil
-
-	c.l.Debugf("client closed")
-
-	if client != nil {
-		return client.Close()
-	}
+	c.refCount.Sub()
 	return nil
 }
 
@@ -71,7 +82,7 @@ func ConnectClient(host string) (Client, E.NestedError) {
 
 	// check if client exists
 	if client, ok := clientMap.Load(host); ok {
-		client.refCount.Add(1)
+		client.refCount.Add()
 		return client, nil
 	}
 
@@ -80,13 +91,13 @@ func ConnectClient(host string) (Client, E.NestedError) {
 
 	switch host {
 	case "":
-		return Client{}, E.Invalid("docker host", "empty")
+		return nil, E.Invalid("docker host", "empty")
 	case common.DockerHostFromEnv:
 		opt = clientOptEnvHost
 	default:
 		helper, err := E.Check(connhelper.GetConnectionHelper(host))
 		if err.HasError() {
-			return Client{}, E.UnexpectedError(err.Error())
+			return nil, E.UnexpectedError(err.Error())
 		}
 		if helper != nil {
 			httpClient := &http.Client{
@@ -111,19 +122,29 @@ func ConnectClient(host string) (Client, E.NestedError) {
 	client, err := E.Check(client.NewClientWithOpts(opt...))
 
 	if err.HasError() {
-		return Client{}, err
+		return nil, err
 	}
 
-	c := Client{
+	c := &SharedClient{
 		Client:   client,
 		key:      host,
-		refCount: &atomic.Int32{},
+		refCount: U.NewRefCounter(),
 		l:        logger.WithField("docker_client", client.DaemonHost()),
 	}
-	c.refCount.Add(1)
 	c.l.Debugf("client connected")
 
 	clientMap.Store(host, c)
+
+	go func() {
+		<-c.refCount.Zero()
+		clientMap.Delete(c.key)
+
+		if c.Client != nil {
+			c.Client.Close()
+			c.Client = nil
+			c.l.Debugf("client closed")
+		}
+	}()
 	return c, nil
 }
 

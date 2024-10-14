@@ -9,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/autocert"
+	"github.com/yusing/go-proxy/internal/common"
 	"golang.org/x/net/context"
 )
 
@@ -20,6 +21,7 @@ type Server struct {
 	httpStarted  bool
 	httpsStarted bool
 	startTime    time.Time
+	task         common.Task
 }
 
 type Options struct {
@@ -82,6 +84,7 @@ func NewServer(opt Options) (s *Server) {
 		CertProvider: opt.CertProvider,
 		http:         httpSer,
 		https:        httpsSer,
+		task:         common.GlobalTask("Server " + opt.Name),
 	}
 }
 
@@ -111,9 +114,15 @@ func (s *Server) Start() {
 			s.handleErr("https", s.https.ListenAndServeTLS(s.CertProvider.GetCertPath(), s.CertProvider.GetKeyPath()))
 		}()
 	}
+
+	go func() {
+		<-s.task.Context().Done()
+		s.stop()
+		s.task.Finished()
+	}()
 }
 
-func (s *Server) Stop() {
+func (s *Server) stop() {
 	if s.http == nil && s.https == nil {
 		return
 	}
