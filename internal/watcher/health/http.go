@@ -1,11 +1,11 @@
 package health
 
 import (
-	"context"
 	"crypto/tls"
 	"errors"
 	"net/http"
 
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
@@ -15,9 +15,9 @@ type HTTPHealthMonitor struct {
 	pinger *http.Client
 }
 
-func NewHTTPHealthMonitor(ctx context.Context, name string, url types.URL, config HealthCheckConfig) HealthMonitor {
+func NewHTTPHealthMonitor(task common.Task, url types.URL, config HealthCheckConfig) HealthMonitor {
 	mon := new(HTTPHealthMonitor)
-	mon.monitor = newMonitor(ctx, name, url, &config, mon.checkHealth)
+	mon.monitor = newMonitor(task, url, &config, mon.checkHealth)
 	mon.pinger = &http.Client{Timeout: config.Timeout}
 	if config.UseGet {
 		mon.method = http.MethodGet
@@ -29,7 +29,7 @@ func NewHTTPHealthMonitor(ctx context.Context, name string, url types.URL, confi
 
 func (mon *HTTPHealthMonitor) checkHealth() (healthy bool, detail string, err error) {
 	req, reqErr := http.NewRequestWithContext(
-		mon.ctx,
+		mon.task.Context(),
 		mon.method,
 		mon.URL.String(),
 		nil,

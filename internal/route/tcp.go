@@ -51,7 +51,7 @@ func (route *TCPRoute) Handle(c any) error {
 
 	defer clientConn.Close()
 
-	ctx, cancel := context.WithTimeout(route.ctx, tcpDialTimeout)
+	ctx, cancel := context.WithTimeout(route.task.Context(), tcpDialTimeout)
 	defer cancel()
 
 	serverAddr := fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort)
@@ -64,7 +64,7 @@ func (route *TCPRoute) Handle(c any) error {
 
 	route.mu.Lock()
 
-	pipe := U.NewBidirectionalPipe(route.ctx, clientConn, serverConn)
+	pipe := U.NewBidirectionalPipe(route.task.Context(), clientConn, serverConn)
 	route.pipe = append(route.pipe, pipe)
 
 	route.mu.Unlock()

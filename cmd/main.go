@@ -1,16 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
-	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -20,13 +16,10 @@ import (
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
-	"github.com/yusing/go-proxy/internal/docker"
-	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/pkg"
 )
 
@@ -39,7 +32,6 @@ func main() {
 	}
 
 	l := logrus.WithField("module", "main")
-	onShutdown := F.NewSlice[func()]()
 
 	if common.IsDebug {
 		logrus.SetLevel(logrus.DebugLevel)
@@ -127,9 +119,6 @@ func main() {
 	cfg.StartProxyProviders()
 	cfg.WatchChanges()
 
-	onShutdown.Add(docker.CloseAllClients)
-	onShutdown.Add(cfg.Dispose)
-
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
 	signal.Notify(sig, syscall.SIGTERM)
@@ -137,9 +126,7 @@ func main() {
 
 	autocert := cfg.GetAutoCertProvider()
 	if autocert != nil {
-		ctx, cancel := context.WithCancel(context.Background())
-		onShutdown.Add(cancel)
-		if err := autocert.Setup(ctx); err != nil {
+		if err := autocert.Setup(); err != nil {
 			l.Fatal(err)
 		}
 	} else {
@@ -164,53 +151,22 @@ func main() {
 
 	proxyServer.Start()
 	apiServer.Start()
-	onShutdown.Add(proxyServer.Stop)
-	onShutdown.Add(apiServer.Stop)
-
-	go idlewatcher.Start()
-	onShutdown.Add(idlewatcher.Stop)
 
 	// wait for signal
 	<-sig
 
 	// grafully shutdown
 	logrus.Info("shutting down")
-	done := make(chan struct{}, 1)
-	currentIdx := 0
-
-	go func() {
-		onShutdown.ForEach(func(f func()) {
-			l.Debugf("waiting for %s to complete...", funcName(f))
-			f()
-			currentIdx++
-			l.Debugf("%s done", funcName(f))
-		})
-		close(done)
-	}()
-
-	timeout := time.After(time.Duration(cfg.Value().TimeoutShutdown) * time.Second)
-	select {
-	case <-done:
-		logrus.Info("shutdown complete")
-	case <-timeout:
-		logrus.Info("timeout waiting for shutdown")
-		for i := currentIdx; i < onShutdown.Size(); i++ {
-			l.Warnf("%s() is still running", funcName(onShutdown.Get(i)))
-		}
-	}
+	common.CancelGlobalContext()
+	common.GlobalContextWait(time.Second * time.Duration(cfg.Value().TimeoutShutdown))
 }
 
 func prepareDirectory(dir string) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err = os.MkdirAll(dir, 0755); err != nil {
+		if err = os.MkdirAll(dir, 0o755); err != nil {
 			logrus.Fatalf("failed to create directory %s: %v", dir, err)
 		}
 	}
-}
-
-func funcName(f func()) string {
-	parts := strings.Split(runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(), "/go-proxy/")
-	return parts[len(parts)-1]
 }
 
 func printJSON(obj any) {

@@ -97,23 +97,31 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 	return hpCfg
 }
 
-func (cfg *Config) RoutesByAlias() map[string]U.SerializedObject {
+func (cfg *Config) RoutesByAlias(typeFilter ...R.RouteType) map[string]U.SerializedObject {
 	routes := make(map[string]U.SerializedObject)
-	cfg.forEachRoute(func(alias string, r *R.Route, p *PR.Provider) {
-		if !r.Started() {
-			return
+	if len(typeFilter) == 0 {
+		typeFilter = []R.RouteType{R.RouteTypeReverseProxy, R.RouteTypeStream}
+	}
+	for _, t := range typeFilter {
+		switch t {
+		case R.RouteTypeReverseProxy:
+			R.GetReverseProxies().RangeAll(func(alias string, r *R.HTTPRoute) {
+				obj, err := U.Serialize(r)
+				if err != nil {
+					panic(err) // should not happen
+				}
+				routes[alias] = obj
+			})
+		case R.RouteTypeStream:
+			R.GetStreamProxies().RangeAll(func(alias string, r *R.StreamRoute) {
+				obj, err := U.Serialize(r)
+				if err != nil {
+					panic(err) // should not happen
+				}
+				routes[alias] = obj
+			})
 		}
-		obj, err := U.Serialize(r)
-		if err != nil {
-			cfg.l.Error(err)
-			return
-		}
-		obj["provider"] = p.GetName()
-		obj["type"] = string(r.Type)
-		obj["started"] = r.Started()
-		obj["raw"] = r.Entry
-		routes[alias] = obj
-	})
+	}
 	return routes
 }
 

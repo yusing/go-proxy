@@ -1,13 +1,12 @@
 package autocert
 
 import (
-	"context"
 	"os"
 
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-func (p *Provider) Setup(ctx context.Context) (err E.NestedError) {
+func (p *Provider) Setup() (err E.NestedError) {
 	if err = p.LoadCert(); err != nil {
 		if !err.Is(os.ErrNotExist) { // ignore if cert doesn't exist
 			return err
@@ -18,7 +17,7 @@ func (p *Provider) Setup(ctx context.Context) (err E.NestedError) {
 		}
 	}
 
-	go p.ScheduleRenewal(ctx)
+	go p.ScheduleRenewal()
 
 	for _, expiry := range p.GetExpiries() {
 		logger.Infof("certificate expire on %s", expiry)

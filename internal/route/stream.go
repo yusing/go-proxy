@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
-	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	url "github.com/yusing/go-proxy/internal/net/types"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -20,16 +20,18 @@ type StreamRoute struct {
 	*P.StreamEntry
 	StreamImpl `json:"-"`
 
-	url       url.URL
-	healthMon health.HealthMonitor
+	HealthMon health.HealthMonitor `json:"health"`
+
+	url url.URL
 
 	wg     sync.WaitGroup
-	ctx    context.Context
+	task   common.Task
 	cancel context.CancelFunc
 
-	connCh  chan any
-	started atomic.Bool
-	l       logrus.FieldLogger
+	connCh chan any
+	l      logrus.FieldLogger
+
+	mu sync.Mutex
 }
 
 type StreamImpl interface {
@@ -38,6 +40,12 @@ type StreamImpl interface {
 	Handle(conn any) error
 	CloseListeners()
 	String() string
+}
+
+var streamRoutes = F.NewMapOf[string, *StreamRoute]()
+
+func GetStreamProxies() F.Map[string, *StreamRoute] {
+	return streamRoutes
 }
 
 func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
@@ -60,9 +68,6 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	} else {
 		base.StreamImpl = NewUDPRoute(base)
 	}
-	if !entry.Healthcheck.Disabled {
-		base.healthMon = health.NewRawHealthMonitor(base.ctx, string(entry.Alias), url, entry.Healthcheck)
-	}
 	base.l = logrus.WithField("route", base.StreamImpl)
 	return base, nil
 }
@@ -76,72 +81,71 @@ func (r *StreamRoute) URL() url.URL {
 }
 
 func (r *StreamRoute) Start() E.NestedError {
-	if r.Port.ProxyPort == PT.NoPort || r.started.Load() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.Port.ProxyPort == PT.NoPort || r.task != nil {
 		return nil
 	}
-	r.ctx, r.cancel = context.WithCancel(context.Background())
+	r.task, r.cancel = common.NewTaskWithCancel(r.String())
 	r.wg.Wait()
 	if err := r.Setup(); err != nil {
 		return E.FailWith("setup", err)
 	}
 	r.l.Infof("listening on port %d", r.Port.ListeningPort)
-	r.started.Store(true)
 	r.wg.Add(2)
-	go r.grAcceptConnections()
-	go r.grHandleConnections()
-	if r.healthMon != nil {
-		r.healthMon.Start()
+	go r.acceptConnections()
+	go r.handleConnections()
+	if !r.Healthcheck.Disabled {
+		r.HealthMon = health.NewRawHealthMonitor(r.task, r.URL(), r.Healthcheck)
+		r.HealthMon.Start()
 	}
+	streamRoutes.Store(string(r.Alias), r)
 	return nil
 }
 
 func (r *StreamRoute) Stop() E.NestedError {
-	if !r.started.Load() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.task == nil {
 		return nil
 	}
-	r.started.Store(false)
 
-	if r.healthMon != nil {
-		r.healthMon.Stop()
+	streamRoutes.Delete(string(r.Alias))
+
+	if r.HealthMon != nil {
+		r.HealthMon.Stop()
+		r.HealthMon = nil
 	}
 
 	r.cancel()
 	r.CloseListeners()
 
-	done := make(chan struct{}, 1)
-	go func() {
-		r.wg.Wait()
-		close(done)
-	}()
+	r.wg.Wait()
+	r.task.Finished()
 
-	timeout := time.After(streamStopListenTimeout)
-	for {
-		select {
-		case <-done:
-			r.l.Debug("stopped listening")
-			return nil
-		case <-timeout:
-			return E.FailedWhy("stop", "timed out")
-		}
-	}
+	r.task, r.cancel = nil, nil
+
+	return nil
 }
 
 func (r *StreamRoute) Started() bool {
-	return r.started.Load()
+	return r.task != nil
 }
 
-func (r *StreamRoute) grAcceptConnections() {
+func (r *StreamRoute) acceptConnections() {
 	defer r.wg.Done()
 
 	for {
 		select {
-		case <-r.ctx.Done():
+		case <-r.task.Context().Done():
 			return
 		default:
 			conn, err := r.Accept()
 			if err != nil {
 				select {
-				case <-r.ctx.Done():
+				case <-r.task.Context().Done():
 					return
 				default:
 					r.l.Error(err)
@@ -153,12 +157,12 @@ func (r *StreamRoute) grAcceptConnections() {
 	}
 }
 
-func (r *StreamRoute) grHandleConnections() {
+func (r *StreamRoute) handleConnections() {
 	defer r.wg.Done()
 
 	for {
 		select {
-		case <-r.ctx.Done():
+		case <-r.task.Context().Done():
 			return
 		case conn := <-r.connCh:
 			go func() {

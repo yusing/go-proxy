@@ -1,7 +1,6 @@
 package autocert
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"os"
@@ -14,6 +13,7 @@ import (
 	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/types"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -136,20 +136,20 @@ func (p *Provider) ShouldRenewOn() time.Time {
 	panic("no certificate available")
 }
 
-func (p *Provider) ScheduleRenewal(ctx context.Context) {
+func (p *Provider) ScheduleRenewal() {
 	if p.GetName() == ProviderLocal {
 		return
 	}
 
-	logger.Debug("started renewal scheduler")
-	defer logger.Debug("renewal scheduler stopped")
-
 	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
+	task := common.NewTask("cert renew scheduler")
+	defer task.Finished()
+
 	for {
 		select {
-		case <-ctx.Done():
+		case <-task.Context().Done():
 			return
 		case <-ticker.C: // check every 5 seconds
 			if err := p.renewIfNeeded(); err.HasError() {

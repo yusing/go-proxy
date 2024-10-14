@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"os"
 
 	"github.com/sirupsen/logrus"
@@ -25,10 +24,9 @@ type Config struct {
 
 	l logrus.FieldLogger
 
-	watcher       W.Watcher
-	watcherCtx    context.Context
-	watcherCancel context.CancelFunc
-	reloadReq     chan struct{}
+	watcher W.Watcher
+
+	reloadReq chan struct{}
 }
 
 var instance *Config
@@ -76,14 +74,6 @@ func (cfg *Config) GetAutoCertProvider() *autocert.Provider {
 	return cfg.autocertProvider
 }
 
-func (cfg *Config) Dispose() {
-	if cfg.watcherCancel != nil {
-		cfg.watcherCancel()
-		cfg.l.Debug("stopped watcher")
-	}
-	cfg.stopProviders()
-}
-
 func (cfg *Config) Reload() (err E.NestedError) {
 	cfg.stopProviders()
 	err = cfg.load()
@@ -96,11 +86,13 @@ func (cfg *Config) StartProxyProviders() {
 }
 
 func (cfg *Config) WatchChanges() {
-	cfg.watcherCtx, cfg.watcherCancel = context.WithCancel(context.Background())
+	task := common.NewTask("Config watcher")
+	defer task.Finished()
+
 	go func() {
 		for {
 			select {
-			case <-cfg.watcherCtx.Done():
+			case <-task.Context().Done():
 				return
 			case <-cfg.reloadReq:
 				if err := cfg.Reload(); err != nil {
@@ -110,10 +102,10 @@ func (cfg *Config) WatchChanges() {
 		}
 	}()
 	go func() {
-		eventCh, errCh := cfg.watcher.Events(cfg.watcherCtx)
+		eventCh, errCh := cfg.watcher.Events(task.Context())
 		for {
 			select {
-			case <-cfg.watcherCtx.Done():
+			case <-task.Context().Done():
 				return
 			case event := <-eventCh:
 				if event.Action == events.ActionFileDeleted || event.Action == events.ActionFileRenamed {

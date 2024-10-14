@@ -93,7 +93,7 @@ func (route *UDPRoute) Accept() (any, error) {
 			key,
 			srcConn,
 			dstConn,
-			U.NewBidirectionalPipe(route.ctx, sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
+			U.NewBidirectionalPipe(route.task.Context(), sourceRWCloser{in, dstConn}, sourceRWCloser{in, srcConn}),
 		}
 		route.connMap.Store(key, conn)
 	}

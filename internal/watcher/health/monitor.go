@@ -7,6 +7,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/net/types"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
@@ -27,7 +28,7 @@ type (
 		healthy     atomic.Bool
 		checkHealth HealthCheckFunc
 
-		ctx    context.Context
+		task   common.Task
 		cancel context.CancelFunc
 		done   chan struct{}
 
@@ -37,22 +38,18 @@ type (
 
 var monMap = F.NewMapOf[string, HealthMonitor]()
 
-func newMonitor(parentCtx context.Context, name string, url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
-	if parentCtx == nil {
-		parentCtx = context.Background()
-	}
-	ctx, cancel := context.WithCancel(parentCtx)
+func newMonitor(task common.Task, url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
+	task, cancel := task.SubtaskWithCancel("Health monitor for %s", task.Name())
 	mon := &monitor{
-		Name:        name,
+		Name:        task.Name(),
 		URL:         url.JoinPath(config.Path),
 		Interval:    config.Interval,
 		checkHealth: healthCheckFunc,
-		ctx:         ctx,
+		task:        task,
 		cancel:      cancel,
 		done:        make(chan struct{}),
 	}
 	mon.healthy.Store(true)
-	monMap.Store(name, mon)
 	return mon
 }
 
@@ -65,8 +62,12 @@ func IsHealthy(name string) (healthy bool, ok bool) {
 }
 
 func (mon *monitor) Start() {
+	defer monMap.Store(mon.Name, mon)
+	defer logger.Debugf("%s health monitor started", mon)
+
 	go func() {
 		defer close(mon.done)
+		defer mon.task.Finished()
 
 		ok := mon.checkUpdateHealth()
 		if !ok {
@@ -78,7 +79,7 @@ func (mon *monitor) Start() {
 
 		for {
 			select {
-			case <-mon.ctx.Done():
+			case <-mon.task.Context().Done():
 				return
 			case <-ticker.C:
 				ok = mon.checkUpdateHealth()
@@ -92,7 +93,7 @@ func (mon *monitor) Start() {
 }
 
 func (mon *monitor) Stop() {
-	defer logger.Debugf("health monitor %q stopped", mon)
+	defer logger.Debugf("%s health monitor stopped", mon)
 
 	monMap.Delete(mon.Name)
 

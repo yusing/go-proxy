@@ -1,7 +1,6 @@
 package route
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -52,6 +52,10 @@ func (rp ReverseProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	rp.ReverseProxy.ServeHTTP(w, r)
 }
 
+func GetReverseProxies() F.Map[string, *HTTPRoute] {
+	return httpRoutes
+}
+
 func SetFindMuxDomains(domains []string) {
 	if len(domains) == 0 {
 		findMuxFunc = findMuxAnyDomain
@@ -91,8 +95,7 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 	}
 	if !entry.HealthCheck.Disabled {
 		r.healthMon = health.NewHTTPHealthMonitor(
-			context.Background(),
-			string(entry.Alias),
+			common.GlobalTask("Reverse proxy "+r.String()),
 			entry.URL,
 			entry.HealthCheck,
 		)
