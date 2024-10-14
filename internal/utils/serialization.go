@@ -98,6 +98,14 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 			if jsonTag == "-" {
 				continue // Ignore this field if the tag is "-"
 			}
+			if strings.Contains(jsonTag, ",omitempty") {
+				if field.Type.Kind() == reflect.Ptr && value.Field(i).IsNil() {
+					continue
+				}
+				if value.Field(i).IsZero() {
+					continue
+				}
+			}
 
 			// If the json tag is not empty, use it as the key
 			switch {

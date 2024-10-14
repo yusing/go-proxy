@@ -43,10 +43,11 @@ func DockerrFilterContainer(nameOrID string) filters.KeyValuePair {
 
 func NewDockerWatcher(host string) DockerWatcher {
 	return DockerWatcher{
-		host: host,
 		FieldLogger: (logrus.
 			WithField("module", "docker_watcher").
-			WithField("host", host))}
+			WithField("host", host)),
+		host: host,
+	}
 }
 
 func NewDockerWatcherWithClient(client D.Client) DockerWatcher {
@@ -64,8 +65,6 @@ func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Neste
 func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan E.NestedError) {
 	eventCh := make(chan Event)
 	errCh := make(chan E.NestedError)
-
-	eventsCtx, eventsCancel := context.WithCancel(ctx)
 
 	go func() {
 		defer close(eventCh)
@@ -100,7 +99,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 
 		w.Debugf("client connected")
 
-		cEventCh, cErrCh := w.client.Events(eventsCtx, options)
+		cEventCh, cErrCh := w.client.Events(ctx, options)
 
 		w.Debugf("watcher started")
 
@@ -134,9 +133,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 				case <-ctx.Done():
 					return
 				default:
-					eventsCancel()
 					time.Sleep(dockerWatcherRetryInterval)
-					eventsCtx, eventsCancel = context.WithCancel(ctx)
 					cEventCh, cErrCh = w.client.Events(ctx, options)
 				}
 			}
@@ -149,6 +146,6 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 var optionsWatchAll = DockerListOptions{Filters: NewDockerFilter(
 	DockerFilterContainer,
 	DockerFilterStart,
-	DockerFilterStop,
+	// DockerFilterStop,
 	DockerFilterDie,
 )}

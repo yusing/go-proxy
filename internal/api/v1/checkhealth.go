@@ -15,14 +15,10 @@ func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	isHealthy, ok := health.IsHealthy(target)
+	status, ok := health.Inspect(target)
 	if !ok {
 		HandleErr(w, r, ErrNotFound("target", target), http.StatusNotFound)
 		return
 	}
-	if isHealthy {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}
+	WriteBody(w, []byte(status.String()))
 }

@@ -9,7 +9,7 @@ import (
 func TestRebalance(t *testing.T) {
 	t.Parallel()
 	t.Run("zero", func(t *testing.T) {
-		lb := New(Config{})
+		lb := New(new(Config))
 		for range 10 {
 			lb.AddServer(&Server{})
 		}
@@ -17,7 +17,7 @@ func TestRebalance(t *testing.T) {
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})
 	t.Run("less", func(t *testing.T) {
-		lb := New(Config{})
+		lb := New(new(Config))
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .1)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .2)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .3)})
@@ -28,7 +28,7 @@ func TestRebalance(t *testing.T) {
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})
 	t.Run("more", func(t *testing.T) {
-		lb := New(Config{})
+		lb := New(new(Config))
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .1)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .2)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .3)})

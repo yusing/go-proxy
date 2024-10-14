@@ -24,13 +24,14 @@ import (
 
 type (
 	HTTPRoute struct {
-		*P.ReverseProxyEntry
-		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer"`
+		*P.ReverseProxyEntry `json:"entry"`
 
-		healthMon health.HealthMonitor
-		server    *loadbalancer.Server
-		handler   http.Handler
-		rp        *gphttp.ReverseProxy
+		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer,omitempty"`
+		HealthMon    health.HealthMonitor       `json:"health"`
+
+		server  *loadbalancer.Server
+		handler http.Handler
+		rp      *gphttp.ReverseProxy
 	}
 
 	SubdomainKey = PT.Alias
@@ -89,17 +90,6 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 		ReverseProxyEntry: entry,
 		rp:                rp,
 	}
-	if entry.LoadBalance.Link != "" && entry.HealthCheck.Disabled {
-		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer is enabled", entry.Alias)
-		entry.HealthCheck.Disabled = true
-	}
-	if !entry.HealthCheck.Disabled {
-		r.healthMon = health.NewHTTPHealthMonitor(
-			common.GlobalTask("Reverse proxy "+r.String()),
-			entry.URL,
-			entry.HealthCheck,
-		)
-	}
 	return r, nil
 }
 
@@ -116,8 +106,17 @@ func (r *HTTPRoute) Start() E.NestedError {
 		return nil
 	}
 
+	if r.ShouldNotServe() {
+		return nil
+	}
+
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
+
+	if r.HealthCheck.Disabled && (r.UseIdleWatcher() || r.UseLoadBalance()) {
+		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
+		r.HealthCheck.Disabled = true
+	}
 
 	switch {
 	case r.UseIdleWatcher():
@@ -125,10 +124,12 @@ func (r *HTTPRoute) Start() E.NestedError {
 		if err != nil {
 			return err
 		}
-		r.handler = idlewatcher.NewWaker(watcher, r.rp)
-	case r.IsZeroPort() ||
-		r.IsDocker() && !r.ContainerRunning:
-		return nil
+		waker := idlewatcher.NewWaker(watcher, r.rp)
+		r.handler = waker
+		r.HealthMon = waker
+	case !r.HealthCheck.Disabled:
+		r.HealthMon = health.NewHTTPHealthMonitor(common.GlobalTask("Reverse proxy "+r.String()), r.URL(), r.HealthCheck)
+		fallthrough
 	case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
 		r.handler = ReverseProxyHandler{r.rp}
 	default:
@@ -139,14 +140,14 @@ func (r *HTTPRoute) Start() E.NestedError {
 		r.handler = mux
 	}
 
-	if r.LoadBalance.Link == "" {
-		httpRoutes.Store(string(r.Alias), r)
-	} else {
+	if r.UseLoadBalance() {
 		r.addToLoadBalancer()
+	} else {
+		httpRoutes.Store(string(r.Alias), r)
 	}
 
-	if r.healthMon != nil {
-		r.healthMon.Start()
+	if r.HealthMon != nil {
+		r.HealthMon.Start()
 	}
 	return nil
 }
@@ -159,25 +160,15 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if waker, ok := r.handler.(*idlewatcher.Waker); ok {
-		waker.Unregister()
-	}
-
-	if r.server != nil {
-		linked, ok := httpRoutes.Load(r.LoadBalance.Link)
-		if ok {
-			linked.LoadBalancer.RemoveServer(r.server)
-		}
-		if linked.LoadBalancer.IsEmpty() {
-			httpRoutes.Delete(r.LoadBalance.Link)
-		}
-		r.server = nil
+	if r.LoadBalancer != nil {
+		r.removeFromLoadBalancer()
 	} else {
 		httpRoutes.Delete(string(r.Alias))
 	}
 
-	if r.healthMon != nil {
-		r.healthMon.Stop()
+	if r.HealthMon != nil {
+		r.HealthMon.Stop()
+		r.HealthMon = nil
 	}
 
 	r.handler = nil
@@ -203,8 +194,19 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		}
 		httpRoutes.Store(r.LoadBalance.Link, linked)
 	}
-	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.healthMon)
+	r.LoadBalancer = lb
+	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
+}
+
+func (r *HTTPRoute) removeFromLoadBalancer() {
+	r.LoadBalancer.RemoveServer(r.server)
+	if r.LoadBalancer.IsEmpty() {
+		httpRoutes.Delete(r.LoadBalance.Link)
+		logrus.Debugf("loadbalancer %q removed from route table", r.LoadBalance.Link)
+	}
+	r.server = nil
+	r.LoadBalancer = nil
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {

@@ -15,9 +15,9 @@ type HTTPHealthMonitor struct {
 	pinger *http.Client
 }
 
-func NewHTTPHealthMonitor(task common.Task, url types.URL, config HealthCheckConfig) HealthMonitor {
+func NewHTTPHealthMonitor(task common.Task, url types.URL, config *HealthCheckConfig) HealthMonitor {
 	mon := new(HTTPHealthMonitor)
-	mon.monitor = newMonitor(task, url, &config, mon.checkHealth)
+	mon.monitor = newMonitor(task, url, config, mon.checkHealth)
 	mon.pinger = &http.Client{Timeout: config.Timeout}
 	if config.UseGet {
 		mon.method = http.MethodGet
@@ -31,7 +31,7 @@ func (mon *HTTPHealthMonitor) checkHealth() (healthy bool, detail string, err er
 	req, reqErr := http.NewRequestWithContext(
 		mon.task.Context(),
 		mon.method,
-		mon.URL.String(),
+		mon.url.JoinPath(mon.config.Path).String(),
 		nil,
 	)
 	if reqErr != nil {

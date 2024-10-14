@@ -45,10 +45,10 @@ func (impl ipHash) serveHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	idx := hashIP(ip) % uint32(len(impl.pool))
-	if !impl.pool[idx].IsHealthy() {
+	if impl.pool[idx].Status().Bad() {
 		http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
 	}
-	impl.pool[idx].handler.ServeHTTP(rw, r)
+	impl.pool[idx].ServeHTTP(rw, r)
 }
 
 func hashIP(ip string) uint32 {

@@ -2,6 +2,7 @@ package loadbalancer
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -33,10 +34,18 @@ func NewServer(name string, url types.URL, weight weightType, handler http.Handl
 	return srv
 }
 
+func (srv *Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
+	srv.handler.ServeHTTP(rw, r)
+}
+
 func (srv *Server) String() string {
 	return srv.Name
 }
 
-func (srv *Server) IsHealthy() bool {
-	return srv.healthMon.IsHealthy()
+func (srv *Server) Status() health.Status {
+	return srv.healthMon.Status()
+}
+
+func (srv *Server) Uptime() time.Duration {
+	return srv.healthMon.Uptime()
 }

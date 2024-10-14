@@ -8,8 +8,8 @@ import (
 
 type HealthCheckConfig struct {
 	Disabled bool          `json:"disabled" yaml:"disabled"`
-	Path     string        `json:"path" yaml:"path"`
-	UseGet   bool          `json:"use_get" yaml:"use_get"`
+	Path     string        `json:"path,omitempty" yaml:"path"`
+	UseGet   bool          `json:"use_get,omitempty" yaml:"use_get"`
 	Interval time.Duration `json:"interval" yaml:"interval"`
 	Timeout  time.Duration `json:"timeout" yaml:"timeout"`
 }

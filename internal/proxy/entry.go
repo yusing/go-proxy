@@ -16,37 +16,41 @@ import (
 
 type (
 	ReverseProxyEntry struct { // real model after validation
-		Alias        T.Alias                  `json:"alias"`
-		Scheme       T.Scheme                 `json:"scheme"`
-		URL          net.URL                  `json:"url"`
-		NoTLSVerify  bool                     `json:"no_tls_verify"`
-		PathPatterns T.PathPatterns           `json:"path_patterns"`
-		HealthCheck  health.HealthCheckConfig `json:"healthcheck"`
-		LoadBalance  loadbalancer.Config      `json:"load_balance"`
-		Middlewares  D.NestedLabelMap         `json:"middlewares"`
+		Alias        T.Alias                   `json:"alias"`
+		Scheme       T.Scheme                  `json:"scheme"`
+		URL          net.URL                   `json:"url"`
+		NoTLSVerify  bool                      `json:"no_tls_verify,omitempty"`
+		PathPatterns T.PathPatterns            `json:"path_patterns"`
+		HealthCheck  *health.HealthCheckConfig `json:"healthcheck"`
+		LoadBalance  *loadbalancer.Config      `json:"load_balance,omitempty"`
+		Middlewares  D.NestedLabelMap          `json:"middlewares,omitempty"`
 
 		/* Docker only */
 		IdleTimeout      time.Duration `json:"idle_timeout"`
 		WakeTimeout      time.Duration `json:"wake_timeout"`
 		StopMethod       T.StopMethod  `json:"stop_method"`
 		StopTimeout      int           `json:"stop_timeout"`
-		StopSignal       T.Signal      `json:"stop_signal"`
+		StopSignal       T.Signal      `json:"stop_signal,omitempty"`
 		DockerHost       string        `json:"docker_host"`
 		ContainerName    string        `json:"container_name"`
 		ContainerID      string        `json:"container_id"`
 		ContainerRunning bool          `json:"container_running"`
 	}
 	StreamEntry struct {
-		Alias       T.Alias                  `json:"alias"`
-		Scheme      T.StreamScheme           `json:"scheme"`
-		Host        T.Host                   `json:"host"`
-		Port        T.StreamPort             `json:"port"`
-		Healthcheck health.HealthCheckConfig `json:"healthcheck"`
+		Alias       T.Alias                   `json:"alias"`
+		Scheme      T.StreamScheme            `json:"scheme"`
+		Host        T.Host                    `json:"host"`
+		Port        T.StreamPort              `json:"port"`
+		Healthcheck *health.HealthCheckConfig `json:"healthcheck"`
 	}
 )
 
 func (rp *ReverseProxyEntry) UseIdleWatcher() bool {
-	return rp.IdleTimeout > 0 && rp.DockerHost != ""
+	return rp.IdleTimeout > 0 && rp.IsDocker()
+}
+
+func (rp *ReverseProxyEntry) UseLoadBalance() bool {
+	return rp.LoadBalance.Link != ""
 }
 
 func (rp *ReverseProxyEntry) IsDocker() bool {
@@ -55,6 +59,10 @@ func (rp *ReverseProxyEntry) IsDocker() bool {
 
 func (rp *ReverseProxyEntry) IsZeroPort() bool {
 	return rp.URL.Port() == "0"
+}
+
+func (rp *ReverseProxyEntry) ShouldNotServe() bool {
+	return rp.IsZeroPort() && !rp.UseIdleWatcher()
 }
 
 func ValidateEntry(m *types.RawEntry) (any, E.NestedError) {
@@ -120,8 +128,8 @@ func validateRPEntry(m *types.RawEntry, s T.Scheme, b E.Builder) *ReverseProxyEn
 		URL:              net.NewURL(url),
 		NoTLSVerify:      m.NoTLSVerify,
 		PathPatterns:     pathPatterns,
-		HealthCheck:      m.HealthCheck,
-		LoadBalance:      m.LoadBalance,
+		HealthCheck:      &m.HealthCheck,
+		LoadBalance:      &m.LoadBalance,
 		Middlewares:      m.Middlewares,
 		IdleTimeout:      idleTimeout,
 		WakeTimeout:      wakeTimeout,
@@ -154,6 +162,6 @@ func validateStreamEntry(m *types.RawEntry, b E.Builder) *StreamEntry {
 		Scheme:      *scheme,
 		Host:        host,
 		Port:        port,
-		Healthcheck: m.HealthCheck,
+		Healthcheck: &m.HealthCheck,
 	}
 }

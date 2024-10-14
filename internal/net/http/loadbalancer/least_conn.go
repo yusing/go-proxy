@@ -48,6 +48,6 @@ func (impl *leastConn) ServeHTTP(srvs servers, rw http.ResponseWriter, r *http.R
 	}
 
 	minConn.Add(1)
-	srv.handler.ServeHTTP(rw, r)
+	srv.ServeHTTP(rw, r)
 	minConn.Add(-1)
 }

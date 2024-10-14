@@ -14,9 +14,10 @@ import (
 )
 
 type Client struct {
+	*client.Client
+
 	key      string
 	refCount *atomic.Int32
-	*client.Client
 
 	l logrus.FieldLogger
 }

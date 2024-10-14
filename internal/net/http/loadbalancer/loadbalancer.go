@@ -3,6 +3,7 @@ package loadbalancer
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/go-acme/lego/v4/log"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -25,12 +26,13 @@ type (
 	}
 	LoadBalancer struct {
 		impl
-		Config
+		*Config
 
 		pool   servers
 		poolMu sync.Mutex
 
 		sumWeight weightType
+		startTime time.Time
 	}
 
 	weightType uint16
@@ -38,7 +40,7 @@ type (
 
 const maxWeight weightType = 100
 
-func New(cfg Config) *LoadBalancer {
+func New(cfg *Config) *LoadBalancer {
 	lb := &LoadBalancer{Config: cfg, pool: servers{}}
 	mode := cfg.Mode
 	if !cfg.Mode.ValidateUpdate() {
@@ -167,6 +169,8 @@ func (lb *LoadBalancer) Start() {
 	if lb.sumWeight != 0 {
 		log.Warnf("weighted mode not supported yet")
 	}
+
+	lb.startTime = time.Now()
 	logger.Debugf("loadbalancer %s started", lb.Link)
 }
 
@@ -178,15 +182,20 @@ func (lb *LoadBalancer) Stop() {
 	logger.Debugf("loadbalancer %s stopped", lb.Link)
 }
 
+func (lb *LoadBalancer) Uptime() time.Duration {
+	return time.Since(lb.startTime)
+}
+
 func (lb *LoadBalancer) availServers() servers {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
 	avail := make(servers, 0, len(lb.pool))
 	for _, s := range lb.pool {
-		if s.IsHealthy() {
-			avail = append(avail, s)
+		if s.Status().Bad() {
+			continue
 		}
+		avail = append(avail, s)
 	}
 	return avail
 }

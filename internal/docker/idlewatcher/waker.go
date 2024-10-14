@@ -2,12 +2,14 @@ package idlewatcher
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/sirupsen/logrus"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type Waker struct {
@@ -18,20 +20,6 @@ type Waker struct {
 }
 
 func NewWaker(w *Watcher, rp *gphttp.ReverseProxy) *Waker {
-	orig := rp.ServeHTTP
-	// workaround for stopped containers port become zero
-	rp.ServeHTTP = func(rw http.ResponseWriter, r *http.Request) {
-		if rp.TargetURL.Port() == "0" {
-			port, ok := portHistoryMap.Load(w.Alias)
-			if !ok {
-				w.l.Errorf("port history not found for %s", w.Alias)
-				http.Error(rw, "internal server error", http.StatusInternalServerError)
-				return
-			}
-			rp.TargetURL.Host = fmt.Sprintf("%s:%v", rp.TargetURL.Hostname(), port)
-		}
-		orig(rw, r)
-	}
 	return &Waker{
 		Watcher: w,
 		client: &http.Client{
@@ -43,16 +31,67 @@ func NewWaker(w *Watcher, rp *gphttp.ReverseProxy) *Waker {
 }
 
 func (w *Waker) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	w.wake(w.rp.ServeHTTP, rw, r)
+	shouldNext := w.wake(rw, r)
+	if !shouldNext {
+		return
+	}
+	w.rp.ServeHTTP(rw, r)
 }
 
-func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Request) {
+/* HealthMonitor interface */
+
+func (w *Waker) Start() {}
+
+func (w *Waker) Stop() {
+	w.Unregister()
+}
+
+func (w *Waker) UpdateConfig(config health.HealthCheckConfig) {
+	panic("use idlewatcher.Register instead")
+}
+
+func (w *Waker) Name() string {
+	return w.String()
+}
+
+func (w *Waker) String() string {
+	return string(w.Alias)
+}
+
+func (w *Waker) Status() health.Status {
+	if w.ready.Load() {
+		return health.StatusHealthy
+	}
+	if !w.ContainerRunning {
+		return health.StatusNapping
+	}
+	return health.StatusStarting
+}
+
+func (w *Waker) Uptime() time.Duration {
+	return 0
+}
+
+func (w *Waker) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"name":   w.Name(),
+		"url":    w.URL,
+		"status": w.Status(),
+		"config": health.HealthCheckConfig{
+			Interval: w.IdleTimeout,
+			Timeout:  w.WakeTimeout,
+		},
+	})
+}
+
+/* End of HealthMonitor interface */
+
+func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) {
 	w.resetIdleTimer()
 
 	// pass through if container is ready
 	if w.ready.Load() {
-		next(rw, r)
-		return
+		return true
 	}
 
 	ctx, cancel := context.WithTimeout(r.Context(), w.WakeTimeout)
@@ -89,10 +128,9 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 	if w.ready.Load() {
 		if isCheckRedirect {
 			rw.WriteHeader(http.StatusOK)
-		} else {
-			next(rw, r)
+			return
 		}
-		return
+		return true
 	}
 
 	for {
@@ -121,10 +159,10 @@ func (w *Waker) wake(next http.HandlerFunc, rw http.ResponseWriter, r *http.Requ
 			w.l.Debug("awaken")
 			if isCheckRedirect {
 				rw.WriteHeader(http.StatusOK)
-			} else {
-				next(rw, r)
+				return
 			}
-			return
+			logrus.Infof("container %s is ready, passing through to %s", w.Alias, w.rp.TargetURL)
+			return true
 		}
 
 		// retry until the container is ready or timeout

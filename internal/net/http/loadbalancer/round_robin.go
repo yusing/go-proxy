@@ -15,7 +15,7 @@ func (lb *roundRobin) OnRemoveServer(srv *Server) {}
 
 func (lb *roundRobin) ServeHTTP(srvs servers, rw http.ResponseWriter, r *http.Request) {
 	index := lb.index.Add(1)
-	srvs[index%uint32(len(srvs))].handler.ServeHTTP(rw, r)
+	srvs[index%uint32(len(srvs))].ServeHTTP(rw, r)
 	if lb.index.Load() >= 2*uint32(len(srvs)) {
 		lb.index.Store(0)
 	}
