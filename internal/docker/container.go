@@ -75,31 +75,41 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 func FromJSON(json types.ContainerJSON, dockerHost string) *Container {
 	ports := make([]types.Port, 0)
 	for k, bindings := range json.NetworkSettings.Ports {
+		privPortStr, proto := k.Port(), k.Proto()
+		privPort, _ := strconv.ParseUint(privPortStr, 10, 16)
+		ports = append(ports, types.Port{
+			PrivatePort: uint16(privPort),
+			Type:        proto,
+		})
 		for _, v := range bindings {
 			pubPort, _ := strconv.ParseUint(v.HostPort, 10, 16)
-			privPort, _ := strconv.ParseUint(k.Port(), 10, 16)
 			ports = append(ports, types.Port{
 				IP:          v.HostIP,
 				PublicPort:  uint16(pubPort),
 				PrivatePort: uint16(privPort),
+				Type:        proto,
 			})
 		}
 	}
 	cont := FromDocker(&types.Container{
 		ID:     json.ID,
-		Names:  []string{json.Name},
+		Names:  []string{strings.TrimPrefix(json.Name, "/")},
 		Image:  json.Image,
 		Ports:  ports,
 		Labels: json.Config.Labels,
 		State:  json.State.Status,
 		Status: json.State.Status,
+		Mounts: json.Mounts,
+		NetworkSettings: &types.SummaryNetworkSettings{
+			Networks: json.NetworkSettings.Networks,
+		},
 	}, dockerHost)
 	cont.NetworkMode = string(json.HostConfig.NetworkMode)
 	return cont
 }
 
 func (c *Container) setPublicIP() {
-	if c.PublicPortMapping == nil {
+	if !c.Running {
 		return
 	}
 	if strings.HasPrefix(c.DockerHost, "unix://") {
@@ -123,6 +133,9 @@ func (c *Container) setPrivateIP(helper containerHelper) {
 		return
 	}
 	for _, v := range helper.NetworkSettings.Networks {
+		if v.IPAddress == "" {
+			continue
+		}
 		c.PrivateIP = v.IPAddress
 		return
 	}

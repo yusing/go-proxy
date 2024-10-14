@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/docker/docker/api/types"
+	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/homepage"
@@ -51,7 +53,7 @@ func (e *RawEntry) FillMissingFields() {
 			e.Host = e.PrivateIP
 		case e.PublicIP != "":
 			e.Host = e.PublicIP
-		default:
+		case !isDocker:
 			e.Host = "localhost"
 		}
 	}
@@ -75,10 +77,14 @@ func (e *RawEntry) FillMissingFields() {
 	} else if pp == "" && e.Scheme == "https" {
 		pp = "443"
 	} else if pp == "" {
-		if p, ok := F.FirstValueOf(e.PrivatePortMapping); ok {
-			pp = U.PortString(p.PrivatePort)
+		if p := lowestPort(e.PrivatePortMapping); p != "" {
+			pp = p
+		} else if p := lowestPort(e.PublicPortMapping); p != "" {
+			pp = p
 		} else if !isDocker {
 			pp = "80"
+		} else {
+			logrus.Debugf("no port found for %s", e.Alias)
 		}
 	}
 
@@ -118,6 +124,9 @@ func (e *RawEntry) FillMissingFields() {
 	if e.HealthCheck.Interval == 0 {
 		e.HealthCheck.Interval = common.HealthCheckIntervalDefault
 	}
+	if e.HealthCheck.Timeout == 0 {
+		e.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
+	}
 	if e.IdleTimeout == "" {
 		e.IdleTimeout = common.IdleTimeoutDefault
 	}
@@ -133,7 +142,7 @@ func (e *RawEntry) FillMissingFields() {
 
 	e.Port = joinPorts(lp, pp, extra)
 
-	if e.Port == "" {
+	if e.Port == "" || e.Host == "" {
 		e.Port = "0"
 	}
 }
@@ -164,4 +173,16 @@ func joinPorts(lp string, pp string, extra string) string {
 		s = append(s, extra)
 	}
 	return strings.Join(s, ":")
+}
+
+func lowestPort(ports map[string]types.Port) string {
+	var cmp uint16
+	var res string
+	for port, v := range ports {
+		if v.PrivatePort < cmp || cmp == 0 {
+			cmp = v.PrivatePort
+			res = port
+		}
+	}
+	return res
 }
