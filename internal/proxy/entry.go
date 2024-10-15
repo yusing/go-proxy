@@ -54,7 +54,7 @@ func (rp *ReverseProxyEntry) UseIdleWatcher() bool {
 }
 
 func (rp *ReverseProxyEntry) UseLoadBalance() bool {
-	return rp.LoadBalance.Link != ""
+	return rp.LoadBalance != nil && rp.LoadBalance.Link != ""
 }
 
 func (rp *ReverseProxyEntry) IsDocker() bool {

@@ -25,7 +25,7 @@ import (
 
 type (
 	HTTPRoute struct {
-		*P.ReverseProxyEntry `json:"entry"`
+		*P.ReverseProxyEntry
 
 		HealthMon health.HealthMonitor `json:"health,omitempty"`
 

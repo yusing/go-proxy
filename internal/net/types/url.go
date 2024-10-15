@@ -27,8 +27,11 @@ func (u URL) String() string {
 	return u.URL.String()
 }
 
-func (u URL) MarshalText() (text []byte, err error) {
-	return []byte(u.String()), nil
+func (u URL) MarshalJSON() (text []byte, err error) {
+	if u.URL == nil {
+		return []byte("null"), nil
+	}
+	return []byte("\"" + u.URL.String() + "\""), nil
 }
 
 func (u URL) Equals(other *URL) bool {

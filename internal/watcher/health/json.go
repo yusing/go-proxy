@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/net/types"
+	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 type JSONRepresentation struct {
@@ -19,12 +20,14 @@ type JSONRepresentation struct {
 
 func (jsonRepr *JSONRepresentation) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
-		"name":    jsonRepr.Name,
-		"config":  jsonRepr.Config,
-		"started": jsonRepr.Started.Unix(),
-		"status":  jsonRepr.Status.String(),
-		"uptime":  jsonRepr.Uptime.Seconds(),
-		"url":     jsonRepr.URL.String(),
-		"extra":   jsonRepr.Extra,
+		"name":       jsonRepr.Name,
+		"config":     jsonRepr.Config,
+		"started":    jsonRepr.Started.Unix(),
+		"startedStr": U.FormatTime(jsonRepr.Started),
+		"status":     jsonRepr.Status.String(),
+		"uptime":     jsonRepr.Uptime.Seconds(),
+		"uptimeStr":  U.FormatDuration(jsonRepr.Uptime),
+		"url":        jsonRepr.URL,
+		"extra":      jsonRepr.Extra,
 	})
 }

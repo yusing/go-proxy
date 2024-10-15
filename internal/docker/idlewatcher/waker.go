@@ -8,6 +8,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -72,6 +73,10 @@ func (w *Waker) Uptime() time.Duration {
 }
 
 func (w *Waker) MarshalJSON() ([]byte, error) {
+	var url types.URL
+	if w.URL.String() != "http://:0" {
+		url = w.URL
+	}
 	return (&health.JSONRepresentation{
 		Name:   w.Name(),
 		Status: w.Status(),
@@ -79,7 +84,7 @@ func (w *Waker) MarshalJSON() ([]byte, error) {
 			Interval: w.IdleTimeout,
 			Timeout:  w.WakeTimeout,
 		},
-		URL: w.URL,
+		URL: url,
 	}).MarshalJSON()
 }
 
