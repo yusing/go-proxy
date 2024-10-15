@@ -43,7 +43,9 @@ func init() {
 			select {
 			case <-task.Context().Done():
 				clientMap.RangeAllParallel(func(_ string, c Client) {
-					c.Client.Close()
+					if c.Connected() {
+						c.Client.Close()
+					}
 				})
 				clientMap.Clear()
 				return

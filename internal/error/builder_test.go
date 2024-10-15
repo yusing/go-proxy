@@ -46,7 +46,18 @@ func TestBuilderNested(t *testing.T) {
     - invalid Inner: "2"
   - Action 2 failed:
     - invalid Inner: "3"`)
-	if got != expected1 && got != expected2 {
-		t.Errorf("expected \n%s, got \n%s", expected1, got)
-	}
+	ExpectEqualAny(t, got, []string{expected1, expected2})
+}
+
+func TestBuilderTo(t *testing.T) {
+	eb := NewBuilder("error occurred")
+	eb.Addf("abcd")
+
+	var err NestedError
+	eb.To(&err)
+	got := err.String()
+	expected := (`error occurred:
+  - abcd`)
+
+	ExpectEqual(t, got, expected)
 }

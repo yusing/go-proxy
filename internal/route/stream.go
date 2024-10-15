@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/sirupsen/logrus"
@@ -24,12 +25,11 @@ type StreamRoute struct {
 
 	url url.URL
 
-	wg     sync.WaitGroup
 	task   common.Task
 	cancel context.CancelFunc
+	done   chan struct{}
 
-	connCh chan any
-	l      logrus.FieldLogger
+	l logrus.FieldLogger
 
 	mu sync.Mutex
 }
@@ -61,7 +61,6 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 	base := &StreamRoute{
 		StreamEntry: entry,
 		url:         url,
-		connCh:      make(chan any, 100),
 	}
 	if entry.Scheme.ListeningScheme.IsTCP() {
 		base.StreamImpl = NewTCPRoute(base)
@@ -73,7 +72,7 @@ func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
 }
 
 func (r *StreamRoute) String() string {
-	return fmt.Sprintf("%s stream: %s", r.Scheme, r.Alias)
+	return fmt.Sprintf("stream %s", r.Alias)
 }
 
 func (r *StreamRoute) URL() url.URL {
@@ -88,14 +87,12 @@ func (r *StreamRoute) Start() E.NestedError {
 		return nil
 	}
 	r.task, r.cancel = common.NewTaskWithCancel(r.String())
-	r.wg.Wait()
 	if err := r.Setup(); err != nil {
 		return E.FailWith("setup", err)
 	}
+	r.done = make(chan struct{})
 	r.l.Infof("listening on port %d", r.Port.ListeningPort)
-	r.wg.Add(2)
 	go r.acceptConnections()
-	go r.handleConnections()
 	if !r.Healthcheck.Disabled {
 		r.HealthMon = health.NewRawHealthMonitor(r.task, r.URL(), r.Healthcheck)
 		r.HealthMon.Start()
@@ -122,11 +119,7 @@ func (r *StreamRoute) Stop() E.NestedError {
 	r.cancel()
 	r.CloseListeners()
 
-	r.wg.Wait()
-	r.task.Finished()
-
-	r.task, r.cancel = nil, nil
-
+	<-r.done
 	return nil
 }
 
@@ -135,41 +128,45 @@ func (r *StreamRoute) Started() bool {
 }
 
 func (r *StreamRoute) acceptConnections() {
-	defer r.wg.Done()
+	var connWg sync.WaitGroup
+
+	task := r.task.Subtask("%s accept connections", r.String())
+
+	defer func() {
+		connWg.Wait()
+		task.Finished()
+		r.task.Finished()
+		r.task, r.cancel = nil, nil
+		close(r.done)
+		r.done = nil
+	}()
 
 	for {
 		select {
-		case <-r.task.Context().Done():
+		case <-task.Context().Done():
 			return
 		default:
 			conn, err := r.Accept()
 			if err != nil {
 				select {
-				case <-r.task.Context().Done():
+				case <-task.Context().Done():
 					return
 				default:
-					r.l.Error(err)
+					var nErr *net.OpError
+					ok := errors.As(err, &nErr)
+					if !(ok && nErr.Timeout()) {
+						r.l.Error(err)
+					}
 					continue
 				}
 			}
-			r.connCh <- conn
-		}
-	}
-}
-
-func (r *StreamRoute) handleConnections() {
-	defer r.wg.Done()
-
-	for {
-		select {
-		case <-r.task.Context().Done():
-			return
-		case conn := <-r.connCh:
+			connWg.Add(1)
 			go func() {
 				err := r.Handle(conn)
 				if err != nil && !errors.Is(err, context.Canceled) {
 					r.l.Error(err)
 				}
+				connWg.Done()
 			}()
 		}
 	}

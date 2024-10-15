@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"time"
 
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -67,6 +68,7 @@ func (route *UDPRoute) Accept() (any, error) {
 	in := route.listeningConn
 
 	buffer := make([]byte, udpBufferSize)
+	route.listeningConn.SetReadDeadline(time.Now().Add(time.Second))
 	nRead, srcAddr, err := in.ReadFromUDP(buffer)
 	if err != nil {
 		return nil, err

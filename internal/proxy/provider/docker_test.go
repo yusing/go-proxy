@@ -88,20 +88,20 @@ func TestApplyLabelWildcard(t *testing.T) {
 	ExpectDeepEqual(t, a.Middlewares, middlewaresExpect)
 	ExpectEqual(t, len(b.Middlewares), 0)
 
-	ExpectEqual(t, a.IdleTimeout, common.IdleTimeoutDefault)
-	ExpectEqual(t, b.IdleTimeout, common.IdleTimeoutDefault)
+	ExpectEqual(t, a.Container.IdleTimeout, common.IdleTimeoutDefault)
+	ExpectEqual(t, b.Container.IdleTimeout, common.IdleTimeoutDefault)
 
-	ExpectEqual(t, a.StopTimeout, common.StopTimeoutDefault)
-	ExpectEqual(t, b.StopTimeout, common.StopTimeoutDefault)
+	ExpectEqual(t, a.Container.StopTimeout, common.StopTimeoutDefault)
+	ExpectEqual(t, b.Container.StopTimeout, common.StopTimeoutDefault)
 
-	ExpectEqual(t, a.StopMethod, common.StopMethodDefault)
-	ExpectEqual(t, b.StopMethod, common.StopMethodDefault)
+	ExpectEqual(t, a.Container.StopMethod, common.StopMethodDefault)
+	ExpectEqual(t, b.Container.StopMethod, common.StopMethodDefault)
 
-	ExpectEqual(t, a.WakeTimeout, common.WakeTimeoutDefault)
-	ExpectEqual(t, b.WakeTimeout, common.WakeTimeoutDefault)
+	ExpectEqual(t, a.Container.WakeTimeout, common.WakeTimeoutDefault)
+	ExpectEqual(t, b.Container.WakeTimeout, common.WakeTimeoutDefault)
 
-	ExpectEqual(t, a.StopSignal, "SIGTERM")
-	ExpectEqual(t, b.StopSignal, "SIGTERM")
+	ExpectEqual(t, a.Container.StopSignal, "SIGTERM")
+	ExpectEqual(t, b.Container.StopSignal, "SIGTERM")
 }
 
 func TestApplyLabelWithAlias(t *testing.T) {
@@ -186,16 +186,16 @@ func TestPublicIPLocalhost(t *testing.T) {
 	c := D.FromDocker(&types.Container{Names: dummyNames}, client.DefaultDockerHost)
 	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 	ExpectTrue(t, ok)
-	ExpectEqual(t, raw.PublicIP, "127.0.0.1")
-	ExpectEqual(t, raw.Host, raw.PublicIP)
+	ExpectEqual(t, raw.Container.PublicIP, "127.0.0.1")
+	ExpectEqual(t, raw.Host, raw.Container.PublicIP)
 }
 
 func TestPublicIPRemote(t *testing.T) {
 	c := D.FromDocker(&types.Container{Names: dummyNames}, "tcp://1.2.3.4:2375")
 	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 	ExpectTrue(t, ok)
-	ExpectEqual(t, raw.PublicIP, "1.2.3.4")
-	ExpectEqual(t, raw.Host, raw.PublicIP)
+	ExpectEqual(t, raw.Container.PublicIP, "1.2.3.4")
+	ExpectEqual(t, raw.Host, raw.Container.PublicIP)
 }
 
 func TestPrivateIPLocalhost(t *testing.T) {
@@ -211,8 +211,8 @@ func TestPrivateIPLocalhost(t *testing.T) {
 	}, client.DefaultDockerHost)
 	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 	ExpectTrue(t, ok)
-	ExpectEqual(t, raw.PrivateIP, "172.17.0.123")
-	ExpectEqual(t, raw.Host, raw.PrivateIP)
+	ExpectEqual(t, raw.Container.PrivateIP, "172.17.0.123")
+	ExpectEqual(t, raw.Host, raw.Container.PrivateIP)
 }
 
 func TestPrivateIPRemote(t *testing.T) {
@@ -228,9 +228,9 @@ func TestPrivateIPRemote(t *testing.T) {
 	}, "tcp://1.2.3.4:2375")
 	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 	ExpectTrue(t, ok)
-	ExpectEqual(t, raw.PrivateIP, "")
-	ExpectEqual(t, raw.PublicIP, "1.2.3.4")
-	ExpectEqual(t, raw.Host, raw.PublicIP)
+	ExpectEqual(t, raw.Container.PrivateIP, "")
+	ExpectEqual(t, raw.Container.PublicIP, "1.2.3.4")
+	ExpectEqual(t, raw.Host, raw.Container.PublicIP)
 }
 
 func TestStreamDefaultValues(t *testing.T) {

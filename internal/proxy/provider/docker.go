@@ -72,7 +72,7 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 	}
 
 	entries.RangeAll(func(_ string, e *types.RawEntry) {
-		e.DockerHost = p.dockerHost
+		e.Container.DockerHost = p.dockerHost
 	})
 
 	routes, err = R.FromEntries(entries)
@@ -88,7 +88,7 @@ func (p *DockerProvider) shouldIgnore(container *D.Container) bool {
 		strings.HasSuffix(container.ContainerName, "-old")
 }
 
-func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
+func (p *DockerProvider) OnEvent(event W.Event, oldRoutes R.Routes) (res EventResult) {
 	switch event.Action {
 	case events.ActionContainerStart, events.ActionContainerStop:
 		break
@@ -98,74 +98,65 @@ func (p *DockerProvider) OnEvent(event W.Event, routes R.Routes) (res EventResul
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 
-	routes.RangeAll(func(k string, v *R.Route) {
-		if v.Entry.ContainerID == event.ActorID ||
-			v.Entry.ContainerName == event.ActorName {
+	matches := R.NewRoutes()
+	oldRoutes.RangeAllParallel(func(k string, v *R.Route) {
+		if v.Entry.Container.ContainerID == event.ActorID ||
+			v.Entry.Container.ContainerName == event.ActorName {
+			matches.Store(k, v)
+		}
+	})
+
+	var newRoutes R.Routes
+	var err E.NestedError
+
+	if matches.Size() == 0 { // id & container name changed
+		matches = oldRoutes
+		newRoutes, err = p.LoadRoutesImpl()
+		b.Add(err)
+	} else {
+		cont, err := D.Inspect(p.dockerHost, event.ActorID)
+		if err != nil {
+			b.Add(E.FailWith("inspect container", err))
+			return
+		}
+
+		if p.shouldIgnore(cont) {
+			// stop all old routes
+			matches.RangeAllParallel(func(_ string, v *R.Route) {
+				b.Add(v.Stop())
+			})
+			return
+		}
+
+		entries, err := p.entriesFromContainerLabels(cont)
+		b.Add(err)
+		newRoutes, err = R.FromEntries(entries)
+		b.Add(err)
+	}
+
+	matches.RangeAll(func(k string, v *R.Route) {
+		if !newRoutes.Has(k) && !oldRoutes.Has(k) {
 			b.Add(v.Stop())
-			routes.Delete(k)
+			matches.Delete(k)
 			res.nRemoved++
 		}
 	})
 
-	if res.nRemoved == 0 { // id & container name changed
-		// load all routes (rescan)
-		routesNew, err := p.LoadRoutesImpl()
-		routesOld := routes
-		if routesNew.Size() == 0 {
-			b.Add(E.FailWith("rescan routes", err))
-			return
-		}
-		routesNew.Range(func(k string, v *R.Route) bool {
-			if !routesOld.Has(k) {
-				routesOld.Store(k, v)
-				b.Add(v.Start())
-				res.nAdded++
-				return false
-			}
-			return true
-		})
-		routesOld.Range(func(k string, v *R.Route) bool {
-			if !routesNew.Has(k) {
-				b.Add(v.Stop())
-				routesOld.Delete(k)
-				res.nRemoved++
-				return false
-			}
-			return true
-		})
-		return
-	}
-
-	client, err := D.ConnectClient(p.dockerHost)
-	if err != nil {
-		b.Add(E.FailWith("connect to docker", err))
-		return
-	}
-	defer client.Close()
-	cont, err := client.Inspect(event.ActorID)
-	if err != nil {
-		b.Add(E.FailWith("inspect container", err))
-		return
-	}
-
-	if p.shouldIgnore(cont) {
-		return
-	}
-
-	entries, err := p.entriesFromContainerLabels(cont)
-	b.Add(err)
-
-	entries.RangeAll(func(alias string, entry *types.RawEntry) {
-		if routes.Has(alias) {
-			b.Add(E.Duplicated("alias", alias))
-		} else {
-			if route, err := R.NewRoute(entry); err != nil {
+	newRoutes.RangeAll(func(alias string, newRoute *R.Route) {
+		oldRoute, exists := oldRoutes.Load(alias)
+		if exists {
+			if err := oldRoute.Stop(); err != nil {
 				b.Add(err)
-			} else {
-				routes.Store(alias, route)
-				b.Add(route.Start())
-				res.nAdded++
 			}
+		}
+		oldRoutes.Store(alias, newRoute)
+		if err := newRoute.Start(); err != nil {
+			b.Add(err)
+		}
+		if exists {
+			res.nReloaded++
+		} else {
+			res.nAdded++
 		}
 	})
 

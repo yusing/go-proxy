@@ -1,7 +1,5 @@
 package health
 
-import "encoding/json"
-
 type Status int
 
 const (
@@ -36,7 +34,7 @@ func (s Status) String() string {
 }
 
 func (s Status) MarshalJSON() ([]byte, error) {
-	return json.Marshal(s.String())
+	return []byte(`"` + s.String() + `"`), nil
 }
 
 func (s Status) Good() bool {

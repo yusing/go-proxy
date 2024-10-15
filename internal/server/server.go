@@ -84,7 +84,7 @@ func NewServer(opt Options) (s *Server) {
 		CertProvider: opt.CertProvider,
 		http:         httpSer,
 		https:        httpsSer,
-		task:         common.GlobalTask("Server " + opt.Name),
+		task:         common.GlobalTask(opt.Name + " server"),
 	}
 }
 
@@ -133,13 +133,11 @@ func (s *Server) stop() {
 	if s.http != nil && s.httpStarted {
 		s.handleErr("http", s.http.Shutdown(ctx))
 		s.httpStarted = false
-		logger.Debugf("HTTP server %q stopped", s.Name)
 	}
 
 	if s.https != nil && s.httpsStarted {
 		s.handleErr("https", s.https.Shutdown(ctx))
 		s.httpsStarted = false
-		logger.Debugf("HTTPS server %q stopped", s.Name)
 	}
 }
 
@@ -152,7 +150,7 @@ func (s *Server) handleErr(scheme string, err error) {
 	case err == nil, errors.Is(err, http.ErrServerClosed):
 		return
 	default:
-		logrus.Fatalf("failed to start %s %s server: %s", scheme, s.Name, err)
+		logrus.Fatalf("%s server %s error: %s", scheme, s.Name, err)
 	}
 }
 

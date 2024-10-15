@@ -15,10 +15,15 @@ func CheckHealth(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status, ok := health.Inspect(target)
+	result, ok := health.Inspect(target)
 	if !ok {
 		HandleErr(w, r, ErrNotFound("target", target), http.StatusNotFound)
 		return
 	}
-	WriteBody(w, []byte(status.String()))
+	json, err := result.MarshalJSON()
+	if err != nil {
+		HandleErr(w, r, err)
+		return
+	}
+	RespondJSON(w, r, json)
 }

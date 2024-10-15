@@ -32,7 +32,7 @@ func ValidateStreamScheme(s string) (ss *StreamScheme, err E.NestedError) {
 }
 
 func (s StreamScheme) String() string {
-	return fmt.Sprintf("%s:%s", s.ListeningScheme, s.ProxyScheme)
+	return fmt.Sprintf("%s -> %s", s.ListeningScheme, s.ProxyScheme)
 }
 
 // IsCoherent checks if the ListeningScheme and ProxyScheme of the StreamScheme are equal.

@@ -18,6 +18,7 @@ import (
 	url "github.com/yusing/go-proxy/internal/net/types"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	"github.com/yusing/go-proxy/internal/types"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
@@ -26,12 +27,12 @@ type (
 	HTTPRoute struct {
 		*P.ReverseProxyEntry `json:"entry"`
 
-		LoadBalancer *loadbalancer.LoadBalancer `json:"load_balancer,omitempty"`
-		HealthMon    health.HealthMonitor       `json:"health"`
+		HealthMon health.HealthMonitor `json:"health,omitempty"`
 
-		server  *loadbalancer.Server
-		handler http.Handler
-		rp      *gphttp.ReverseProxy
+		loadBalancer *loadbalancer.LoadBalancer
+		server       *loadbalancer.Server
+		handler      http.Handler
+		rp           *gphttp.ReverseProxy
 	}
 
 	SubdomainKey = PT.Alias
@@ -102,16 +103,16 @@ func (r *HTTPRoute) URL() url.URL {
 }
 
 func (r *HTTPRoute) Start() E.NestedError {
-	if r.handler != nil {
-		return nil
-	}
-
 	if r.ShouldNotServe() {
 		return nil
 	}
 
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
+
+	if r.handler != nil {
+		return nil
+	}
 
 	if r.HealthCheck.Disabled && (r.UseIdleWatcher() || r.UseLoadBalance()) {
 		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
@@ -129,15 +130,23 @@ func (r *HTTPRoute) Start() E.NestedError {
 		r.HealthMon = waker
 	case !r.HealthCheck.Disabled:
 		r.HealthMon = health.NewHTTPHealthMonitor(common.GlobalTask("Reverse proxy "+r.String()), r.URL(), r.HealthCheck)
-		fallthrough
-	case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
-		r.handler = ReverseProxyHandler{r.rp}
-	default:
-		mux := http.NewServeMux()
-		for _, p := range r.PathPatterns {
-			mux.HandleFunc(string(p), r.rp.ServeHTTP)
+	}
+
+	if r.handler == nil {
+		switch {
+		case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
+			r.handler = ReverseProxyHandler{r.rp}
+		default:
+			mux := http.NewServeMux()
+			for _, p := range r.PathPatterns {
+				mux.HandleFunc(string(p), r.rp.ServeHTTP)
+			}
+			r.handler = mux
 		}
-		r.handler = mux
+	}
+
+	if r.HealthMon != nil {
+		r.HealthMon.Start()
 	}
 
 	if r.UseLoadBalance() {
@@ -146,9 +155,6 @@ func (r *HTTPRoute) Start() E.NestedError {
 		httpRoutes.Store(string(r.Alias), r)
 	}
 
-	if r.HealthMon != nil {
-		r.HealthMon.Start()
-	}
 	return nil
 }
 
@@ -160,7 +166,7 @@ func (r *HTTPRoute) Stop() (_ E.NestedError) {
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if r.LoadBalancer != nil {
+	if r.loadBalancer != nil {
 		r.removeFromLoadBalancer()
 	} else {
 		httpRoutes.Delete(string(r.Alias))
@@ -184,29 +190,40 @@ func (r *HTTPRoute) addToLoadBalancer() {
 	var lb *loadbalancer.LoadBalancer
 	linked, ok := httpRoutes.Load(r.LoadBalance.Link)
 	if ok {
-		lb = linked.LoadBalancer
+		lb = linked.loadBalancer
+		lb.UpdateConfigIfNeeded(r.LoadBalance)
+		if linked.Raw.Homepage == nil && r.Raw.Homepage != nil {
+			linked.Raw.Homepage = r.Raw.Homepage
+		}
 	} else {
 		lb = loadbalancer.New(r.LoadBalance)
 		lb.Start()
 		linked = &HTTPRoute{
-			LoadBalancer: lb,
+			ReverseProxyEntry: &P.ReverseProxyEntry{
+				Raw: &types.RawEntry{
+					Homepage: r.Raw.Homepage,
+				},
+				Alias: PT.Alias(lb.Link),
+			},
+			HealthMon:    lb,
+			loadBalancer: lb,
 			handler:      lb,
 		}
 		httpRoutes.Store(r.LoadBalance.Link, linked)
 	}
-	r.LoadBalancer = lb
+	r.loadBalancer = lb
 	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
 }
 
 func (r *HTTPRoute) removeFromLoadBalancer() {
-	r.LoadBalancer.RemoveServer(r.server)
-	if r.LoadBalancer.IsEmpty() {
+	r.loadBalancer.RemoveServer(r.server)
+	if r.loadBalancer.IsEmpty() {
 		httpRoutes.Delete(r.LoadBalance.Link)
 		logrus.Debugf("loadbalancer %q removed from route table", r.LoadBalance.Link)
 	}
 	r.server = nil
-	r.LoadBalancer = nil
+	r.loadBalancer = nil
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {

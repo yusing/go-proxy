@@ -22,9 +22,9 @@ type (
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
 		Alias        string                   `json:"-" yaml:"-"`
-		Scheme       string                   `json:"scheme" yaml:"scheme"`
-		Host         string                   `json:"host" yaml:"host"`
-		Port         string                   `json:"port" yaml:"port"`
+		Scheme       string                   `json:"scheme,omitempty" yaml:"scheme"`
+		Host         string                   `json:"host,omitempty" yaml:"host"`
+		Port         string                   `json:"port,omitempty" yaml:"port"`
 		NoTLSVerify  bool                     `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
 		PathPatterns []string                 `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
 		HealthCheck  health.HealthCheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck"`
@@ -33,7 +33,7 @@ type (
 		Homepage     *homepage.Item           `json:"homepage,omitempty" yaml:"homepage"`
 
 		/* Docker only */
-		*docker.Container `json:"container" yaml:"-"`
+		Container *docker.Container `json:"container,omitempty" yaml:"-"`
 	}
 
 	RawEntries = F.Map[string, *RawEntry]
@@ -43,16 +43,17 @@ var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
 func (e *RawEntry) FillMissingFields() {
 	isDocker := e.Container != nil
+	cont := e.Container
 	if !isDocker {
-		e.Container = &docker.Container{}
+		cont = docker.DummyContainer
 	}
 
 	if e.Host == "" {
 		switch {
-		case e.PrivateIP != "":
-			e.Host = e.PrivateIP
-		case e.PublicIP != "":
-			e.Host = e.PublicIP
+		case cont.PrivateIP != "":
+			e.Host = cont.PrivateIP
+		case cont.PublicIP != "":
+			e.Host = cont.PublicIP
 		case !isDocker:
 			e.Host = "localhost"
 		}
@@ -60,14 +61,14 @@ func (e *RawEntry) FillMissingFields() {
 
 	lp, pp, extra := e.splitPorts()
 
-	if port, ok := common.ServiceNamePortMapTCP[e.ImageName]; ok {
+	if port, ok := common.ServiceNamePortMapTCP[cont.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
 		if e.Scheme == "" {
 			e.Scheme = "tcp"
 		}
-	} else if port, ok := common.ImageNamePortMap[e.ImageName]; ok {
+	} else if port, ok := common.ImageNamePortMap[cont.ImageName]; ok {
 		if pp == "" {
 			pp = strconv.Itoa(port)
 		}
@@ -77,9 +78,9 @@ func (e *RawEntry) FillMissingFields() {
 	} else if pp == "" && e.Scheme == "https" {
 		pp = "443"
 	} else if pp == "" {
-		if p := lowestPort(e.PrivatePortMapping); p != "" {
+		if p := lowestPort(cont.PrivatePortMapping); p != "" {
 			pp = p
-		} else if p := lowestPort(e.PublicPortMapping); p != "" {
+		} else if p := lowestPort(cont.PublicPortMapping); p != "" {
 			pp = p
 		} else if !isDocker {
 			pp = "80"
@@ -89,23 +90,23 @@ func (e *RawEntry) FillMissingFields() {
 	}
 
 	// replace private port with public port if using public IP.
-	if e.Host == e.PublicIP {
-		if p, ok := e.PrivatePortMapping[pp]; ok {
+	if e.Host == cont.PublicIP {
+		if p, ok := cont.PrivatePortMapping[pp]; ok {
 			pp = U.PortString(p.PublicPort)
 		}
 	}
 	// replace public port with private port if using private IP.
-	if e.Host == e.PrivateIP {
-		if p, ok := e.PublicPortMapping[pp]; ok {
+	if e.Host == cont.PrivateIP {
+		if p, ok := cont.PublicPortMapping[pp]; ok {
 			pp = U.PortString(p.PrivatePort)
 		}
 	}
 
 	if e.Scheme == "" && isDocker {
 		switch {
-		case e.Host == e.PublicIP && e.PublicPortMapping[pp].Type == "udp":
+		case e.Host == cont.PublicIP && cont.PublicPortMapping[pp].Type == "udp":
 			e.Scheme = "udp"
-		case e.Host == e.PrivateIP && e.PrivatePortMapping[pp].Type == "udp":
+		case e.Host == cont.PrivateIP && cont.PrivatePortMapping[pp].Type == "udp":
 			e.Scheme = "udp"
 		}
 	}
@@ -127,17 +128,17 @@ func (e *RawEntry) FillMissingFields() {
 	if e.HealthCheck.Timeout == 0 {
 		e.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
 	}
-	if e.IdleTimeout == "" {
-		e.IdleTimeout = common.IdleTimeoutDefault
+	if cont.IdleTimeout == "" {
+		cont.IdleTimeout = common.IdleTimeoutDefault
 	}
-	if e.WakeTimeout == "" {
-		e.WakeTimeout = common.WakeTimeoutDefault
+	if cont.WakeTimeout == "" {
+		cont.WakeTimeout = common.WakeTimeoutDefault
 	}
-	if e.StopTimeout == "" {
-		e.StopTimeout = common.StopTimeoutDefault
+	if cont.StopTimeout == "" {
+		cont.StopTimeout = common.StopTimeoutDefault
 	}
-	if e.StopMethod == "" {
-		e.StopMethod = common.StopMethodDefault
+	if cont.StopMethod == "" {
+		cont.StopMethod = common.StopMethodDefault
 	}
 
 	e.Port = joinPorts(lp, pp, extra)

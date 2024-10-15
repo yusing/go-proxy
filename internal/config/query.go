@@ -42,25 +42,18 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 	}
 
 	hpCfg := homepage.NewHomePageConfig()
-	cfg.forEachRoute(func(alias string, r *R.Route, p *PR.Provider) {
-		if !r.Started() {
-			return
-		}
-
-		entry := r.Entry
-		if entry.Homepage == nil {
-			entry.Homepage = &homepage.Item{
-				Show: r.Entry.IsExplicit || !p.IsExplicitOnly(),
-			}
-		}
-
+	R.GetReverseProxies().RangeAll(func(alias string, r *R.HTTPRoute) {
+		entry := r.Raw
 		item := entry.Homepage
+		if item == nil {
+			item = new(homepage.Item)
+		}
 
-		if !item.Show && !item.IsEmpty() {
+		if !item.Show && item.IsEmpty() {
 			item.Show = true
 		}
 
-		if !item.Show || r.Type != R.RouteTypeReverseProxy {
+		if !item.Show {
 			return
 		}
 
@@ -73,12 +66,17 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 			)
 		}
 
-		if p.GetType() == PR.ProviderTypeDocker {
+		if r.IsDocker() {
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
 			item.SourceType = string(PR.ProviderTypeDocker)
-		} else if p.GetType() == PR.ProviderTypeFile {
+		} else if r.UseLoadBalance() {
+			if item.Category == "" {
+				item.Category = "Load-balanced"
+			}
+			item.SourceType = "loadbalancer"
+		} else {
 			if item.Category == "" {
 				item.Category = "Others"
 			}
@@ -97,28 +95,20 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 	return hpCfg
 }
 
-func (cfg *Config) RoutesByAlias(typeFilter ...R.RouteType) map[string]U.SerializedObject {
-	routes := make(map[string]U.SerializedObject)
-	if len(typeFilter) == 0 {
+func (cfg *Config) RoutesByAlias(typeFilter ...R.RouteType) map[string]any {
+	routes := make(map[string]any)
+	if len(typeFilter) == 0 || typeFilter[0] == "" {
 		typeFilter = []R.RouteType{R.RouteTypeReverseProxy, R.RouteTypeStream}
 	}
 	for _, t := range typeFilter {
 		switch t {
 		case R.RouteTypeReverseProxy:
 			R.GetReverseProxies().RangeAll(func(alias string, r *R.HTTPRoute) {
-				obj, err := U.Serialize(r)
-				if err != nil {
-					panic(err) // should not happen
-				}
-				routes[alias] = obj
+				routes[alias] = r
 			})
 		case R.RouteTypeStream:
 			R.GetStreamProxies().RangeAll(func(alias string, r *R.StreamRoute) {
-				obj, err := U.Serialize(r)
-				if err != nil {
-					panic(err) // should not happen
-				}
-				routes[alias] = obj
+				routes[alias] = r
 			})
 		}
 	}

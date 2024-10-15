@@ -8,6 +8,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -45,16 +46,7 @@ func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 }
 
 func listRoutes(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	routes := cfg.RoutesByAlias()
-	typeFilter := r.FormValue("type")
-	if typeFilter != "" {
-		for k, v := range routes {
-			if v["type"] != typeFilter {
-				delete(routes, k)
-			}
-		}
-	}
-
+	routes := cfg.RoutesByAlias(route.RouteType(r.FormValue("type")))
 	U.RespondJSON(w, r, routes)
 }
 

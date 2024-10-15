@@ -2,7 +2,6 @@ package health
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"sync"
 	"time"
@@ -25,8 +24,9 @@ type (
 	}
 	HealthCheckFunc func() (healthy bool, detail string, err error)
 	monitor         struct {
-		config *HealthCheckConfig
-		url    types.URL
+		service string
+		config  *HealthCheckConfig
+		url     types.URL
 
 		status      U.AtomicValue[Status]
 		checkHealth HealthCheckFunc
@@ -43,8 +43,10 @@ type (
 var monMap = F.NewMapOf[string, HealthMonitor]()
 
 func newMonitor(task common.Task, url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
-	task, cancel := task.SubtaskWithCancel("Health monitor for %s", task.Name())
+	service := task.Name()
+	task, cancel := task.SubtaskWithCancel("Health monitor for %s", service)
 	mon := &monitor{
+		service:     service,
 		config:      config,
 		url:         url,
 		checkHealth: healthCheckFunc,
@@ -57,17 +59,12 @@ func newMonitor(task common.Task, url types.URL, config *HealthCheckConfig, heal
 	return mon
 }
 
-func Inspect(name string) (status Status, ok bool) {
-	mon, ok := monMap.Load(name)
-	if !ok {
-		return
-	}
-	return mon.Status(), true
+func Inspect(name string) (HealthMonitor, bool) {
+	return monMap.Load(name)
 }
 
 func (mon *monitor) Start() {
 	defer monMap.Store(mon.task.Name(), mon)
-	defer logger.Debugf("%s health monitor started", mon.String())
 
 	go func() {
 		defer close(mon.done)
@@ -93,12 +90,9 @@ func (mon *monitor) Start() {
 			}
 		}
 	}()
-	logger.Debugf("health monitor %q started", mon.String())
 }
 
 func (mon *monitor) Stop() {
-	defer logger.Debugf("%s health monitor stopped", mon.String())
-
 	monMap.Delete(mon.task.Name())
 
 	mon.mu.Lock()
@@ -132,14 +126,14 @@ func (mon *monitor) String() string {
 }
 
 func (mon *monitor) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"name":    mon.Name(),
-		"url":     mon.url,
-		"status":  mon.status.Load(),
-		"uptime":  mon.Uptime().String(),
-		"started": mon.startTime.Unix(),
-		"config":  mon.config,
-	})
+	return (&JSONRepresentation{
+		Name:    mon.Name(),
+		Config:  mon.config,
+		Status:  mon.status.Load(),
+		Started: mon.startTime,
+		Uptime:  mon.Uptime(),
+		URL:     mon.url,
+	}).MarshalJSON()
 }
 
 func (mon *monitor) checkUpdateHealth() (hasError bool) {
@@ -147,7 +141,7 @@ func (mon *monitor) checkUpdateHealth() (hasError bool) {
 	if err != nil {
 		mon.status.Store(StatusError)
 		if !errors.Is(err, context.Canceled) {
-			logger.Errorf("%s failed to check health: %s", mon.String(), err)
+			logger.Errorf("%s failed to check health: %s", mon.service, err)
 		}
 		mon.Stop()
 		return false
@@ -160,9 +154,9 @@ func (mon *monitor) checkUpdateHealth() (hasError bool) {
 	}
 	if healthy != (mon.status.Swap(status) == StatusHealthy) {
 		if healthy {
-			logger.Infof("%s is up", mon.String())
+			logger.Infof("%s is up", mon.service)
 		} else {
-			logger.Warnf("%s is down: %s", mon.String(), detail)
+			logger.Warnf("%s is down: %s", mon.service, detail)
 		}
 	}
 

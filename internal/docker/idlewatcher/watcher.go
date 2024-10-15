@@ -8,10 +8,12 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	P "github.com/yusing/go-proxy/internal/proxy"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	W "github.com/yusing/go-proxy/internal/watcher"
 )
@@ -29,9 +31,10 @@ type (
 		wakeDone chan E.NestedError
 		ticker   *time.Ticker
 
-		ctx      context.Context
-		cancel   context.CancelFunc
-		refCount *sync.WaitGroup
+		task   common.Task
+		cancel context.CancelFunc
+
+		refCount *U.RefCount
 
 		l logrus.FieldLogger
 	}
@@ -42,16 +45,10 @@ type (
 )
 
 var (
-	mainLoopCtx    context.Context
-	mainLoopCancel context.CancelFunc
-	mainLoopWg     sync.WaitGroup
-
 	watcherMap   = F.NewMapOf[string, *Watcher]()
 	watcherMapMu sync.Mutex
 
 	portHistoryMap = F.NewMapOf[PT.Alias, string]()
-
-	newWatcherCh = make(chan *Watcher)
 
 	logger = logrus.WithField("module", "idle_watcher")
 )
@@ -73,7 +70,7 @@ func Register(entry *P.ReverseProxyEntry) (*Watcher, E.NestedError) {
 	}
 
 	if w, ok := watcherMap.Load(key); ok {
-		w.refCount.Add(1)
+		w.refCount.Add()
 		w.ReverseProxyEntry = entry
 		return w, nil
 	}
@@ -86,83 +83,51 @@ func Register(entry *P.ReverseProxyEntry) (*Watcher, E.NestedError) {
 	w := &Watcher{
 		ReverseProxyEntry: entry,
 		client:            client,
-		refCount:          &sync.WaitGroup{},
+		refCount:          U.NewRefCounter(),
 		wakeCh:            make(chan struct{}, 1),
 		wakeDone:          make(chan E.NestedError),
 		ticker:            time.NewTicker(entry.IdleTimeout),
 		l:                 logger.WithField("container", entry.ContainerName),
 	}
-	w.refCount.Add(1)
+	w.task, w.cancel = common.NewTaskWithCancel("Idlewatcher for %s", w.Alias)
 	w.stopByMethod = w.getStopCallback()
 
 	watcherMap.Store(key, w)
 
-	go func() {
-		newWatcherCh <- w
-	}()
+	go w.watchUntilCancel()
 
 	return w, nil
 }
 
 func (w *Watcher) Unregister() {
-	w.refCount.Add(-1)
-}
-
-func Start() {
-	logger.Debug("started")
-	defer logger.Debug("stopped")
-
-	mainLoopCtx, mainLoopCancel = context.WithCancel(context.Background())
-
-	for {
-		select {
-		case <-mainLoopCtx.Done():
-			return
-		case w := <-newWatcherCh:
-			w.l.Debug("registered")
-			mainLoopWg.Add(1)
-			go func() {
-				w.watchUntilCancel()
-				w.refCount.Wait() // wait for 0 ref count
-
-				watcherMap.Delete(w.ContainerID)
-				w.l.Debug("unregistered")
-				mainLoopWg.Done()
-			}()
-		}
-	}
-}
-
-func Stop() {
-	mainLoopCancel()
-	mainLoopWg.Wait()
+	w.refCount.Sub()
 }
 
 func (w *Watcher) containerStop() error {
-	return w.client.ContainerStop(w.ctx, w.ContainerID, container.StopOptions{
+	return w.client.ContainerStop(w.task.Context(), w.ContainerID, container.StopOptions{
 		Signal:  string(w.StopSignal),
 		Timeout: &w.StopTimeout,
 	})
 }
 
 func (w *Watcher) containerPause() error {
-	return w.client.ContainerPause(w.ctx, w.ContainerID)
+	return w.client.ContainerPause(w.task.Context(), w.ContainerID)
 }
 
 func (w *Watcher) containerKill() error {
-	return w.client.ContainerKill(w.ctx, w.ContainerID, string(w.StopSignal))
+	return w.client.ContainerKill(w.task.Context(), w.ContainerID, string(w.StopSignal))
 }
 
 func (w *Watcher) containerUnpause() error {
-	return w.client.ContainerUnpause(w.ctx, w.ContainerID)
+	return w.client.ContainerUnpause(w.task.Context(), w.ContainerID)
 }
 
 func (w *Watcher) containerStart() error {
-	return w.client.ContainerStart(w.ctx, w.ContainerID, container.StartOptions{})
+	return w.client.ContainerStart(w.task.Context(), w.ContainerID, container.StartOptions{})
 }
 
 func (w *Watcher) containerStatus() (string, E.NestedError) {
-	json, err := w.client.ContainerInspect(w.ctx, w.ContainerID)
+	json, err := w.client.ContainerInspect(w.task.Context(), w.ContainerID)
 	if err != nil {
 		return "", E.FailWith("inspect container", err)
 	}
@@ -221,12 +186,8 @@ func (w *Watcher) resetIdleTimer() {
 }
 
 func (w *Watcher) watchUntilCancel() {
-	defer close(w.wakeCh)
-
-	w.ctx, w.cancel = context.WithCancel(mainLoopCtx)
-
 	dockerWatcher := W.NewDockerWatcherWithClient(w.client)
-	dockerEventCh, dockerEventErrCh := dockerWatcher.EventsWithOptions(w.ctx, W.DockerListOptions{
+	dockerEventCh, dockerEventErrCh := dockerWatcher.EventsWithOptions(w.task.Context(), W.DockerListOptions{
 		Filters: W.NewDockerFilter(
 			W.DockerFilterContainer,
 			W.DockerrFilterContainer(w.ContainerID),
@@ -238,13 +199,23 @@ func (w *Watcher) watchUntilCancel() {
 			W.DockerFilterUnpause,
 		),
 	})
-	defer w.ticker.Stop()
-	defer w.client.Close()
+
+	defer func() {
+		w.ticker.Stop()
+		w.client.Close()
+		close(w.wakeDone)
+		close(w.wakeCh)
+		watcherMap.Delete(w.ContainerID)
+		w.task.Finished()
+	}()
 
 	for {
 		select {
-		case <-w.ctx.Done():
-			w.l.Debug("stopped")
+		case <-w.task.Context().Done():
+			w.l.Debug("stopped by context done")
+			return
+		case <-w.refCount.Zero():
+			w.l.Debug("stopped by zero ref count")
 			return
 		case err := <-dockerEventErrCh:
 			if err != nil && err.IsNot(context.Canceled) {

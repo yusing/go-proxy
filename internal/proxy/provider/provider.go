@@ -5,6 +5,7 @@ import (
 	"path"
 
 	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	R "github.com/yusing/go-proxy/internal/route"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -19,7 +20,7 @@ type (
 		routes R.Routes
 
 		watcher       W.Watcher
-		watcherCtx    context.Context
+		watcherTask   common.Task
 		watcherCancel context.CancelFunc
 
 		l *logrus.Entry
@@ -38,9 +39,10 @@ type (
 		Type       ProviderType `json:"type"`
 	}
 	EventResult struct {
-		nRemoved int
-		nAdded   int
-		err      E.NestedError
+		nAdded    int
+		nRemoved  int
+		nReloaded int
+		err       E.NestedError
 	}
 )
 
@@ -129,6 +131,7 @@ func (p *Provider) StopAllRoutes() (res E.NestedError) {
 	p.routes.RangeAllParallel(func(alias string, r *R.Route) {
 		errors.Add(r.Stop().Subject(r))
 	})
+	p.routes.Clear()
 	return
 }
 
@@ -175,27 +178,21 @@ func (p *Provider) Statistics() ProviderStats {
 }
 
 func (p *Provider) watchEvents() {
-	p.watcherCtx, p.watcherCancel = context.WithCancel(context.Background())
-	events, errs := p.watcher.Events(p.watcherCtx)
+	p.watcherTask, p.watcherCancel = common.NewTaskWithCancel("Watcher for provider %s", p.name)
+	defer p.watcherTask.Finished()
+
+	events, errs := p.watcher.Events(p.watcherTask.Context())
 	l := p.l.WithField("module", "watcher")
 
 	for {
 		select {
-		case <-p.watcherCtx.Done():
+		case <-p.watcherTask.Context().Done():
 			return
 		case event := <-events:
 			res := p.OnEvent(event, p.routes)
-			l.Infof("%s event %q", event.Type, event)
-			if res.nAdded > 0 || res.nRemoved > 0 {
-				n := res.nAdded - res.nRemoved
-				switch {
-				case n == 0:
-					l.Infof("%d route(s) reloaded", res.nAdded)
-				case n > 0:
-					l.Infof("%d route(s) added", n)
-				default:
-					l.Infof("%d route(s) removed", -n)
-				}
+			if res.nAdded+res.nRemoved+res.nReloaded > 0 {
+				l.Infof("%s event %q", event.Type, event)
+				l.Infof("| %d NEW | %d REMOVED | %d RELOADED |", res.nAdded, res.nRemoved, res.nReloaded)
 			}
 			if res.err != nil {
 				l.Error(res.err)

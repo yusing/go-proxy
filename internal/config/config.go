@@ -87,9 +87,8 @@ func (cfg *Config) StartProxyProviders() {
 
 func (cfg *Config) WatchChanges() {
 	task := common.NewTask("Config watcher")
-	defer task.Finished()
-
 	go func() {
+		defer task.Finished()
 		for {
 			select {
 			case <-task.Context().Done():

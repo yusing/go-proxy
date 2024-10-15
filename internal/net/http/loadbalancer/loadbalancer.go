@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/go-acme/lego/v4/log"
-	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 // TODO: stats of each server.
@@ -41,13 +41,14 @@ type (
 const maxWeight weightType = 100
 
 func New(cfg *Config) *LoadBalancer {
-	lb := &LoadBalancer{Config: cfg, pool: servers{}}
-	mode := cfg.Mode
-	if !cfg.Mode.ValidateUpdate() {
-		logger.Warnf("loadbalancer %s: invalid mode %q, fallback to %s", cfg.Link, mode, cfg.Mode)
-	}
-	switch mode {
-	case RoundRobin:
+	lb := &LoadBalancer{Config: new(Config), pool: make(servers, 0)}
+	lb.UpdateConfigIfNeeded(cfg)
+	return lb
+}
+
+func (lb *LoadBalancer) updateImpl() {
+	switch lb.Mode {
+	case Unset, RoundRobin:
 		lb.impl = lb.newRoundRobin()
 	case LeastConn:
 		lb.impl = lb.newLeastConn()
@@ -56,7 +57,34 @@ func New(cfg *Config) *LoadBalancer {
 	default: // should happen in test only
 		lb.impl = lb.newRoundRobin()
 	}
-	return lb
+	for _, srv := range lb.pool {
+		lb.impl.OnAddServer(srv)
+	}
+}
+
+func (lb *LoadBalancer) UpdateConfigIfNeeded(cfg *Config) {
+	if cfg != nil {
+		lb.poolMu.Lock()
+		defer lb.poolMu.Unlock()
+
+		lb.Link = cfg.Link
+
+		if lb.Mode == Unset && cfg.Mode != Unset {
+			lb.Mode = cfg.Mode
+			if !lb.Mode.ValidateUpdate() {
+				logger.Warnf("loadbalancer %s: invalid mode %q, fallback to %q", cfg.Link, cfg.Mode, lb.Mode)
+			}
+			lb.updateImpl()
+		}
+
+		if len(lb.Options) == 0 && len(cfg.Options) > 0 {
+			lb.Options = cfg.Options
+		}
+	}
+
+	if lb.impl == nil {
+		lb.updateImpl()
+	}
 }
 
 func (lb *LoadBalancer) AddServer(srv *Server) {
@@ -66,6 +94,7 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 	lb.pool = append(lb.pool, srv)
 	lb.sumWeight += srv.Weight
 
+	lb.Rebalance()
 	lb.impl.OnAddServer(srv)
 	logger.Debugf("[add] loadbalancer %s: %d servers available", lb.Link, len(lb.pool))
 }
@@ -74,6 +103,8 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
+	lb.sumWeight -= srv.Weight
+	lb.Rebalance()
 	lb.impl.OnRemoveServer(srv)
 
 	for i, s := range lb.pool {
@@ -87,7 +118,6 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 		return
 	}
 
-	lb.Rebalance()
 	logger.Debugf("[remove] loadbalancer %s: %d servers left", lb.Link, len(lb.pool))
 }
 
@@ -152,20 +182,6 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 }
 
 func (lb *LoadBalancer) Start() {
-	if lb.sumWeight != 0 && lb.sumWeight != maxWeight {
-		msg := E.NewBuilder("loadbalancer %s total weight %d != %d", lb.Link, lb.sumWeight, maxWeight)
-		for _, s := range lb.pool {
-			msg.Addf("%s: %d", s.Name, s.Weight)
-		}
-		lb.Rebalance()
-		inner := E.NewBuilder("after rebalancing")
-		for _, s := range lb.pool {
-			inner.Addf("%s: %d", s.Name, s.Weight)
-		}
-		msg.Addf("%s", inner)
-		logger.Warn(msg)
-	}
-
 	if lb.sumWeight != 0 {
 		log.Warnf("weighted mode not supported yet")
 	}
@@ -186,6 +202,45 @@ func (lb *LoadBalancer) Uptime() time.Duration {
 	return time.Since(lb.startTime)
 }
 
+// MarshalJSON implements health.HealthMonitor.
+func (lb *LoadBalancer) MarshalJSON() ([]byte, error) {
+	extra := make(map[string]any)
+	for _, v := range lb.pool {
+		extra[v.Name] = v.healthMon
+	}
+	return (&health.JSONRepresentation{
+		Name:    lb.Name(),
+		Status:  lb.Status(),
+		Started: lb.startTime,
+		Uptime:  lb.Uptime(),
+		Extra: map[string]any{
+			"config": lb.Config,
+			"pool":   extra,
+		},
+	}).MarshalJSON()
+}
+
+// Name implements health.HealthMonitor.
+func (lb *LoadBalancer) Name() string {
+	return lb.Link
+}
+
+// Status implements health.HealthMonitor.
+func (lb *LoadBalancer) Status() health.Status {
+	if len(lb.pool) == 0 {
+		return health.StatusUnknown
+	}
+	if len(lb.availServers()) == 0 {
+		return health.StatusUnhealthy
+	}
+	return health.StatusHealthy
+}
+
+// String implements health.HealthMonitor.
+func (lb *LoadBalancer) String() string {
+	return lb.Name()
+}
+
 func (lb *LoadBalancer) availServers() servers {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
@@ -198,4 +253,9 @@ func (lb *LoadBalancer) availServers() servers {
 		avail = append(avail, s)
 	}
 	return avail
+}
+
+// static HealthMonitor interface check
+func (lb *LoadBalancer) _() health.HealthMonitor {
+	return lb
 }

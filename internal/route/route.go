@@ -1,6 +1,7 @@
 package route
 
 import (
+	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	url "github.com/yusing/go-proxy/internal/net/types"
 	P "github.com/yusing/go-proxy/internal/proxy"
@@ -35,6 +36,13 @@ const (
 
 // function alias.
 var NewRoutes = F.NewMap[Routes]
+
+func (rt *Route) Container() *docker.Container {
+	if rt.Entry.Container == nil {
+		return docker.DummyContainer
+	}
+	return rt.Entry.Container
+}
 
 func NewRoute(en *types.RawEntry) (*Route, E.NestedError) {
 	entry, err := P.ValidateEntry(en)

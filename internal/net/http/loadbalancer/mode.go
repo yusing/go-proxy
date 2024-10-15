@@ -7,6 +7,7 @@ import (
 type Mode string
 
 const (
+	Unset      Mode = ""
 	RoundRobin Mode = "roundrobin"
 	LeastConn  Mode = "leastconn"
 	IPHash     Mode = "iphash"
@@ -14,7 +15,9 @@ const (
 
 func (mode *Mode) ValidateUpdate() bool {
 	switch U.ToLowerNoSnake(string(*mode)) {
-	case "", string(RoundRobin):
+	case "":
+		return true
+	case string(RoundRobin):
 		*mode = RoundRobin
 		return true
 	case string(LeastConn):

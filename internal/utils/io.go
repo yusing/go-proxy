@@ -99,9 +99,53 @@ func (p BidirectionalPipe) Start() error {
 	return b.Build().Error()
 }
 
-func Copy(dst *ContextWriter, src *ContextReader) error {
-	_, err := io.Copy(dst, src)
-	return err
+// Copyright 2009 The Go Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// This is a copy of io.Copy with context handling
+// Author: yusing <yusing@6uo.me>
+func Copy(dst *ContextWriter, src *ContextReader) (err error) {
+	size := 32 * 1024
+	if l, ok := src.Reader.(*io.LimitedReader); ok && int64(size) > l.N {
+		if l.N < 1 {
+			size = 1
+		} else {
+			size = int(l.N)
+		}
+	}
+	buf := make([]byte, size)
+	for {
+		select {
+		case <-src.ctx.Done():
+			return src.ctx.Err()
+		case <-dst.ctx.Done():
+			return dst.ctx.Err()
+		default:
+			nr, er := src.Reader.Read(buf)
+			if nr > 0 {
+				nw, ew := dst.Writer.Write(buf[0:nr])
+				if nw < 0 || nr < nw {
+					nw = 0
+					if ew == nil {
+						ew = errors.New("invalid write result")
+					}
+				}
+				if ew != nil {
+					err = ew
+					return
+				}
+				if nr != nw {
+					err = io.ErrShortWrite
+					return
+				}
+			}
+			if er != nil {
+				if er != io.EOF {
+					err = er
+				}
+				return
+			}
+		}
+	}
 }
 
 func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {

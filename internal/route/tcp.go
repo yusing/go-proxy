@@ -4,31 +4,25 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"sync"
 	"time"
 
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	U "github.com/yusing/go-proxy/internal/utils"
+	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 const tcpDialTimeout = 5 * time.Second
 
 type (
-	Pipes []U.BidirectionalPipe
-
-	TCPRoute struct {
+	TCPConnMap = F.Map[net.Conn, struct{}]
+	TCPRoute   struct {
 		*StreamRoute
-		listener net.Listener
-		pipe     Pipes
-		mu       sync.Mutex
+		listener *net.TCPListener
 	}
 )
 
 func NewTCPRoute(base *StreamRoute) StreamImpl {
-	return &TCPRoute{
-		StreamRoute: base,
-		pipe:        make(Pipes, 0),
-	}
+	return &TCPRoute{StreamRoute: base}
 }
 
 func (route *TCPRoute) Setup() error {
@@ -38,11 +32,12 @@ func (route *TCPRoute) Setup() error {
 	}
 	//! this read the allocated port from original ':0'
 	route.Port.ListeningPort = T.Port(in.Addr().(*net.TCPAddr).Port)
-	route.listener = in
+	route.listener = in.(*net.TCPListener)
 	return nil
 }
 
 func (route *TCPRoute) Accept() (any, error) {
+	route.listener.SetDeadline(time.Now().Add(time.Second))
 	return route.listener.Accept()
 }
 
@@ -50,24 +45,23 @@ func (route *TCPRoute) Handle(c any) error {
 	clientConn := c.(net.Conn)
 
 	defer clientConn.Close()
+	go func() {
+		<-route.task.Context().Done()
+		clientConn.Close()
+	}()
 
 	ctx, cancel := context.WithTimeout(route.task.Context(), tcpDialTimeout)
-	defer cancel()
 
 	serverAddr := fmt.Sprintf("%s:%v", route.Host, route.Port.ProxyPort)
 	dialer := &net.Dialer{}
 
 	serverConn, err := dialer.DialContext(ctx, string(route.Scheme.ProxyScheme), serverAddr)
+	cancel()
 	if err != nil {
 		return err
 	}
 
-	route.mu.Lock()
-
 	pipe := U.NewBidirectionalPipe(route.task.Context(), clientConn, serverConn)
-	route.pipe = append(route.pipe, pipe)
-
-	route.mu.Unlock()
 	return pipe.Start()
 }
 

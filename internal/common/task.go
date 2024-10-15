@@ -212,9 +212,9 @@ func GlobalContextWait(timeout time.Duration) {
 		case <-done:
 			return
 		case <-after:
-			logrus.Println("Timeout waiting for these tasks to finish:")
+			logrus.Warnln("Timeout waiting for these tasks to finish:")
 			tasksMap.Range(func(t *task, _ struct{}) bool {
-				logrus.Println(t.tree())
+				logrus.Warnln(t.tree())
 				return true
 			})
 			return

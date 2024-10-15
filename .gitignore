@@ -1,6 +1,8 @@
 compose.yml
 *.compose.yml
 
+config
+certs
 config*/
 certs*/
 bin/

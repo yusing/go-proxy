@@ -2,7 +2,6 @@ package idlewatcher
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -73,21 +72,25 @@ func (w *Waker) Uptime() time.Duration {
 }
 
 func (w *Waker) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"name":   w.Name(),
-		"url":    w.URL,
-		"status": w.Status(),
-		"config": health.HealthCheckConfig{
+	return (&health.JSONRepresentation{
+		Name:   w.Name(),
+		Status: w.Status(),
+		Config: &health.HealthCheckConfig{
 			Interval: w.IdleTimeout,
 			Timeout:  w.WakeTimeout,
 		},
-	})
+		URL: w.URL,
+	}).MarshalJSON()
 }
 
 /* End of HealthMonitor interface */
 
 func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) {
 	w.resetIdleTimer()
+
+	if r.Body != nil {
+		defer r.Body.Close()
+	}
 
 	// pass through if container is ready
 	if w.ready.Load() {
@@ -113,6 +116,16 @@ func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) 
 			w.l.Errorf("error writing http response: %s", err)
 		}
 		return
+	}
+
+	select {
+	case <-w.task.Context().Done():
+		http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
+		return
+	case <-ctx.Done():
+		http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
+		return
+	default:
 	}
 
 	// wake the container and reset idle timer
@@ -168,4 +181,9 @@ func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) 
 		// retry until the container is ready or timeout
 		time.Sleep(100 * time.Millisecond)
 	}
+}
+
+// static HealthMonitor interface check
+func (w *Waker) _() health.HealthMonitor {
+	return w
 }

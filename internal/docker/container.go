@@ -41,6 +41,8 @@ type (
 	}
 )
 
+var DummyContainer = new(Container)
+
 func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 	isExplicit := c.Labels[LabelAliases] != ""
 	helper := containerHelper{c}
