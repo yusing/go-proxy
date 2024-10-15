@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -125,7 +126,7 @@ func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) 
 
 	select {
 	case <-w.task.Context().Done():
-		http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
+		http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
 		return
 	case <-ctx.Done():
 		http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
@@ -133,12 +134,11 @@ func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) 
 	default:
 	}
 
-	// wake the container and reset idle timer
-	// also wait for another wake request
-	w.wakeCh <- struct{}{}
-
-	if <-w.wakeDone != nil {
-		http.Error(rw, "Error sending wake request", http.StatusInternalServerError)
+	w.l.Debug("wake signal received")
+	err := w.wakeIfStopped()
+	if err != nil {
+		w.l.Error(E.FailWith("wake", err))
+		http.Error(rw, "Error waking container", http.StatusInternalServerError)
 		return
 	}
 
@@ -153,6 +153,9 @@ func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) 
 
 	for {
 		select {
+		case <-w.task.Context().Done():
+			http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
+			return
 		case <-ctx.Done():
 			http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
 			return

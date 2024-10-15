@@ -189,9 +189,11 @@ func (p *Provider) watchEvents() {
 		case <-p.watcherTask.Context().Done():
 			return
 		case event := <-events:
+			task := p.watcherTask.Subtask("%s event %s", event.Type, event)
+			l.Infof("%s event %q", event.Type, event)
 			res := p.OnEvent(event, p.routes)
+			task.Finished()
 			if res.nAdded+res.nRemoved+res.nReloaded > 0 {
-				l.Infof("%s event %q", event.Type, event)
 				l.Infof("| %d NEW | %d REMOVED | %d RELOADED |", res.nAdded, res.nRemoved, res.nReloaded)
 			}
 			if res.err != nil {

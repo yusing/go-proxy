@@ -27,9 +27,7 @@ type (
 		ready        atomic.Bool  // whether the site is ready to accept connection
 		stopByMethod StopCallback // send a docker command w.r.t. `stop_method`
 
-		wakeCh   chan struct{}
-		wakeDone chan E.NestedError
-		ticker   *time.Ticker
+		ticker *time.Ticker
 
 		task   common.Task
 		cancel context.CancelFunc
@@ -84,8 +82,6 @@ func Register(entry *P.ReverseProxyEntry) (*Watcher, E.NestedError) {
 		ReverseProxyEntry: entry,
 		client:            client,
 		refCount:          U.NewRefCounter(),
-		wakeCh:            make(chan struct{}, 1),
-		wakeDone:          make(chan E.NestedError),
 		ticker:            time.NewTicker(entry.IdleTimeout),
 		l:                 logger.WithField("container", entry.ContainerName),
 	}
@@ -127,6 +123,9 @@ func (w *Watcher) containerStart() error {
 }
 
 func (w *Watcher) containerStatus() (string, E.NestedError) {
+	if !w.client.Connected() {
+		return "", E.Failure("docker client closed")
+	}
 	json, err := w.client.ContainerInspect(w.task.Context(), w.ContainerID)
 	if err != nil {
 		return "", E.FailWith("inspect container", err)
@@ -201,10 +200,9 @@ func (w *Watcher) watchUntilCancel() {
 	})
 
 	defer func() {
+		w.cancel()
 		w.ticker.Stop()
 		w.client.Close()
-		close(w.wakeDone)
-		close(w.wakeCh)
 		watcherMap.Delete(w.ContainerID)
 		w.task.Finished()
 	}()
@@ -220,6 +218,7 @@ func (w *Watcher) watchUntilCancel() {
 		case err := <-dockerEventErrCh:
 			if err != nil && err.IsNot(context.Canceled) {
 				w.l.Error(E.FailWith("docker watcher", err))
+				return
 			}
 		case e := <-dockerEventCh:
 			switch {
@@ -227,27 +226,22 @@ func (w *Watcher) watchUntilCancel() {
 			case e.Action.IsContainerWake():
 				w.ContainerRunning = true
 				w.resetIdleTimer()
-				w.l.Info(e)
-			default: // stop / pause / kil
+				w.l.Info("container awaken")
+			case e.Action.IsContainerSleep(): // stop / pause / kil
 				w.ContainerRunning = false
 				w.ticker.Stop()
 				w.ready.Store(false)
-				w.l.Info(e)
+			default:
+				w.l.Errorf("unexpected docker event: %s", e)
 			}
 		case <-w.ticker.C:
 			w.l.Debug("idle timeout")
 			w.ticker.Stop()
 			if err := w.stopByMethod(); err != nil && err.IsNot(context.Canceled) {
 				w.l.Error(E.FailWith("stop", err).Extraf("stop method: %s", w.StopMethod))
+			} else {
+				w.l.Info("stopped by idle timeout")
 			}
-		case <-w.wakeCh:
-			w.l.Debug("wake signal received")
-			w.resetIdleTimer()
-			err := w.wakeIfStopped()
-			if err != nil {
-				w.l.Error(E.FailWith("wake", err))
-			}
-			w.wakeDone <- err
 		}
 	}
 }

@@ -125,6 +125,7 @@ func newSubTask(ctx context.Context, name string) *task {
 	}
 	tasksMap.Store(t, struct{}{})
 	taskWg.Add(1)
+	logrus.Debugf("task %q started", name)
 	return t
 }
 

@@ -28,6 +28,7 @@ var (
 	DockerFilterStart     = filters.Arg("event", string(docker_events.ActionStart))
 	DockerFilterStop      = filters.Arg("event", string(docker_events.ActionStop))
 	DockerFilterDie       = filters.Arg("event", string(docker_events.ActionDie))
+	DockerFilterDestroy   = filters.Arg("event", string(docker_events.ActionDestroy))
 	DockerFilterKill      = filters.Arg("event", string(docker_events.ActionKill))
 	DockerFilterPause     = filters.Arg("event", string(docker_events.ActionPause))
 	DockerFilterUnpause   = filters.Arg("event", string(docker_events.ActionUnPause))
@@ -97,11 +98,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 
 		defer w.client.Close()
 
-		w.Debugf("client connected")
-
 		cEventCh, cErrCh := w.client.Events(ctx, options)
-
-		w.Debugf("watcher started")
 
 		for {
 			select {
@@ -148,4 +145,5 @@ var optionsWatchAll = DockerListOptions{Filters: NewDockerFilter(
 	DockerFilterStart,
 	// DockerFilterStop,
 	DockerFilterDie,
+	DockerFilterDestroy,
 )}

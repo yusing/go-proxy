@@ -32,6 +32,7 @@ const (
 	ActionContainerStop
 	ActionContainerPause
 	ActionContainerDie
+	ActionContainerDestroy
 
 	actionContainerWakeMask  = ActionContainerCreate | ActionContainerStart | ActionContainerUnpause
 	actionContainerSleepMask = ActionContainerKill | ActionContainerStop | ActionContainerPause | ActionContainerDie
@@ -47,10 +48,11 @@ var DockerEventMap = map[dockerEvents.Action]Action{
 	dockerEvents.ActionStart:   ActionContainerStart,
 	dockerEvents.ActionUnPause: ActionContainerUnpause,
 
-	dockerEvents.ActionKill:  ActionContainerKill,
-	dockerEvents.ActionStop:  ActionContainerStop,
-	dockerEvents.ActionPause: ActionContainerPause,
-	dockerEvents.ActionDie:   ActionContainerDie,
+	dockerEvents.ActionKill:    ActionContainerKill,
+	dockerEvents.ActionStop:    ActionContainerStop,
+	dockerEvents.ActionPause:   ActionContainerPause,
+	dockerEvents.ActionDie:     ActionContainerDie,
+	dockerEvents.ActionDestroy: ActionContainerDestroy,
 }
 
 var fileActionNameMap = map[Action]string{

@@ -47,9 +47,6 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 		item := entry.Homepage
 		if item == nil {
 			item = new(homepage.Item)
-		}
-
-		if !item.Show && item.IsEmpty() {
 			item.Show = true
 		}
 

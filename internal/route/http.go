@@ -129,7 +129,7 @@ func (r *HTTPRoute) Start() E.NestedError {
 		r.handler = waker
 		r.HealthMon = waker
 	case !r.HealthCheck.Disabled:
-		r.HealthMon = health.NewHTTPHealthMonitor(common.GlobalTask("Reverse proxy "+r.String()), r.URL(), r.HealthCheck)
+		r.HealthMon = health.NewHTTPHealthMonitor(common.GlobalTask(r.String()), r.URL(), r.HealthCheck)
 	}
 
 	if r.handler == nil {

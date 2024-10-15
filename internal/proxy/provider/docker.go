@@ -89,12 +89,6 @@ func (p *DockerProvider) shouldIgnore(container *D.Container) bool {
 }
 
 func (p *DockerProvider) OnEvent(event W.Event, oldRoutes R.Routes) (res EventResult) {
-	switch event.Action {
-	case events.ActionContainerStart, events.ActionContainerStop:
-		break
-	default:
-		return
-	}
 	b := E.NewBuilder("event %s error", event)
 	defer b.To(&res.err)
 
@@ -105,15 +99,26 @@ func (p *DockerProvider) OnEvent(event W.Event, oldRoutes R.Routes) (res EventRe
 			matches.Store(k, v)
 		}
 	})
+	//FIXME: docker event die stuck
 
 	var newRoutes R.Routes
 	var err E.NestedError
 
-	if matches.Size() == 0 { // id & container name changed
+	switch {
+	// id & container name changed
+	case matches.Size() == 0:
 		matches = oldRoutes
 		newRoutes, err = p.LoadRoutesImpl()
 		b.Add(err)
-	} else {
+	case event.Action == events.ActionContainerDestroy:
+		// stop all old routes
+		matches.RangeAllParallel(func(_ string, v *R.Route) {
+			oldRoutes.Delete(v.Entry.Alias)
+			b.Add(v.Stop())
+			res.nRemoved++
+		})
+		return
+	default:
 		cont, err := D.Inspect(p.dockerHost, event.ActorID)
 		if err != nil {
 			b.Add(E.FailWith("inspect container", err))
@@ -124,6 +129,7 @@ func (p *DockerProvider) OnEvent(event W.Event, oldRoutes R.Routes) (res EventRe
 			// stop all old routes
 			matches.RangeAllParallel(func(_ string, v *R.Route) {
 				b.Add(v.Stop())
+				res.nRemoved++
 			})
 			return
 		}
@@ -145,19 +151,13 @@ func (p *DockerProvider) OnEvent(event W.Event, oldRoutes R.Routes) (res EventRe
 	newRoutes.RangeAll(func(alias string, newRoute *R.Route) {
 		oldRoute, exists := oldRoutes.Load(alias)
 		if exists {
-			if err := oldRoute.Stop(); err != nil {
-				b.Add(err)
-			}
-		}
-		oldRoutes.Store(alias, newRoute)
-		if err := newRoute.Start(); err != nil {
-			b.Add(err)
-		}
-		if exists {
+			b.Add(oldRoute.Stop())
 			res.nReloaded++
 		} else {
 			res.nAdded++
 		}
+		b.Add(newRoute.Start())
+		oldRoutes.Store(alias, newRoute)
 	})
 
 	return

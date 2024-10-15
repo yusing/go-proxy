@@ -127,7 +127,7 @@ func (mon *monitor) String() string {
 
 func (mon *monitor) MarshalJSON() ([]byte, error) {
 	return (&JSONRepresentation{
-		Name:    mon.Name(),
+		Name:    mon.service,
 		Config:  mon.config,
 		Status:  mon.status.Load(),
 		Started: mon.startTime,
