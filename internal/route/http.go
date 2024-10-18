@@ -124,7 +124,6 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
 		r.handler = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
-		logrus.Debugf("%s health check: %+v", r.Alias, r.HealthCheck)
 		r.HealthMon = health.NewHTTPHealthMonitor(r.TargetURL(), r.HealthCheck, r.rp.Transport)
 	}
 	r.task = providerSubtask

@@ -7,6 +7,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/task"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -101,7 +102,10 @@ func (p *Provider) MarshalText() ([]byte, error) {
 }
 
 func (p *Provider) startRoute(parent task.Task, r *R.Route) E.NestedError {
-	subtask := parent.Subtask("route %s", r.Entry.Alias)
+	if entry.UseLoadBalance(r) {
+		r.Entry.Alias = p.String() + "/" + r.Entry.Alias
+	}
+	subtask := parent.Subtask(r.Entry.Alias)
 	err := r.Start(subtask)
 	if err != nil {
 		p.routes.Delete(r.Entry.Alias)
