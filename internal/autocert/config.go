@@ -9,7 +9,7 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	E "github.com/yusing/go-proxy/internal/error"
 
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/config/types"
 )
 
 type Config types.AutoCertConfig

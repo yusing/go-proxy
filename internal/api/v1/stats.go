@@ -14,19 +14,19 @@ import (
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
-func Stats(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	U.RespondJSON(w, r, getStats(cfg))
+func Stats(w http.ResponseWriter, r *http.Request) {
+	U.RespondJSON(w, r, getStats())
 }
 
-func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
+func StatsWS(w http.ResponseWriter, r *http.Request) {
 	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
-	originPats := make([]string, len(cfg.Value().MatchDomains)+len(localAddresses))
+	originPats := make([]string, len(config.Value().MatchDomains)+len(localAddresses))
 
 	if len(originPats) == 0 {
 		U.Logger.Warnf("no match domains configured, accepting websocket request from all origins")
 		originPats = []string{"*"}
 	} else {
-		for i, domain := range cfg.Value().MatchDomains {
+		for i, domain := range config.Value().MatchDomains {
 			originPats[i] = "*." + domain
 		}
 		originPats = append(originPats, localAddresses...)
@@ -51,7 +51,7 @@ func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		stats := getStats(cfg)
+		stats := getStats()
 		if err := wsjson.Write(ctx, conn, stats); err != nil {
 			U.Logger.Errorf("/stats/ws failed to write JSON: %s", err)
 			return
@@ -59,9 +59,9 @@ func StatsWS(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func getStats(cfg *config.Config) map[string]any {
+func getStats() map[string]any {
 	return map[string]any{
-		"proxies": cfg.Statistics(),
+		"proxies": config.Statistics(),
 		"uptime":  utils.FormatDuration(server.GetProxyServer().Uptime()),
 	}
 }

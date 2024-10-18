@@ -5,8 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/go-acme/lego/v4/log"
+	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -28,7 +29,9 @@ type (
 		impl
 		*Config
 
-		pool   servers
+		task task.Task
+
+		pool   Pool
 		poolMu sync.Mutex
 
 		sumWeight weightType
@@ -41,9 +44,33 @@ type (
 const maxWeight weightType = 100
 
 func New(cfg *Config) *LoadBalancer {
-	lb := &LoadBalancer{Config: new(Config), pool: make(servers, 0)}
+	lb := &LoadBalancer{
+		Config: new(Config),
+		pool:   newPool(),
+		task:   task.DummyTask(),
+	}
 	lb.UpdateConfigIfNeeded(cfg)
 	return lb
+}
+
+// Start implements task.TaskStarter.
+func (lb *LoadBalancer) Start(routeSubtask task.Task) E.NestedError {
+	lb.startTime = time.Now()
+	lb.task = routeSubtask
+	lb.task.OnComplete("loadbalancer cleanup", func() {
+		if lb.impl != nil {
+			lb.pool.RangeAll(func(k string, v *Server) {
+				lb.impl.OnRemoveServer(v)
+			})
+		}
+		lb.pool.Clear()
+	})
+	return nil
+}
+
+// Finish implements task.TaskFinisher.
+func (lb *LoadBalancer) Finish(reason string) {
+	lb.task.Finish(reason)
 }
 
 func (lb *LoadBalancer) updateImpl() {
@@ -57,9 +84,9 @@ func (lb *LoadBalancer) updateImpl() {
 	default: // should happen in test only
 		lb.impl = lb.newRoundRobin()
 	}
-	for _, srv := range lb.pool {
+	lb.pool.RangeAll(func(_ string, srv *Server) {
 		lb.impl.OnAddServer(srv)
-	}
+	})
 }
 
 func (lb *LoadBalancer) UpdateConfigIfNeeded(cfg *Config) {
@@ -91,55 +118,60 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
-	lb.pool = append(lb.pool, srv)
+	if lb.pool.Has(srv.Name) {
+		old, _ := lb.pool.Load(srv.Name)
+		lb.sumWeight -= old.Weight
+		lb.impl.OnRemoveServer(old)
+	}
+	lb.pool.Store(srv.Name, srv)
 	lb.sumWeight += srv.Weight
 
-	lb.Rebalance()
+	lb.rebalance()
 	lb.impl.OnAddServer(srv)
-	logger.Debugf("[add] loadbalancer %s: %d servers available", lb.Link, len(lb.pool))
+	logger.Infof("[add] %s to loadbalancer %s: %d servers available", srv.Name, lb.Link, lb.pool.Size())
 }
 
 func (lb *LoadBalancer) RemoveServer(srv *Server) {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
-	lb.sumWeight -= srv.Weight
-	lb.Rebalance()
-	lb.impl.OnRemoveServer(srv)
-
-	for i, s := range lb.pool {
-		if s == srv {
-			lb.pool = append(lb.pool[:i], lb.pool[i+1:]...)
-			break
-		}
-	}
-	if lb.IsEmpty() {
-		lb.pool = nil
+	if !lb.pool.Has(srv.Name) {
 		return
 	}
 
-	logger.Debugf("[remove] loadbalancer %s: %d servers left", lb.Link, len(lb.pool))
+	lb.pool.Delete(srv.Name)
+
+	lb.sumWeight -= srv.Weight
+	lb.rebalance()
+	lb.impl.OnRemoveServer(srv)
+
+	if lb.pool.Size() == 0 {
+		lb.task.Finish("no server left")
+		logger.Infof("[remove] loadbalancer %s stopped", lb.Link)
+		return
+	}
+
+	logger.Infof("[remove] %s from loadbalancer %s: %d servers left", srv.Name, lb.Link, lb.pool.Size())
 }
 
-func (lb *LoadBalancer) IsEmpty() bool {
-	return len(lb.pool) == 0
-}
-
-func (lb *LoadBalancer) Rebalance() {
+func (lb *LoadBalancer) rebalance() {
 	if lb.sumWeight == maxWeight {
 		return
 	}
+	if lb.pool.Size() == 0 {
+		return
+	}
 	if lb.sumWeight == 0 { // distribute evenly
-		weightEach := maxWeight / weightType(len(lb.pool))
-		remainder := maxWeight % weightType(len(lb.pool))
-		for _, s := range lb.pool {
+		weightEach := maxWeight / weightType(lb.pool.Size())
+		remainder := maxWeight % weightType(lb.pool.Size())
+		lb.pool.RangeAll(func(_ string, s *Server) {
 			s.Weight = weightEach
 			lb.sumWeight += weightEach
 			if remainder > 0 {
 				s.Weight++
 				remainder--
 			}
-		}
+		})
 		return
 	}
 
@@ -147,18 +179,18 @@ func (lb *LoadBalancer) Rebalance() {
 	scaleFactor := float64(maxWeight) / float64(lb.sumWeight)
 	lb.sumWeight = 0
 
-	for _, s := range lb.pool {
+	lb.pool.RangeAll(func(_ string, s *Server) {
 		s.Weight = weightType(float64(s.Weight) * scaleFactor)
 		lb.sumWeight += s.Weight
-	}
+	})
 
 	delta := maxWeight - lb.sumWeight
 	if delta == 0 {
 		return
 	}
-	for _, s := range lb.pool {
+	lb.pool.Range(func(_ string, s *Server) bool {
 		if delta == 0 {
-			break
+			return false
 		}
 		if delta > 0 {
 			s.Weight++
@@ -169,7 +201,8 @@ func (lb *LoadBalancer) Rebalance() {
 			lb.sumWeight--
 			delta++
 		}
-	}
+		return true
+	})
 }
 
 func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
@@ -181,23 +214,6 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	lb.impl.ServeHTTP(srvs, rw, r)
 }
 
-func (lb *LoadBalancer) Start() {
-	if lb.sumWeight != 0 {
-		log.Warnf("weighted mode not supported yet")
-	}
-
-	lb.startTime = time.Now()
-	logger.Debugf("loadbalancer %s started", lb.Link)
-}
-
-func (lb *LoadBalancer) Stop() {
-	lb.poolMu.Lock()
-	defer lb.poolMu.Unlock()
-	lb.pool = nil
-
-	logger.Debugf("loadbalancer %s stopped", lb.Link)
-}
-
 func (lb *LoadBalancer) Uptime() time.Duration {
 	return time.Since(lb.startTime)
 }
@@ -205,9 +221,10 @@ func (lb *LoadBalancer) Uptime() time.Duration {
 // MarshalJSON implements health.HealthMonitor.
 func (lb *LoadBalancer) MarshalJSON() ([]byte, error) {
 	extra := make(map[string]any)
-	for _, v := range lb.pool {
+	lb.pool.RangeAll(func(k string, v *Server) {
 		extra[v.Name] = v.healthMon
-	}
+	})
+
 	return (&health.JSONRepresentation{
 		Name:    lb.Name(),
 		Status:  lb.Status(),
@@ -227,7 +244,7 @@ func (lb *LoadBalancer) Name() string {
 
 // Status implements health.HealthMonitor.
 func (lb *LoadBalancer) Status() health.Status {
-	if len(lb.pool) == 0 {
+	if lb.pool.Size() == 0 {
 		return health.StatusUnknown
 	}
 	if len(lb.availServers()) == 0 {
@@ -241,21 +258,13 @@ func (lb *LoadBalancer) String() string {
 	return lb.Name()
 }
 
-func (lb *LoadBalancer) availServers() servers {
-	lb.poolMu.Lock()
-	defer lb.poolMu.Unlock()
-
-	avail := make(servers, 0, len(lb.pool))
-	for _, s := range lb.pool {
-		if s.Status().Bad() {
-			continue
+func (lb *LoadBalancer) availServers() []*Server {
+	avail := make([]*Server, 0, lb.pool.Size())
+	lb.pool.RangeAll(func(_ string, srv *Server) {
+		if srv.Status().Bad() {
+			return
 		}
-		avail = append(avail, s)
-	}
+		avail = append(avail, srv)
+	})
 	return avail
-}
-
-// static HealthMonitor interface check
-func (lb *LoadBalancer) _() health.HealthMonitor {
-	return lb
 }

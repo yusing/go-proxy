@@ -1,11 +1,13 @@
 package route
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"time"
 
+	"github.com/yusing/go-proxy/internal/net/types"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -33,7 +35,7 @@ var NewUDPConnMap = F.NewMap[UDPConnMap]
 
 const udpBufferSize = 8192
 
-func NewUDPRoute(base *StreamRoute) StreamImpl {
+func NewUDPRoute(base *StreamRoute) *UDPRoute {
 	return &UDPRoute{
 		StreamRoute: base,
 		connMap:     NewUDPConnMap(),
@@ -64,7 +66,7 @@ func (route *UDPRoute) Setup() error {
 	return nil
 }
 
-func (route *UDPRoute) Accept() (any, error) {
+func (route *UDPRoute) Accept() (types.StreamConn, error) {
 	in := route.listeningConn
 
 	buffer := make([]byte, udpBufferSize)
@@ -104,7 +106,7 @@ func (route *UDPRoute) Accept() (any, error) {
 	return conn, err
 }
 
-func (route *UDPRoute) Handle(c any) error {
+func (route *UDPRoute) Handle(c types.StreamConn) error {
 	conn := c.(*UDPConn)
 	err := conn.Start()
 	route.connMap.Delete(conn.key)
@@ -114,17 +116,23 @@ func (route *UDPRoute) Handle(c any) error {
 func (route *UDPRoute) CloseListeners() {
 	if route.listeningConn != nil {
 		route.listeningConn.Close()
-		route.listeningConn = nil
 	}
 	route.connMap.RangeAllParallel(func(_ string, conn *UDPConn) {
-		if err := conn.src.Close(); err != nil {
-			route.l.Errorf("error closing src conn: %s", err)
-		}
-		if err := conn.dst.Close(); err != nil {
-			route.l.Error("error closing dst conn: %s", err)
+		if err := conn.Close(); err != nil {
+			route.l.Errorf("error closing conn: %s", err)
 		}
 	})
 	route.connMap.Clear()
+}
+
+// Close implements types.StreamConn
+func (conn *UDPConn) Close() error {
+	return errors.Join(conn.src.Close(), conn.dst.Close())
+}
+
+// RemoteAddr implements types.StreamConn
+func (conn *UDPConn) RemoteAddr() net.Addr {
+	return conn.src.RemoteAddr()
 }
 
 type sourceRWCloser struct {

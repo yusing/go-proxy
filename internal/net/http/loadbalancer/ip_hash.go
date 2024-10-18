@@ -4,18 +4,20 @@ import (
 	"hash/fnv"
 	"net"
 	"net/http"
+	"sync"
 
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 )
 
 type ipHash struct {
-	*LoadBalancer
 	realIP *middleware.Middleware
+	pool   servers
+	mu     sync.Mutex
 }
 
 func (lb *LoadBalancer) newIPHash() impl {
-	impl := &ipHash{LoadBalancer: lb}
+	impl := new(ipHash)
 	if len(lb.Options) == 0 {
 		return impl
 	}
@@ -26,10 +28,37 @@ func (lb *LoadBalancer) newIPHash() impl {
 	}
 	return impl
 }
-func (ipHash) OnAddServer(srv *Server)    {}
-func (ipHash) OnRemoveServer(srv *Server) {}
 
-func (impl ipHash) ServeHTTP(_ servers, rw http.ResponseWriter, r *http.Request) {
+func (impl *ipHash) OnAddServer(srv *Server) {
+	impl.mu.Lock()
+	defer impl.mu.Unlock()
+
+	for i, s := range impl.pool {
+		if s == srv {
+			return
+		}
+		if s == nil {
+			impl.pool[i] = srv
+			return
+		}
+	}
+
+	impl.pool = append(impl.pool, srv)
+}
+
+func (impl *ipHash) OnRemoveServer(srv *Server) {
+	impl.mu.Lock()
+	defer impl.mu.Unlock()
+
+	for i, s := range impl.pool {
+		if s == srv {
+			impl.pool[i] = nil
+			return
+		}
+	}
+}
+
+func (impl *ipHash) ServeHTTP(_ servers, rw http.ResponseWriter, r *http.Request) {
 	if impl.realIP != nil {
 		impl.realIP.ModifyRequest(impl.serveHTTP, rw, r)
 	} else {
@@ -37,7 +66,7 @@ func (impl ipHash) ServeHTTP(_ servers, rw http.ResponseWriter, r *http.Request)
 	}
 }
 
-func (impl ipHash) serveHTTP(rw http.ResponseWriter, r *http.Request) {
+func (impl *ipHash) serveHTTP(rw http.ResponseWriter, r *http.Request) {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		http.Error(rw, "Internal error", http.StatusInternalServerError)
@@ -45,10 +74,12 @@ func (impl ipHash) serveHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	idx := hashIP(ip) % uint32(len(impl.pool))
-	if impl.pool[idx].Status().Bad() {
+
+	srv := impl.pool[idx]
+	if srv == nil || srv.Status().Bad() {
 		http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
 	}
-	impl.pool[idx].ServeHTTP(rw, r)
+	srv.ServeHTTP(rw, r)
 }
 
 func hashIP(ip string) uint32 {

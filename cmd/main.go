@@ -20,6 +20,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
+	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
 )
 
@@ -32,8 +33,14 @@ func main() {
 	}
 
 	l := logrus.WithField("module", "main")
+	timeFmt := "01-02 15:04:05"
+	fullTS := true
 
-	if common.IsDebug {
+	if common.IsTrace {
+		logrus.SetLevel(logrus.TraceLevel)
+		timeFmt = "04:05"
+		fullTS = false
+	} else if common.IsDebug {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
@@ -42,9 +49,9 @@ func main() {
 	} else {
 		logrus.SetFormatter(&logrus.TextFormatter{
 			DisableSorting:  true,
-			FullTimestamp:   true,
+			FullTimestamp:   fullTS,
 			ForceColors:     true,
-			TimestampFormat: "01-02 15:04:05",
+			TimestampFormat: timeFmt,
 		})
 		logrus.Infof("go-proxy version %s", pkg.GetVersion())
 	}
@@ -76,21 +83,22 @@ func main() {
 
 	middleware.LoadComposeFiles()
 
-	if err := config.Load(); err != nil {
+	var cfg *config.Config
+	var err E.NestedError
+	if cfg, err = config.Load(); err != nil {
 		logrus.Warn(err)
 	}
-	cfg := config.GetInstance()
 
 	switch args.Command {
 	case common.CommandListConfigs:
-		printJSON(cfg.Value())
+		printJSON(config.Value())
 		return
 	case common.CommandListRoutes:
 		routes, err := query.ListRoutes()
 		if err != nil {
 			log.Printf("failed to connect to api server: %s", err)
 			log.Printf("falling back to config file")
-			printJSON(cfg.RoutesByAlias())
+			printJSON(config.RoutesByAlias())
 		} else {
 			printJSON(routes)
 		}
@@ -103,10 +111,10 @@ func main() {
 		printJSON(icons)
 		return
 	case common.CommandDebugListEntries:
-		printJSON(cfg.DumpEntries())
+		printJSON(config.DumpEntries())
 		return
 	case common.CommandDebugListProviders:
-		printJSON(cfg.DumpProviders())
+		printJSON(config.DumpProviders())
 		return
 	case common.CommandDebugListMTrace:
 		trace, err := query.ListMiddlewareTraces()
@@ -114,17 +122,25 @@ func main() {
 			log.Fatal(err)
 		}
 		printJSON(trace)
+		return
+	case common.CommandDebugListTasks:
+		tasks, err := query.DebugListTasks()
+		if err != nil {
+			log.Fatal(err)
+		}
+		printJSON(tasks)
+		return
 	}
 
 	cfg.StartProxyProviders()
-	cfg.WatchChanges()
+	config.WatchChanges()
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
 	signal.Notify(sig, syscall.SIGTERM)
 	signal.Notify(sig, syscall.SIGHUP)
 
-	autocert := cfg.GetAutoCertProvider()
+	autocert := config.GetAutoCertProvider()
 	if autocert != nil {
 		if err := autocert.Setup(); err != nil {
 			l.Fatal(err)
@@ -139,14 +155,14 @@ func main() {
 		HTTPAddr:        common.ProxyHTTPAddr,
 		HTTPSAddr:       common.ProxyHTTPSAddr,
 		Handler:         http.HandlerFunc(R.ProxyHandler),
-		RedirectToHTTPS: cfg.Value().RedirectToHTTPS,
+		RedirectToHTTPS: config.Value().RedirectToHTTPS,
 	})
 	apiServer := server.InitAPIServer(server.Options{
 		Name:            "api",
 		CertProvider:    autocert,
 		HTTPAddr:        common.APIHTTPAddr,
-		Handler:         api.NewHandler(cfg),
-		RedirectToHTTPS: cfg.Value().RedirectToHTTPS,
+		Handler:         api.NewHandler(),
+		RedirectToHTTPS: config.Value().RedirectToHTTPS,
 	})
 
 	proxyServer.Start()
@@ -157,8 +173,8 @@ func main() {
 
 	// grafully shutdown
 	logrus.Info("shutting down")
-	common.CancelGlobalContext()
-	common.GlobalContextWait(time.Second * time.Duration(cfg.Value().TimeoutShutdown))
+	task.CancelGlobalContext()
+	task.GlobalContextWait(time.Second * time.Duration(config.Value().TimeoutShutdown))
 }
 
 func prepareDirectory(dir string) {

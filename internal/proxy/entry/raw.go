@@ -1,4 +1,4 @@
-package types
+package entry
 
 import (
 	"strconv"
@@ -21,16 +21,16 @@ type (
 
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string                   `json:"-" yaml:"-"`
-		Scheme       string                   `json:"scheme,omitempty" yaml:"scheme"`
-		Host         string                   `json:"host,omitempty" yaml:"host"`
-		Port         string                   `json:"port,omitempty" yaml:"port"`
-		NoTLSVerify  bool                     `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
-		PathPatterns []string                 `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
-		HealthCheck  health.HealthCheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck"`
-		LoadBalance  loadbalancer.Config      `json:"load_balance,omitempty" yaml:"load_balance"`
-		Middlewares  docker.NestedLabelMap    `json:"middlewares,omitempty" yaml:"middlewares"`
-		Homepage     *homepage.Item           `json:"homepage,omitempty" yaml:"homepage"`
+		Alias        string                    `json:"-" yaml:"-"`
+		Scheme       string                    `json:"scheme,omitempty" yaml:"scheme"`
+		Host         string                    `json:"host,omitempty" yaml:"host"`
+		Port         string                    `json:"port,omitempty" yaml:"port"`
+		NoTLSVerify  bool                      `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
+		PathPatterns []string                  `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
+		HealthCheck  *health.HealthCheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck"`
+		LoadBalance  *loadbalancer.Config      `json:"load_balance,omitempty" yaml:"load_balance"`
+		Middlewares  docker.NestedLabelMap     `json:"middlewares,omitempty" yaml:"middlewares"`
+		Homepage     *homepage.Item            `json:"homepage,omitempty" yaml:"homepage"`
 
 		/* Docker only */
 		Container *docker.Container `json:"container,omitempty" yaml:"-"`
@@ -122,29 +122,41 @@ func (e *RawEntry) FillMissingFields() {
 		}
 	}
 
-	if e.HealthCheck.Interval == 0 {
-		e.HealthCheck.Interval = common.HealthCheckIntervalDefault
+	if e.HealthCheck == nil {
+		e.HealthCheck = new(health.HealthCheckConfig)
 	}
-	if e.HealthCheck.Timeout == 0 {
-		e.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
+
+	if e.HealthCheck.Disabled {
+		e.HealthCheck = nil
+	} else {
+		if e.HealthCheck.Interval == 0 {
+			e.HealthCheck.Interval = common.HealthCheckIntervalDefault
+		}
+		if e.HealthCheck.Timeout == 0 {
+			e.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
+		}
 	}
-	if cont.IdleTimeout == "" {
-		cont.IdleTimeout = common.IdleTimeoutDefault
-	}
-	if cont.WakeTimeout == "" {
-		cont.WakeTimeout = common.WakeTimeoutDefault
-	}
-	if cont.StopTimeout == "" {
-		cont.StopTimeout = common.StopTimeoutDefault
-	}
-	if cont.StopMethod == "" {
-		cont.StopMethod = common.StopMethodDefault
+
+	if cont.IdleTimeout != "" {
+		if cont.WakeTimeout == "" {
+			cont.WakeTimeout = common.WakeTimeoutDefault
+		}
+		if cont.StopTimeout == "" {
+			cont.StopTimeout = common.StopTimeoutDefault
+		}
+		if cont.StopMethod == "" {
+			cont.StopMethod = common.StopMethodDefault
+		}
 	}
 
 	e.Port = joinPorts(lp, pp, extra)
 
 	if e.Port == "" || e.Host == "" {
-		e.Port = "0"
+		if lp != "" {
+			e.Port = lp + ":0"
+		} else {
+			e.Port = "0"
+		}
 	}
 }
 

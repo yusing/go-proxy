@@ -2,6 +2,7 @@ package error
 
 import (
 	stderrors "errors"
+	"fmt"
 	"reflect"
 )
 
@@ -16,6 +17,7 @@ var (
 	ErrOutOfRange   = stderrors.New("out of range")
 	ErrTypeError    = stderrors.New("type error")
 	ErrTypeMismatch = stderrors.New("type mismatch")
+	ErrPanicRecv    = stderrors.New("panic")
 )
 
 const fmtSubjectWhat = "%w %v: %q"
@@ -74,4 +76,8 @@ func TypeError2(subject any, from, to reflect.Value) NestedError {
 
 func TypeMismatch[Expect any](value any) NestedError {
 	return errorf("%w: expect %s got %T", ErrTypeMismatch, reflect.TypeFor[Expect](), value)
+}
+
+func PanicRecv(format string, args ...any) NestedError {
+	return errorf("%w%s", ErrPanicRecv, fmt.Sprintf(format, args...))
 }

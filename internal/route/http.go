@@ -9,23 +9,21 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	url "github.com/yusing/go-proxy/internal/net/types"
-	P "github.com/yusing/go-proxy/internal/proxy"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
 	HTTPRoute struct {
-		*P.ReverseProxyEntry
+		*entry.ReverseProxyEntry
 
 		HealthMon health.HealthMonitor `json:"health,omitempty"`
 
@@ -33,6 +31,8 @@ type (
 		server       *loadbalancer.Server
 		handler      http.Handler
 		rp           *gphttp.ReverseProxy
+
+		task task.Task
 	}
 
 	SubdomainKey = PT.Alias
@@ -66,7 +66,7 @@ func SetFindMuxDomains(domains []string) {
 	}
 }
 
-func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
+func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.NestedError) {
 	var trans *http.Transport
 
 	if entry.NoTLSVerify {
@@ -84,12 +84,10 @@ func NewHTTPRoute(entry *P.ReverseProxyEntry) (*HTTPRoute, E.NestedError) {
 		}
 	}
 
-	httpRoutesMu.Lock()
-	defer httpRoutesMu.Unlock()
-
 	r := &HTTPRoute{
 		ReverseProxyEntry: entry,
 		rp:                rp,
+		task:              task.DummyTask(),
 	}
 	return r, nil
 }
@@ -98,39 +96,34 @@ func (r *HTTPRoute) String() string {
 	return string(r.Alias)
 }
 
-func (r *HTTPRoute) URL() url.URL {
-	return r.ReverseProxyEntry.URL
-}
-
-func (r *HTTPRoute) Start() E.NestedError {
-	if r.ShouldNotServe() {
+// Start implements task.TaskStarter.
+func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
+	if entry.ShouldNotServe(r) {
+		providerSubtask.Finish("should not serve")
 		return nil
 	}
 
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if r.handler != nil {
-		return nil
-	}
-
-	if r.HealthCheck.Disabled && (r.UseIdleWatcher() || r.UseLoadBalance()) {
+	if r.HealthCheck.Disabled && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
 		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
 		r.HealthCheck.Disabled = true
 	}
 
 	switch {
-	case r.UseIdleWatcher():
-		watcher, err := idlewatcher.Register(r.ReverseProxyEntry)
+	case entry.UseIdleWatcher(r):
+		wakerTask := providerSubtask.Parent().Subtask("waker for " + string(r.Alias))
+		waker, err := idlewatcher.NewHTTPWaker(wakerTask, r.ReverseProxyEntry, r.rp)
 		if err != nil {
 			return err
 		}
-		waker := idlewatcher.NewWaker(watcher, r.rp)
 		r.handler = waker
 		r.HealthMon = waker
-	case !r.HealthCheck.Disabled:
-		r.HealthMon = health.NewHTTPHealthMonitor(common.GlobalTask(r.String()), r.URL(), r.HealthCheck)
+	case entry.UseHealthCheck(r):
+		r.HealthMon = health.NewHTTPHealthMonitor(r.TargetURL(), r.HealthCheck, r.rp.Transport)
 	}
+	r.task = providerSubtask
 
 	if r.handler == nil {
 		switch {
@@ -146,44 +139,26 @@ func (r *HTTPRoute) Start() E.NestedError {
 	}
 
 	if r.HealthMon != nil {
-		r.HealthMon.Start()
+		if err := r.HealthMon.Start(r.task.Subtask("health monitor")); err != nil {
+			logrus.Warn(E.FailWith("health monitor", err))
+		}
 	}
 
-	if r.UseLoadBalance() {
+	if entry.UseLoadBalance(r) {
 		r.addToLoadBalancer()
 	} else {
 		httpRoutes.Store(string(r.Alias), r)
+		r.task.OnComplete("stop rp", func() {
+			httpRoutes.Delete(string(r.Alias))
+		})
 	}
 
 	return nil
 }
 
-func (r *HTTPRoute) Stop() (_ E.NestedError) {
-	if r.handler == nil {
-		return
-	}
-
-	httpRoutesMu.Lock()
-	defer httpRoutesMu.Unlock()
-
-	if r.loadBalancer != nil {
-		r.removeFromLoadBalancer()
-	} else {
-		httpRoutes.Delete(string(r.Alias))
-	}
-
-	if r.HealthMon != nil {
-		r.HealthMon.Stop()
-		r.HealthMon = nil
-	}
-
-	r.handler = nil
-
-	return
-}
-
-func (r *HTTPRoute) Started() bool {
-	return r.handler != nil
+// Finish implements task.TaskFinisher.
+func (r *HTTPRoute) Finish(reason string) {
+	r.task.Finish(reason)
 }
 
 func (r *HTTPRoute) addToLoadBalancer() {
@@ -197,10 +172,14 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		}
 	} else {
 		lb = loadbalancer.New(r.LoadBalance)
-		lb.Start()
+		lbTask := r.task.Parent().Subtask("loadbalancer %s", r.LoadBalance.Link)
+		lbTask.OnComplete("remove lb from routes", func() {
+			httpRoutes.Delete(r.LoadBalance.Link)
+		})
+		lb.Start(lbTask)
 		linked = &HTTPRoute{
-			ReverseProxyEntry: &P.ReverseProxyEntry{
-				Raw: &types.RawEntry{
+			ReverseProxyEntry: &entry.ReverseProxyEntry{
+				Raw: &entry.RawEntry{
 					Homepage: r.Raw.Homepage,
 				},
 				Alias: PT.Alias(lb.Link),
@@ -214,16 +193,9 @@ func (r *HTTPRoute) addToLoadBalancer() {
 	r.loadBalancer = lb
 	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
-}
-
-func (r *HTTPRoute) removeFromLoadBalancer() {
-	r.loadBalancer.RemoveServer(r.server)
-	if r.loadBalancer.IsEmpty() {
-		httpRoutes.Delete(r.LoadBalance.Link)
-		logrus.Debugf("loadbalancer %q removed from route table", r.LoadBalance.Link)
-	}
-	r.server = nil
-	r.loadBalancer = nil
+	r.task.OnComplete("remove server from lb", func() {
+		lb.RemoveServer(r.server)
+	})
 }
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {

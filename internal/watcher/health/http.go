@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
@@ -15,10 +14,10 @@ type HTTPHealthMonitor struct {
 	pinger *http.Client
 }
 
-func NewHTTPHealthMonitor(task common.Task, url types.URL, config *HealthCheckConfig) HealthMonitor {
+func NewHTTPHealthMonitor(url types.URL, config *HealthCheckConfig, transport http.RoundTripper) *HTTPHealthMonitor {
 	mon := new(HTTPHealthMonitor)
-	mon.monitor = newMonitor(task, url, config, mon.checkHealth)
-	mon.pinger = &http.Client{Timeout: config.Timeout}
+	mon.monitor = newMonitor(url, config, mon.CheckHealth)
+	mon.pinger = &http.Client{Timeout: config.Timeout, Transport: transport}
 	if config.UseGet {
 		mon.method = http.MethodGet
 	} else {
@@ -27,19 +26,26 @@ func NewHTTPHealthMonitor(task common.Task, url types.URL, config *HealthCheckCo
 	return mon
 }
 
-func (mon *HTTPHealthMonitor) checkHealth() (healthy bool, detail string, err error) {
+func NewHTTPHealthChecker(url types.URL, config *HealthCheckConfig, transport http.RoundTripper) HealthChecker {
+	return NewHTTPHealthMonitor(url, config, transport)
+}
+
+func (mon *HTTPHealthMonitor) CheckHealth() (healthy bool, detail string, err error) {
+	ctx, cancel := mon.ContextWithTimeout("ping request timed out")
+	defer cancel()
+
 	req, reqErr := http.NewRequestWithContext(
-		mon.task.Context(),
+		ctx,
 		mon.method,
-		mon.url.JoinPath(mon.config.Path).String(),
+		mon.url.Load().JoinPath(mon.config.Path).String(),
 		nil,
 	)
 	if reqErr != nil {
 		err = reqErr
 		return
 	}
-	req.Header.Set("Connection", "close")
 
+	req.Header.Set("Connection", "close")
 	resp, respErr := mon.pinger.Do(req)
 	if respErr == nil {
 		resp.Body.Close()

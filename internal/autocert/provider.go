@@ -13,9 +13,9 @@ import (
 	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
-	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -140,23 +140,22 @@ func (p *Provider) ScheduleRenewal() {
 	if p.GetName() == ProviderLocal {
 		return
 	}
-
-	ticker := time.NewTicker(5 * time.Second)
-	defer ticker.Stop()
-
-	task := common.NewTask("cert renew scheduler")
-	defer task.Finished()
-
-	for {
-		select {
-		case <-task.Context().Done():
-			return
-		case <-ticker.C: // check every 5 seconds
-			if err := p.renewIfNeeded(); err.HasError() {
-				logger.Warn(err)
+	go func() {
+		task := task.GlobalTask("cert renew scheduler")
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		defer task.Finish("cert renew scheduler stopped")
+		for {
+			select {
+			case <-task.Context().Done():
+				return
+			case <-ticker.C: // check every 5 seconds
+				if err := p.renewIfNeeded(); err.HasError() {
+					logger.Warn(err)
+				}
 			}
 		}
-	}
+	}()
 }
 
 func (p *Provider) initClient() E.NestedError {

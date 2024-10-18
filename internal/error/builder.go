@@ -17,35 +17,36 @@ type builder struct {
 }
 
 func NewBuilder(format string, args ...any) Builder {
-	return Builder{&builder{message: fmt.Sprintf(format, args...)}}
+	if len(args) > 0 {
+		return Builder{&builder{message: fmt.Sprintf(format, args...)}}
+	}
+	return Builder{&builder{message: format}}
 }
 
 // adding nil / nil is no-op,
 // you may safely pass expressions returning error to it.
-func (b Builder) Add(err NestedError) Builder {
+func (b Builder) Add(err NestedError) {
 	if err != nil {
 		b.Lock()
 		b.errors = append(b.errors, err)
 		b.Unlock()
 	}
-	return b
 }
 
-func (b Builder) AddE(err error) Builder {
-	return b.Add(From(err))
+func (b Builder) AddE(err error) {
+	b.Add(From(err))
 }
 
-func (b Builder) Addf(format string, args ...any) Builder {
-	return b.Add(errorf(format, args...))
+func (b Builder) Addf(format string, args ...any) {
+	b.Add(errorf(format, args...))
 }
 
-func (b Builder) AddRangeE(errs ...error) Builder {
+func (b Builder) AddRangeE(errs ...error) {
 	b.Lock()
 	defer b.Unlock()
 	for _, err := range errs {
 		b.AddE(err)
 	}
-	return b
 }
 
 // Build builds a NestedError based on the errors collected in the Builder.

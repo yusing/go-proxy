@@ -34,36 +34,34 @@ func ReloadServer() E.NestedError {
 	return nil
 }
 
-func ListRoutes() (map[string]map[string]any, E.NestedError) {
-	resp, err := U.Get(fmt.Sprintf("%s/v1/list/%s", common.APIHTTPURL, v1.ListRoutes))
+func List[T any](what string) (_ T, outErr E.NestedError) {
+	resp, err := U.Get(fmt.Sprintf("%s/v1/list/%s", common.APIHTTPURL, what))
 	if err != nil {
-		return nil, E.From(err)
+		outErr = E.From(err)
+		return
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, E.Failure("list routes").Extraf("status code: %v", resp.StatusCode)
+		outErr = E.Failure("list "+what).Extraf("status code: %v", resp.StatusCode)
+		return
 	}
-	var routes map[string]map[string]any
-	err = json.NewDecoder(resp.Body).Decode(&routes)
+	var res T
+	err = json.NewDecoder(resp.Body).Decode(&res)
 	if err != nil {
-		return nil, E.From(err)
+		outErr = E.From(err)
+		return
 	}
-	return routes, nil
+	return res, nil
+}
+
+func ListRoutes() (map[string]map[string]any, E.NestedError) {
+	return List[map[string]map[string]any](v1.ListRoutes)
 }
 
 func ListMiddlewareTraces() (middleware.Traces, E.NestedError) {
-	resp, err := U.Get(fmt.Sprintf("%s/v1/list/%s", common.APIHTTPURL, v1.ListMiddlewareTrace))
-	if err != nil {
-		return nil, E.From(err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, E.Failure("list middleware trace").Extraf("status code: %v", resp.StatusCode)
-	}
-	var traces middleware.Traces
-	err = json.NewDecoder(resp.Body).Decode(&traces)
-	if err != nil {
-		return nil, E.From(err)
-	}
-	return traces, nil
+	return List[middleware.Traces](v1.ListMiddlewareTraces)
+}
+
+func DebugListTasks() (map[string]any, E.NestedError) {
+	return List[map[string]any](v1.ListTasks)
 }

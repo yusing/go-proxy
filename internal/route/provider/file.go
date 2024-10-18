@@ -7,8 +7,8 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
 	R "github.com/yusing/go-proxy/internal/route"
-	"github.com/yusing/go-proxy/internal/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	W "github.com/yusing/go-proxy/internal/watcher"
 )
@@ -42,38 +42,13 @@ func (p FileProvider) String() string {
 	return p.fileName
 }
 
-func (p FileProvider) OnEvent(event W.Event, routes R.Routes) (res EventResult) {
-	b := E.NewBuilder("event %s error", event)
-	defer b.To(&res.err)
-
-	newRoutes, err := p.LoadRoutesImpl()
-	if err != nil {
-		b.Add(err)
-		return
-	}
-
-	res.nRemoved = newRoutes.Size()
-	routes.RangeAllParallel(func(_ string, v *R.Route) {
-		b.Add(v.Stop())
-	})
-	routes.Clear()
-
-	newRoutes.RangeAllParallel(func(_ string, v *R.Route) {
-		b.Add(v.Start())
-	})
-	res.nAdded = newRoutes.Size()
-
-	routes.MergeFrom(newRoutes)
-	return
-}
-
 func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 	routes = R.NewRoutes()
 
 	b := E.NewBuilder("file %q validation failure", p.fileName)
 	defer b.To(&res)
 
-	entries := types.NewProxyEntries()
+	entries := entry.NewProxyEntries()
 
 	data, err := E.Check(os.ReadFile(p.path))
 	if err != nil {

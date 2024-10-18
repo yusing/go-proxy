@@ -17,7 +17,7 @@ func (p *Provider) Setup() (err E.NestedError) {
 		}
 	}
 
-	go p.ScheduleRenewal()
+	p.ScheduleRenewal()
 
 	for _, expiry := range p.GetExpiries() {
 		logger.Infof("certificate expire on %s", expiry)

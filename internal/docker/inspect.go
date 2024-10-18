@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -19,7 +20,7 @@ func Inspect(dockerHost string, containerID string) (*Container, E.NestedError) 
 }
 
 func (c Client) Inspect(containerID string) (*Container, E.NestedError) {
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 3*time.Second, errors.New("docker container inspect timeout"))
 	defer cancel()
 
 	json, err := c.ContainerInspect(ctx, containerID)

@@ -15,8 +15,9 @@ import (
 
 type (
 	DockerWatcher struct {
-		host   string
-		client D.Client
+		host        string
+		client      D.Client
+		clientOwned bool
 		logrus.FieldLogger
 	}
 	DockerListOptions = docker_events.ListOptions
@@ -44,10 +45,11 @@ func DockerrFilterContainer(nameOrID string) filters.KeyValuePair {
 
 func NewDockerWatcher(host string) DockerWatcher {
 	return DockerWatcher{
+		host:        host,
+		clientOwned: true,
 		FieldLogger: (logrus.
 			WithField("module", "docker_watcher").
 			WithField("host", host)),
-		host: host,
 	}
 }
 
@@ -72,7 +74,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 		defer close(errCh)
 
 		defer func() {
-			if w.client.Connected() {
+			if w.clientOwned && w.client.Connected() {
 				w.client.Close()
 			}
 		}()

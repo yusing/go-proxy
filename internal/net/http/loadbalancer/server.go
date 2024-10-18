@@ -6,6 +6,7 @@ import (
 
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
+	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -20,8 +21,11 @@ type (
 		handler   http.Handler
 		healthMon health.HealthMonitor
 	}
-	servers []*Server
+	servers = []*Server
+	Pool    = F.Map[string, *Server]
 )
+
+var newPool = F.NewMap[Pool]
 
 func NewServer(name string, url types.URL, weight weightType, handler http.Handler, healthMon health.HealthMonitor) *Server {
 	srv := &Server{

@@ -3,7 +3,6 @@ package health
 import (
 	"net"
 
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
@@ -14,9 +13,9 @@ type (
 	}
 )
 
-func NewRawHealthMonitor(task common.Task, url types.URL, config *HealthCheckConfig) HealthMonitor {
+func NewRawHealthMonitor(url types.URL, config *HealthCheckConfig) *RawHealthMonitor {
 	mon := new(RawHealthMonitor)
-	mon.monitor = newMonitor(task, url, config, mon.checkAvail)
+	mon.monitor = newMonitor(url, config, mon.CheckHealth)
 	mon.dialer = &net.Dialer{
 		Timeout:       config.Timeout,
 		FallbackDelay: -1,
@@ -24,14 +23,22 @@ func NewRawHealthMonitor(task common.Task, url types.URL, config *HealthCheckCon
 	return mon
 }
 
-func (mon *RawHealthMonitor) checkAvail() (avail bool, detail string, err error) {
-	conn, dialErr := mon.dialer.DialContext(mon.task.Context(), mon.url.Scheme, mon.url.Host)
+func NewRawHealthChecker(url types.URL, config *HealthCheckConfig) HealthChecker {
+	return NewRawHealthMonitor(url, config)
+}
+
+func (mon *RawHealthMonitor) CheckHealth() (healthy bool, detail string, err error) {
+	ctx, cancel := mon.ContextWithTimeout("ping request timed out")
+	defer cancel()
+
+	url := mon.url.Load()
+	conn, dialErr := mon.dialer.DialContext(ctx, url.Scheme, url.Host)
 	if dialErr != nil {
 		detail = dialErr.Error()
 		/* trunk-ignore(golangci-lint/nilerr) */
 		return
 	}
 	conn.Close()
-	avail = true
+	healthy = true
 	return
 }

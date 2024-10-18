@@ -9,19 +9,21 @@ import (
 	"github.com/yusing/go-proxy/internal/config"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
 const (
-	ListRoutes          = "routes"
-	ListConfigFiles     = "config_files"
-	ListMiddlewares     = "middlewares"
-	ListMiddlewareTrace = "middleware_trace"
-	ListMatchDomains    = "match_domains"
-	ListHomepageConfig  = "homepage_config"
+	ListRoutes           = "routes"
+	ListConfigFiles      = "config_files"
+	ListMiddlewares      = "middlewares"
+	ListMiddlewareTraces = "middleware_trace"
+	ListMatchDomains     = "match_domains"
+	ListHomepageConfig   = "homepage_config"
+	ListTasks            = "tasks"
 )
 
-func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
+func List(w http.ResponseWriter, r *http.Request) {
 	what := r.PathValue("what")
 	if what == "" {
 		what = ListRoutes
@@ -29,25 +31,22 @@ func List(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
 
 	switch what {
 	case ListRoutes:
-		listRoutes(cfg, w, r)
+		U.RespondJSON(w, r, config.RoutesByAlias(route.RouteType(r.FormValue("type"))))
 	case ListConfigFiles:
 		listConfigFiles(w, r)
 	case ListMiddlewares:
-		listMiddlewares(w, r)
-	case ListMiddlewareTrace:
-		listMiddlewareTrace(w, r)
+		U.RespondJSON(w, r, middleware.All())
+	case ListMiddlewareTraces:
+		U.RespondJSON(w, r, middleware.GetAllTrace())
 	case ListMatchDomains:
-		listMatchDomains(cfg, w, r)
+		U.RespondJSON(w, r, config.Value().MatchDomains)
 	case ListHomepageConfig:
-		listHomepageConfig(cfg, w, r)
+		U.RespondJSON(w, r, config.HomepageConfig())
+	case ListTasks:
+		U.RespondJSON(w, r, task.DebugTaskMap())
 	default:
 		U.HandleErr(w, r, U.ErrInvalidKey("what"), http.StatusBadRequest)
 	}
-}
-
-func listRoutes(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	routes := cfg.RoutesByAlias(route.RouteType(r.FormValue("type")))
-	U.RespondJSON(w, r, routes)
 }
 
 func listConfigFiles(w http.ResponseWriter, r *http.Request) {
@@ -60,20 +59,4 @@ func listConfigFiles(w http.ResponseWriter, r *http.Request) {
 		files[i] = strings.TrimPrefix(files[i], common.ConfigBasePath+"/")
 	}
 	U.RespondJSON(w, r, files)
-}
-
-func listMiddlewareTrace(w http.ResponseWriter, r *http.Request) {
-	U.RespondJSON(w, r, middleware.GetAllTrace())
-}
-
-func listMiddlewares(w http.ResponseWriter, r *http.Request) {
-	U.RespondJSON(w, r, middleware.All())
-}
-
-func listMatchDomains(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	U.RespondJSON(w, r, cfg.Value().MatchDomains)
-}
-
-func listHomepageConfig(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	U.RespondJSON(w, r, cfg.HomepageConfig())
 }

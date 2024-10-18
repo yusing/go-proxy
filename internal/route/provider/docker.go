@@ -10,10 +10,9 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
 	R "github.com/yusing/go-proxy/internal/route"
-	"github.com/yusing/go-proxy/internal/types"
 	W "github.com/yusing/go-proxy/internal/watcher"
-	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
 type DockerProvider struct {
@@ -43,7 +42,7 @@ func (p *DockerProvider) NewWatcher() W.Watcher {
 
 func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 	routes = R.NewRoutes()
-	entries := types.NewProxyEntries()
+	entries := entry.NewProxyEntries()
 
 	info, err := D.GetClientInfo(p.dockerHost, true)
 	if err != nil {
@@ -66,12 +65,12 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 		// there may be some valid entries in `en`
 		dups := entries.MergeFrom(newEntries)
 		// add the duplicate proxy entries to the error
-		dups.RangeAll(func(k string, v *types.RawEntry) {
+		dups.RangeAll(func(k string, v *entry.RawEntry) {
 			errors.Addf("duplicate alias %s", k)
 		})
 	}
 
-	entries.RangeAll(func(_ string, e *types.RawEntry) {
+	entries.RangeAll(func(_ string, e *entry.RawEntry) {
 		e.Container.DockerHost = p.dockerHost
 	})
 
@@ -88,85 +87,10 @@ func (p *DockerProvider) shouldIgnore(container *D.Container) bool {
 		strings.HasSuffix(container.ContainerName, "-old")
 }
 
-func (p *DockerProvider) OnEvent(event W.Event, oldRoutes R.Routes) (res EventResult) {
-	b := E.NewBuilder("event %s error", event)
-	defer b.To(&res.err)
-
-	matches := R.NewRoutes()
-	oldRoutes.RangeAllParallel(func(k string, v *R.Route) {
-		if v.Entry.Container.ContainerID == event.ActorID ||
-			v.Entry.Container.ContainerName == event.ActorName {
-			matches.Store(k, v)
-		}
-	})
-	//FIXME: docker event die stuck
-
-	var newRoutes R.Routes
-	var err E.NestedError
-
-	switch {
-	// id & container name changed
-	case matches.Size() == 0:
-		matches = oldRoutes
-		newRoutes, err = p.LoadRoutesImpl()
-		b.Add(err)
-	case event.Action == events.ActionContainerDestroy:
-		// stop all old routes
-		matches.RangeAllParallel(func(_ string, v *R.Route) {
-			oldRoutes.Delete(v.Entry.Alias)
-			b.Add(v.Stop())
-			res.nRemoved++
-		})
-		return
-	default:
-		cont, err := D.Inspect(p.dockerHost, event.ActorID)
-		if err != nil {
-			b.Add(E.FailWith("inspect container", err))
-			return
-		}
-
-		if p.shouldIgnore(cont) {
-			// stop all old routes
-			matches.RangeAllParallel(func(_ string, v *R.Route) {
-				b.Add(v.Stop())
-				res.nRemoved++
-			})
-			return
-		}
-
-		entries, err := p.entriesFromContainerLabels(cont)
-		b.Add(err)
-		newRoutes, err = R.FromEntries(entries)
-		b.Add(err)
-	}
-
-	matches.RangeAll(func(k string, v *R.Route) {
-		if !newRoutes.Has(k) && !oldRoutes.Has(k) {
-			b.Add(v.Stop())
-			matches.Delete(k)
-			res.nRemoved++
-		}
-	})
-
-	newRoutes.RangeAll(func(alias string, newRoute *R.Route) {
-		oldRoute, exists := oldRoutes.Load(alias)
-		if exists {
-			b.Add(oldRoute.Stop())
-			res.nReloaded++
-		} else {
-			res.nAdded++
-		}
-		b.Add(newRoute.Start())
-		oldRoutes.Store(alias, newRoute)
-	})
-
-	return
-}
-
 // Returns a list of proxy entries for a container.
 // Always non-nil.
-func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (entries types.RawEntries, _ E.NestedError) {
-	entries = types.NewProxyEntries()
+func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (entries entry.RawEntries, _ E.NestedError) {
+	entries = entry.NewProxyEntries()
 
 	if p.shouldIgnore(container) {
 		return
@@ -174,7 +98,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (ent
 
 	// init entries map for all aliases
 	for _, a := range container.Aliases {
-		entries.Store(a, &types.RawEntry{
+		entries.Store(a, &entry.RawEntry{
 			Alias:     a,
 			Container: container,
 		})
@@ -186,14 +110,14 @@ func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (ent
 	}
 
 	// remove all entries that failed to fill in missing fields
-	entries.RangeAll(func(_ string, re *types.RawEntry) {
+	entries.RangeAll(func(_ string, re *entry.RawEntry) {
 		re.FillMissingFields()
 	})
 
 	return entries, errors.Build().Subject(container.ContainerName)
 }
 
-func (p *DockerProvider) applyLabel(container *D.Container, entries types.RawEntries, key, val string) (res E.NestedError) {
+func (p *DockerProvider) applyLabel(container *D.Container, entries entry.RawEntries, key, val string) (res E.NestedError) {
 	b := E.NewBuilder("errors in label %s", key)
 	defer b.To(&res)
 
@@ -220,7 +144,7 @@ func (p *DockerProvider) applyLabel(container *D.Container, entries types.RawEnt
 	}
 	if lbl.Target == D.WildcardAlias {
 		// apply label for all aliases
-		entries.RangeAll(func(a string, e *types.RawEntry) {
+		entries.RangeAll(func(a string, e *entry.RawEntry) {
 			if err = D.ApplyLabel(e, lbl); err != nil {
 				b.Add(err)
 			}

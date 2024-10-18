@@ -1,197 +1,133 @@
 package idlewatcher
 
 import (
-	"context"
 	"net/http"
-	"strconv"
+	"sync/atomic"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
-	"github.com/yusing/go-proxy/internal/net/types"
+	net "github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
+	"github.com/yusing/go-proxy/internal/task"
+	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
-type Waker struct {
-	*Watcher
+type Waker interface {
+	health.HealthMonitor
+	http.Handler
+	net.Stream
+}
 
-	client *http.Client
+type waker struct {
+	_ U.NoCopy
+
 	rp     *gphttp.ReverseProxy
+	stream net.Stream
+	hc     health.HealthChecker
+
+	ready atomic.Bool
 }
 
-func NewWaker(w *Watcher, rp *gphttp.ReverseProxy) *Waker {
-	return &Waker{
-		Watcher: w,
-		client: &http.Client{
-			Timeout:   1 * time.Second,
-			Transport: rp.Transport,
-		},
-		rp: rp,
+const (
+	idleWakerCheckInterval = 100 * time.Millisecond
+	idleWakerCheckTimeout  = time.Second
+)
+
+// TODO: support stream
+
+func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.NestedError) {
+	hcCfg := entry.HealthCheckConfig()
+	hcCfg.Timeout = idleWakerCheckTimeout
+
+	waker := &waker{
+		rp:     rp,
+		stream: stream,
 	}
-}
 
-func (w *Waker) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	shouldNext := w.wake(rw, r)
-	if !shouldNext {
-		return
+	watcher, err := registerWatcher(providerSubTask, entry, waker)
+	if err != nil {
+		return nil, err
 	}
-	w.rp.ServeHTTP(rw, r)
+
+	if rp != nil {
+		waker.hc = health.NewHTTPHealthChecker(entry.TargetURL(), hcCfg, rp.Transport)
+	} else if stream != nil {
+		waker.hc = health.NewRawHealthChecker(entry.TargetURL(), hcCfg)
+	} else {
+		panic("both nil")
+	}
+	return watcher, nil
 }
 
-/* HealthMonitor interface */
-
-func (w *Waker) Start() {}
-
-func (w *Waker) Stop() {
-	w.Unregister()
+// lifetime should follow route provider
+func NewHTTPWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy) (Waker, E.NestedError) {
+	return newWaker(providerSubTask, entry, rp, nil)
 }
 
-func (w *Waker) UpdateConfig(config health.HealthCheckConfig) {
-	panic("use idlewatcher.Register instead")
+func NewStreamWaker(providerSubTask task.Task, entry entry.Entry, stream net.Stream) (Waker, E.NestedError) {
+	return newWaker(providerSubTask, entry, nil, stream)
 }
 
-func (w *Waker) Name() string {
+// Start implements health.HealthMonitor.
+func (w *Watcher) Start(routeSubTask task.Task) E.NestedError {
+	w.task.OnComplete("stop route", func() {
+		routeSubTask.Parent().Finish("watcher stopped")
+	})
+	return nil
+}
+
+// Finish implements health.HealthMonitor.
+func (w *Watcher) Finish(reason string) {}
+
+// Name implements health.HealthMonitor.
+func (w *Watcher) Name() string {
 	return w.String()
 }
 
-func (w *Waker) String() string {
-	return string(w.Alias)
+// String implements health.HealthMonitor.
+func (w *Watcher) String() string {
+	return w.ContainerName
 }
 
-func (w *Waker) Status() health.Status {
-	if w.ready.Load() {
-		return health.StatusHealthy
-	}
-	if !w.ContainerRunning {
-		return health.StatusNapping
-	}
-	return health.StatusStarting
-}
-
-func (w *Waker) Uptime() time.Duration {
+// Uptime implements health.HealthMonitor.
+func (w *Watcher) Uptime() time.Duration {
 	return 0
 }
 
-func (w *Waker) MarshalJSON() ([]byte, error) {
-	var url types.URL
-	if w.URL.String() != "http://:0" {
-		url = w.URL
+// Status implements health.HealthMonitor.
+func (w *Watcher) Status() health.Status {
+	if !w.ContainerRunning {
+		return health.StatusNapping
+	}
+
+	if w.ready.Load() {
+		return health.StatusHealthy
+	}
+
+	healthy, _, err := w.hc.CheckHealth()
+	switch {
+	case err != nil:
+		return health.StatusError
+	case healthy:
+		w.ready.Store(true)
+		return health.StatusHealthy
+	default:
+		return health.StatusStarting
+	}
+}
+
+// MarshalJSON implements health.HealthMonitor.
+func (w *Watcher) MarshalJSON() ([]byte, error) {
+	var url net.URL
+	if w.hc.URL().Port() != "0" {
+		url = w.hc.URL()
 	}
 	return (&health.JSONRepresentation{
 		Name:   w.Name(),
 		Status: w.Status(),
-		Config: &health.HealthCheckConfig{
-			Interval: w.IdleTimeout,
-			Timeout:  w.WakeTimeout,
-		},
-		URL: url,
+		Config: w.hc.Config(),
+		URL:    url,
 	}).MarshalJSON()
-}
-
-/* End of HealthMonitor interface */
-
-func (w *Waker) wake(rw http.ResponseWriter, r *http.Request) (shouldNext bool) {
-	w.resetIdleTimer()
-
-	if r.Body != nil {
-		defer r.Body.Close()
-	}
-
-	// pass through if container is ready
-	if w.ready.Load() {
-		return true
-	}
-
-	ctx, cancel := context.WithTimeout(r.Context(), w.WakeTimeout)
-	defer cancel()
-
-	accept := gphttp.GetAccept(r.Header)
-	acceptHTML := (r.Method == http.MethodGet && accept.AcceptHTML() || r.RequestURI == "/" && accept.IsEmpty())
-
-	isCheckRedirect := r.Header.Get(headerCheckRedirect) != ""
-	if !isCheckRedirect && acceptHTML {
-		// Send a loading response to the client
-		body := w.makeRespBody("%s waking up...", w.ContainerName)
-		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
-		rw.Header().Set("Content-Length", strconv.Itoa(len(body)))
-		rw.Header().Add("Cache-Control", "no-cache")
-		rw.Header().Add("Cache-Control", "no-store")
-		rw.Header().Add("Cache-Control", "must-revalidate")
-		if _, err := rw.Write(body); err != nil {
-			w.l.Errorf("error writing http response: %s", err)
-		}
-		return
-	}
-
-	select {
-	case <-w.task.Context().Done():
-		http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
-		return
-	case <-ctx.Done():
-		http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
-		return
-	default:
-	}
-
-	w.l.Debug("wake signal received")
-	err := w.wakeIfStopped()
-	if err != nil {
-		w.l.Error(E.FailWith("wake", err))
-		http.Error(rw, "Error waking container", http.StatusInternalServerError)
-		return
-	}
-
-	// maybe another request came in while we were waiting for the wake
-	if w.ready.Load() {
-		if isCheckRedirect {
-			rw.WriteHeader(http.StatusOK)
-			return
-		}
-		return true
-	}
-
-	for {
-		select {
-		case <-w.task.Context().Done():
-			http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
-			return
-		case <-ctx.Done():
-			http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
-			return
-		default:
-		}
-
-		wakeReq, err := http.NewRequestWithContext(
-			ctx,
-			http.MethodHead,
-			w.URL.String(),
-			nil,
-		)
-		if err != nil {
-			w.l.Errorf("new request err to %s: %s", r.URL, err)
-			http.Error(rw, "Internal server error", http.StatusInternalServerError)
-			return
-		}
-
-		wakeResp, err := w.client.Do(wakeReq)
-		if err == nil && wakeResp.StatusCode != http.StatusServiceUnavailable {
-			w.ready.Store(true)
-			w.l.Debug("awaken")
-			if isCheckRedirect {
-				rw.WriteHeader(http.StatusOK)
-				return
-			}
-			logrus.Infof("container %s is ready, passing through to %s", w.Alias, w.rp.TargetURL)
-			return true
-		}
-
-		// retry until the container is ready or timeout
-		time.Sleep(100 * time.Millisecond)
-	}
-}
-
-// static HealthMonitor interface check
-func (w *Waker) _() health.HealthMonitor {
-	return w
 }

@@ -2,78 +2,93 @@ package health
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
-	"sync"
+	"fmt"
 	"time"
 
-	"github.com/yusing/go-proxy/internal/common"
+	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type (
 	HealthMonitor interface {
-		Start()
-		Stop()
+		task.TaskStarter
+		task.TaskFinisher
+		fmt.Stringer
+		json.Marshaler
 		Status() Status
 		Uptime() time.Duration
 		Name() string
-		String() string
-		MarshalJSON() ([]byte, error)
+	}
+	HealthChecker interface {
+		CheckHealth() (healthy bool, detail string, err error)
+		URL() types.URL
+		Config() *HealthCheckConfig
+		UpdateURL(url types.URL)
 	}
 	HealthCheckFunc func() (healthy bool, detail string, err error)
 	monitor         struct {
 		service string
 		config  *HealthCheckConfig
-		url     types.URL
+		url     U.AtomicValue[types.URL]
 
 		status      U.AtomicValue[Status]
 		checkHealth HealthCheckFunc
 		startTime   time.Time
 
-		task   common.Task
-		cancel context.CancelFunc
-		done   chan struct{}
-
-		mu sync.Mutex
+		task task.Task
 	}
 )
 
 var monMap = F.NewMapOf[string, HealthMonitor]()
 
-func newMonitor(task common.Task, url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
-	service := task.Name()
-	task, cancel := task.SubtaskWithCancel("Health monitor for %s", service)
+func newMonitor(url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
 	mon := &monitor{
-		service:     service,
 		config:      config,
-		url:         url,
 		checkHealth: healthCheckFunc,
 		startTime:   time.Now(),
-		task:        task,
-		cancel:      cancel,
-		done:        make(chan struct{}),
+		task:        task.DummyTask(),
 	}
+	mon.url.Store(url)
 	mon.status.Store(StatusHealthy)
 	return mon
 }
 
-func Inspect(name string) (HealthMonitor, bool) {
-	return monMap.Load(name)
+func Inspect(service string) (HealthMonitor, bool) {
+	return monMap.Load(service)
 }
 
-func (mon *monitor) Start() {
-	defer monMap.Store(mon.task.Name(), mon)
+func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cancel context.CancelFunc) {
+	if mon.task != nil {
+		return context.WithTimeoutCause(mon.task.Context(), mon.config.Timeout, errors.New(cause))
+	} else {
+		return context.WithTimeoutCause(context.Background(), mon.config.Timeout, errors.New(cause))
+	}
+}
 
+// Start implements task.TaskStarter.
+func (mon *monitor) Start(routeSubtask task.Task) E.NestedError {
+	mon.service = routeSubtask.Parent().Name()
+	mon.task = routeSubtask
+
+	if err := mon.checkUpdateHealth(); err != nil {
+		mon.task.Finish(fmt.Sprintf("healthchecker %s failure: %s", mon.service, err))
+		return err
+	}
 	go func() {
-		defer close(mon.done)
-		defer mon.task.Finished()
+		defer func() {
+			monMap.Delete(mon.task.Name())
+			if mon.status.Load() != StatusError {
+				mon.status.Store(StatusUnknown)
+			}
+			mon.task.Finish(mon.task.FinishCause().Error())
+		}()
 
-		ok := mon.checkUpdateHealth()
-		if !ok {
-			return
-		}
+		monMap.Store(mon.service, mon)
 
 		ticker := time.NewTicker(mon.config.Interval)
 		defer ticker.Stop()
@@ -83,48 +98,61 @@ func (mon *monitor) Start() {
 			case <-mon.task.Context().Done():
 				return
 			case <-ticker.C:
-				ok = mon.checkUpdateHealth()
-				if !ok {
+				err := mon.checkUpdateHealth()
+				if err != nil {
+					logger.Errorf("healthchecker %s failure: %s", mon.service, err)
 					return
 				}
 			}
 		}
 	}()
+	return nil
 }
 
-func (mon *monitor) Stop() {
-	monMap.Delete(mon.task.Name())
-
-	mon.mu.Lock()
-	defer mon.mu.Unlock()
-
-	if mon.cancel == nil {
-		return
-	}
-
-	mon.cancel()
-	<-mon.done
-
-	mon.cancel = nil
-	mon.status.Store(StatusUnknown)
+// Finish implements task.TaskFinisher.
+func (mon *monitor) Finish(reason string) {
+	mon.task.Finish(reason)
 }
 
+// UpdateURL implements HealthChecker.
+func (mon *monitor) UpdateURL(url types.URL) {
+	mon.url.Store(url)
+}
+
+// URL implements HealthChecker.
+func (mon *monitor) URL() types.URL {
+	return mon.url.Load()
+}
+
+// Config implements HealthChecker.
+func (mon *monitor) Config() *HealthCheckConfig {
+	return mon.config
+}
+
+// Status implements HealthMonitor.
 func (mon *monitor) Status() Status {
 	return mon.status.Load()
 }
 
+// Uptime implements HealthMonitor.
 func (mon *monitor) Uptime() time.Duration {
 	return time.Since(mon.startTime)
 }
 
+// Name implements HealthMonitor.
 func (mon *monitor) Name() string {
+	if mon.task == nil {
+		return ""
+	}
 	return mon.task.Name()
 }
 
+// String implements fmt.Stringer of HealthMonitor.
 func (mon *monitor) String() string {
 	return mon.Name()
 }
 
+// MarshalJSON implements json.Marshaler of HealthMonitor.
 func (mon *monitor) MarshalJSON() ([]byte, error) {
 	return (&JSONRepresentation{
 		Name:    mon.service,
@@ -132,19 +160,19 @@ func (mon *monitor) MarshalJSON() ([]byte, error) {
 		Status:  mon.status.Load(),
 		Started: mon.startTime,
 		Uptime:  mon.Uptime(),
-		URL:     mon.url,
+		URL:     mon.url.Load(),
 	}).MarshalJSON()
 }
 
-func (mon *monitor) checkUpdateHealth() (hasError bool) {
+func (mon *monitor) checkUpdateHealth() E.NestedError {
 	healthy, detail, err := mon.checkHealth()
 	if err != nil {
+		defer mon.task.Finish(err.Error())
 		mon.status.Store(StatusError)
 		if !errors.Is(err, context.Canceled) {
-			logger.Errorf("%s failed to check health: %s", mon.service, err)
+			return E.Failure("check health").With(err)
 		}
-		mon.Stop()
-		return false
+		return nil
 	}
 	var status Status
 	if healthy {
@@ -160,5 +188,5 @@ func (mon *monitor) checkUpdateHealth() (hasError bool) {
 		}
 	}
 
-	return true
+	return nil
 }

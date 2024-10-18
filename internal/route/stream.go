@@ -4,169 +4,141 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	stdNet "net"
 	"sync"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
-	url "github.com/yusing/go-proxy/internal/net/types"
-	P "github.com/yusing/go-proxy/internal/proxy"
-	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	net "github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
+	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type StreamRoute struct {
-	*P.StreamEntry
-	StreamImpl `json:"-"`
+	*entry.StreamEntry
+	net.Stream `json:"-"`
 
 	HealthMon health.HealthMonitor `json:"health"`
 
-	url url.URL
-
-	task   common.Task
-	cancel context.CancelFunc
-	done   chan struct{}
+	task task.Task
 
 	l logrus.FieldLogger
-
-	mu sync.Mutex
 }
 
-type StreamImpl interface {
-	Setup() error
-	Accept() (any, error)
-	Handle(conn any) error
-	CloseListeners()
-	String() string
-}
-
-var streamRoutes = F.NewMapOf[string, *StreamRoute]()
+var (
+	streamRoutes   = F.NewMapOf[string, *StreamRoute]()
+	streamRoutesMu sync.Mutex
+)
 
 func GetStreamProxies() F.Map[string, *StreamRoute] {
 	return streamRoutes
 }
 
-func NewStreamRoute(entry *P.StreamEntry) (*StreamRoute, E.NestedError) {
+func NewStreamRoute(entry *entry.StreamEntry) (impl, E.NestedError) {
 	// TODO: support non-coherent scheme
 	if !entry.Scheme.IsCoherent() {
 		return nil, E.Unsupported("scheme", fmt.Sprintf("%v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme))
 	}
-	url, err := url.ParseURL(fmt.Sprintf("%s://%s:%d", entry.Scheme.ProxyScheme, entry.Host, entry.Port.ProxyPort))
-	if err != nil {
-		// !! should not happen
-		panic(err)
-	}
-	base := &StreamRoute{
+	return &StreamRoute{
 		StreamEntry: entry,
-		url:         url,
-	}
-	if entry.Scheme.ListeningScheme.IsTCP() {
-		base.StreamImpl = NewTCPRoute(base)
-	} else {
-		base.StreamImpl = NewUDPRoute(base)
-	}
-	base.l = logrus.WithField("route", base.StreamImpl)
-	return base, nil
+		task:        task.DummyTask(),
+	}, nil
+}
+
+func (r *StreamRoute) Finish(reason string) {
+	r.task.Finish(reason)
 }
 
 func (r *StreamRoute) String() string {
 	return fmt.Sprintf("stream %s", r.Alias)
 }
 
-func (r *StreamRoute) URL() url.URL {
-	return r.url
-}
-
-func (r *StreamRoute) Start() E.NestedError {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.Port.ProxyPort == PT.NoPort || r.task != nil {
+// Start implements task.TaskStarter.
+func (r *StreamRoute) Start(providerSubtask task.Task) E.NestedError {
+	if entry.ShouldNotServe(r) {
+		providerSubtask.Finish("should not serve")
 		return nil
 	}
-	r.task, r.cancel = common.NewTaskWithCancel(r.String())
+
+	streamRoutesMu.Lock()
+	defer streamRoutesMu.Unlock()
+
+	if r.HealthCheck.Disabled && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
+		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
+		r.HealthCheck.Disabled = true
+	}
+
+	if r.Scheme.ListeningScheme.IsTCP() {
+		r.Stream = NewTCPRoute(r)
+	} else {
+		r.Stream = NewUDPRoute(r)
+	}
+	r.l = logrus.WithField("route", r.Stream.String())
+
+	switch {
+	case entry.UseIdleWatcher(r):
+		wakerTask := providerSubtask.Parent().Subtask("waker for " + string(r.Alias))
+		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.Stream)
+		if err != nil {
+			return err
+		}
+		r.Stream = waker
+		r.HealthMon = waker
+	case entry.UseHealthCheck(r):
+		r.HealthMon = health.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
+	}
+	r.task = providerSubtask
+	r.task.OnComplete("stop stream", r.CloseListeners)
+
 	if err := r.Setup(); err != nil {
 		return E.FailWith("setup", err)
 	}
-	r.done = make(chan struct{})
 	r.l.Infof("listening on port %d", r.Port.ListeningPort)
+
 	go r.acceptConnections()
-	if !r.Healthcheck.Disabled {
-		r.HealthMon = health.NewRawHealthMonitor(r.task, r.URL(), r.Healthcheck)
-		r.HealthMon.Start()
+
+	if r.HealthMon != nil {
+		r.HealthMon.Start(r.task.Subtask("health monitor"))
 	}
 	streamRoutes.Store(string(r.Alias), r)
 	return nil
 }
 
-func (r *StreamRoute) Stop() E.NestedError {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.task == nil {
-		return nil
-	}
-
-	streamRoutes.Delete(string(r.Alias))
-
-	if r.HealthMon != nil {
-		r.HealthMon.Stop()
-		r.HealthMon = nil
-	}
-
-	r.cancel()
-	r.CloseListeners()
-
-	<-r.done
-	return nil
-}
-
-func (r *StreamRoute) Started() bool {
-	return r.task != nil
-}
-
 func (r *StreamRoute) acceptConnections() {
-	var connWg sync.WaitGroup
-
-	task := r.task.Subtask("%s accept connections", r.String())
-
-	defer func() {
-		connWg.Wait()
-		task.Finished()
-		r.task.Finished()
-		r.task, r.cancel = nil, nil
-		close(r.done)
-		r.done = nil
-	}()
-
 	for {
 		select {
-		case <-task.Context().Done():
+		case <-r.task.Context().Done():
 			return
 		default:
 			conn, err := r.Accept()
 			if err != nil {
 				select {
-				case <-task.Context().Done():
+				case <-r.task.Context().Done():
 					return
 				default:
-					var nErr *net.OpError
+					var nErr *stdNet.OpError
 					ok := errors.As(err, &nErr)
 					if !(ok && nErr.Timeout()) {
-						r.l.Error(err)
+						r.l.Error("accept connection error: ", err)
+						r.task.Finish(err.Error())
+						return
 					}
 					continue
 				}
 			}
-			connWg.Add(1)
+			connTask := r.task.Subtask("%s connection from %s", conn.RemoteAddr().Network(), conn.RemoteAddr().String())
 			go func() {
 				err := r.Handle(conn)
 				if err != nil && !errors.Is(err, context.Canceled) {
 					r.l.Error(err)
+					connTask.Finish(err.Error())
+				} else {
+					connTask.Finish("connection closed")
 				}
-				connWg.Done()
+				conn.Close()
 			}()
 		}
 	}

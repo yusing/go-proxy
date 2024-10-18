@@ -2,51 +2,66 @@ package config
 
 import (
 	"os"
+	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	PR "github.com/yusing/go-proxy/internal/proxy/provider"
-	R "github.com/yusing/go-proxy/internal/route"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/route"
+	proxy "github.com/yusing/go-proxy/internal/route/provider"
+	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
-	W "github.com/yusing/go-proxy/internal/watcher"
+	"github.com/yusing/go-proxy/internal/watcher"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
 	value            *types.Config
-	proxyProviders   F.Map[string, *PR.Provider]
+	providers        F.Map[string, *proxy.Provider]
 	autocertProvider *autocert.Provider
-
-	l logrus.FieldLogger
-
-	watcher W.Watcher
-
-	reloadReq chan struct{}
+	task             task.Task
 }
 
-var instance *Config
+var (
+	instance   *Config
+	cfgWatcher watcher.Watcher
+	logger     = logrus.WithField("module", "config")
+	reloadMu   sync.Mutex
+)
+
+const configEventFlushInterval = 500 * time.Millisecond
+
+const (
+	cfgRenameWarn = `Config file renamed, not reloading.
+Make sure you rename it back before next time you start.`
+	cfgDeleteWarn = `Config file deleted, not reloading.
+You may run "ls-config" to show or dump the current config.`
+)
 
 func GetInstance() *Config {
 	return instance
 }
 
-func Load() E.NestedError {
+func newConfig() *Config {
+	return &Config{
+		value:     types.DefaultConfig(),
+		providers: F.NewMapOf[string, *proxy.Provider](),
+		task:      task.GlobalTask("config"),
+	}
+}
+
+func Load() (*Config, E.NestedError) {
 	if instance != nil {
-		return nil
+		return instance, nil
 	}
-	instance = &Config{
-		value:          types.DefaultConfig(),
-		proxyProviders: F.NewMapOf[string, *PR.Provider](),
-		l:              logrus.WithField("module", "config"),
-		watcher:        W.NewConfigFileWatcher(common.ConfigFileName),
-		reloadReq:      make(chan struct{}, 1),
-	}
-	return instance.load()
+	instance = newConfig()
+	cfgWatcher = watcher.NewConfigFileWatcher(common.ConfigFileName)
+	return instance, instance.load()
 }
 
 func Validate(data []byte) E.NestedError {
@@ -54,87 +69,90 @@ func Validate(data []byte) E.NestedError {
 }
 
 func MatchDomains() []string {
-	if instance == nil {
-		logrus.Panic("config has not been loaded, please check if there is any errors")
-	}
 	return instance.value.MatchDomains
 }
 
-func (cfg *Config) Value() types.Config {
-	if cfg == nil {
-		logrus.Panic("config has not been loaded, please check if there is any errors")
-	}
-	return *cfg.value
+func WatchChanges() {
+	task := task.GlobalTask("Config watcher")
+	eventQueue := events.NewEventQueue(
+		task,
+		configEventFlushInterval,
+		OnConfigChange,
+		func(err E.NestedError) {
+			logger.Error(err)
+		},
+	)
+	eventQueue.Start(cfgWatcher.Events(task.Context()))
 }
 
-func (cfg *Config) GetAutoCertProvider() *autocert.Provider {
-	if instance == nil {
-		logrus.Panic("config has not been loaded, please check if there is any errors")
+func OnConfigChange(flushTask task.Task, ev []events.Event) {
+	defer flushTask.Finish("config reload complete")
+
+	// no matter how many events during the interval
+	// just reload once and check the last event
+	switch ev[len(ev)-1].Action {
+	case events.ActionFileRenamed:
+		logger.Warn(cfgRenameWarn)
+		return
+	case events.ActionFileDeleted:
+		logger.Warn(cfgDeleteWarn)
+		return
 	}
-	return cfg.autocertProvider
+
+	if err := Reload(); err != nil {
+		logger.Error(err)
+	}
 }
 
-func (cfg *Config) Reload() (err E.NestedError) {
-	cfg.stopProviders()
-	err = cfg.load()
-	cfg.StartProxyProviders()
-	return
+func Reload() E.NestedError {
+	// avoid race between config change and API reload request
+	reloadMu.Lock()
+	defer reloadMu.Unlock()
+
+	newCfg := newConfig()
+	err := newCfg.load()
+	if err != nil {
+		return err
+	}
+
+	// cancel all current subtasks -> wait
+	// -> replace config -> start new subtasks
+	instance.task.Finish("config changed")
+	instance.task.Wait()
+	*instance = *newCfg
+	instance.StartProxyProviders()
+	return nil
+}
+
+func Value() types.Config {
+	return *instance.value
+}
+
+func GetAutoCertProvider() *autocert.Provider {
+	return instance.autocertProvider
+}
+
+func (cfg *Config) Task() task.Task {
+	return cfg.task
 }
 
 func (cfg *Config) StartProxyProviders() {
-	cfg.controlProviders("start", (*PR.Provider).StartAllRoutes)
-}
-
-func (cfg *Config) WatchChanges() {
-	task := common.NewTask("Config watcher")
-	go func() {
-		defer task.Finished()
-		for {
-			select {
-			case <-task.Context().Done():
-				return
-			case <-cfg.reloadReq:
-				if err := cfg.Reload(); err != nil {
-					cfg.l.Error(err)
-				}
-			}
-		}
-	}()
-	go func() {
-		eventCh, errCh := cfg.watcher.Events(task.Context())
-		for {
-			select {
-			case <-task.Context().Done():
-				return
-			case event := <-eventCh:
-				if event.Action == events.ActionFileDeleted || event.Action == events.ActionFileRenamed {
-					cfg.l.Error("config file deleted or renamed, ignoring...")
-					continue
-				} else {
-					cfg.reloadReq <- struct{}{}
-				}
-			case err := <-errCh:
-				cfg.l.Error(err)
-				continue
-			}
-		}
-	}()
-}
-
-func (cfg *Config) forEachRoute(do func(alias string, r *R.Route, p *PR.Provider)) {
-	cfg.proxyProviders.RangeAll(func(_ string, p *PR.Provider) {
-		p.RangeRoutes(func(a string, r *R.Route) {
-			do(a, r, p)
-		})
+	b := E.NewBuilder("errors starting providers")
+	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
+		b.Add(p.Start(cfg.task.Subtask("provider %s", p.GetName())))
 	})
+
+	if b.HasError() {
+		logger.Error(b.Build())
+	}
 }
 
 func (cfg *Config) load() (res E.NestedError) {
 	b := E.NewBuilder("errors loading config")
 	defer b.To(&res)
 
-	cfg.l.Debug("loading config")
-	defer cfg.l.Debug("loaded config")
+	logger.Debug("loading config")
+	defer logger.Debug("loaded config")
 
 	data, err := E.Check(os.ReadFile(common.ConfigPath))
 	if err != nil {
@@ -160,7 +178,7 @@ func (cfg *Config) load() (res E.NestedError) {
 	b.Add(cfg.loadProviders(&model.Providers))
 
 	cfg.value = model
-	R.SetFindMuxDomains(model.MatchDomains)
+	route.SetFindMuxDomains(model.MatchDomains)
 	return
 }
 
@@ -169,8 +187,8 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Nested
 		return
 	}
 
-	cfg.l.Debug("initializing autocert")
-	defer cfg.l.Debug("initialized autocert")
+	logger.Debug("initializing autocert")
+	defer logger.Debug("initialized autocert")
 
 	cfg.autocertProvider, err = autocert.NewConfig(autocertCfg).GetProvider()
 	if err != nil {
@@ -179,48 +197,34 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Nested
 	return
 }
 
-func (cfg *Config) loadProviders(providers *types.ProxyProviders) (res E.NestedError) {
-	cfg.l.Debug("loading providers")
-	defer cfg.l.Debug("loaded providers")
+func (cfg *Config) loadProviders(providers *types.ProxyProviders) (outErr E.NestedError) {
+	subtask := cfg.task.Subtask("load providers")
+	defer subtask.Finish("done")
 
-	b := E.NewBuilder("errors loading providers")
-	defer b.To(&res)
+	errs := E.NewBuilder("errors loading providers")
+	results := E.NewBuilder("loaded providers")
+	defer errs.To(&outErr)
 
 	for _, filename := range providers.Files {
-		p, err := PR.NewFileProvider(filename)
+		p, err := proxy.NewFileProvider(filename)
 		if err != nil {
-			b.Add(err.Subject(filename))
+			errs.Add(err)
 			continue
 		}
-		cfg.proxyProviders.Store(p.GetName(), p)
-		b.Add(p.LoadRoutes().Subject(filename))
+		cfg.providers.Store(p.GetName(), p)
+		errs.Add(p.LoadRoutes().Subject(filename))
+		results.Addf("%d routes from %s", p.NumRoutes(), filename)
 	}
 	for name, dockerHost := range providers.Docker {
-		p, err := PR.NewDockerProvider(name, dockerHost)
+		p, err := proxy.NewDockerProvider(name, dockerHost)
 		if err != nil {
-			b.Add(err.Subjectf("%s (%s)", name, dockerHost))
+			errs.Add(err.Subjectf("%s (%s)", name, dockerHost))
 			continue
 		}
-		cfg.proxyProviders.Store(p.GetName(), p)
-		b.Add(p.LoadRoutes().Subject(p.GetName()))
+		cfg.providers.Store(p.GetName(), p)
+		errs.Add(p.LoadRoutes().Subject(p.GetName()))
+		results.Addf("%d routes from %s", p.NumRoutes(), name)
 	}
+	logger.Info(results.Build())
 	return
-}
-
-func (cfg *Config) controlProviders(action string, do func(*PR.Provider) E.NestedError) {
-	errors := E.NewBuilder("errors in %s these providers", action)
-
-	cfg.proxyProviders.RangeAllParallel(func(name string, p *PR.Provider) {
-		if err := do(p); err != nil {
-			errors.Add(err.Subject(p))
-		}
-	})
-
-	if err := errors.Build(); err != nil {
-		cfg.l.Error(err)
-	}
-}
-
-func (cfg *Config) stopProviders() {
-	cfg.controlProviders("stop routes", (*PR.Provider).StopAllRoutes)
 }

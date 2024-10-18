@@ -15,6 +15,7 @@ var (
 	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", true)
 	IsTest             = GetEnvBool("GOPROXY_TEST", false) || strings.HasSuffix(os.Args[0], ".test")
 	IsDebug            = GetEnvBool("GOPROXY_DEBUG", IsTest)
+	IsTrace            = GetEnvBool("GOPROXY_TRACE", false) && IsDebug
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,

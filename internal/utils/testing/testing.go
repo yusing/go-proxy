@@ -23,7 +23,7 @@ func IgnoreError[Result any](r Result, _ error) Result {
 func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil && !reflect.ValueOf(err).IsNil() {
-		t.Errorf("expected err=nil, got %s", err.Error())
+		t.Errorf("expected err=nil, got %s", err)
 		t.FailNow()
 	}
 }
@@ -31,7 +31,7 @@ func ExpectNoError(t *testing.T, err error) {
 func ExpectError(t *testing.T, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("expected err %s, got %s", expected.Error(), err.Error())
+		t.Errorf("expected err %s, got %s", expected, err)
 		t.FailNow()
 	}
 }
@@ -39,7 +39,7 @@ func ExpectError(t *testing.T, expected error, err error) {
 func ExpectError2(t *testing.T, input any, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("%v: expected err %s, got %s", input, expected.Error(), err.Error())
+		t.Errorf("%v: expected err %s, got %s", input, expected, err)
 		t.FailNow()
 	}
 }

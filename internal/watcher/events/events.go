@@ -74,7 +74,7 @@ var actionNameMap = func() (m map[Action]string) {
 }()
 
 func (e Event) String() string {
-	return fmt.Sprintf("%s %s", e.ActorName, e.Action)
+	return fmt.Sprintf("%s %s", e.Action, e.ActorName)
 }
 
 func (a Action) String() string {

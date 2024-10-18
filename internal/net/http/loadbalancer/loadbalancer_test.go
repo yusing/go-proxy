@@ -13,7 +13,7 @@ func TestRebalance(t *testing.T) {
 		for range 10 {
 			lb.AddServer(&Server{})
 		}
-		lb.Rebalance()
+		lb.rebalance()
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})
 	t.Run("less", func(t *testing.T) {
@@ -23,7 +23,7 @@ func TestRebalance(t *testing.T) {
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .3)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .2)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .1)})
-		lb.Rebalance()
+		lb.rebalance()
 		// t.Logf("%s", U.Must(json.MarshalIndent(lb.pool, "", "  ")))
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})
@@ -36,7 +36,7 @@ func TestRebalance(t *testing.T) {
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .3)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .2)})
 		lb.AddServer(&Server{Weight: weightType(float64(maxWeight) * .1)})
-		lb.Rebalance()
+		lb.rebalance()
 		// t.Logf("%s", U.Must(json.MarshalIndent(lb.pool, "", "  ")))
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})

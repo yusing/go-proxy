@@ -9,6 +9,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
@@ -36,22 +37,13 @@ var (
 )
 
 func init() {
-	go func() {
-		task := common.NewTask("close all docker client")
-		defer task.Finished()
-		for {
-			select {
-			case <-task.Context().Done():
-				clientMap.RangeAllParallel(func(_ string, c Client) {
-					if c.Connected() {
-						c.Client.Close()
-					}
-				})
-				clientMap.Clear()
-				return
+	task.GlobalTask("close docker clients").OnComplete("", func() {
+		clientMap.RangeAllParallel(func(_ string, c Client) {
+			if c.Connected() {
+				c.Client.Close()
 			}
-		}
-	}()
+		})
+	})
 }
 
 func (c *SharedClient) Connected() bool {
@@ -141,19 +133,10 @@ func ConnectClient(host string) (Client, E.NestedError) {
 		<-c.refCount.Zero()
 		clientMap.Delete(c.key)
 
-		if c.Client != nil {
+		if c.Connected() {
 			c.Client.Close()
-			c.Client = nil
 			c.l.Debugf("client closed")
 		}
 	}()
 	return c, nil
-}
-
-func CloseAllClients() {
-	clientMap.RangeAllParallel(func(_ string, c Client) {
-		c.Client.Close()
-	})
-	clientMap.Clear()
-	logger.Debug("closed all clients")
 }

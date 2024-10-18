@@ -10,7 +10,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	P "github.com/yusing/go-proxy/internal/proxy"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
@@ -46,7 +46,7 @@ func TestApplyLabelWildcard(t *testing.T) {
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:                          "a,b",
-			D.LabelIdleTimeout:                      common.IdleTimeoutDefault,
+			D.LabelIdleTimeout:                      "",
 			D.LabelStopMethod:                       common.StopMethodDefault,
 			D.LabelStopSignal:                       "SIGTERM",
 			D.LabelStopTimeout:                      common.StopTimeoutDefault,
@@ -62,7 +62,7 @@ func TestApplyLabelWildcard(t *testing.T) {
 			"proxy.a.middlewares.middleware2.prop3": "value3",
 			"proxy.a.middlewares.middleware2.prop4": "value4",
 		},
-	}, ""))
+	}, client.DefaultDockerHost))
 	ExpectNoError(t, err.Error())
 
 	a, ok := entries.Load("a")
@@ -88,8 +88,8 @@ func TestApplyLabelWildcard(t *testing.T) {
 	ExpectDeepEqual(t, a.Middlewares, middlewaresExpect)
 	ExpectEqual(t, len(b.Middlewares), 0)
 
-	ExpectEqual(t, a.Container.IdleTimeout, common.IdleTimeoutDefault)
-	ExpectEqual(t, b.Container.IdleTimeout, common.IdleTimeoutDefault)
+	ExpectEqual(t, a.Container.IdleTimeout, "")
+	ExpectEqual(t, b.Container.IdleTimeout, "")
 
 	ExpectEqual(t, a.Container.StopTimeout, common.StopTimeoutDefault)
 	ExpectEqual(t, b.Container.StopTimeout, common.StopTimeoutDefault)
@@ -107,6 +107,7 @@ func TestApplyLabelWildcard(t *testing.T) {
 func TestApplyLabelWithAlias(t *testing.T) {
 	entries, err := p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
+		State: "running",
 		Labels: map[string]string{
 			D.LabelAliases:          "a,b,c",
 			"proxy.a.no_tls_verify": "true",
@@ -114,7 +115,7 @@ func TestApplyLabelWithAlias(t *testing.T) {
 			"proxy.b.port":          "1234",
 			"proxy.c.scheme":        "https",
 		},
-	}, ""))
+	}, client.DefaultDockerHost))
 	a, ok := entries.Load("a")
 	ExpectTrue(t, ok)
 	b, ok := entries.Load("b")
@@ -134,6 +135,7 @@ func TestApplyLabelWithAlias(t *testing.T) {
 func TestApplyLabelWithRef(t *testing.T) {
 	entries := Must(p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
+		State: "running",
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b,c",
 			"proxy.#1.host":   "localhost",
@@ -142,7 +144,7 @@ func TestApplyLabelWithRef(t *testing.T) {
 			"proxy.#3.port":   "1111",
 			"proxy.#3.scheme": "https",
 		},
-	}, "")))
+	}, client.DefaultDockerHost)))
 	a, ok := entries.Load("a")
 	ExpectTrue(t, ok)
 	b, ok := entries.Load("b")
@@ -161,6 +163,7 @@ func TestApplyLabelWithRef(t *testing.T) {
 func TestApplyLabelWithRefIndexError(t *testing.T) {
 	c := D.FromDocker(&types.Container{
 		Names: dummyNames,
+		State: "running",
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b",
 			"proxy.#1.host":   "localhost",
@@ -173,6 +176,7 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 
 	_, err = p.entriesFromContainerLabels(D.FromDocker(&types.Container{
 		Names: dummyNames,
+		State: "running",
 		Labels: map[string]string{
 			D.LabelAliases:  "a,b",
 			"proxy.#0.host": "localhost",
@@ -183,7 +187,7 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 }
 
 func TestPublicIPLocalhost(t *testing.T) {
-	c := D.FromDocker(&types.Container{Names: dummyNames}, client.DefaultDockerHost)
+	c := D.FromDocker(&types.Container{Names: dummyNames, State: "running"}, client.DefaultDockerHost)
 	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 	ExpectTrue(t, ok)
 	ExpectEqual(t, raw.Container.PublicIP, "127.0.0.1")
@@ -191,7 +195,7 @@ func TestPublicIPLocalhost(t *testing.T) {
 }
 
 func TestPublicIPRemote(t *testing.T) {
-	c := D.FromDocker(&types.Container{Names: dummyNames}, "tcp://1.2.3.4:2375")
+	c := D.FromDocker(&types.Container{Names: dummyNames, State: "running"}, "tcp://1.2.3.4:2375")
 	raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 	ExpectTrue(t, ok)
 	ExpectEqual(t, raw.Container.PublicIP, "1.2.3.4")
@@ -218,6 +222,7 @@ func TestPrivateIPLocalhost(t *testing.T) {
 func TestPrivateIPRemote(t *testing.T) {
 	c := D.FromDocker(&types.Container{
 		Names: dummyNames,
+		State: "running",
 		NetworkSettings: &types.SummaryNetworkSettings{
 			Networks: map[string]*network.EndpointSettings{
 				"network": {
@@ -239,6 +244,7 @@ func TestStreamDefaultValues(t *testing.T) {
 	privIP := "172.17.0.123"
 	cont := &types.Container{
 		Names: []string{"a"},
+		State: "running",
 		NetworkSettings: &types.SummaryNetworkSettings{
 			Networks: map[string]*network.EndpointSettings{
 				"network": {
@@ -256,9 +262,8 @@ func TestStreamDefaultValues(t *testing.T) {
 
 		raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 		ExpectTrue(t, ok)
-		entry := Must(P.ValidateEntry(raw))
-
-		a := ExpectType[*P.StreamEntry](t, entry)
+		en := Must(entry.ValidateEntry(raw))
+		a := ExpectType[*entry.StreamEntry](t, en)
 		ExpectEqual(t, a.Scheme.ListeningScheme, T.Scheme("udp"))
 		ExpectEqual(t, a.Scheme.ProxyScheme, T.Scheme("udp"))
 		ExpectEqual(t, a.Host, T.Host(privIP))
@@ -270,9 +275,8 @@ func TestStreamDefaultValues(t *testing.T) {
 		c := D.FromDocker(cont, "tcp://1.2.3.4:2375")
 		raw, ok := Must(p.entriesFromContainerLabels(c)).Load("a")
 		ExpectTrue(t, ok)
-		entry := Must(P.ValidateEntry(raw))
-
-		a := ExpectType[*P.StreamEntry](t, entry)
+		en := Must(entry.ValidateEntry(raw))
+		a := ExpectType[*entry.StreamEntry](t, en)
 		ExpectEqual(t, a.Scheme.ListeningScheme, T.Scheme("udp"))
 		ExpectEqual(t, a.Scheme.ProxyScheme, T.Scheme("udp"))
 		ExpectEqual(t, a.Host, "1.2.3.4")

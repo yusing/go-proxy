@@ -7,8 +7,8 @@ import (
 	"github.com/yusing/go-proxy/internal/config"
 )
 
-func Reload(cfg *config.Config, w http.ResponseWriter, r *http.Request) {
-	if err := cfg.Reload(); err != nil {
+func Reload(w http.ResponseWriter, r *http.Request) {
+	if err := config.Reload(); err != nil {
 		U.RespondJSON(w, r, err.JSONObject(), http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)

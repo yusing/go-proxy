@@ -6,33 +6,35 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/homepage"
-	PR "github.com/yusing/go-proxy/internal/proxy/provider"
-	R "github.com/yusing/go-proxy/internal/route"
-	"github.com/yusing/go-proxy/internal/types"
+	"github.com/yusing/go-proxy/internal/proxy/entry"
+	"github.com/yusing/go-proxy/internal/route"
+	proxy "github.com/yusing/go-proxy/internal/route/provider"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
-func (cfg *Config) DumpEntries() map[string]*types.RawEntry {
-	entries := make(map[string]*types.RawEntry)
-	cfg.forEachRoute(func(alias string, r *R.Route, p *PR.Provider) {
-		entries[alias] = r.Entry
+func DumpEntries() map[string]*entry.RawEntry {
+	entries := make(map[string]*entry.RawEntry)
+	instance.providers.RangeAll(func(_ string, p *proxy.Provider) {
+		p.RangeRoutes(func(alias string, r *route.Route) {
+			entries[alias] = r.Entry
+		})
 	})
 	return entries
 }
 
-func (cfg *Config) DumpProviders() map[string]*PR.Provider {
-	entries := make(map[string]*PR.Provider)
-	cfg.proxyProviders.RangeAll(func(name string, p *PR.Provider) {
+func DumpProviders() map[string]*proxy.Provider {
+	entries := make(map[string]*proxy.Provider)
+	instance.providers.RangeAll(func(name string, p *proxy.Provider) {
 		entries[name] = p
 	})
 	return entries
 }
 
-func (cfg *Config) HomepageConfig() homepage.Config {
+func HomepageConfig() homepage.Config {
 	var proto, port string
-	domains := cfg.value.MatchDomains
-	cert, _ := cfg.autocertProvider.GetCert(nil)
+	domains := instance.value.MatchDomains
+	cert, _ := instance.autocertProvider.GetCert(nil)
 	if cert != nil {
 		proto = "https"
 		port = common.ProxyHTTPSPort
@@ -42,9 +44,9 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 	}
 
 	hpCfg := homepage.NewHomePageConfig()
-	R.GetReverseProxies().RangeAll(func(alias string, r *R.HTTPRoute) {
-		entry := r.Raw
-		item := entry.Homepage
+	route.GetReverseProxies().RangeAll(func(alias string, r *route.HTTPRoute) {
+		en := r.Raw
+		item := en.Homepage
 		if item == nil {
 			item = new(homepage.Item)
 			item.Show = true
@@ -63,12 +65,12 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 			)
 		}
 
-		if r.IsDocker() {
+		if entry.IsDocker(r) {
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
-			item.SourceType = string(PR.ProviderTypeDocker)
-		} else if r.UseLoadBalance() {
+			item.SourceType = string(proxy.ProviderTypeDocker)
+		} else if entry.UseLoadBalance(r) {
 			if item.Category == "" {
 				item.Category = "Load-balanced"
 			}
@@ -77,7 +79,7 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 			if item.Category == "" {
 				item.Category = "Others"
 			}
-			item.SourceType = string(PR.ProviderTypeFile)
+			item.SourceType = string(proxy.ProviderTypeFile)
 		}
 
 		if item.URL == "" {
@@ -85,26 +87,26 @@ func (cfg *Config) HomepageConfig() homepage.Config {
 				item.URL = fmt.Sprintf("%s://%s.%s:%s", proto, strings.ToLower(alias), domains[0], port)
 			}
 		}
-		item.AltURL = r.URL().String()
+		item.AltURL = r.TargetURL().String()
 
 		hpCfg.Add(item)
 	})
 	return hpCfg
 }
 
-func (cfg *Config) RoutesByAlias(typeFilter ...R.RouteType) map[string]any {
+func RoutesByAlias(typeFilter ...route.RouteType) map[string]any {
 	routes := make(map[string]any)
 	if len(typeFilter) == 0 || typeFilter[0] == "" {
-		typeFilter = []R.RouteType{R.RouteTypeReverseProxy, R.RouteTypeStream}
+		typeFilter = []route.RouteType{route.RouteTypeReverseProxy, route.RouteTypeStream}
 	}
 	for _, t := range typeFilter {
 		switch t {
-		case R.RouteTypeReverseProxy:
-			R.GetReverseProxies().RangeAll(func(alias string, r *R.HTTPRoute) {
+		case route.RouteTypeReverseProxy:
+			route.GetReverseProxies().RangeAll(func(alias string, r *route.HTTPRoute) {
 				routes[alias] = r
 			})
-		case R.RouteTypeStream:
-			R.GetStreamProxies().RangeAll(func(alias string, r *R.StreamRoute) {
+		case route.RouteTypeStream:
+			route.GetStreamProxies().RangeAll(func(alias string, r *route.StreamRoute) {
 				routes[alias] = r
 			})
 		}
@@ -112,12 +114,12 @@ func (cfg *Config) RoutesByAlias(typeFilter ...R.RouteType) map[string]any {
 	return routes
 }
 
-func (cfg *Config) Statistics() map[string]any {
+func Statistics() map[string]any {
 	nTotalStreams := 0
 	nTotalRPs := 0
-	providerStats := make(map[string]PR.ProviderStats)
+	providerStats := make(map[string]proxy.ProviderStats)
 
-	cfg.proxyProviders.RangeAll(func(name string, p *PR.Provider) {
+	instance.providers.RangeAll(func(name string, p *proxy.Provider) {
 		providerStats[name] = p.Statistics()
 	})
 
@@ -133,9 +135,9 @@ func (cfg *Config) Statistics() map[string]any {
 	}
 }
 
-func (cfg *Config) FindRoute(alias string) *R.Route {
-	return F.MapFind(cfg.proxyProviders,
-		func(p *PR.Provider) (*R.Route, bool) {
+func FindRoute(alias string) *route.Route {
+	return F.MapFind(instance.providers,
+		func(p *proxy.Provider) (*route.Route, bool) {
 			if route, ok := p.GetRoute(alias); ok {
 				return route, true
 			}

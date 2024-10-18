@@ -22,6 +22,7 @@ const (
 	CommandDebugListEntries   = "debug-ls-entries"
 	CommandDebugListProviders = "debug-ls-providers"
 	CommandDebugListMTrace    = "debug-ls-mtrace"
+	CommandDebugListTasks     = "debug-ls-tasks"
 )
 
 var ValidCommands = []string{
@@ -35,6 +36,7 @@ var ValidCommands = []string{
 	CommandDebugListEntries,
 	CommandDebugListProviders,
 	CommandDebugListMTrace,
+	CommandDebugListTasks,
 }
 
 func GetArgs() Args {

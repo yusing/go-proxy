@@ -1,14 +1,16 @@
 package provider
 
 import (
-	"context"
+	"fmt"
 	"path"
+	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/task"
 	W "github.com/yusing/go-proxy/internal/watcher"
+	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
 type (
@@ -19,18 +21,14 @@ type (
 		t      ProviderType
 		routes R.Routes
 
-		watcher       W.Watcher
-		watcherTask   common.Task
-		watcherCancel context.CancelFunc
+		watcher W.Watcher
 
 		l *logrus.Entry
 	}
 	ProviderImpl interface {
+		fmt.Stringer
 		NewWatcher() W.Watcher
-		// even returns error, routes must be non-nil
 		LoadRoutesImpl() (R.Routes, E.NestedError)
-		OnEvent(event W.Event, routes R.Routes) EventResult
-		String() string
 	}
 	ProviderType  string
 	ProviderStats struct {
@@ -38,17 +36,13 @@ type (
 		NumStreams int          `json:"num_streams"`
 		Type       ProviderType `json:"type"`
 	}
-	EventResult struct {
-		nAdded    int
-		nRemoved  int
-		nReloaded int
-		err       E.NestedError
-	}
 )
 
 const (
 	ProviderTypeDocker ProviderType = "docker"
 	ProviderTypeFile   ProviderType = "file"
+
+	providerEventFlushInterval = 500 * time.Millisecond
 )
 
 func newProvider(name string, t ProviderType) *Provider {
@@ -106,32 +100,48 @@ func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Provider) StartAllRoutes() (res E.NestedError) {
+func (p *Provider) startRoute(parent task.Task, r *R.Route) E.NestedError {
+	subtask := parent.Subtask("route %s", r.Entry.Alias)
+	err := r.Start(subtask)
+	if err != nil {
+		p.routes.Delete(r.Entry.Alias)
+		subtask.Finish(err.String()) // just to ensure
+		return err
+	} else {
+		subtask.OnComplete("del from provider", func() {
+			p.routes.Delete(r.Entry.Alias)
+		})
+	}
+	return nil
+}
+
+// Start implements task.TaskStarter.
+func (p *Provider) Start(configSubtask task.Task) (res E.NestedError) {
 	errors := E.NewBuilder("errors starting routes")
 	defer errors.To(&res)
 
-	// start watcher no matter load success or not
-	go p.watchEvents()
+	// routes and event queue will stop on parent cancel
+	providerTask := configSubtask
 
 	p.routes.RangeAllParallel(func(alias string, r *R.Route) {
-		errors.Add(r.Start().Subject(r))
+		errors.Add(p.startRoute(providerTask, r))
 	})
-	return
-}
 
-func (p *Provider) StopAllRoutes() (res E.NestedError) {
-	if p.watcherCancel != nil {
-		p.watcherCancel()
-		p.watcherCancel = nil
-	}
-
-	errors := E.NewBuilder("errors stopping routes")
-	defer errors.To(&res)
-
-	p.routes.RangeAllParallel(func(alias string, r *R.Route) {
-		errors.Add(r.Stop().Subject(r))
-	})
-	p.routes.Clear()
+	eventQueue := events.NewEventQueue(
+		providerTask,
+		providerEventFlushInterval,
+		func(flushTask task.Task, events []events.Event) {
+			handler := p.newEventHandler()
+			// routes' lifetime should follow the provider's lifetime
+			handler.Handle(providerTask, events)
+			handler.Log()
+			flushTask.Finish("events flushed")
+		},
+		func(err E.NestedError) {
+			p.l.Error(err)
+		},
+	)
+	eventQueue.Start(p.watcher.Events(providerTask.Context()))
 	return
 }
 
@@ -147,7 +157,6 @@ func (p *Provider) LoadRoutes() E.NestedError {
 	var err E.NestedError
 	p.routes, err = p.LoadRoutesImpl()
 	if p.routes.Size() > 0 {
-		p.l.Infof("loaded %d routes", p.routes.Size())
 		return err
 	}
 	if err == nil {
@@ -156,13 +165,14 @@ func (p *Provider) LoadRoutes() E.NestedError {
 	return E.FailWith("loading routes", err)
 }
 
+func (p *Provider) NumRoutes() int {
+	return p.routes.Size()
+}
+
 func (p *Provider) Statistics() ProviderStats {
 	numRPs := 0
 	numStreams := 0
 	p.routes.RangeAll(func(_ string, r *R.Route) {
-		if !r.Started() {
-			return
-		}
 		switch r.Type {
 		case R.RouteTypeReverseProxy:
 			numRPs++
@@ -174,36 +184,5 @@ func (p *Provider) Statistics() ProviderStats {
 		NumRPs:     numRPs,
 		NumStreams: numStreams,
 		Type:       p.t,
-	}
-}
-
-func (p *Provider) watchEvents() {
-	p.watcherTask, p.watcherCancel = common.NewTaskWithCancel("Watcher for provider %s", p.name)
-	defer p.watcherTask.Finished()
-
-	events, errs := p.watcher.Events(p.watcherTask.Context())
-	l := p.l.WithField("module", "watcher")
-
-	for {
-		select {
-		case <-p.watcherTask.Context().Done():
-			return
-		case event := <-events:
-			task := p.watcherTask.Subtask("%s event %s", event.Type, event)
-			l.Infof("%s event %q", event.Type, event)
-			res := p.OnEvent(event, p.routes)
-			task.Finished()
-			if res.nAdded+res.nRemoved+res.nReloaded > 0 {
-				l.Infof("| %d NEW | %d REMOVED | %d RELOADED |", res.nAdded, res.nRemoved, res.nReloaded)
-			}
-			if res.err != nil {
-				l.Error(res.err)
-			}
-		case err := <-errs:
-			if err == nil || err.Is(context.Canceled) {
-				continue
-			}
-			l.Errorf("watcher error: %s", err)
-		}
 	}
 }

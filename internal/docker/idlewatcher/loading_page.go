@@ -20,16 +20,15 @@ var loadingPageTmpl = template.Must(template.New("loading_page").Parse(string(lo
 
 const headerCheckRedirect = "X-Goproxy-Check-Redirect"
 
-func (w *Watcher) makeRespBody(format string, args ...any) []byte {
-	msg := fmt.Sprintf(format, args...)
+func (w *Watcher) makeLoadingPageBody() []byte {
+	msg := fmt.Sprintf("%s is starting...", w.ContainerName)
 
 	data := new(templateData)
 	data.CheckRedirectHeader = headerCheckRedirect
 	data.Title = w.ContainerName
-	data.Message = strings.ReplaceAll(msg, "\n", "<br>")
-	data.Message = strings.ReplaceAll(data.Message, " ", "&ensp;")
+	data.Message = strings.ReplaceAll(msg, " ", "&ensp;")
 
-	buf := bytes.NewBuffer(make([]byte, 128)) // more than enough
+	buf := bytes.NewBuffer(make([]byte, len(loadingPage)+len(data.Title)+len(data.Message)+len(headerCheckRedirect)))
 	err := loadingPageTmpl.Execute(buf, data)
 	if err != nil { // should never happen in production
 		panic(err)

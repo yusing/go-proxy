@@ -11,7 +11,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/proxy/provider"
+	"github.com/yusing/go-proxy/internal/route/provider"
 )
 
 func GetFileContent(w http.ResponseWriter, r *http.Request) {

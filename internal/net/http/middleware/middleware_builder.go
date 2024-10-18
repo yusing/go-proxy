@@ -48,11 +48,11 @@ func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, 
 			}
 			delete(def, "use")
 			m, err := base.WithOptionsClone(def)
-			m.name = fmt.Sprintf("%s[%d]", name, i)
 			if err != nil {
 				chainErr.Add(err.Subjectf("item%d", i))
 				continue
 			}
+			m.name = fmt.Sprintf("%s[%d]", name, i)
 			chain = append(chain, m)
 		}
 		if chainErr.HasError() {

@@ -32,11 +32,11 @@ type (
 		IsExcluded  bool     `json:"is_excluded" yaml:"-"`
 		IsExplicit  bool     `json:"is_explicit" yaml:"-"`
 		IsDatabase  bool     `json:"is_database" yaml:"-"`
-		IdleTimeout string   `json:"idle_timeout" yaml:"-"`
-		WakeTimeout string   `json:"wake_timeout" yaml:"-"`
-		StopMethod  string   `json:"stop_method" yaml:"-"`
-		StopTimeout string   `json:"stop_timeout" yaml:"-"` // stop_method = "stop" only
-		StopSignal  string   `json:"stop_signal" yaml:"-"`  // stop_method = "stop" | "kill" only
+		IdleTimeout string   `json:"idle_timeout,omitempty" yaml:"-"`
+		WakeTimeout string   `json:"wake_timeout,omitempty" yaml:"-"`
+		StopMethod  string   `json:"stop_method,omitempty" yaml:"-"`
+		StopTimeout string   `json:"stop_timeout,omitempty" yaml:"-"` // stop_method = "stop" only
+		StopSignal  string   `json:"stop_signal,omitempty" yaml:"-"`  // stop_method = "stop" | "kill" only
 		Running     bool     `json:"running" yaml:"-"`
 	}
 )

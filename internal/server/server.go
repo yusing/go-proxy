@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"crypto/tls"
 	"errors"
 	"log"
@@ -9,8 +10,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/autocert"
-	"github.com/yusing/go-proxy/internal/common"
-	"golang.org/x/net/context"
+	"github.com/yusing/go-proxy/internal/task"
 )
 
 type Server struct {
@@ -21,7 +21,8 @@ type Server struct {
 	httpStarted  bool
 	httpsStarted bool
 	startTime    time.Time
-	task         common.Task
+
+	task task.Task
 }
 
 type Options struct {
@@ -84,7 +85,7 @@ func NewServer(opt Options) (s *Server) {
 		CertProvider: opt.CertProvider,
 		http:         httpSer,
 		https:        httpsSer,
-		task:         common.GlobalTask(opt.Name + " server"),
+		task:         task.GlobalTask(opt.Name + " server"),
 	}
 }
 
@@ -115,11 +116,7 @@ func (s *Server) Start() {
 		}()
 	}
 
-	go func() {
-		<-s.task.Context().Done()
-		s.stop()
-		s.task.Finished()
-	}()
+	s.task.OnComplete("stop server", s.stop)
 }
 
 func (s *Server) stop() {
@@ -127,16 +124,13 @@ func (s *Server) stop() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
 	if s.http != nil && s.httpStarted {
-		s.handleErr("http", s.http.Shutdown(ctx))
+		s.handleErr("http", s.http.Shutdown(s.task.Context()))
 		s.httpStarted = false
 	}
 
 	if s.https != nil && s.httpsStarted {
-		s.handleErr("https", s.https.Shutdown(ctx))
+		s.handleErr("https", s.https.Shutdown(s.task.Context()))
 		s.httpsStarted = false
 	}
 }
@@ -147,7 +141,7 @@ func (s *Server) Uptime() time.Duration {
 
 func (s *Server) handleErr(scheme string, err error) {
 	switch {
-	case err == nil, errors.Is(err, http.ErrServerClosed):
+	case err == nil, errors.Is(err, http.ErrServerClosed), errors.Is(err, context.Canceled):
 		return
 	default:
 		logrus.Fatalf("%s server %s error: %s", scheme, s.Name, err)

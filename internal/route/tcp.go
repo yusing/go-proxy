@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/yusing/go-proxy/internal/net/types"
 	T "github.com/yusing/go-proxy/internal/proxy/fields"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -21,7 +22,7 @@ type (
 	}
 )
 
-func NewTCPRoute(base *StreamRoute) StreamImpl {
+func NewTCPRoute(base *StreamRoute) *TCPRoute {
 	return &TCPRoute{StreamRoute: base}
 }
 
@@ -36,19 +37,16 @@ func (route *TCPRoute) Setup() error {
 	return nil
 }
 
-func (route *TCPRoute) Accept() (any, error) {
+func (route *TCPRoute) Accept() (types.StreamConn, error) {
 	route.listener.SetDeadline(time.Now().Add(time.Second))
 	return route.listener.Accept()
 }
 
-func (route *TCPRoute) Handle(c any) error {
+func (route *TCPRoute) Handle(c types.StreamConn) error {
 	clientConn := c.(net.Conn)
 
 	defer clientConn.Close()
-	go func() {
-		<-route.task.Context().Done()
-		clientConn.Close()
-	}()
+	route.task.OnComplete("close conn", func() { clientConn.Close() })
 
 	ctx, cancel := context.WithTimeout(route.task.Context(), tcpDialTimeout)
 
@@ -70,5 +68,4 @@ func (route *TCPRoute) CloseListeners() {
 		return
 	}
 	route.listener.Close()
-	route.listener = nil
 }
