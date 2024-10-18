@@ -52,6 +52,10 @@ func HomepageConfig() homepage.Config {
 			item.Show = true
 		}
 
+		if !item.IsEmpty() {
+			item.Show = true
+		}
+
 		if !item.Show {
 			return
 		}
