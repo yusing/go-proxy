@@ -64,5 +64,5 @@ func UseIdleWatcher(entry Entry) bool {
 
 func UseHealthCheck(entry Entry) bool {
 	hc := entry.HealthCheckConfig()
-	return hc != nil && !hc.Disabled
+	return hc != nil && !hc.Disable
 }

@@ -31,6 +31,7 @@ func NewHandler() http.Handler {
 	mux.HandleFunc("POST", "/v1/reload", v1.Reload)
 	mux.HandleFunc("GET", "/v1/list", v1.List)
 	mux.HandleFunc("GET", "/v1/list/{what}", v1.List)
+	mux.HandleFunc("GET", "/v1/list/{what}/{which}", v1.List)
 	mux.HandleFunc("GET", "/v1/file", v1.GetFileContent)
 	mux.HandleFunc("GET", "/v1/file/{filename...}", v1.GetFileContent)
 	mux.HandleFunc("POST", "/v1/file/{filename...}", v1.SetFileContent)

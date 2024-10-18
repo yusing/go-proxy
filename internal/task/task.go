@@ -160,7 +160,11 @@ func (t *task) Context() context.Context {
 }
 
 func (t *task) FinishCause() error {
-	return context.Cause(t.ctx)
+	cause := context.Cause(t.ctx)
+	if cause == nil {
+		return t.ctx.Err()
+	}
+	return cause
 }
 
 func (t *task) Parent() Task {

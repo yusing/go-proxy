@@ -75,20 +75,25 @@ func (mon *monitor) Start(routeSubtask task.Task) E.NestedError {
 	mon.service = routeSubtask.Parent().Name()
 	mon.task = routeSubtask
 
-	if err := mon.checkUpdateHealth(); err != nil {
-		mon.task.Finish(fmt.Sprintf("healthchecker %s failure: %s", mon.service, err))
-		return err
+	if mon.config.Interval <= 0 {
+		return E.Invalid("interval", mon.config.Interval)
 	}
+
 	go func() {
 		defer func() {
-			monMap.Delete(mon.task.Name())
 			if mon.status.Load() != StatusError {
 				mon.status.Store(StatusUnknown)
 			}
 			mon.task.Finish(mon.task.FinishCause().Error())
 		}()
 
+		if err := mon.checkUpdateHealth(); err != nil {
+			logger.Errorf("healthchecker %s failure: %s", mon.service, err)
+			return
+		}
+
 		monMap.Store(mon.service, mon)
+		defer monMap.Delete(mon.service)
 
 		ticker := time.NewTicker(mon.config.Interval)
 		defer ticker.Stop()

@@ -14,6 +14,7 @@ import (
 )
 
 const (
+	ListRoute            = "route"
 	ListRoutes           = "routes"
 	ListConfigFiles      = "config_files"
 	ListMiddlewares      = "middlewares"
@@ -28,8 +29,16 @@ func List(w http.ResponseWriter, r *http.Request) {
 	if what == "" {
 		what = ListRoutes
 	}
+	which := r.PathValue("which")
 
 	switch what {
+	case ListRoute:
+		if route := listRoute(which); route == nil {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		} else {
+			U.RespondJSON(w, r, route)
+		}
 	case ListRoutes:
 		U.RespondJSON(w, r, config.RoutesByAlias(route.RouteType(r.FormValue("type"))))
 	case ListConfigFiles:
@@ -47,6 +56,21 @@ func List(w http.ResponseWriter, r *http.Request) {
 	default:
 		U.HandleErr(w, r, U.ErrInvalidKey("what"), http.StatusBadRequest)
 	}
+}
+
+func listRoute(which string) any {
+	if which == "" {
+		which = "all"
+	}
+	if which == "all" {
+		return config.RoutesByAlias()
+	}
+	routes := config.RoutesByAlias()
+	route, ok := routes[which]
+	if !ok {
+		return nil
+	}
+	return route
 }
 
 func listConfigFiles(w http.ResponseWriter, r *http.Request) {

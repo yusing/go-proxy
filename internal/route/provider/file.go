@@ -61,6 +61,8 @@ func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 		return
 	}
 
+	b.Add(Validate(data))
+
 	return R.FromEntries(entries)
 }
 

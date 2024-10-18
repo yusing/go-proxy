@@ -66,9 +66,9 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.NestedError {
 	streamRoutesMu.Lock()
 	defer streamRoutesMu.Unlock()
 
-	if r.HealthCheck.Disabled && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
+	if r.HealthCheck.Disable && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
 		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
-		r.HealthCheck.Disabled = true
+		r.HealthCheck.Disable = true
 	}
 
 	if r.Scheme.ListeningScheme.IsTCP() {

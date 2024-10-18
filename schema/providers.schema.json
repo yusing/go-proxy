@@ -149,7 +149,7 @@
         "healthcheck": {
           "type": "object",
           "properties": {
-            "disabled": {
+            "disable": {
               "type": "boolean",
               "default": false
             },

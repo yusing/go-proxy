@@ -106,9 +106,12 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
 	httpRoutesMu.Lock()
 	defer httpRoutesMu.Unlock()
 
-	if r.HealthCheck.Disabled && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
+	if !entry.UseHealthCheck(r) && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
 		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
-		r.HealthCheck.Disabled = true
+		if r.HealthCheck == nil {
+			r.HealthCheck = new(health.HealthCheckConfig)
+		}
+		r.HealthCheck.Disable = true
 	}
 
 	switch {
@@ -121,6 +124,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
 		r.handler = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
+		logrus.Debugf("%s health check: %+v", r.Alias, r.HealthCheck)
 		r.HealthMon = health.NewHTTPHealthMonitor(r.TargetURL(), r.HealthCheck, r.rp.Transport)
 	}
 	r.task = providerSubtask
