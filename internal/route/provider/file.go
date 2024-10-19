@@ -45,7 +45,7 @@ func (p FileProvider) String() string {
 func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 	routes = R.NewRoutes()
 
-	b := E.NewBuilder("file %q validation failure", p.fileName)
+	b := E.NewBuilder("validation failure")
 	defer b.To(&res)
 
 	entries := entry.NewProxyEntries()
@@ -61,7 +61,7 @@ func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
 		return
 	}
 
-	b.Add(Validate(data))
+	b.Add(Validate(data), true)
 
 	return R.FromEntries(entries)
 }

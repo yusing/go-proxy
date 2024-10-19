@@ -213,7 +213,7 @@ func (cfg *Config) loadProviders(providers *types.ProxyProviders) (outErr E.Nest
 		}
 		cfg.providers.Store(p.GetName(), p)
 		errs.Add(p.LoadRoutes().Subject(filename))
-		results.Addf("%d routes from %s", p.NumRoutes(), filename)
+		results.Addf("%d routes from %s", p.NumRoutes(), p.String())
 	}
 	for name, dockerHost := range providers.Docker {
 		p, err := proxy.NewDockerProvider(name, dockerHost)
@@ -223,7 +223,7 @@ func (cfg *Config) loadProviders(providers *types.ProxyProviders) (outErr E.Nest
 		}
 		cfg.providers.Store(p.GetName(), p)
 		errs.Add(p.LoadRoutes().Subject(p.GetName()))
-		results.Addf("%d routes from %s", p.NumRoutes(), name)
+		results.Addf("%d routes from %s", p.NumRoutes(), p.String())
 	}
 	logger.Info(results.Build())
 	return

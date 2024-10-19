@@ -48,7 +48,7 @@ func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
 
 	b := E.NewBuilder("yaml validation error")
 	for _, e := range valErr.Causes {
-		b.AddE(e)
+		b.Addf(e.Message)
 	}
 	return b.Build()
 }

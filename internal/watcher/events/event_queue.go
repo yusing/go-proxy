@@ -62,7 +62,7 @@ func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.NestedError) {
 					go func() {
 						defer func() {
 							if err := recover(); err != nil {
-								e.onError(E.PanicRecv("onFlush: %s", err))
+								e.onError(E.PanicRecv("onFlush: %s", err).Subject(e.task.Parent().Name()))
 							}
 						}()
 						e.onFlush(flushTask, queue)

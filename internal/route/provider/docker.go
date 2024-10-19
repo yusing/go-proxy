@@ -33,7 +33,7 @@ func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImp
 }
 
 func (p *DockerProvider) String() string {
-	return "docker: " + p.name
+	return "docker@" + p.name
 }
 
 func (p *DockerProvider) NewWatcher() W.Watcher {

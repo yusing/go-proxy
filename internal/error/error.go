@@ -133,7 +133,11 @@ func (ne NestedError) With(s any) NestedError {
 	switch ss := s.(type) {
 	case nil:
 		return ne
-	case NestedError:
+	case *NestedErrorImpl:
+		if len(ss.extras) == 1 {
+			ne.extras = append(ne.extras, ss.extras[0])
+			return ne
+		}
 		return ne.withError(ss)
 	case error:
 		return ne.withError(From(ss))
@@ -248,10 +252,11 @@ func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
 		return
 	}
 
-	sb.WriteString(ne.err.Error())
 	if ne.subject != "" {
-		sb.WriteString(fmt.Sprintf(" for %q", ne.subject))
+		sb.WriteString(ne.subject)
+		sb.WriteRune(' ')
 	}
+	sb.WriteString(ne.err.Error())
 	if len(ne.extras) > 0 {
 		sb.WriteRune(':')
 		for _, extra := range ne.extras {

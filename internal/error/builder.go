@@ -1,8 +1,8 @@
 package error
 
 import (
+	"errors"
 	"fmt"
-	"strings"
 	"sync"
 )
 
@@ -23,12 +23,21 @@ func NewBuilder(format string, args ...any) Builder {
 	return Builder{&builder{message: format}}
 }
 
-// adding nil / nil is no-op,
-// you may safely pass expressions returning error to it.
-func (b Builder) Add(err NestedError) {
+// Add adds an error to the Builder.
+//
+// adding nil is no-op,
+//
+// flatten is a boolean flag to flatten the NestedError.
+func (b Builder) Add(err NestedError, flatten ...bool) {
 	if err != nil {
 		b.Lock()
-		b.errors = append(b.errors, err)
+		if len(flatten) > 0 && flatten[0] {
+			for _, e := range err.extras {
+				b.errors = append(b.errors, &e)
+			}
+		} else {
+			b.errors = append(b.errors, err)
+		}
 		b.Unlock()
 	}
 }
@@ -38,14 +47,26 @@ func (b Builder) AddE(err error) {
 }
 
 func (b Builder) Addf(format string, args ...any) {
-	b.Add(errorf(format, args...))
+	if len(args) > 0 {
+		b.Add(errorf(format, args...))
+	} else {
+		b.AddE(errors.New(format))
+	}
+}
+
+func (b Builder) AddRange(errs ...NestedError) {
+	b.Lock()
+	defer b.Unlock()
+	for _, err := range errs {
+		b.errors = append(b.errors, err)
+	}
 }
 
 func (b Builder) AddRangeE(errs ...error) {
 	b.Lock()
 	defer b.Unlock()
 	for _, err := range errs {
-		b.AddE(err)
+		b.errors = append(b.errors, From(err))
 	}
 }
 
@@ -59,8 +80,6 @@ func (b Builder) AddRangeE(errs ...error) {
 func (b Builder) Build() NestedError {
 	if len(b.errors) == 0 {
 		return nil
-	} else if len(b.errors) == 1 && !strings.ContainsRune(b.message, ' ') {
-		return b.errors[0].Subject(b.message)
 	}
 	return Join(b.message, b.errors...)
 }
