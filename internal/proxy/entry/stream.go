@@ -15,9 +15,9 @@ import (
 type StreamEntry struct {
 	Raw *RawEntry `json:"raw"`
 
-	Alias       fields.Alias              `json:"alias,omitempty"`
-	Scheme      fields.StreamScheme       `json:"scheme,omitempty"`
-	URL         net.URL                   `json:"url,omitempty"`
+	Alias       fields.Alias              `json:"alias"`
+	Scheme      fields.StreamScheme       `json:"scheme"`
+	URL         net.URL                   `json:"url"`
 	Host        fields.Host               `json:"host,omitempty"`
 	Port        fields.StreamPort         `json:"port,omitempty"`
 	HealthCheck *health.HealthCheckConfig `json:"healthcheck,omitempty"`

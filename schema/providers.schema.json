@@ -122,8 +122,7 @@
           "properties": {
             "link": {
               "type": "string",
-              "description": "Name and subdomain of load-balancer",
-              "format": "uri"
+              "description": "Name and subdomain of load-balancer"
             },
             "mode": {
               "enum": [

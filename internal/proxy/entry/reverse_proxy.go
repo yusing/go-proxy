@@ -16,9 +16,9 @@ import (
 type ReverseProxyEntry struct { // real model after validation
 	Raw *RawEntry `json:"raw"`
 
-	Alias        fields.Alias              `json:"alias,omitempty"`
-	Scheme       fields.Scheme             `json:"scheme,omitempty"`
-	URL          net.URL                   `json:"url,omitempty"`
+	Alias        fields.Alias              `json:"alias"`
+	Scheme       fields.Scheme             `json:"scheme"`
+	URL          net.URL                   `json:"url"`
 	NoTLSVerify  bool                      `json:"no_tls_verify,omitempty"`
 	PathPatterns fields.PathPatterns       `json:"path_patterns,omitempty"`
 	HealthCheck  *health.HealthCheckConfig `json:"healthcheck,omitempty"`

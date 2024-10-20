@@ -19,6 +19,10 @@ type JSONRepresentation struct {
 }
 
 func (jsonRepr *JSONRepresentation) MarshalJSON() ([]byte, error) {
+	url := jsonRepr.URL.String()
+	if url == "http://:0" {
+		url = ""
+	}
 	return json.Marshal(map[string]any{
 		"name":       jsonRepr.Name,
 		"config":     jsonRepr.Config,
@@ -27,7 +31,7 @@ func (jsonRepr *JSONRepresentation) MarshalJSON() ([]byte, error) {
 		"status":     jsonRepr.Status.String(),
 		"uptime":     jsonRepr.Uptime.Seconds(),
 		"uptimeStr":  U.FormatDuration(jsonRepr.Uptime),
-		"url":        jsonRepr.URL,
+		"url":        url,
 		"extra":      jsonRepr.Extra,
 	})
 }

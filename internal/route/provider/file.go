@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 
+	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
@@ -61,7 +62,9 @@ func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.Error) {
 		return
 	}
 
-	b.Add(Validate(data), true)
+	if err := Validate(data); err != nil {
+		logrus.Warn(err)
+	}
 
 	return R.FromEntries(entries)
 }
