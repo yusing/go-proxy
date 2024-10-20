@@ -31,7 +31,9 @@ func (handler *EventHandler) Handle(parent task.Task, events []watcher.Event) {
 	newRoutes, err := handler.provider.LoadRoutesImpl()
 	if err != nil {
 		handler.errs.Add(err.Subject("load routes"))
-		return
+		if newRoutes.Size() == 0 {
+			return
+		}
 	}
 
 	if common.IsDebug {
