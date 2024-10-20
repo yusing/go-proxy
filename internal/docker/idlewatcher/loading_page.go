@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+
+	"github.com/yusing/go-proxy/internal/common"
 )
 
 type templateData struct {
@@ -18,17 +20,15 @@ type templateData struct {
 var loadingPage []byte
 var loadingPageTmpl = template.Must(template.New("loading_page").Parse(string(loadingPage)))
 
-const headerCheckRedirect = "X-Goproxy-Check-Redirect"
-
 func (w *Watcher) makeLoadingPageBody() []byte {
 	msg := fmt.Sprintf("%s is starting...", w.ContainerName)
 
 	data := new(templateData)
-	data.CheckRedirectHeader = headerCheckRedirect
+	data.CheckRedirectHeader = common.HeaderCheckRedirect
 	data.Title = w.ContainerName
 	data.Message = strings.ReplaceAll(msg, " ", "&ensp;")
 
-	buf := bytes.NewBuffer(make([]byte, len(loadingPage)+len(data.Title)+len(data.Message)+len(headerCheckRedirect)))
+	buf := bytes.NewBuffer(make([]byte, len(loadingPage)+len(data.Title)+len(data.Message)+len(common.HeaderCheckRedirect)))
 	err := loadingPageTmpl.Execute(buf, data)
 	if err != nil { // should never happen in production
 		panic(err)

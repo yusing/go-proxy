@@ -72,7 +72,7 @@ type testArgs struct {
 	scheme        string
 }
 
-func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.NestedError) {
+func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.Error) {
 	var body io.Reader
 	var rr requestRecorder
 	var proxyURL *url.URL

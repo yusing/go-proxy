@@ -36,7 +36,7 @@ var ForwardAuth = &forwardAuth{
 	m: &Middleware{withOptions: NewForwardAuthfunc},
 }
 
-func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
+func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	fa := new(forwardAuth)
 	fa.forwardAuthOpts = new(forwardAuthOpts)
 	err := Deserialize(optsRaw, fa.forwardAuthOpts)

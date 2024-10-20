@@ -1,10 +1,10 @@
 package idlewatcher
 
 import (
-	"net/http"
 	"sync/atomic"
 	"time"
 
+	. "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	net "github.com/yusing/go-proxy/internal/net/types"
@@ -13,12 +13,6 @@ import (
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
-
-type Waker interface {
-	health.HealthMonitor
-	http.Handler
-	net.Stream
-}
 
 type waker struct {
 	_ U.NoCopy
@@ -37,7 +31,7 @@ const (
 
 // TODO: support stream
 
-func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.NestedError) {
+func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
 	hcCfg := entry.HealthCheckConfig()
 	hcCfg.Timeout = idleWakerCheckTimeout
 
@@ -62,24 +56,26 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 }
 
 // lifetime should follow route provider
-func NewHTTPWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy) (Waker, E.NestedError) {
+func NewHTTPWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, rp, nil)
 }
 
-func NewStreamWaker(providerSubTask task.Task, entry entry.Entry, stream net.Stream) (Waker, E.NestedError) {
+func NewStreamWaker(providerSubTask task.Task, entry entry.Entry, stream net.Stream) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, nil, stream)
 }
 
 // Start implements health.HealthMonitor.
-func (w *Watcher) Start(routeSubTask task.Task) E.NestedError {
-	w.task.OnComplete("stop route", func() {
-		routeSubTask.Parent().Finish("watcher stopped")
+func (w *Watcher) Start(routeSubTask task.Task) E.Error {
+	routeSubTask.Finish("ignored")
+	w.task.OnCancel("stop route", func() {
+		routeSubTask.Parent().Finish(w.task.FinishCause())
 	})
 	return nil
 }
 
 // Finish implements health.HealthMonitor.
-func (w *Watcher) Finish(reason string) {}
+func (w *Watcher) Finish(reason any) {
+}
 
 // Name implements health.HealthMonitor.
 func (w *Watcher) Name() string {
@@ -109,6 +105,7 @@ func (w *Watcher) Status() health.Status {
 	healthy, _, err := w.hc.CheckHealth()
 	switch {
 	case err != nil:
+		w.ready.Store(false)
 		return health.StatusError
 	case healthy:
 		w.ready.Store(true)

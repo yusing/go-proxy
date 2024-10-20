@@ -11,7 +11,7 @@ import (
 )
 
 type (
-	Error = E.NestedError
+	Error = E.Error
 
 	ReverseProxy   = gphttp.ReverseProxy
 	ProxyRequest   = gphttp.ProxyRequest
@@ -24,7 +24,7 @@ type (
 	BeforeFunc         func(next http.HandlerFunc, w ResponseWriter, r *Request)
 	RewriteFunc        func(req *Request)
 	ModifyResponseFunc func(resp *Response) error
-	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.NestedError)
+	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.Error)
 
 	OptionsRaw = map[string]any
 	Options    any
@@ -77,7 +77,7 @@ func (m *Middleware) MarshalJSON() ([]byte, error) {
 	}, "", "  ")
 }
 
-func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
+func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	if len(optsRaw) != 0 && m.withOptions != nil {
 		return m.withOptions(optsRaw)
 	}
@@ -108,7 +108,7 @@ func (m *Middleware) ModifyResponse(resp *Response) error {
 }
 
 // TODO: check conflict or duplicates.
-func createMiddlewares(middlewaresMap map[string]OptionsRaw) (middlewares []*Middleware, res E.NestedError) {
+func createMiddlewares(middlewaresMap map[string]OptionsRaw) (middlewares []*Middleware, res E.Error) {
 	middlewares = make([]*Middleware, 0, len(middlewaresMap))
 
 	invalidM := E.NewBuilder("invalid middlewares")
@@ -136,7 +136,7 @@ func createMiddlewares(middlewaresMap map[string]OptionsRaw) (middlewares []*Mid
 	return
 }
 
-func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.NestedError) {
+func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.Error) {
 	var middlewares []*Middleware
 	middlewares, err = createMiddlewares(middlewaresMap)
 	if err != nil {

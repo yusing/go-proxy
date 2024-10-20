@@ -21,7 +21,7 @@ func (lb *LoadBalancer) newIPHash() impl {
 	if len(lb.Options) == 0 {
 		return impl
 	}
-	var err E.NestedError
+	var err E.Error
 	impl.realIP, err = middleware.NewRealIP(lb.Options)
 	if err != nil {
 		logger.Errorf("loadbalancer %s invalid real_ip options: %s, ignoring", lb.Link, err)

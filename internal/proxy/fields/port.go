@@ -8,7 +8,7 @@ import (
 
 type Port int
 
-func ValidatePort[String ~string](v String) (Port, E.NestedError) {
+func ValidatePort[String ~string](v String) (Port, E.Error) {
 	p, err := strconv.Atoi(string(v))
 	if err != nil {
 		return ErrPort, E.Invalid("port number", v).With(err)
@@ -16,7 +16,7 @@ func ValidatePort[String ~string](v String) (Port, E.NestedError) {
 	return ValidatePortInt(p)
 }
 
-func ValidatePortInt[Int int | uint16](v Int) (Port, E.NestedError) {
+func ValidatePortInt[Int int | uint16](v Int) (Port, E.Error) {
 	p := Port(v)
 	if !p.inBound() {
 		return ErrPort, E.OutOfRange("port", p)

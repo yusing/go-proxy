@@ -113,7 +113,7 @@ type testType struct {
 	bar string
 }
 
-func (c *testType) ConvertFrom(v any) E.NestedError {
+func (c *testType) ConvertFrom(v any) E.Error {
 	switch v := v.(type) {
 	case string:
 		c.bar = v

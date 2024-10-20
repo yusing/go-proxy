@@ -22,7 +22,7 @@ var ModifyRequest = &modifyRequest{
 	m: &Middleware{withOptions: NewModifyRequest},
 }
 
-func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
+func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyRequest)
 	var mrFunc RewriteFunc
 	if common.IsDebug {

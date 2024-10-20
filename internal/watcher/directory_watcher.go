@@ -21,7 +21,7 @@ type DirWatcher struct {
 	mu    sync.Mutex
 
 	eventCh chan Event
-	errCh   chan E.NestedError
+	errCh   chan E.Error
 
 	ctx context.Context
 }
@@ -48,14 +48,14 @@ func NewDirectoryWatcher(ctx context.Context, dirPath string) *DirWatcher {
 		w:       w,
 		fwMap:   F.NewMapOf[string, *fileWatcher](),
 		eventCh: make(chan Event),
-		errCh:   make(chan E.NestedError),
+		errCh:   make(chan E.Error),
 		ctx:     ctx,
 	}
 	go helper.start()
 	return helper
 }
 
-func (h *DirWatcher) Events(_ context.Context) (<-chan Event, <-chan E.NestedError) {
+func (h *DirWatcher) Events(_ context.Context) (<-chan Event, <-chan E.Error) {
 	return h.eventCh, h.errCh
 }
 
@@ -71,7 +71,7 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 	s = &fileWatcher{
 		relPath: relPath,
 		eventCh: make(chan Event),
-		errCh:   make(chan E.NestedError),
+		errCh:   make(chan E.Error),
 	}
 	go func() {
 		defer func() {

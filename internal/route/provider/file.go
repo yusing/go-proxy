@@ -18,7 +18,7 @@ type FileProvider struct {
 	path     string
 }
 
-func FileProviderImpl(filename string) (ProviderImpl, E.NestedError) {
+func FileProviderImpl(filename string) (ProviderImpl, E.Error) {
 	impl := &FileProvider{
 		fileName: filename,
 		path:     path.Join(common.ConfigBasePath, filename),
@@ -34,7 +34,7 @@ func FileProviderImpl(filename string) (ProviderImpl, E.NestedError) {
 	}
 }
 
-func Validate(data []byte) E.NestedError {
+func Validate(data []byte) E.Error {
 	return U.ValidateYaml(U.GetSchema(common.FileProviderSchemaPath), data)
 }
 
@@ -42,7 +42,7 @@ func (p FileProvider) String() string {
 	return p.fileName
 }
 
-func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.NestedError) {
+func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.Error) {
 	routes = R.NewRoutes()
 
 	b := E.NewBuilder("validation failure")

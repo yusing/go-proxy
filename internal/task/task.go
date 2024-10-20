@@ -39,10 +39,11 @@ type (
 	// Use Task.Finish to stop all subtasks of the task.
 	Task interface {
 		TaskFinisher
+		fmt.Stringer
 		// Name returns the name of the task.
 		Name() string
 		// Context returns the context associated with the task. This context is
-		// canceled when Finish is called.
+		// canceled when Finish of the task is called, or parent task is canceled.
 		Context() context.Context
 		// FinishCause returns the reason / error that caused the task to be finished.
 		FinishCause() error
@@ -53,12 +54,16 @@ type (
 		// If the parent's context is already canceled, the returned subtask will be canceled immediately.
 		//
 		// This should not be called after Finish, Wait, or WaitSubTasks is called.
-		Subtask(usageFmt string, args ...any) Task
-		// OnComplete calls fn when the task and all subtasks are finished.
+		Subtask(name string) Task
+		// OnFinished calls fn when all subtasks are finished.
 		//
 		// It cannot be called after Finish or Wait is called.
-		OnComplete(about string, fn func())
-		// Wait waits for all subtasks, itself and all OnComplete to finish.
+		OnFinished(about string, fn func())
+		// OnCancel calls fn when the task is canceled.
+		//
+		// It cannot be called after Finish or Wait is called.
+		OnCancel(about string, fn func())
+		// Wait waits for all subtasks, itself, OnFinished and OnSubtasksFinished to finish.
 		//
 		// It must be called only after Finish is called.
 		Wait()
@@ -76,37 +81,46 @@ type (
 		// The task passed must be a subtask of the caller task.
 		//
 		// callerSubtask.Finish must be called when start fails or the object is finished.
-		Start(callerSubtask Task) E.NestedError
+		Start(callerSubtask Task) E.Error
 	}
 	TaskFinisher interface {
-		// Finish marks the task as finished by cancelling its context.
+		// Finish marks the task as finished and cancel its context.
 		//
-		// Then call Wait to wait for all subtasks and OnComplete of the task to finish.
+		// Then call Wait to wait for all subtasks, OnFinished and OnSubtasksFinished
+		// of the task to finish.
 		//
 		// Note that it will also cancel all subtasks.
-		Finish(reason string)
+		Finish(reason any)
 	}
 	task struct {
 		ctx    context.Context
 		cancel context.CancelCauseFunc
 
-		parent   *task
-		subtasks *xsync.MapOf[*task, struct{}]
+		parent     *task
+		subtasks   *xsync.MapOf[*task, struct{}]
+		subTasksWg sync.WaitGroup
 
 		name, line string
 
-		subTasksWg, onCompleteWg sync.WaitGroup
+		OnFinishedFuncs []func()
+		OnFinishedMu    sync.Mutex
+		onFinishedWg    sync.WaitGroup
+
+		finishOnce sync.Once
 	}
 )
 
 var (
 	ErrProgramExiting = errors.New("program exiting")
-	ErrTaskCancelled  = errors.New("task cancelled")
+	ErrTaskCanceled   = errors.New("task canceled")
 )
 
 // GlobalTask returns a new Task with the given name, derived from the global context.
 func GlobalTask(format string, args ...any) Task {
-	return globalTask.Subtask(format, args...)
+	if len(args) > 0 {
+		format = fmt.Sprintf(format, args...)
+	}
+	return globalTask.Subtask(format)
 }
 
 // DebugTaskMap returns a map[string]any representation of the global task tree.
@@ -155,6 +169,10 @@ func (t *task) Name() string {
 	return t.name
 }
 
+func (t *task) String() string {
+	return t.name
+}
+
 func (t *task) Context() context.Context {
 	return t.ctx
 }
@@ -171,43 +189,83 @@ func (t *task) Parent() Task {
 	return t.parent
 }
 
-func (t *task) OnComplete(about string, fn func()) {
-	t.onCompleteWg.Add(1)
+func (t *task) runAllOnFinished(onCompTask Task) {
+	<-t.ctx.Done()
+	t.WaitSubTasks()
+	for _, OnFinishedFunc := range t.OnFinishedFuncs {
+		OnFinishedFunc()
+		t.onFinishedWg.Done()
+	}
+	onCompTask.Finish(fmt.Errorf("%w: %s, reason: %s", ErrTaskCanceled, t.name, "done"))
+}
+
+func (t *task) OnFinished(about string, fn func()) {
+	if t.parent == globalTask {
+		t.OnCancel(about, fn)
+		return
+	}
+	t.onFinishedWg.Add(1)
+	t.OnFinishedMu.Lock()
+	defer t.OnFinishedMu.Unlock()
+
+	if t.OnFinishedFuncs == nil {
+		onCompTask := GlobalTask(t.name + " > OnFinished")
+		go t.runAllOnFinished(onCompTask)
+	}
 	var file string
 	var line int
 	if common.IsTrace {
 		_, file, line, _ = runtime.Caller(1)
 	}
-	go func() {
+	idx := len(t.OnFinishedFuncs)
+	wrapped := func() {
 		defer func() {
 			if err := recover(); err != nil {
-				logrus.Errorf("panic in task %q\nline %s:%d\n%v", t.name, file, line, err)
+				logrus.Errorf("panic in %s > OnFinished[%d]: %q\nline %s:%d\n%v", t.name, idx, about, file, line, err)
 			}
 		}()
-		defer t.onCompleteWg.Done()
-		t.subTasksWg.Wait()
+		fn()
+		logrus.Tracef("line %s:%d\n%s > OnFinished[%d] done: %s", file, line, t.name, idx, about)
+	}
+	t.OnFinishedFuncs = append(t.OnFinishedFuncs, wrapped)
+}
+
+func (t *task) OnCancel(about string, fn func()) {
+	onCompTask := GlobalTask(t.name + " > OnFinished")
+	go func() {
 		<-t.ctx.Done()
 		fn()
-		logrus.Tracef("line %s:%d\ntask %q -> %q done", file, line, t.name, about)
-		t.cancel(nil) // ensure resources are released
+		onCompTask.Finish("done")
+		logrus.Tracef("%s > onCancel done: %s", t.name, about)
 	}()
 }
 
-func (t *task) Finish(reason string) {
-	t.cancel(fmt.Errorf("%w: %s, reason: %s", ErrTaskCancelled, t.name, reason))
-	t.Wait()
+func (t *task) Finish(reason any) {
+	var format string
+	switch reason.(type) {
+	case error:
+		format = "%w"
+	case string, fmt.Stringer:
+		format = "%s"
+	default:
+		format = "%v"
+	}
+	t.finishOnce.Do(func() {
+		t.cancel(fmt.Errorf("%w: %s, reason: "+format, ErrTaskCanceled, t.name, reason))
+		t.Wait()
+	})
 }
 
-func (t *task) Subtask(format string, args ...any) Task {
-	if len(args) > 0 {
-		format = fmt.Sprintf(format, args...)
-	}
+func (t *task) Subtask(name string) Task {
 	ctx, cancel := context.WithCancelCause(t.ctx)
-	return t.newSubTask(ctx, cancel, format)
+	return t.newSubTask(ctx, cancel, name)
 }
 
 func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, name string) *task {
 	parent := t
+	if common.IsTrace {
+		name = parent.name + " > " + name
+	}
 	subtask := &task{
 		ctx:      ctx,
 		cancel:   cancel,
@@ -222,10 +280,10 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 		if ok {
 			subtask.line = fmt.Sprintf("%s:%d", file, line)
 		}
-		logrus.Tracef("line %s\ntask %q started", subtask.line, name)
+		logrus.Tracef("line %s\n%s started", subtask.line, name)
 		go func() {
 			subtask.Wait()
-			logrus.Tracef("task %q finished", subtask.Name())
+			logrus.Tracef("%s finished: %s", subtask.Name(), subtask.FinishCause())
 		}()
 	}
 	go func() {
@@ -237,11 +295,9 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 }
 
 func (t *task) Wait() {
-	t.subTasksWg.Wait()
-	if t != globalTask {
-		<-t.ctx.Done()
-	}
-	t.onCompleteWg.Wait()
+	<-t.ctx.Done()
+	t.WaitSubTasks()
+	t.onFinishedWg.Wait()
 }
 
 func (t *task) WaitSubTasks() {
@@ -270,9 +326,9 @@ func (t *task) tree(prefix ...string) string {
 	}
 	if t.line != "" {
 		sb.WriteString("line " + t.line + "\n")
-	}
-	if len(pre) > 0 {
-		sb.WriteString(pre + "- ")
+		if len(pre) > 0 {
+			sb.WriteString(pre + "- ")
+		}
 	}
 	sb.WriteString(t.Name() + "\n")
 	t.subtasks.Range(func(subtask *task, _ struct{}) bool {
@@ -299,7 +355,8 @@ func (t *task) tree(prefix ...string) string {
 // only.
 func (t *task) serialize() map[string]any {
 	m := make(map[string]any)
-	m["name"] = t.name
+	parts := strings.Split(t.name, ">")
+	m["name"] = strings.TrimSpace(parts[len(parts)-1])
 	if t.line != "" {
 		m["line"] = t.line
 	}

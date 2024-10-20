@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/yusing/go-proxy/internal/docker"
-	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/config"
+	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	net "github.com/yusing/go-proxy/internal/net/types"

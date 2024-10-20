@@ -16,7 +16,7 @@ func TestBuilderEmpty(t *testing.T) {
 
 func TestBuilderAddNil(t *testing.T) {
 	eb := NewBuilder("asdf")
-	var err NestedError
+	var err Error
 	for range 3 {
 		eb.Add(nil)
 	}
@@ -53,7 +53,7 @@ func TestBuilderTo(t *testing.T) {
 	eb := NewBuilder("error occurred")
 	eb.Addf("abcd")
 
-	var err NestedError
+	var err Error
 	eb.To(&err)
 	got := err.String()
 	expected := (`error occurred:

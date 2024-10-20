@@ -11,11 +11,6 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-type ClientInfo struct {
-	Client     Client
-	Containers []types.Container
-}
-
 var listOptions = container.ListOptions{
 	// created|restarting|running|removing|paused|exited|dead
 	// Filters: filters.NewArgs(
@@ -28,28 +23,21 @@ var listOptions = container.ListOptions{
 	All: true,
 }
 
-func GetClientInfo(clientHost string, getContainer bool) (*ClientInfo, E.NestedError) {
+func ListContainers(clientHost string) ([]types.Container, E.Error) {
 	dockerClient, err := ConnectClient(clientHost)
 	if err.HasError() {
 		return nil, E.FailWith("connect to docker", err)
 	}
 	defer dockerClient.Close()
 
-	ctx, cancel := context.WithTimeoutCause(context.Background(), 3*time.Second, errors.New("docker client connection timeout"))
+	ctx, cancel := context.WithTimeoutCause(context.Background(), 3*time.Second, errors.New("list containers timeout"))
 	defer cancel()
 
-	var containers []types.Container
-	if getContainer {
-		containers, err = E.Check(dockerClient.ContainerList(ctx, listOptions))
-		if err.HasError() {
-			return nil, E.FailWith("list containers", err)
-		}
+	containers, err := E.Check(dockerClient.ContainerList(ctx, listOptions))
+	if err.HasError() {
+		return nil, E.FailWith("list containers", err)
 	}
-
-	return &ClientInfo{
-		Client:     dockerClient,
-		Containers: containers,
-	}, nil
+	return containers, nil
 }
 
 func IsErrConnectionFailed(err error) bool {

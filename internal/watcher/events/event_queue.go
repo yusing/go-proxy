@@ -3,20 +3,22 @@ package events
 import (
 	"time"
 
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/task"
 )
 
 type (
 	EventQueue struct {
-		task    task.Task
-		queue   []Event
-		ticker  *time.Ticker
-		onFlush OnFlushFunc
-		onError OnErrorFunc
+		task          task.Task
+		queue         []Event
+		ticker        *time.Ticker
+		flushInterval time.Duration
+		onFlush       OnFlushFunc
+		onError       OnErrorFunc
 	}
 	OnFlushFunc = func(flushTask task.Task, events []Event)
-	OnErrorFunc = func(err E.NestedError)
+	OnErrorFunc = func(err E.Error)
 )
 
 const eventQueueCapacity = 10
@@ -35,40 +37,45 @@ const eventQueueCapacity = 10
 // flushTask.Finish must be called after the flush is done,
 // but the onFlush function can return earlier (e.g. run in another goroutine).
 //
-// If task is cancelled before the flushInterval is reached, the events in queue will be discarded.
+// If task is canceled before the flushInterval is reached, the events in queue will be discarded.
 func NewEventQueue(parent task.Task, flushInterval time.Duration, onFlush OnFlushFunc, onError OnErrorFunc) *EventQueue {
 	return &EventQueue{
-		task:    parent.Subtask("event queue"),
-		queue:   make([]Event, 0, eventQueueCapacity),
-		ticker:  time.NewTicker(flushInterval),
-		onFlush: onFlush,
-		onError: onError,
+		task:          parent.Subtask("event queue"),
+		queue:         make([]Event, 0, eventQueueCapacity),
+		ticker:        time.NewTicker(flushInterval),
+		flushInterval: flushInterval,
+		onFlush:       onFlush,
+		onError:       onError,
 	}
 }
 
-func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.NestedError) {
+func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
 	go func() {
 		defer e.ticker.Stop()
 		for {
 			select {
 			case <-e.task.Context().Done():
-				e.task.Finish(e.task.FinishCause().Error())
 				return
 			case <-e.ticker.C:
 				if len(e.queue) > 0 {
 					flushTask := e.task.Subtask("flush events")
 					queue := e.queue
 					e.queue = make([]Event, 0, eventQueueCapacity)
-					go func() {
-						defer func() {
-							if err := recover(); err != nil {
-								e.onError(E.PanicRecv("onFlush: %s", err).Subject(e.task.Parent().Name()))
-							}
+					if !common.IsDebug {
+						go func() {
+							defer func() {
+								if err := recover(); err != nil {
+									e.onError(E.PanicRecv("onFlush: %s", err).Subject(e.task.Parent().Name()))
+								}
+							}()
+							e.onFlush(flushTask, queue)
 						}()
-						e.onFlush(flushTask, queue)
-					}()
+					} else {
+						go e.onFlush(flushTask, queue)
+					}
 					flushTask.Wait()
 				}
+				e.ticker.Reset(e.flushInterval)
 			case event, ok := <-eventCh:
 				e.queue = append(e.queue, event)
 				if !ok {

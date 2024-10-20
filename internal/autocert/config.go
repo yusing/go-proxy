@@ -27,7 +27,7 @@ func NewConfig(cfg *types.AutoCertConfig) *Config {
 	return (*Config)(cfg)
 }
 
-func (cfg *Config) GetProvider() (provider *Provider, res E.NestedError) {
+func (cfg *Config) GetProvider() (provider *Provider, res E.Error) {
 	b := E.NewBuilder("unable to initialize autocert")
 	defer b.To(&res)
 

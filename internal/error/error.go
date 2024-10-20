@@ -8,35 +8,35 @@ import (
 )
 
 type (
-	NestedError     = *NestedErrorImpl
-	NestedErrorImpl struct {
+	Error     = *ErrorImpl
+	ErrorImpl struct {
 		subject string
 		err     error
-		extras  []NestedErrorImpl
+		extras  []ErrorImpl
 	}
-	JSONNestedError struct {
-		Subject string            `json:"subject"`
-		Err     string            `json:"error"`
-		Extras  []JSONNestedError `json:"extras,omitempty"`
+	ErrorJSONMarshaller struct {
+		Subject string                `json:"subject"`
+		Err     string                `json:"error"`
+		Extras  []ErrorJSONMarshaller `json:"extras,omitempty"`
 	}
 )
 
-func From(err error) NestedError {
+func From(err error) Error {
 	if IsNil(err) {
 		return nil
 	}
-	return &NestedErrorImpl{err: err}
+	return &ErrorImpl{err: err}
 }
 
-func FromJSON(data []byte) (NestedError, bool) {
-	var j JSONNestedError
+func FromJSON(data []byte) (Error, bool) {
+	var j ErrorJSONMarshaller
 	if err := json.Unmarshal(data, &j); err != nil {
 		return nil, false
 	}
 	if j.Err == "" {
 		return nil, false
 	}
-	extras := make([]NestedErrorImpl, len(j.Extras))
+	extras := make([]ErrorImpl, len(j.Extras))
 	for i, e := range j.Extras {
 		extra, ok := fromJSONObject(e)
 		if !ok {
@@ -44,7 +44,7 @@ func FromJSON(data []byte) (NestedError, bool) {
 		}
 		extras[i] = *extra
 	}
-	return &NestedErrorImpl{
+	return &ErrorImpl{
 		subject: j.Subject,
 		err:     errors.New(j.Err),
 		extras:  extras,
@@ -53,12 +53,12 @@ func FromJSON(data []byte) (NestedError, bool) {
 
 // Check is a helper function that
 // convert (T, error) to (T, NestedError).
-func Check[T any](obj T, err error) (T, NestedError) {
+func Check[T any](obj T, err error) (T, Error) {
 	return obj, From(err)
 }
 
-func Join(message string, err ...NestedError) NestedError {
-	extras := make([]NestedErrorImpl, len(err))
+func Join(message string, err ...Error) Error {
+	extras := make([]ErrorImpl, len(err))
 	nErr := 0
 	for i, e := range err {
 		if e == nil {
@@ -70,13 +70,13 @@ func Join(message string, err ...NestedError) NestedError {
 	if nErr == 0 {
 		return nil
 	}
-	return &NestedErrorImpl{
+	return &ErrorImpl{
 		err:    errors.New(message),
 		extras: extras,
 	}
 }
 
-func JoinE(message string, err ...error) NestedError {
+func JoinE(message string, err ...error) Error {
 	b := NewBuilder("%s", message)
 	for _, e := range err {
 		b.AddE(e)
@@ -92,13 +92,13 @@ func IsNotNil(err error) bool {
 	return err != nil
 }
 
-func (ne NestedError) String() string {
+func (ne Error) String() string {
 	var buf strings.Builder
 	ne.writeToSB(&buf, 0, "")
 	return buf.String()
 }
 
-func (ne NestedError) Is(err error) bool {
+func (ne Error) Is(err error) bool {
 	if ne == nil {
 		return err == nil
 	}
@@ -114,18 +114,18 @@ func (ne NestedError) Is(err error) bool {
 	return false
 }
 
-func (ne NestedError) IsNot(err error) bool {
+func (ne Error) IsNot(err error) bool {
 	return !ne.Is(err)
 }
 
-func (ne NestedError) Error() error {
+func (ne Error) Error() error {
 	if ne == nil {
 		return nil
 	}
 	return ne.buildError(0, "")
 }
 
-func (ne NestedError) With(s any) NestedError {
+func (ne Error) With(s any) Error {
 	if ne == nil {
 		return ne
 	}
@@ -133,7 +133,7 @@ func (ne NestedError) With(s any) NestedError {
 	switch ss := s.(type) {
 	case nil:
 		return ne
-	case *NestedErrorImpl:
+	case *ErrorImpl:
 		if len(ss.extras) == 1 {
 			ne.extras = append(ne.extras, ss.extras[0])
 			return ne
@@ -151,11 +151,11 @@ func (ne NestedError) With(s any) NestedError {
 	return ne.withError(From(errors.New(msg)))
 }
 
-func (ne NestedError) Extraf(format string, args ...any) NestedError {
+func (ne Error) Extraf(format string, args ...any) Error {
 	return ne.With(errorf(format, args...))
 }
 
-func (ne NestedError) Subject(s any, sep ...string) NestedError {
+func (ne Error) Subject(s any, sep ...string) Error {
 	if ne == nil {
 		return ne
 	}
@@ -179,26 +179,26 @@ func (ne NestedError) Subject(s any, sep ...string) NestedError {
 	return ne
 }
 
-func (ne NestedError) Subjectf(format string, args ...any) NestedError {
+func (ne Error) Subjectf(format string, args ...any) Error {
 	if ne == nil {
 		return ne
 	}
 	return ne.Subject(fmt.Sprintf(format, args...))
 }
 
-func (ne NestedError) JSONObject() JSONNestedError {
-	extras := make([]JSONNestedError, len(ne.extras))
+func (ne Error) JSONObject() ErrorJSONMarshaller {
+	extras := make([]ErrorJSONMarshaller, len(ne.extras))
 	for i, e := range ne.extras {
 		extras[i] = e.JSONObject()
 	}
-	return JSONNestedError{
+	return ErrorJSONMarshaller{
 		Subject: ne.subject,
 		Err:     ne.err.Error(),
 		Extras:  extras,
 	}
 }
 
-func (ne NestedError) JSON() []byte {
+func (ne Error) JSON() []byte {
 	b, err := json.MarshalIndent(ne.JSONObject(), "", "  ")
 	if err != nil {
 		panic(err)
@@ -206,19 +206,19 @@ func (ne NestedError) JSON() []byte {
 	return b
 }
 
-func (ne NestedError) NoError() bool {
+func (ne Error) NoError() bool {
 	return ne == nil
 }
 
-func (ne NestedError) HasError() bool {
+func (ne Error) HasError() bool {
 	return ne != nil
 }
 
-func errorf(format string, args ...any) NestedError {
+func errorf(format string, args ...any) Error {
 	return From(fmt.Errorf(format, args...))
 }
 
-func fromJSONObject(obj JSONNestedError) (NestedError, bool) {
+func fromJSONObject(obj ErrorJSONMarshaller) (Error, bool) {
 	data, err := json.Marshal(obj)
 	if err != nil {
 		return nil, false
@@ -226,14 +226,14 @@ func fromJSONObject(obj JSONNestedError) (NestedError, bool) {
 	return FromJSON(data)
 }
 
-func (ne NestedError) withError(err NestedError) NestedError {
+func (ne Error) withError(err Error) Error {
 	if ne != nil && err != nil {
 		ne.extras = append(ne.extras, *err)
 	}
 	return ne
 }
 
-func (ne NestedError) appendMsg(msg string) NestedError {
+func (ne Error) appendMsg(msg string) Error {
 	if ne == nil {
 		return nil
 	}
@@ -241,7 +241,7 @@ func (ne NestedError) appendMsg(msg string) NestedError {
 	return ne
 }
 
-func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
+func (ne Error) writeToSB(sb *strings.Builder, level int, prefix string) {
 	for range level {
 		sb.WriteString("  ")
 	}
@@ -266,7 +266,7 @@ func (ne NestedError) writeToSB(sb *strings.Builder, level int, prefix string) {
 	}
 }
 
-func (ne NestedError) buildError(level int, prefix string) error {
+func (ne Error) buildError(level int, prefix string) error {
 	var res error
 	var sb strings.Builder
 

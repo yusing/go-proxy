@@ -7,7 +7,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-func ValidateHTTPHeaders(headers map[string]string) (http.Header, E.NestedError) {
+func ValidateHTTPHeaders(headers map[string]string) (http.Header, E.Error) {
 	h := make(http.Header)
 	for k, v := range headers {
 		vSplit := strings.Split(v, ",")

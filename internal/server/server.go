@@ -116,7 +116,7 @@ func (s *Server) Start() {
 		}()
 	}
 
-	s.task.OnComplete("stop server", s.stop)
+	s.task.OnFinished("stop server", s.stop)
 }
 
 func (s *Server) stop() {

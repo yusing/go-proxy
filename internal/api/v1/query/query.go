@@ -13,7 +13,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 )
 
-func ReloadServer() E.NestedError {
+func ReloadServer() E.Error {
 	resp, err := U.Post(fmt.Sprintf("%s/v1/reload", common.APIHTTPURL), "", nil)
 	if err != nil {
 		return E.From(err)
@@ -34,7 +34,7 @@ func ReloadServer() E.NestedError {
 	return nil
 }
 
-func List[T any](what string) (_ T, outErr E.NestedError) {
+func List[T any](what string) (_ T, outErr E.Error) {
 	resp, err := U.Get(fmt.Sprintf("%s/v1/list/%s", common.APIHTTPURL, what))
 	if err != nil {
 		outErr = E.From(err)
@@ -54,14 +54,14 @@ func List[T any](what string) (_ T, outErr E.NestedError) {
 	return res, nil
 }
 
-func ListRoutes() (map[string]map[string]any, E.NestedError) {
+func ListRoutes() (map[string]map[string]any, E.Error) {
 	return List[map[string]map[string]any](v1.ListRoutes)
 }
 
-func ListMiddlewareTraces() (middleware.Traces, E.NestedError) {
+func ListMiddlewareTraces() (middleware.Traces, E.Error) {
 	return List[middleware.Traces](v1.ListMiddlewareTraces)
 }
 
-func DebugListTasks() (map[string]any, E.NestedError) {
+func DebugListTasks() (map[string]any, E.Error) {
 	return List[map[string]any](v1.ListTasks)
 }

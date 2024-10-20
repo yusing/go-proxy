@@ -12,7 +12,7 @@ type StreamPort struct {
 	ProxyPort     Port `json:"proxy"`
 }
 
-func ValidateStreamPort(p string) (_ StreamPort, err E.NestedError) {
+func ValidateStreamPort(p string) (_ StreamPort, err E.Error) {
 	split := strings.Split(p, ":")
 
 	switch len(split) {
@@ -47,7 +47,7 @@ func ValidateStreamPort(p string) (_ StreamPort, err E.NestedError) {
 	return StreamPort{listeningPort, proxyPort}, nil
 }
 
-func parseNameToPort(name string) (Port, E.NestedError) {
+func parseNameToPort(name string) (Port, E.Error) {
 	port, ok := common.ServiceNamePortMapTCP[name]
 	if !ok {
 		return ErrPort, E.Invalid("service", name)

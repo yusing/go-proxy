@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -37,7 +38,7 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 	accept := gphttp.GetAccept(r.Header)
 	acceptHTML := (r.Method == http.MethodGet && accept.AcceptHTML() || r.RequestURI == "/" && accept.IsEmpty())
 
-	isCheckRedirect := r.Header.Get(headerCheckRedirect) != ""
+	isCheckRedirect := r.Header.Get(common.HeaderCheckRedirect) != ""
 	if !isCheckRedirect && acceptHTML {
 		// Send a loading response to the client
 		body := w.makeLoadingPageBody()
@@ -56,14 +57,14 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 	ctx, cancel := context.WithTimeoutCause(r.Context(), w.WakeTimeout, errors.New("wake timeout"))
 	defer cancel()
 
-	checkCancelled := func() bool {
+	checkCanceled := func() bool {
 		select {
 		case <-w.task.Context().Done():
-			w.l.Debugf("wake cancelled: %s", context.Cause(w.task.Context()))
+			w.l.Debugf("wake canceled: %s", context.Cause(w.task.Context()))
 			http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
 			return true
 		case <-ctx.Done():
-			w.l.Debugf("wake cancelled: %s", context.Cause(ctx))
+			w.l.Debugf("wake canceled: %s", context.Cause(ctx))
 			http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
 			return true
 		default:
@@ -71,7 +72,7 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 		}
 	}
 
-	if checkCancelled() {
+	if checkCanceled() {
 		return false
 	}
 
@@ -84,14 +85,14 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 	}
 
 	for {
-		if checkCancelled() {
+		if checkCanceled() {
 			return false
 		}
 
 		if w.Status() == health.StatusHealthy {
 			w.resetIdleTimer()
 			if isCheckRedirect {
-				logrus.Debugf("container %s is ready, redirecting...", w.String())
+				logrus.Debugf("container %s is ready, redirecting to %s ...", w.String(), w.hc.URL())
 				rw.WriteHeader(http.StatusOK)
 				return
 			}

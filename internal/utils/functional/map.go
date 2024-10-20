@@ -160,7 +160,7 @@ func (m Map[KT, VT]) Has(k KT) bool {
 // Returns:
 //
 //	error: if the unmarshaling fails
-func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) E.NestedError {
+func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) E.Error {
 	if m.Size() != 0 {
 		return E.FailedWhy("unmarshal from yaml", "map is not empty")
 	}

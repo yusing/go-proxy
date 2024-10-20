@@ -40,7 +40,7 @@ func TestTaskCancellation(t *testing.T) {
 		err := subTask.Context().Err()
 		ExpectError(t, context.Canceled, err)
 		cause := context.Cause(subTask.Context())
-		ExpectError(t, ErrTaskCancelled, cause)
+		ExpectError(t, ErrTaskCanceled, cause)
 	case <-time.After(1 * time.Second):
 		t.Fatal("subTask context was not canceled as expected")
 	}
@@ -74,7 +74,7 @@ func TestOnComplete(t *testing.T) {
 
 	task := GlobalTask("test")
 	var value atomic.Int32
-	task.OnComplete("set value", func() {
+	task.OnFinished("set value", func() {
 		value.Store(1234)
 	})
 	task.Finish("done")
@@ -90,10 +90,10 @@ func TestGlobalContextWait(t *testing.T) {
 
 	subTask1 := rootTask.Subtask("subtask1")
 	subTask2 := rootTask.Subtask("subtask2")
-	subTask1.OnComplete("set finished", func() {
+	subTask1.OnFinished("set finished", func() {
 		finished1 = true
 	})
-	subTask2.OnComplete("set finished", func() {
+	subTask2.OnFinished("set finished", func() {
 		finished2 = true
 	})
 
@@ -117,8 +117,8 @@ func TestGlobalContextWait(t *testing.T) {
 	ExpectTrue(t, finished1)
 	ExpectTrue(t, finished2)
 	ExpectError(t, context.Canceled, rootTask.Context().Err())
-	ExpectError(t, ErrTaskCancelled, context.Cause(subTask1.Context()))
-	ExpectError(t, ErrTaskCancelled, context.Cause(subTask2.Context()))
+	ExpectError(t, ErrTaskCanceled, context.Cause(subTask1.Context()))
+	ExpectError(t, ErrTaskCanceled, context.Cause(subTask2.Context()))
 }
 
 func TestTimeoutOnGlobalContextWait(t *testing.T) {

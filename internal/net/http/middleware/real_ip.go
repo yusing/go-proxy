@@ -41,7 +41,7 @@ var realIPOptsDefault = func() *realIPOpts {
 	}
 }
 
-func NewRealIP(opts OptionsRaw) (*Middleware, E.NestedError) {
+func NewRealIP(opts OptionsRaw) (*Middleware, E.Error) {
 	riWithOpts := new(realIP)
 	riWithOpts.m = &Middleware{
 		impl:   riWithOpts,

@@ -26,7 +26,7 @@ func TestErrorIs(t *testing.T) {
 }
 
 func TestErrorNestedIs(t *testing.T) {
-	var err NestedError
+	var err Error
 	ExpectTrue(t, err.Is(nil))
 
 	err = Failure("some reason")
@@ -40,7 +40,7 @@ func TestErrorNestedIs(t *testing.T) {
 }
 
 func TestIsNil(t *testing.T) {
-	var err NestedError
+	var err Error
 	ExpectTrue(t, err.Is(nil))
 	ExpectTrue(t, err == nil)
 	ExpectTrue(t, err.NoError())

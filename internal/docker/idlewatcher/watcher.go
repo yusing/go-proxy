@@ -10,7 +10,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/sirupsen/logrus"
 	D "github.com/yusing/go-proxy/internal/docker"
-	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/config"
+	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
 	"github.com/yusing/go-proxy/internal/task"
@@ -49,7 +49,7 @@ var (
 
 const dockerReqTimeout = 3 * time.Second
 
-func registerWatcher(providerSubtask task.Task, entry entry.Entry, waker *waker) (*Watcher, E.NestedError) {
+func registerWatcher(providerSubtask task.Task, entry entry.Entry, waker *waker) (*Watcher, E.Error) {
 	failure := E.Failure("idle_watcher register")
 	cfg := entry.IdlewatcherConfig()
 
@@ -66,6 +66,7 @@ func registerWatcher(providerSubtask task.Task, entry entry.Entry, waker *waker)
 		w.Config = cfg
 		w.waker = waker
 		w.resetIdleTimer()
+		providerSubtask.Finish("used existing watcher")
 		return w, nil
 	}
 
@@ -88,13 +89,11 @@ func registerWatcher(providerSubtask task.Task, entry entry.Entry, waker *waker)
 	go func() {
 		cause := w.watchUntilDestroy()
 
-		watcherMapMu.Lock()
 		watcherMap.Delete(w.ContainerID)
-		watcherMapMu.Unlock()
 
 		w.ticker.Stop()
 		w.client.Close()
-		w.task.Finish(cause.Error())
+		w.task.Finish(cause)
 	}()
 
 	return w, nil
@@ -146,7 +145,7 @@ func (w *Watcher) wakeIfStopped() error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(w.task.Context(), dockerReqTimeout)
+	ctx, cancel := context.WithTimeout(w.task.Context(), w.WakeTimeout)
 	defer cancel()
 
 	// !Hard coded here since theres no constants from Docker API
@@ -175,7 +174,7 @@ func (w *Watcher) getStopCallback() StopCallback {
 		panic("should not reach here")
 	}
 	return func() error {
-		ctx, cancel := context.WithTimeout(w.task.Context(), dockerReqTimeout)
+		ctx, cancel := context.WithTimeout(w.task.Context(), time.Duration(w.StopTimeout)*time.Second)
 		defer cancel()
 		return cb(ctx)
 	}
@@ -186,8 +185,8 @@ func (w *Watcher) resetIdleTimer() {
 	w.ticker.Reset(w.IdleTimeout)
 }
 
-func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask task.Task, eventCh <-chan events.Event, errCh <-chan E.NestedError) {
-	eventTask = w.task.Subtask("watcher for %s", w.ContainerID)
+func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask task.Task, eventCh <-chan events.Event, errCh <-chan E.Error) {
+	eventTask = w.task.Subtask("docker event watcher")
 	eventCh, errCh = dockerWatcher.EventsWithOptions(eventTask.Context(), W.DockerListOptions{
 		Filters: W.NewDockerFilter(
 			W.DockerFilterContainer,
@@ -218,13 +217,12 @@ func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask tas
 func (w *Watcher) watchUntilDestroy() error {
 	dockerWatcher := W.NewDockerWatcherWithClient(w.client)
 	eventTask, dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
+	defer eventTask.Finish("stopped")
 
 	for {
 		select {
 		case <-w.task.Context().Done():
-			cause := context.Cause(w.task.Context())
-			w.l.Debugf("watcher stopped by context done: %s", cause)
-			return cause
+			return w.task.FinishCause()
 		case err := <-dockerEventErrCh:
 			if err != nil && err.IsNot(context.Canceled) {
 				w.l.Error(E.FailWith("docker watcher", err))

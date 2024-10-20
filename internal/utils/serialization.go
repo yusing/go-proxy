@@ -19,11 +19,11 @@ import (
 type (
 	SerializedObject = map[string]any
 	Converter        interface {
-		ConvertFrom(value any) E.NestedError
+		ConvertFrom(value any) E.Error
 	}
 )
 
-func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
+func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
 	var i any
 
 	err := yaml.Unmarshal(data, &i)
@@ -66,7 +66,7 @@ func ValidateYaml(schema *jsonschema.Schema, data []byte) E.NestedError {
 // Returns:
 // - result: The resulting map[string]any representation of the data.
 // - error: An error if the data type is unsupported or if there is an error during conversion.
-func Serialize(data any) (SerializedObject, E.NestedError) {
+func Serialize(data any) (SerializedObject, E.Error) {
 	result := make(map[string]any)
 
 	// Use reflection to inspect the data type
@@ -137,7 +137,7 @@ func Serialize(data any) (SerializedObject, E.NestedError) {
 // If the target value is a map[string]any, the SerializedObject will be deserialized into the map.
 //
 // The function returns an error if the target value is not a struct or a map[string]any, or if there is an error during deserialization.
-func Deserialize(src SerializedObject, dst any) E.NestedError {
+func Deserialize(src SerializedObject, dst any) E.Error {
 	if src == nil {
 		return E.Invalid("src", "nil")
 	}
@@ -210,7 +210,7 @@ func Deserialize(src SerializedObject, dst any) E.NestedError {
 //
 // Returns:
 //   - error: the error occurred during conversion, or nil if no error occurred.
-func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
+func Convert(src reflect.Value, dst reflect.Value) E.Error {
 	srcT := src.Type()
 	dstT := dst.Type()
 
@@ -277,7 +277,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.NestedError {
 	return converter.ConvertFrom(src.Interface())
 }
 
-func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.NestedError) {
+func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.Error) {
 	convertible = true
 	if dst.Kind() == reflect.Ptr {
 		if dst.IsNil() {
@@ -379,7 +379,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.N
 	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
-func DeserializeJSON(j map[string]string, target any) E.NestedError {
+func DeserializeJSON(j map[string]string, target any) E.Error {
 	data, err := E.Check(json.Marshal(j))
 	if err != nil {
 		return err

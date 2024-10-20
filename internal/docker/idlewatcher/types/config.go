@@ -1,4 +1,4 @@
-package idlewatcher
+package types
 
 import (
 	"time"
@@ -30,7 +30,7 @@ const (
 	StopMethodKill  StopMethod = "kill"
 )
 
-func ValidateConfig(cont *docker.Container) (cfg *Config, res E.NestedError) {
+func ValidateConfig(cont *docker.Container) (cfg *Config, res E.Error) {
 	if cont == nil {
 		return nil, nil
 	}
@@ -80,7 +80,7 @@ func ValidateConfig(cont *docker.Container) (cfg *Config, res E.NestedError) {
 	}, nil
 }
 
-func validateDurationPostitive(value string) (time.Duration, E.NestedError) {
+func validateDurationPostitive(value string) (time.Duration, E.Error) {
 	d, err := time.ParseDuration(value)
 	if err != nil {
 		return 0, E.Invalid("duration", value).With(err)
@@ -91,7 +91,7 @@ func validateDurationPostitive(value string) (time.Duration, E.NestedError) {
 	return d, nil
 }
 
-func validateSignal(s string) (Signal, E.NestedError) {
+func validateSignal(s string) (Signal, E.Error) {
 	switch s {
 	case "", "SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT",
 		"INT", "TERM", "HUP", "QUIT":
@@ -101,7 +101,7 @@ func validateSignal(s string) (Signal, E.NestedError) {
 	return "", E.Invalid("signal", s)
 }
 
-func validateStopMethod(s string) (StopMethod, E.NestedError) {
+func validateStopMethod(s string) (StopMethod, E.Error) {
 	sm := StopMethod(s)
 	switch sm {
 	case StopMethodPause, StopMethodStop, StopMethodKill:

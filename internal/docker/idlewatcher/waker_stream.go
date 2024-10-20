@@ -8,44 +8,47 @@ import (
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 // Setup implements types.Stream.
+func (w *Watcher) Addr() net.Addr {
+	return w.stream.Addr()
+}
+
 func (w *Watcher) Setup() error {
 	return w.stream.Setup()
 }
 
 // Accept implements types.Stream.
-func (w *Watcher) Accept() (conn types.StreamConn, err error) {
+func (w *Watcher) Accept() (conn net.Conn, err error) {
 	conn, err = w.stream.Accept()
-	// timeout means no connection is accepted
-	var nErr *net.OpError
-	ok := errors.As(err, &nErr)
-	if ok && nErr.Timeout() {
+	if err != nil {
+		logrus.Errorf("accept failed with error: %s", err)
 		return
 	}
 	if err := w.wakeFromStream(); err != nil {
-		return nil, err
+		w.l.Error(err)
 	}
-	return w.stream.Accept()
-}
-
-// CloseListeners implements types.Stream.
-func (w *Watcher) CloseListeners() {
-	w.stream.CloseListeners()
+	return
 }
 
 // Handle implements types.Stream.
-func (w *Watcher) Handle(conn types.StreamConn) error {
+func (w *Watcher) Handle(conn net.Conn) error {
 	if err := w.wakeFromStream(); err != nil {
 		return err
 	}
 	return w.stream.Handle(conn)
 }
 
+// Close implements types.Stream.
+func (w *Watcher) Close() error {
+	return w.stream.Close()
+}
+
 func (w *Watcher) wakeFromStream() error {
+	w.resetIdleTimer()
+
 	// pass through if container is already ready
 	if w.ready.Load() {
 		return nil
@@ -66,11 +69,11 @@ func (w *Watcher) wakeFromStream() error {
 		select {
 		case <-w.task.Context().Done():
 			cause := w.task.FinishCause()
-			w.l.Debugf("wake cancelled: %s", cause)
+			w.l.Debugf("wake canceled: %s", cause)
 			return cause
 		case <-ctx.Done():
 			cause := context.Cause(ctx)
-			w.l.Debugf("wake cancelled: %s", cause)
+			w.l.Debugf("wake canceled: %s", cause)
 			return cause
 		default:
 		}

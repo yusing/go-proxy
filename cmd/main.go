@@ -84,7 +84,7 @@ func main() {
 	middleware.LoadComposeFiles()
 
 	var cfg *config.Config
-	var err E.NestedError
+	var err E.Error
 	if cfg, err = config.Load(); err != nil {
 		logrus.Warn(err)
 	}

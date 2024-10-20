@@ -66,7 +66,7 @@ func SetFindMuxDomains(domains []string) {
 	}
 }
 
-func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.NestedError) {
+func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	var trans *http.Transport
 
 	if entry.NoTLSVerify {
@@ -97,7 +97,7 @@ func (r *HTTPRoute) String() string {
 }
 
 // Start implements task.TaskStarter.
-func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
+func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 	if entry.ShouldNotServe(r) {
 		providerSubtask.Finish("should not serve")
 		return nil
@@ -151,7 +151,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
 		r.addToLoadBalancer()
 	} else {
 		httpRoutes.Store(string(r.Alias), r)
-		r.task.OnComplete("stop rp", func() {
+		r.task.OnFinished("remove from route table", func() {
 			httpRoutes.Delete(string(r.Alias))
 		})
 	}
@@ -160,7 +160,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.NestedError {
 }
 
 // Finish implements task.TaskFinisher.
-func (r *HTTPRoute) Finish(reason string) {
+func (r *HTTPRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }
 
@@ -175,8 +175,8 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		}
 	} else {
 		lb = loadbalancer.New(r.LoadBalance)
-		lbTask := r.task.Parent().Subtask("loadbalancer %s", r.LoadBalance.Link)
-		lbTask.OnComplete("remove lb from routes", func() {
+		lbTask := r.task.Parent().Subtask("loadbalancer " + r.LoadBalance.Link)
+		lbTask.OnCancel("remove lb from routes", func() {
 			httpRoutes.Delete(r.LoadBalance.Link)
 		})
 		lb.Start(lbTask)
@@ -194,9 +194,9 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		httpRoutes.Store(r.LoadBalance.Link, linked)
 	}
 	r.loadBalancer = lb
-	r.server = loadbalancer.NewServer(string(r.Alias), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
+	r.server = loadbalancer.NewServer(r.task.String(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
-	r.task.OnComplete("remove server from lb", func() {
+	r.task.OnCancel("remove server from lb", func() {
 		lb.RemoveServer(r.server)
 	})
 }

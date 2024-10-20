@@ -24,3 +24,4 @@ todo.md
 .aider*
 mtrace.json
 .env
+test.Dockerfile

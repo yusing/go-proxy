@@ -29,7 +29,7 @@ type (
 		tlsCert      *tls.Certificate
 		certExpiries CertExpiries
 	}
-	ProviderGenerator func(types.AutocertProviderOpt) (challenge.Provider, E.NestedError)
+	ProviderGenerator func(types.AutocertProviderOpt) (challenge.Provider, E.Error)
 
 	CertExpiries map[string]time.Time
 )
@@ -57,7 +57,7 @@ func (p *Provider) GetExpiries() CertExpiries {
 	return p.certExpiries
 }
 
-func (p *Provider) ObtainCert() (res E.NestedError) {
+func (p *Provider) ObtainCert() (res E.Error) {
 	b := E.NewBuilder("failed to obtain certificate")
 	defer b.To(&res)
 
@@ -112,7 +112,7 @@ func (p *Provider) ObtainCert() (res E.NestedError) {
 	return nil
 }
 
-func (p *Provider) LoadCert() E.NestedError {
+func (p *Provider) LoadCert() E.Error {
 	cert, err := E.Check(tls.LoadX509KeyPair(p.cfg.CertPath, p.cfg.KeyPath))
 	if err.HasError() {
 		return err
@@ -158,7 +158,7 @@ func (p *Provider) ScheduleRenewal() {
 	}()
 }
 
-func (p *Provider) initClient() E.NestedError {
+func (p *Provider) initClient() E.Error {
 	legoClient, err := E.Check(lego.NewClient(p.legoCfg))
 	if err.HasError() {
 		return E.FailWith("create lego client", err)
@@ -178,7 +178,7 @@ func (p *Provider) initClient() E.NestedError {
 	return nil
 }
 
-func (p *Provider) registerACME() E.NestedError {
+func (p *Provider) registerACME() E.Error {
 	if p.user.Registration != nil {
 		return nil
 	}
@@ -191,7 +191,7 @@ func (p *Provider) registerACME() E.NestedError {
 	return nil
 }
 
-func (p *Provider) saveCert(cert *certificate.Resource) E.NestedError {
+func (p *Provider) saveCert(cert *certificate.Resource) E.Error {
 	/* This should have been done in setup
 	but double check is always a good choice.*/
 	_, err := os.Stat(path.Dir(p.cfg.CertPath))
@@ -239,7 +239,7 @@ func (p *Provider) certState() CertState {
 	return CertStateValid
 }
 
-func (p *Provider) renewIfNeeded() E.NestedError {
+func (p *Provider) renewIfNeeded() E.Error {
 	if p.cfg.Provider == ProviderLocal {
 		return nil
 	}
@@ -259,7 +259,7 @@ func (p *Provider) renewIfNeeded() E.NestedError {
 	return nil
 }
 
-func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.NestedError) {
+func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.Error) {
 	r := make(CertExpiries, len(cert.Certificate))
 	for _, cert := range cert.Certificate {
 		x509Cert, err := E.Check(x509.ParseCertificate(cert))
@@ -281,7 +281,7 @@ func providerGenerator[CT any, PT challenge.Provider](
 	defaultCfg func() *CT,
 	newProvider func(*CT) (PT, error),
 ) ProviderGenerator {
-	return func(opt types.AutocertProviderOpt) (challenge.Provider, E.NestedError) {
+	return func(opt types.AutocertProviderOpt) (challenge.Provider, E.Error) {
 		cfg := defaultCfg()
 		err := U.Deserialize(opt, cfg)
 		if err.HasError() {

@@ -47,3 +47,5 @@ const (
 	StopTimeoutDefault = "10s"
 	StopMethodDefault  = "stop"
 )
+
+const HeaderCheckRedirect = "X-Goproxy-Check-Redirect"

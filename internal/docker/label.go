@@ -39,7 +39,7 @@ func (l *Label) String() string {
 //
 // Returns:
 //   - error: an error if the field does not exist.
-func ApplyLabel[T any](obj *T, l *Label) E.NestedError {
+func ApplyLabel[T any](obj *T, l *Label) E.Error {
 	if obj == nil {
 		return E.Invalid("nil object", l)
 	}
@@ -81,7 +81,7 @@ func ApplyLabel[T any](obj *T, l *Label) E.NestedError {
 	}
 }
 
-func ParseLabel(label string, value string) (*Label, E.NestedError) {
+func ParseLabel(label string, value string) (*Label, E.Error) {
 	parts := strings.Split(label, ".")
 
 	if len(parts) < 2 {

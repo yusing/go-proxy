@@ -37,7 +37,7 @@ var (
 )
 
 func init() {
-	task.GlobalTask("close docker clients").OnComplete("", func() {
+	task.GlobalTask("close docker clients").OnFinished("", func() {
 		clientMap.RangeAllParallel(func(_ string, c Client) {
 			if c.Connected() {
 				c.Client.Close()
@@ -70,7 +70,7 @@ func (c *SharedClient) Close() error {
 // Returns:
 //   - Client: the Docker client connection.
 //   - error: an error if the connection failed.
-func ConnectClient(host string) (Client, E.NestedError) {
+func ConnectClient(host string) (Client, E.Error) {
 	clientMapMu.Lock()
 	defer clientMapMu.Unlock()
 

@@ -35,7 +35,7 @@ var cidrWhitelistDefaults = func() *cidrWhitelistOpts {
 	}
 }
 
-func NewCIDRWhitelist(opts OptionsRaw) (*Middleware, E.NestedError) {
+func NewCIDRWhitelist(opts OptionsRaw) (*Middleware, E.Error) {
 	wl := new(cidrWhitelist)
 	wl.m = &Middleware{
 		impl:   wl,

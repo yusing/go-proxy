@@ -1,10 +1,13 @@
 package loadbalancer
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/yusing/go-proxy/internal/common"
+	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/task"
@@ -54,10 +57,10 @@ func New(cfg *Config) *LoadBalancer {
 }
 
 // Start implements task.TaskStarter.
-func (lb *LoadBalancer) Start(routeSubtask task.Task) E.NestedError {
+func (lb *LoadBalancer) Start(routeSubtask task.Task) E.Error {
 	lb.startTime = time.Now()
 	lb.task = routeSubtask
-	lb.task.OnComplete("loadbalancer cleanup", func() {
+	lb.task.OnFinished("loadbalancer cleanup", func() {
 		if lb.impl != nil {
 			lb.pool.RangeAll(func(k string, v *Server) {
 				lb.impl.OnRemoveServer(v)
@@ -69,7 +72,7 @@ func (lb *LoadBalancer) Start(routeSubtask task.Task) E.NestedError {
 }
 
 // Finish implements task.TaskFinisher.
-func (lb *LoadBalancer) Finish(reason string) {
+func (lb *LoadBalancer) Finish(reason any) {
 	lb.task.Finish(reason)
 }
 
@@ -128,7 +131,7 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 
 	lb.rebalance()
 	lb.impl.OnAddServer(srv)
-	logger.Infof("[add] %s to loadbalancer %s: %d servers available", srv.Name, lb.Link, lb.pool.Size())
+	logger.Debugf("[add] %s to loadbalancer %s: %d servers available", srv.Name, lb.Link, lb.pool.Size())
 }
 
 func (lb *LoadBalancer) RemoveServer(srv *Server) {
@@ -147,11 +150,11 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 
 	if lb.pool.Size() == 0 {
 		lb.task.Finish("no server left")
-		logger.Infof("[remove] loadbalancer %s stopped", lb.Link)
+		logger.Infof("loadbalancer %s stopped", lb.Link)
 		return
 	}
 
-	logger.Infof("[remove] %s from loadbalancer %s: %d servers left", srv.Name, lb.Link, lb.pool.Size())
+	logger.Debugf("[remove] %s from loadbalancer %s: %d servers left", srv.Name, lb.Link, lb.pool.Size())
 }
 
 func (lb *LoadBalancer) rebalance() {
@@ -211,6 +214,21 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
 		return
 	}
+	if r.Header.Get(common.HeaderCheckRedirect) != "" {
+		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
+		defer cancel()
+		// send dummy request to wake all servers
+		var dummyRW *DummyResponseWriter
+		for _, srv := range srvs {
+			// wake only if server implements Waker
+			_, ok := srv.handler.(idlewatcher.Waker)
+			if !ok {
+				continue
+			}
+			wakeReq := r.Clone(ctx)
+			srv.ServeHTTP(dummyRW, wakeReq)
+		}
+	}
 	lb.impl.ServeHTTP(srvs, rw, r)
 }
 
@@ -261,10 +279,9 @@ func (lb *LoadBalancer) String() string {
 func (lb *LoadBalancer) availServers() []*Server {
 	avail := make([]*Server, 0, lb.pool.Size())
 	lb.pool.RangeAll(func(_ string, srv *Server) {
-		if srv.Status().Bad() {
-			return
+		if srv.Status().Good() {
+			avail = append(avail, srv)
 		}
-		avail = append(avail, srv)
 	})
 	return avail
 }

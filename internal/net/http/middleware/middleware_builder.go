@@ -10,7 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func BuildMiddlewaresFromComposeFile(filePath string) (map[string]*Middleware, E.NestedError) {
+func BuildMiddlewaresFromComposeFile(filePath string) (map[string]*Middleware, E.Error) {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, E.FailWith("read middleware compose file", err)
@@ -18,7 +18,7 @@ func BuildMiddlewaresFromComposeFile(filePath string) (map[string]*Middleware, E
 	return BuildMiddlewaresFromYAML(fileContent)
 }
 
-func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, outErr E.NestedError) {
+func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, outErr E.Error) {
 	b := E.NewBuilder("middlewares compile errors")
 	defer b.To(&outErr)
 

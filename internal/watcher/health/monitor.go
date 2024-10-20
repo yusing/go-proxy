@@ -2,9 +2,7 @@ package health
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"time"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -15,21 +13,6 @@ import (
 )
 
 type (
-	HealthMonitor interface {
-		task.TaskStarter
-		task.TaskFinisher
-		fmt.Stringer
-		json.Marshaler
-		Status() Status
-		Uptime() time.Duration
-		Name() string
-	}
-	HealthChecker interface {
-		CheckHealth() (healthy bool, detail string, err error)
-		URL() types.URL
-		Config() *HealthCheckConfig
-		UpdateURL(url types.URL)
-	}
 	HealthCheckFunc func() (healthy bool, detail string, err error)
 	monitor         struct {
 		service string
@@ -71,7 +54,7 @@ func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cance
 }
 
 // Start implements task.TaskStarter.
-func (mon *monitor) Start(routeSubtask task.Task) E.NestedError {
+func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 	mon.service = routeSubtask.Parent().Name()
 	mon.task = routeSubtask
 
@@ -84,7 +67,6 @@ func (mon *monitor) Start(routeSubtask task.Task) E.NestedError {
 			if mon.status.Load() != StatusError {
 				mon.status.Store(StatusUnknown)
 			}
-			mon.task.Finish(mon.task.FinishCause().Error())
 		}()
 
 		if err := mon.checkUpdateHealth(); err != nil {
@@ -115,7 +97,7 @@ func (mon *monitor) Start(routeSubtask task.Task) E.NestedError {
 }
 
 // Finish implements task.TaskFinisher.
-func (mon *monitor) Finish(reason string) {
+func (mon *monitor) Finish(reason any) {
 	mon.task.Finish(reason)
 }
 
@@ -169,10 +151,10 @@ func (mon *monitor) MarshalJSON() ([]byte, error) {
 	}).MarshalJSON()
 }
 
-func (mon *monitor) checkUpdateHealth() E.NestedError {
+func (mon *monitor) checkUpdateHealth() E.Error {
 	healthy, detail, err := mon.checkHealth()
 	if err != nil {
-		defer mon.task.Finish(err.Error())
+		defer mon.task.Finish(err)
 		mon.status.Store(StatusError)
 		if !errors.Is(err, context.Canceled) {
 			return E.Failure("check health").With(err)

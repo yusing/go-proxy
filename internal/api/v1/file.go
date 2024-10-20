@@ -39,7 +39,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var validateErr E.NestedError
+	var validateErr E.Error
 	if filename == common.ConfigFileName {
 		validateErr = config.Validate(content)
 	} else if !strings.HasPrefix(filename, path.Base(common.MiddlewareComposeBasePath)) {

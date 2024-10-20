@@ -55,7 +55,7 @@ repush:
 	git push gitlab dev --force
 
 rapid-crash:
-	sudo docker run --restart=always --name test_crash debian:bookworm-slim /bin/cat &&\
+	sudo docker run --restart=always --name test_crash -p 80 debian:bookworm-slim /bin/cat &&\
 	sleep 3 &&\
 	sudo docker rm -f test_crash
 

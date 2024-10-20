@@ -12,7 +12,7 @@ type StreamScheme struct {
 	ProxyScheme     Scheme `json:"proxy"`
 }
 
-func ValidateStreamScheme(s string) (ss *StreamScheme, err E.NestedError) {
+func ValidateStreamScheme(s string) (ss *StreamScheme, err E.Error) {
 	ss = &StreamScheme{}
 	parts := strings.Split(s, ":")
 	if len(parts) == 1 {

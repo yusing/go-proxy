@@ -152,7 +152,7 @@ func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {
 	return Copy(&ContextWriter{ctx: ctx, Writer: dst}, &ContextReader{ctx: ctx, Reader: src})
 }
 
-func LoadJSON[T any](path string, pointer *T) E.NestedError {
+func LoadJSON[T any](path string, pointer *T) E.Error {
 	data, err := E.Check(os.ReadFile(path))
 	if err.HasError() {
 		return err
@@ -160,7 +160,7 @@ func LoadJSON[T any](path string, pointer *T) E.NestedError {
 	return E.From(json.Unmarshal(data, pointer))
 }
 
-func SaveJSON[T any](path string, pointer *T, perm os.FileMode) E.NestedError {
+func SaveJSON[T any](path string, pointer *T, perm os.FileMode) E.Error {
 	data, err := E.Check(json.Marshal(pointer))
 	if err.HasError() {
 		return err

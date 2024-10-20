@@ -7,13 +7,7 @@ import (
 
 type Stream interface {
 	fmt.Stringer
+	net.Listener
 	Setup() error
-	Accept() (conn StreamConn, err error)
-	Handle(conn StreamConn) error
-	CloseListeners()
-}
-
-type StreamConn interface {
-	RemoteAddr() net.Addr
-	Close() error
+	Handle(conn net.Conn) error
 }

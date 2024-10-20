@@ -26,7 +26,7 @@ var OAuth2 = &oAuth2{
 	m: &Middleware{withOptions: NewAuthentikOAuth2},
 }
 
-func NewAuthentikOAuth2(opts OptionsRaw) (*Middleware, E.NestedError) {
+func NewAuthentikOAuth2(opts OptionsRaw) (*Middleware, E.Error) {
 	oauth := new(oAuth2)
 	oauth.m = &Middleware{
 		impl:   oauth,

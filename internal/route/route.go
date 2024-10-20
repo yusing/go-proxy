@@ -44,7 +44,7 @@ func (rt *Route) Container() *docker.Container {
 	return rt.Entry.Container
 }
 
-func NewRoute(raw *entry.RawEntry) (*Route, E.NestedError) {
+func NewRoute(raw *entry.RawEntry) (*Route, E.Error) {
 	en, err := entry.ValidateEntry(raw)
 	if err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func NewRoute(raw *entry.RawEntry) (*Route, E.NestedError) {
 	}, nil
 }
 
-func FromEntries(entries entry.RawEntries) (Routes, E.NestedError) {
+func FromEntries(entries entry.RawEntries) (Routes, E.Error) {
 	b := E.NewBuilder("errors in routes")
 
 	routes := NewRoutes()

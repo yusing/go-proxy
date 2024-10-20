@@ -25,7 +25,7 @@ var (
 	AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
 )
 
-func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, E.NestedError) {
+func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, E.Error) {
 	if dockerHost == common.DockerHostFromEnv {
 		dockerHost = common.GetEnv("DOCKER_HOST", client.DefaultDockerHost)
 	}
@@ -40,18 +40,18 @@ func (p *DockerProvider) NewWatcher() W.Watcher {
 	return W.NewDockerWatcher(p.dockerHost)
 }
 
-func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
+func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.Error) {
 	routes = R.NewRoutes()
 	entries := entry.NewProxyEntries()
 
-	info, err := D.GetClientInfo(p.dockerHost, true)
+	containers, err := D.ListContainers(p.dockerHost)
 	if err != nil {
-		return routes, E.FailWith("connect to docker", err)
+		return routes, err
 	}
 
 	errors := E.NewBuilder("errors in docker labels")
 
-	for _, c := range info.Containers {
+	for _, c := range containers {
 		container := D.FromDocker(&c, p.dockerHost)
 		if container.IsExcluded {
 			continue
@@ -70,10 +70,6 @@ func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.NestedError) {
 		})
 	}
 
-	entries.RangeAll(func(_ string, e *entry.RawEntry) {
-		e.Container.DockerHost = p.dockerHost
-	})
-
 	routes, err = R.FromEntries(entries)
 	errors.Add(err)
 
@@ -89,7 +85,7 @@ func (p *DockerProvider) shouldIgnore(container *D.Container) bool {
 
 // Returns a list of proxy entries for a container.
 // Always non-nil.
-func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (entries entry.RawEntries, _ E.NestedError) {
+func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (entries entry.RawEntries, _ E.Error) {
 	entries = entry.NewProxyEntries()
 
 	if p.shouldIgnore(container) {
@@ -117,7 +113,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (ent
 	return entries, errors.Build().Subject(container.ContainerName)
 }
 
-func (p *DockerProvider) applyLabel(container *D.Container, entries entry.RawEntries, key, val string) (res E.NestedError) {
+func (p *DockerProvider) applyLabel(container *D.Container, entries entry.RawEntries, key, val string) (res E.Error) {
 	b := E.NewBuilder("errors in label %s", key)
 	defer b.To(&res)
 

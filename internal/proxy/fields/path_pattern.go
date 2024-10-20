@@ -13,7 +13,7 @@ type (
 
 var pathPattern = regexp.MustCompile(`^(/[-\w./]*({\$\})?|((GET|POST|DELETE|PUT|HEAD|OPTION) /[-\w./]*({\$\})?))$`)
 
-func ValidatePathPattern(s string) (PathPattern, E.NestedError) {
+func ValidatePathPattern(s string) (PathPattern, E.Error) {
 	if len(s) == 0 {
 		return "", E.Invalid("path", "must not be empty")
 	}
@@ -23,7 +23,7 @@ func ValidatePathPattern(s string) (PathPattern, E.NestedError) {
 	return PathPattern(s), nil
 }
 
-func ValidatePathPatterns(s []string) (PathPatterns, E.NestedError) {
+func ValidatePathPatterns(s []string) (PathPatterns, E.Error) {
 	if len(s) == 0 {
 		return []PathPattern{"/"}, nil
 	}

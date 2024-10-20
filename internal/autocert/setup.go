@@ -6,7 +6,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-func (p *Provider) Setup() (err E.NestedError) {
+func (p *Provider) Setup() (err E.Error) {
 	if err = p.LoadCert(); err != nil {
 		if !err.Is(os.ErrNotExist) { // ignore if cert doesn't exist
 			return err

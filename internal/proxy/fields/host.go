@@ -9,6 +9,6 @@ type (
 	Subdomain = Alias
 )
 
-func ValidateHost[String ~string](s String) (Host, E.NestedError) {
+func ValidateHost[String ~string](s String) (Host, E.Error) {
 	return Host(s), nil
 }

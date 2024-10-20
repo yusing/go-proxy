@@ -7,7 +7,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/task"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -29,7 +28,7 @@ type (
 	ProviderImpl interface {
 		fmt.Stringer
 		NewWatcher() W.Watcher
-		LoadRoutesImpl() (R.Routes, E.NestedError)
+		LoadRoutesImpl() (R.Routes, E.Error)
 	}
 	ProviderType  string
 	ProviderStats struct {
@@ -43,7 +42,7 @@ const (
 	ProviderTypeDocker ProviderType = "docker"
 	ProviderTypeFile   ProviderType = "file"
 
-	providerEventFlushInterval = 500 * time.Millisecond
+	providerEventFlushInterval = 300 * time.Millisecond
 )
 
 func newProvider(name string, t ProviderType) *Provider {
@@ -56,7 +55,7 @@ func newProvider(name string, t ProviderType) *Provider {
 	return p
 }
 
-func NewFileProvider(filename string) (p *Provider, err E.NestedError) {
+func NewFileProvider(filename string) (p *Provider, err E.Error) {
 	name := path.Base(filename)
 	if name == "" {
 		return nil, E.Invalid("file name", "empty")
@@ -70,7 +69,7 @@ func NewFileProvider(filename string) (p *Provider, err E.NestedError) {
 	return
 }
 
-func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.NestedError) {
+func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.Error) {
 	if name == "" {
 		return nil, E.Invalid("provider name", "empty")
 	}
@@ -101,18 +100,16 @@ func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Provider) startRoute(parent task.Task, r *R.Route) E.NestedError {
-	if entry.UseLoadBalance(r) {
-		r.Entry.Alias = p.String() + "/" + r.Entry.Alias
-	}
-	subtask := parent.Subtask(r.Entry.Alias)
+func (p *Provider) startRoute(parent task.Task, r *R.Route) E.Error {
+	subtask := parent.Subtask(p.String() + "/" + r.Entry.Alias)
 	err := r.Start(subtask)
 	if err != nil {
 		p.routes.Delete(r.Entry.Alias)
-		subtask.Finish(err.String()) // just to ensure
+		subtask.Finish(err) // just to ensure
 		return err
 	} else {
-		subtask.OnComplete("del from provider", func() {
+		p.routes.Store(r.Entry.Alias, r)
+		subtask.OnFinished("del from provider", func() {
 			p.routes.Delete(r.Entry.Alias)
 		})
 	}
@@ -120,7 +117,7 @@ func (p *Provider) startRoute(parent task.Task, r *R.Route) E.NestedError {
 }
 
 // Start implements task.TaskStarter.
-func (p *Provider) Start(configSubtask task.Task) (res E.NestedError) {
+func (p *Provider) Start(configSubtask task.Task) (res E.Error) {
 	errors := E.NewBuilder("errors starting routes")
 	defer errors.To(&res)
 
@@ -141,7 +138,7 @@ func (p *Provider) Start(configSubtask task.Task) (res E.NestedError) {
 			handler.Log()
 			flushTask.Finish("events flushed")
 		},
-		func(err E.NestedError) {
+		func(err E.Error) {
 			p.l.Error(err)
 		},
 	)
@@ -157,8 +154,8 @@ func (p *Provider) GetRoute(alias string) (*R.Route, bool) {
 	return p.routes.Load(alias)
 }
 
-func (p *Provider) LoadRoutes() E.NestedError {
-	var err E.NestedError
+func (p *Provider) LoadRoutes() E.Error {
+	var err E.Error
 	p.routes, err = p.LoadRoutesImpl()
 	if p.routes.Size() > 0 {
 		return err

@@ -9,7 +9,7 @@ import (
 
 type CIDR net.IPNet
 
-func (cidr *CIDR) ConvertFrom(val any) E.NestedError {
+func (cidr *CIDR) ConvertFrom(val any) E.Error {
 	cidrStr, ok := val.(string)
 	if !ok {
 		return E.TypeMismatch[string](val)

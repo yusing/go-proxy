@@ -10,5 +10,5 @@ import (
 type Event = events.Event
 
 type Watcher interface {
-	Events(ctx context.Context) (<-chan Event, <-chan E.NestedError)
+	Events(ctx context.Context) (<-chan Event, <-chan E.Error)
 }

@@ -98,7 +98,7 @@ func ExpectType[T any](t *testing.T, got any) (_ T) {
 	return got.(T)
 }
 
-func Must[T any](v T, err E.NestedError) T {
+func Must[T any](v T, err E.Error) T {
 	if err != nil {
 		panic(err)
 	}

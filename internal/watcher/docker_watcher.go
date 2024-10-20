@@ -36,6 +36,14 @@ var (
 
 	NewDockerFilter = filters.NewArgs
 
+	optionsDefault = DockerListOptions{Filters: NewDockerFilter(
+		DockerFilterContainer,
+		DockerFilterStart,
+		// DockerFilterStop,
+		DockerFilterDie,
+		DockerFilterDestroy,
+	)}
+
 	dockerWatcherRetryInterval = 3 * time.Second
 )
 
@@ -61,13 +69,13 @@ func NewDockerWatcherWithClient(client D.Client) DockerWatcher {
 			WithField("host", client.DaemonHost()))}
 }
 
-func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.NestedError) {
-	return w.EventsWithOptions(ctx, optionsWatchAll)
+func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Error) {
+	return w.EventsWithOptions(ctx, optionsDefault)
 }
 
-func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan E.NestedError) {
+func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan E.Error) {
 	eventCh := make(chan Event)
-	errCh := make(chan E.NestedError)
+	errCh := make(chan E.Error)
 
 	go func() {
 		defer close(eventCh)
@@ -80,7 +88,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 		}()
 
 		if !w.client.Connected() {
-			var err E.NestedError
+			var err E.Error
 			attempts := 0
 			for {
 				w.client, err = D.ConnectClient(w.host)
@@ -141,11 +149,3 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 
 	return eventCh, errCh
 }
-
-var optionsWatchAll = DockerListOptions{Filters: NewDockerFilter(
-	DockerFilterContainer,
-	DockerFilterStart,
-	// DockerFilterStop,
-	DockerFilterDie,
-	DockerFilterDestroy,
-)}

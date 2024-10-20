@@ -12,7 +12,7 @@ type Builder struct {
 
 type builder struct {
 	message string
-	errors  []NestedError
+	errors  []Error
 	sync.Mutex
 }
 
@@ -28,7 +28,7 @@ func NewBuilder(format string, args ...any) Builder {
 // adding nil is no-op,
 //
 // flatten is a boolean flag to flatten the NestedError.
-func (b Builder) Add(err NestedError, flatten ...bool) {
+func (b Builder) Add(err Error, flatten ...bool) {
 	if err != nil {
 		b.Lock()
 		if len(flatten) > 0 && flatten[0] {
@@ -54,7 +54,7 @@ func (b Builder) Addf(format string, args ...any) {
 	}
 }
 
-func (b Builder) AddRange(errs ...NestedError) {
+func (b Builder) AddRange(errs ...Error) {
 	b.Lock()
 	defer b.Unlock()
 	for _, err := range errs {
@@ -77,14 +77,14 @@ func (b Builder) AddRangeE(errs ...error) {
 //
 // Returns:
 //   - NestedError: the built NestedError.
-func (b Builder) Build() NestedError {
+func (b Builder) Build() Error {
 	if len(b.errors) == 0 {
 		return nil
 	}
 	return Join(b.message, b.errors...)
 }
 
-func (b Builder) To(ptr *NestedError) {
+func (b Builder) To(ptr *Error) {
 	switch {
 	case ptr == nil:
 		return

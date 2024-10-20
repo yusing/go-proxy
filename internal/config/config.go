@@ -55,7 +55,7 @@ func newConfig() *Config {
 	}
 }
 
-func Load() (*Config, E.NestedError) {
+func Load() (*Config, E.Error) {
 	if instance != nil {
 		return instance, nil
 	}
@@ -64,7 +64,7 @@ func Load() (*Config, E.NestedError) {
 	return instance, instance.load()
 }
 
-func Validate(data []byte) E.NestedError {
+func Validate(data []byte) E.Error {
 	return U.ValidateYaml(U.GetSchema(common.ConfigSchemaPath), data)
 }
 
@@ -78,7 +78,7 @@ func WatchChanges() {
 		task,
 		configEventFlushInterval,
 		OnConfigChange,
-		func(err E.NestedError) {
+		func(err E.Error) {
 			logger.Error(err)
 		},
 	)
@@ -104,7 +104,7 @@ func OnConfigChange(flushTask task.Task, ev []events.Event) {
 	}
 }
 
-func Reload() E.NestedError {
+func Reload() E.Error {
 	// avoid race between config change and API reload request
 	reloadMu.Lock()
 	defer reloadMu.Unlock()
@@ -139,7 +139,7 @@ func (cfg *Config) Task() task.Task {
 func (cfg *Config) StartProxyProviders() {
 	b := E.NewBuilder("errors starting providers")
 	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
-		b.Add(p.Start(cfg.task.Subtask("provider %s", p.GetName())))
+		b.Add(p.Start(cfg.task.Subtask(p.String())))
 	})
 
 	if b.HasError() {
@@ -147,7 +147,7 @@ func (cfg *Config) StartProxyProviders() {
 	}
 }
 
-func (cfg *Config) load() (res E.NestedError) {
+func (cfg *Config) load() (res E.Error) {
 	b := E.NewBuilder("errors loading config")
 	defer b.To(&res)
 
@@ -182,7 +182,7 @@ func (cfg *Config) load() (res E.NestedError) {
 	return
 }
 
-func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.NestedError) {
+func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error) {
 	if cfg.autocertProvider != nil {
 		return
 	}
@@ -197,7 +197,7 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Nested
 	return
 }
 
-func (cfg *Config) loadProviders(providers *types.ProxyProviders) (outErr E.NestedError) {
+func (cfg *Config) loadProviders(providers *types.ProxyProviders) (outErr E.Error) {
 	subtask := cfg.task.Subtask("load providers")
 	defer subtask.Finish("done")
 

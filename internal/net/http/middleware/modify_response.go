@@ -24,7 +24,7 @@ var ModifyResponse = &modifyResponse{
 	m: &Middleware{withOptions: NewModifyResponse},
 }
 
-func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.NestedError) {
+func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyResponse)
 	mr.m = &Middleware{impl: mr}
 	if common.IsDebug {
