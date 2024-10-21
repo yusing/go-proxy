@@ -10,6 +10,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/route"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
 	"github.com/yusing/go-proxy/internal/task"
@@ -148,47 +149,58 @@ func (cfg *Config) StartProxyProviders() {
 }
 
 func (cfg *Config) load() (res E.Error) {
-	b := E.NewBuilder("errors loading config")
-	defer b.To(&res)
+	errs := E.NewBuilder("errors loading config")
+	defer errs.To(&res)
 
 	logger.Debug("loading config")
 	defer logger.Debug("loaded config")
 
 	data, err := E.Check(os.ReadFile(common.ConfigPath))
 	if err != nil {
-		b.Add(E.FailWith("read config", err))
-		logrus.Fatal(b.Build())
+		errs.Add(E.FailWith("read config", err))
+		logrus.Fatal(errs.Build())
 	}
 
 	if !common.NoSchemaValidation {
 		if err = Validate(data); err != nil {
-			b.Add(E.FailWith("schema validation", err))
-			logrus.Fatal(b.Build())
+			errs.Add(E.FailWith("schema validation", err))
+			logrus.Fatal(errs.Build())
 		}
 	}
 
 	model := types.DefaultConfig()
 	if err := E.From(yaml.Unmarshal(data, model)); err != nil {
-		b.Add(E.FailWith("parse config", err))
-		logrus.Fatal(b.Build())
+		errs.Add(E.FailWith("parse config", err))
+		logrus.Fatal(errs.Build())
 	}
 
 	// errors are non fatal below
-	b.Add(cfg.initAutoCert(&model.AutoCert))
-	b.Add(cfg.loadProviders(&model.Providers))
+	errs.Add(cfg.initNotification(model.Providers.Notification))
+	errs.Add(cfg.initAutoCert(&model.AutoCert))
+	errs.Add(cfg.loadRouteProviders(&model.Providers))
 
 	cfg.value = model
 	route.SetFindMuxDomains(model.MatchDomains)
 	return
 }
 
+func (cfg *Config) initNotification(notifCfgMap types.NotificationConfigMap) (err E.Error) {
+	if len(notifCfgMap) == 0 {
+		return
+	}
+	errs := E.NewBuilder("errors initializing notification providers")
+
+	for name, notifCfg := range notifCfgMap {
+		_, err := notif.RegisterProvider(cfg.task.Subtask(name), notifCfg)
+		errs.Add(err)
+	}
+	return errs.Build()
+}
+
 func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error) {
 	if cfg.autocertProvider != nil {
 		return
 	}
-
-	logger.Debug("initializing autocert")
-	defer logger.Debug("initialized autocert")
 
 	cfg.autocertProvider, err = autocert.NewConfig(autocertCfg).GetProvider()
 	if err != nil {
@@ -197,11 +209,11 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error)
 	return
 }
 
-func (cfg *Config) loadProviders(providers *types.ProxyProviders) (outErr E.Error) {
-	subtask := cfg.task.Subtask("load providers")
+func (cfg *Config) loadRouteProviders(providers *types.Providers) (outErr E.Error) {
+	subtask := cfg.task.Subtask("load route providers")
 	defer subtask.Finish("done")
 
-	errs := E.NewBuilder("errors loading providers")
+	errs := E.NewBuilder("errors loading route providers")
 	results := E.NewBuilder("loaded providers")
 	defer errs.To(&outErr)
 

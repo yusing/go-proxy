@@ -114,9 +114,9 @@ func (m Map[KT, VT]) RangeAll(do func(k KT, v VT)) {
 //	nothing
 func (m Map[KT, VT]) RangeAllParallel(do func(k KT, v VT)) {
 	var wg sync.WaitGroup
-	wg.Add(m.Size())
 
 	m.Range(func(k KT, v VT) bool {
+		wg.Add(1)
 		go func() {
 			do(k, v)
 			wg.Done()

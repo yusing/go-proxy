@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/puzpuzpuz/xsync/v3"
 	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 var globalTask = createGlobalTask()
@@ -21,7 +21,7 @@ func createGlobalTask() (t *task) {
 	t = new(task)
 	t.name = "root"
 	t.ctx, t.cancel = context.WithCancelCause(context.Background())
-	t.subtasks = xsync.NewMapOf[*task, struct{}]()
+	t.subtasks = F.NewSet[*task]()
 	return
 }
 
@@ -97,7 +97,7 @@ type (
 		cancel context.CancelCauseFunc
 
 		parent     *task
-		subtasks   *xsync.MapOf[*task, struct{}]
+		subtasks   F.Set[*task]
 		subTasksWg sync.WaitGroup
 
 		name, line string
@@ -209,7 +209,7 @@ func (t *task) OnFinished(about string, fn func()) {
 	defer t.OnFinishedMu.Unlock()
 
 	if t.OnFinishedFuncs == nil {
-		onCompTask := GlobalTask(t.name + " > OnFinished")
+		onCompTask := GlobalTask(t.name + " > OnFinished > " + about)
 		go t.runAllOnFinished(onCompTask)
 	}
 	var file string
@@ -252,8 +252,8 @@ func (t *task) Finish(reason any) {
 	}
 	t.finishOnce.Do(func() {
 		t.cancel(fmt.Errorf("%w: %s, reason: "+format, ErrTaskCanceled, t.name, reason))
-		t.Wait()
 	})
+	t.Wait()
 }
 
 func (t *task) Subtask(name string) Task {
@@ -271,10 +271,10 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 		cancel:   cancel,
 		name:     name,
 		parent:   parent,
-		subtasks: xsync.NewMapOf[*task, struct{}](),
+		subtasks: F.NewSet[*task](),
 	}
 	parent.subTasksWg.Add(1)
-	parent.subtasks.Store(subtask, struct{}{})
+	parent.subtasks.Add(subtask)
 	if common.IsTrace {
 		_, file, line, ok := runtime.Caller(3)
 		if ok {
@@ -288,7 +288,7 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 	}
 	go func() {
 		subtask.Wait()
-		parent.subtasks.Delete(subtask)
+		parent.subtasks.Remove(subtask)
 		parent.subTasksWg.Done()
 	}()
 	return subtask
@@ -331,9 +331,8 @@ func (t *task) tree(prefix ...string) string {
 		}
 	}
 	sb.WriteString(t.Name() + "\n")
-	t.subtasks.Range(func(subtask *task, _ struct{}) bool {
+	t.subtasks.RangeAll(func(subtask *task) {
 		sb.WriteString(subtask.tree(pre + "  "))
-		return true
 	})
 	return sb.String()
 }
@@ -362,9 +361,8 @@ func (t *task) serialize() map[string]any {
 	}
 	if t.subtasks.Size() > 0 {
 		m["subtasks"] = make([]map[string]any, 0, t.subtasks.Size())
-		t.subtasks.Range(func(subtask *task, _ struct{}) bool {
+		t.subtasks.RangeAll(func(subtask *task) {
 			m["subtasks"] = append(m["subtasks"].([]map[string]any), subtask.serialize())
-			return true
 		})
 	}
 	return m

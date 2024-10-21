@@ -51,6 +51,16 @@ func FromJSON(data []byte) (Error, bool) {
 	}, true
 }
 
+func TryUnwrap(err error) error {
+	if err == nil {
+		return nil
+	}
+	if unwrapped := errors.Unwrap(err); unwrapped != nil {
+		return unwrapped
+	}
+	return err
+}
+
 // Check is a helper function that
 // convert (T, error) to (T, NestedError).
 func Check[T any](obj T, err error) (T, Error) {
@@ -140,7 +150,8 @@ func (ne Error) With(s any) Error {
 		}
 		return ne.withError(ss)
 	case error:
-		return ne.withError(From(ss))
+		// unwrap only once
+		return ne.withError(From(TryUnwrap(ss)))
 	case string:
 		msg = ss
 	case fmt.Stringer:
@@ -215,6 +226,13 @@ func (ne Error) HasError() bool {
 }
 
 func errorf(format string, args ...any) Error {
+	for i, arg := range args {
+		if err, ok := arg.(error); ok {
+			if unwrapped := errors.Unwrap(err); unwrapped != nil {
+				args[i] = unwrapped
+			}
+		}
+	}
 	return From(fmt.Errorf(format, args...))
 }
 

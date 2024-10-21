@@ -18,6 +18,7 @@ import (
 	"github.com/yusing/go-proxy/internal/config"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/notif"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
 	"github.com/yusing/go-proxy/internal/task"
@@ -54,6 +55,7 @@ func main() {
 			TimestampFormat: timeFmt,
 		})
 		logrus.Infof("go-proxy version %s", pkg.GetVersion())
+		logrus.AddHook(notif.GetDispatcher())
 	}
 
 	if args.Command == common.CommandReload {

@@ -294,6 +294,32 @@
               ]
             }
           }
+        },
+        "notification": {
+          "description": "Notification provider configuration",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "gotify": {
+              "description": "Gotify configuration",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "url": {
+                  "description": "Gotify URL",
+                  "type": "string"
+                },
+                "token": {
+                  "description": "Gotify token",
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url",
+                "token"
+              ]
+            }
+          }
         }
       }
     },
