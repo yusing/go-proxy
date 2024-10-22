@@ -9,9 +9,6 @@ import (
 	"golang.org/x/text/language"
 )
 
-// TODO: support other languages.
-var titleCaser = cases.Title(language.AmericanEnglish)
-
 func CommaSeperatedList(s string) []string {
 	res := strings.Split(s, ",")
 	for i, part := range res {
@@ -21,7 +18,8 @@ func CommaSeperatedList(s string) []string {
 }
 
 func Title(s string) string {
-	return titleCaser.String(s)
+	// TODO: support other languages.
+	return cases.Title(language.AmericanEnglish).String(s)
 }
 
 func ExtractPort(fullURL string) (int, error) {
