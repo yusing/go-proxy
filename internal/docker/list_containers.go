@@ -8,7 +8,6 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
-	E "github.com/yusing/go-proxy/internal/error"
 )
 
 var listOptions = container.ListOptions{
@@ -23,19 +22,19 @@ var listOptions = container.ListOptions{
 	All: true,
 }
 
-func ListContainers(clientHost string) ([]types.Container, E.Error) {
+func ListContainers(clientHost string) ([]types.Container, error) {
 	dockerClient, err := ConnectClient(clientHost)
-	if err.HasError() {
-		return nil, E.FailWith("connect to docker", err)
+	if err != nil {
+		return nil, err
 	}
 	defer dockerClient.Close()
 
 	ctx, cancel := context.WithTimeoutCause(context.Background(), 3*time.Second, errors.New("list containers timeout"))
 	defer cancel()
 
-	containers, err := E.Check(dockerClient.ContainerList(ctx, listOptions))
-	if err.HasError() {
-		return nil, E.FailWith("list containers", err)
+	containers, err := dockerClient.ContainerList(ctx, listOptions)
+	if err != nil {
+		return nil, err
 	}
 	return containers, nil
 }

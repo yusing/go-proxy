@@ -17,6 +17,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type (
@@ -57,25 +58,20 @@ func (p *Provider) GetExpiries() CertExpiries {
 	return p.certExpiries
 }
 
-func (p *Provider) ObtainCert() (res E.Error) {
-	b := E.NewBuilder("failed to obtain certificate")
-	defer b.To(&res)
-
+func (p *Provider) ObtainCert() E.Error {
 	if p.cfg.Provider == ProviderLocal {
 		return nil
 	}
 
 	if p.client == nil {
-		if err := p.initClient(); err.HasError() {
-			b.Add(E.FailWith("init autocert client", err))
-			return
+		if err := p.initClient(); err != nil {
+			return err
 		}
 	}
 
 	if p.user.Registration == nil {
-		if err := p.registerACME(); err.HasError() {
-			b.Add(E.FailWith("register ACME", err))
-			return
+		if err := p.registerACME(); err != nil {
+			return E.From(err)
 		}
 	}
 
@@ -84,27 +80,23 @@ func (p *Provider) ObtainCert() (res E.Error) {
 		Domains: p.cfg.Domains,
 		Bundle:  true,
 	}
-	cert, err := E.Check(client.Certificate.Obtain(req))
-	if err.HasError() {
-		b.Add(err)
-		return
+	cert, err := client.Certificate.Obtain(req)
+	if err != nil {
+		return E.From(err)
 	}
 
-	if err = p.saveCert(cert); err.HasError() {
-		b.Add(E.FailWith("save certificate", err))
-		return
+	if err = p.saveCert(cert); err != nil {
+		return E.From(err)
 	}
 
-	tlsCert, err := E.Check(tls.X509KeyPair(cert.Certificate, cert.PrivateKey))
-	if err.HasError() {
-		b.Add(E.FailWith("parse obtained certificate", err))
-		return
+	tlsCert, err := tls.X509KeyPair(cert.Certificate, cert.PrivateKey)
+	if err != nil {
+		return E.From(err)
 	}
 
 	expiries, err := getCertExpiries(&tlsCert)
-	if err.HasError() {
-		b.Add(E.FailWith("get certificate expiry", err))
-		return
+	if err != nil {
+		return E.From(err)
 	}
 	p.tlsCert = &tlsCert
 	p.certExpiries = expiries
@@ -113,21 +105,22 @@ func (p *Provider) ObtainCert() (res E.Error) {
 }
 
 func (p *Provider) LoadCert() E.Error {
-	cert, err := E.Check(tls.LoadX509KeyPair(p.cfg.CertPath, p.cfg.KeyPath))
-	if err.HasError() {
-		return err
+	cert, err := tls.LoadX509KeyPair(p.cfg.CertPath, p.cfg.KeyPath)
+	if err != nil {
+		return E.Errorf("load SSL certificate: %w", err)
 	}
 	expiries, err := getCertExpiries(&cert)
-	if err.HasError() {
-		return err
+	if err != nil {
+		return E.Errorf("parse SSL certificate: %w", err)
 	}
 	p.tlsCert = &cert
 	p.certExpiries = expiries
 
-	logger.Infof("next renewal in %v", U.FormatDuration(time.Until(p.ShouldRenewOn())))
+	logger.Info().Msgf("next renewal in %v", strutils.FormatDuration(time.Until(p.ShouldRenewOn())))
 	return p.renewIfNeeded()
 }
 
+// ShouldRenewOn returns the time at which the certificate should be renewed.
 func (p *Provider) ShouldRenewOn() time.Time {
 	for _, expiry := range p.certExpiries {
 		return expiry.AddDate(0, -1, 0) // 1 month before
@@ -150,8 +143,8 @@ func (p *Provider) ScheduleRenewal() {
 			case <-task.Context().Done():
 				return
 			case <-ticker.C: // check every 5 seconds
-				if err := p.renewIfNeeded(); err.HasError() {
-					logger.Warn(err)
+				if err := p.renewIfNeeded(); err != nil {
+					E.LogWarn("cert renew failed", err, &logger)
 				}
 			}
 		}
@@ -159,31 +152,32 @@ func (p *Provider) ScheduleRenewal() {
 }
 
 func (p *Provider) initClient() E.Error {
-	legoClient, err := E.Check(lego.NewClient(p.legoCfg))
-	if err.HasError() {
-		return E.FailWith("create lego client", err)
+	legoClient, err := lego.NewClient(p.legoCfg)
+	if err != nil {
+		return E.From(err)
 	}
 
-	legoProvider, err := providersGenMap[p.cfg.Provider](p.cfg.Options)
-	if err.HasError() {
-		return E.FailWith("create lego provider", err)
+	generator := providersGenMap[p.cfg.Provider]
+	legoProvider, pErr := generator(p.cfg.Options)
+	if pErr != nil {
+		return pErr
 	}
 
-	err = E.From(legoClient.Challenge.SetDNS01Provider(legoProvider))
-	if err.HasError() {
-		return E.FailWith("set challenge provider", err)
+	err = legoClient.Challenge.SetDNS01Provider(legoProvider)
+	if err != nil {
+		return E.From(err)
 	}
 
 	p.client = legoClient
 	return nil
 }
 
-func (p *Provider) registerACME() E.Error {
+func (p *Provider) registerACME() error {
 	if p.user.Registration != nil {
 		return nil
 	}
-	reg, err := E.Check(p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true}))
-	if err.HasError() {
+	reg, err := p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+	if err != nil {
 		return err
 	}
 	p.user.Registration = reg
@@ -191,26 +185,27 @@ func (p *Provider) registerACME() E.Error {
 	return nil
 }
 
-func (p *Provider) saveCert(cert *certificate.Resource) E.Error {
+func (p *Provider) saveCert(cert *certificate.Resource) error {
 	/* This should have been done in setup
 	but double check is always a good choice.*/
 	_, err := os.Stat(path.Dir(p.cfg.CertPath))
 	if err != nil {
 		if os.IsNotExist(err) {
 			if err = os.MkdirAll(path.Dir(p.cfg.CertPath), 0o755); err != nil {
-				return E.FailWith("create cert directory", err)
+				return err
 			}
 		} else {
-			return E.FailWith("stat cert directory", err)
+			return err
 		}
 	}
 	err = os.WriteFile(p.cfg.KeyPath, cert.PrivateKey, 0o600) // -rw-------
 	if err != nil {
-		return E.FailWith("write key file", err)
+		return err
 	}
+
 	err = os.WriteFile(p.cfg.CertPath, cert.Certificate, 0o644) // -rw-r--r--
 	if err != nil {
-		return E.FailWith("write cert file", err)
+		return err
 	}
 	return nil
 }
@@ -232,7 +227,7 @@ func (p *Provider) certState() CertState {
 	sort.Strings(certDomains)
 
 	if !reflect.DeepEqual(certDomains, wantedDomains) {
-		logger.Infof("cert domains mismatch: %v != %v", certDomains, p.cfg.Domains)
+		logger.Info().Msgf("cert domains mismatch: %v != %v", certDomains, p.cfg.Domains)
 		return CertStateMismatch
 	}
 
@@ -246,25 +241,25 @@ func (p *Provider) renewIfNeeded() E.Error {
 
 	switch p.certState() {
 	case CertStateExpired:
-		logger.Info("certs expired, renewing")
+		logger.Info().Msg("certs expired, renewing")
 	case CertStateMismatch:
-		logger.Info("cert domains mismatch with config, renewing")
+		logger.Info().Msg("cert domains mismatch with config, renewing")
 	default:
 		return nil
 	}
 
-	if err := p.ObtainCert(); err.HasError() {
-		return E.FailWith("renew certificate", err)
+	if err := p.ObtainCert(); err != nil {
+		return err
 	}
 	return nil
 }
 
-func getCertExpiries(cert *tls.Certificate) (CertExpiries, E.Error) {
+func getCertExpiries(cert *tls.Certificate) (CertExpiries, error) {
 	r := make(CertExpiries, len(cert.Certificate))
 	for _, cert := range cert.Certificate {
-		x509Cert, err := E.Check(x509.ParseCertificate(cert))
-		if err.HasError() {
-			return nil, E.FailWith("parse certificate", err)
+		x509Cert, err := x509.ParseCertificate(cert)
+		if err != nil {
+			return nil, err
 		}
 		if x509Cert.IsCA {
 			continue
@@ -284,13 +279,10 @@ func providerGenerator[CT any, PT challenge.Provider](
 	return func(opt types.AutocertProviderOpt) (challenge.Provider, E.Error) {
 		cfg := defaultCfg()
 		err := U.Deserialize(opt, cfg)
-		if err.HasError() {
+		if err != nil {
 			return nil, err
 		}
-		p, err := E.Check(newProvider(cfg))
-		if err.HasError() {
-			return nil, err
-		}
-		return p, nil
+		p, pErr := newProvider(cfg)
+		return p, E.From(pErr)
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/yusing/go-proxy/internal/common"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
 func init() {
@@ -46,6 +46,15 @@ func ExpectError2(t *testing.T, input any, expected error, err error) {
 
 func ExpectEqual[T comparable](t *testing.T, got T, want T) {
 	t.Helper()
+	if got != want {
+		t.Errorf("expected:\n%v, got\n%v", want, got)
+		t.FailNow()
+	}
+}
+
+func ExpectStrEqual(t *testing.T, got string, want string) {
+	t.Helper()
+	got = ansi.StripANSI(got)
 	if got != want {
 		t.Errorf("expected:\n%v, got\n%v", want, got)
 		t.FailNow()
@@ -96,18 +105,4 @@ func ExpectType[T any](t *testing.T, got any) (_ T) {
 		return
 	}
 	return got.(T)
-}
-
-func Must[T any](v T, err E.Error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
-}
-
-func Must2[T any](v T, err error) T {
-	if err != nil {
-		panic(err)
-	}
-	return v
 }

@@ -1,5 +1,7 @@
 package health
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/yusing/go-proxy/internal/logging"
+)
 
-var logger = logrus.WithField("module", "health_mon")
+var logger = logging.With().Str("module", "health_mon").Logger()

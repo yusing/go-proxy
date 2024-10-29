@@ -5,13 +5,14 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/homepage"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -85,20 +86,20 @@ func (e *RawEntry) FillMissingFields() {
 		} else if !isDocker {
 			pp = "80"
 		} else {
-			logrus.Debugf("no port found for %s", e.Alias)
+			logging.Debug().Msg("no port found for " + e.Alias)
 		}
 	}
 
 	// replace private port with public port if using public IP.
 	if e.Host == cont.PublicIP {
 		if p, ok := cont.PrivatePortMapping[pp]; ok {
-			pp = U.PortString(p.PublicPort)
+			pp = strutils.PortString(p.PublicPort)
 		}
 	}
 	// replace public port with private port if using private IP.
 	if e.Host == cont.PrivateIP {
 		if p, ok := cont.PublicPortMapping[pp]; ok {
-			pp = U.PortString(p.PrivatePort)
+			pp = strutils.PortString(p.PrivatePort)
 		}
 	}
 

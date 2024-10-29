@@ -16,9 +16,9 @@ type realIP struct {
 
 type realIPOpts struct {
 	// Header is the name of the header to use for the real client IP
-	Header string
+	Header string `json:"header"`
 	// From is a list of Address / CIDRs to trust
-	From []*types.CIDR
+	From []*types.CIDR `json:"from"`
 	/*
 		If recursive search is disabled,
 		the original client address that matches one of the trusted addresses is replaced by
@@ -27,7 +27,7 @@ type realIPOpts struct {
 		the original client address that matches one of the trusted addresses is replaced by
 		the last non-trusted address sent in the request header field.
 	*/
-	Recursive bool
+	Recursive bool `json:"recursive"`
 }
 
 var RealIP = &realIP{

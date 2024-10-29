@@ -3,7 +3,6 @@ package fields
 import (
 	"strings"
 
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
@@ -12,7 +11,9 @@ type StreamPort struct {
 	ProxyPort     Port `json:"proxy"`
 }
 
-func ValidateStreamPort(p string) (_ StreamPort, err E.Error) {
+var ErrStreamPortTooManyColons = E.New("too many colons")
+
+func ValidateStreamPort(p string) (StreamPort, error) {
 	split := strings.Split(p, ":")
 
 	switch len(split) {
@@ -21,36 +22,14 @@ func ValidateStreamPort(p string) (_ StreamPort, err E.Error) {
 	case 2:
 		break
 	default:
-		err = E.Invalid("stream port", p).With("too many colons")
-		return
+		return StreamPort{}, ErrStreamPortTooManyColons.Subject(p)
 	}
 
-	listeningPort, err := ValidatePort(split[0])
-	if err != nil {
-		err = err.Subject("listening port")
-		return
-	}
-
-	proxyPort, err := ValidatePort(split[1])
-
-	if err.Is(E.ErrOutOfRange) {
-		err = err.Subject("proxy port")
-		return
-	} else if err != nil {
-		proxyPort, err = parseNameToPort(split[1])
-		if err != nil {
-			err = E.Invalid("proxy port", proxyPort)
-			return
-		}
+	listeningPort, lErr := ValidatePort(split[0])
+	proxyPort, pErr := ValidatePort(split[1])
+	if err := E.Join(lErr, pErr); err != nil {
+		return StreamPort{}, err
 	}
 
 	return StreamPort{listeningPort, proxyPort}, nil
-}
-
-func parseNameToPort(name string) (Port, E.Error) {
-	port, ok := common.ServiceNamePortMapTCP[name]
-	if !ok {
-		return ErrPort, E.Invalid("service", name)
-	}
-	return Port(port), nil
 }

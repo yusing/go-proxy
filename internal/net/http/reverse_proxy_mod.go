@@ -23,7 +23,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"golang.org/x/net/http/httpguts"
@@ -69,6 +69,8 @@ type ProxyRequest struct {
 // 1xx responses are forwarded to the client if the underlying
 // transport supports ClientTrace.Got1xxResponse.
 type ReverseProxy struct {
+	zerolog.Logger
+
 	// The transport used to perform proxy requests.
 	// If nil, http.DefaultTransport is used.
 	Transport http.RoundTripper
@@ -149,7 +151,12 @@ func NewReverseProxy(name string, target types.URL, transport http.RoundTripper)
 	if transport == nil {
 		panic("nil transport")
 	}
-	rp := &ReverseProxy{Transport: transport, TargetName: name, TargetURL: target}
+	rp := &ReverseProxy{
+		Logger:     logger.With().Str("name", name).Logger(),
+		Transport:  transport,
+		TargetName: name,
+		TargetURL:  target,
+	}
 	rp.ServeHTTP = rp.serveHTTP
 	return rp
 }
@@ -195,9 +202,9 @@ func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err
 	switch {
 	case errors.Is(err, context.Canceled),
 		errors.Is(err, io.EOF):
-		logger.Debugf("http proxy to %s(%s) error: %s", p.TargetName, r.URL.String(), err)
+		logger.Debug().Err(err).Str("url", r.URL.String()).Msg("http proxy error")
 	default:
-		logger.Errorf("http proxy to %s(%s) error: %s", p.TargetName, r.URL.String(), err)
+		logger.Err(err).Str("url", r.URL.String()).Msg("http proxy error")
 	}
 	if writeHeader {
 		rw.WriteHeader(http.StatusBadGateway)
@@ -219,6 +226,10 @@ func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response
 }
 
 func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
+	if _, ok := rw.(DummyResponseWriter); ok {
+		return
+	}
+
 	transport := p.Transport
 
 	ctx := req.Context()
@@ -453,6 +464,7 @@ func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.R
 	resUpType := UpgradeType(res.Header)
 	if !IsPrint(resUpType) { // We know reqUpType is ASCII, it's checked by the caller.
 		p.errorHandler(rw, req, fmt.Errorf("backend tried to switch to invalid protocol %q", resUpType), true)
+		return
 	}
 	if !strings.EqualFold(reqUpType, resUpType) {
 		p.errorHandler(rw, req, fmt.Errorf("backend tried to switch protocol %q when %q was requested", resUpType, reqUpType), true)
@@ -518,5 +530,3 @@ func IsPrint(s string) bool {
 	}
 	return true
 }
-
-var logger = logrus.WithField("module", "http")

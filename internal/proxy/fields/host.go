@@ -1,14 +1,10 @@
 package fields
 
-import (
-	E "github.com/yusing/go-proxy/internal/error"
-)
-
 type (
 	Host      string
 	Subdomain = Alias
 )
 
-func ValidateHost[String ~string](s String) (Host, E.Error) {
+func ValidateHost[String ~string](s String) (Host, error) {
 	return Host(s), nil
 }

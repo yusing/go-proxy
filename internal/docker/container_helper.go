@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type containerHelper struct {
@@ -23,7 +23,7 @@ func (c containerHelper) getDeleteLabel(label string) string {
 
 func (c containerHelper) getAliases() []string {
 	if l := c.getDeleteLabel(LabelAliases); l != "" {
-		return U.CommaSeperatedList(l)
+		return strutils.CommaSeperatedList(l)
 	}
 	return []string{c.getName()}
 }
@@ -44,7 +44,7 @@ func (c containerHelper) getPublicPortMapping() PortMapping {
 		if v.PublicPort == 0 {
 			continue
 		}
-		res[U.PortString(v.PublicPort)] = v
+		res[strutils.PortString(v.PublicPort)] = v
 	}
 	return res
 }
@@ -52,7 +52,7 @@ func (c containerHelper) getPublicPortMapping() PortMapping {
 func (c containerHelper) getPrivatePortMapping() PortMapping {
 	res := make(PortMapping)
 	for _, v := range c.Ports {
-		res[U.PortString(v.PrivatePort)] = v
+		res[strutils.PortString(v.PrivatePort)] = v
 	}
 	return res
 }

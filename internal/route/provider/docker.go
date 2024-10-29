@@ -6,77 +6,90 @@ import (
 	"strings"
 
 	"github.com/docker/docker/client"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
-	D "github.com/yusing/go-proxy/internal/docker"
+	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
-	R "github.com/yusing/go-proxy/internal/route"
-	W "github.com/yusing/go-proxy/internal/watcher"
+	"github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
+	"github.com/yusing/go-proxy/internal/watcher"
 )
 
 type DockerProvider struct {
 	name, dockerHost string
 	ExplicitOnly     bool
+	l                zerolog.Logger
 }
 
 var (
 	AliasRefRegex    = regexp.MustCompile(`#\d+`)
 	AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
+
+	ErrAliasRefIndexOutOfRange = E.New("index out of range")
 )
 
-func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, E.Error) {
+func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, error) {
 	if dockerHost == common.DockerHostFromEnv {
 		dockerHost = common.GetEnv("DOCKER_HOST", client.DefaultDockerHost)
 	}
-	return &DockerProvider{name, dockerHost, explicitOnly}, nil
+	return &DockerProvider{
+		name,
+		dockerHost,
+		explicitOnly,
+		logger.With().Str("type", "docker").Str("name", name).Logger(),
+	}, nil
 }
 
 func (p *DockerProvider) String() string {
 	return "docker@" + p.name
 }
 
-func (p *DockerProvider) NewWatcher() W.Watcher {
-	return W.NewDockerWatcher(p.dockerHost)
+func (p *DockerProvider) Logger() *zerolog.Logger {
+	return &p.l
 }
 
-func (p *DockerProvider) LoadRoutesImpl() (routes R.Routes, err E.Error) {
-	routes = R.NewRoutes()
+func (p *DockerProvider) NewWatcher() watcher.Watcher {
+	return watcher.NewDockerWatcher(p.dockerHost)
+}
+
+func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
+	routes := route.NewRoutes()
 	entries := entry.NewProxyEntries()
 
-	containers, err := D.ListContainers(p.dockerHost)
+	containers, err := docker.ListContainers(p.dockerHost)
 	if err != nil {
-		return routes, err
+		return routes, E.From(err)
 	}
 
-	errors := E.NewBuilder("errors in docker labels")
+	errs := E.NewBuilder("")
 
 	for _, c := range containers {
-		container := D.FromDocker(&c, p.dockerHost)
+		container := docker.FromDocker(&c, p.dockerHost)
 		if container.IsExcluded {
 			continue
 		}
 
 		newEntries, err := p.entriesFromContainerLabels(container)
 		if err != nil {
-			errors.Add(err)
+			errs.Add(err.Subject(container.ContainerName))
 		}
 		// although err is not nil
 		// there may be some valid entries in `en`
 		dups := entries.MergeFrom(newEntries)
 		// add the duplicate proxy entries to the error
 		dups.RangeAll(func(k string, v *entry.RawEntry) {
-			errors.Addf("duplicate alias %s", k)
+			errs.Addf("duplicated alias %s", k)
 		})
 	}
 
-	routes, err = R.FromEntries(entries)
-	errors.Add(err)
+	routes, err = route.FromEntries(entries)
+	errs.Add(err)
 
-	return routes, errors.Build()
+	return routes, errs.Error()
 }
 
-func (p *DockerProvider) shouldIgnore(container *D.Container) bool {
+func (p *DockerProvider) shouldIgnore(container *docker.Container) bool {
 	return container.IsExcluded ||
 		!container.IsExplicit && p.ExplicitOnly ||
 		!container.IsExplicit && container.IsDatabase ||
@@ -85,7 +98,7 @@ func (p *DockerProvider) shouldIgnore(container *D.Container) bool {
 
 // Returns a list of proxy entries for a container.
 // Always non-nil.
-func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (entries entry.RawEntries, _ E.Error) {
+func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container) (entries entry.RawEntries, _ E.Error) {
 	entries = entry.NewProxyEntries()
 
 	if p.shouldIgnore(container) {
@@ -100,9 +113,9 @@ func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (ent
 		})
 	}
 
-	errors := E.NewBuilder("failed to apply label")
+	errs := E.NewBuilder("label errors")
 	for key, val := range container.Labels {
-		errors.Add(p.applyLabel(container, entries, key, val))
+		errs.Add(p.applyLabel(container, entries, key, val))
 	}
 
 	// remove all entries that failed to fill in missing fields
@@ -110,59 +123,56 @@ func (p *DockerProvider) entriesFromContainerLabels(container *D.Container) (ent
 		re.FillMissingFields()
 	})
 
-	return entries, errors.Build().Subject(container.ContainerName)
+	return entries, errs.Error()
 }
 
-func (p *DockerProvider) applyLabel(container *D.Container, entries entry.RawEntries, key, val string) (res E.Error) {
-	b := E.NewBuilder("errors in label %s", key)
-	defer b.To(&res)
+func (p *DockerProvider) applyLabel(container *docker.Container, entries entry.RawEntries, key, val string) E.Error {
+	lbl := docker.ParseLabel(key, val)
+	if lbl.Namespace != docker.NSProxy {
+		return nil
+	}
+	if lbl.Target == docker.WildcardAlias {
+		// apply label for all aliases
+		labelErrs := entries.CollectErrors(func(a string, e *entry.RawEntry) error {
+			return docker.ApplyLabel(e, lbl)
+		})
+		if err := E.Join(labelErrs...); err != nil {
+			return err.Subject(lbl.Target)
+		}
+		return nil
+	}
 
-	refErr := E.NewBuilder("errors in alias references")
+	refErrs := E.NewBuilder("alias ref errors")
 	replaceIndexRef := func(ref string) string {
-		index, err := strconv.Atoi(ref[1:])
+		index, err := strutils.Atoi(ref[1:])
 		if err != nil {
-			refErr.Add(E.Invalid("integer", ref))
+			refErrs.Add(err)
 			return ref
 		}
 		if index < 1 || index > len(container.Aliases) {
-			refErr.Add(E.OutOfRange("index", ref))
+			refErrs.Add(ErrAliasRefIndexOutOfRange.Subject(strconv.Itoa(index)))
 			return ref
 		}
 		return container.Aliases[index-1]
 	}
 
-	lbl, err := D.ParseLabel(key, val)
-	if err != nil {
-		b.Add(err.Subject(key))
+	lbl.Target = AliasRefRegex.ReplaceAllStringFunc(lbl.Target, replaceIndexRef)
+	lbl.Target = AliasRefRegexOld.ReplaceAllStringFunc(lbl.Target, func(ref string) string {
+		p.l.Warn().Msgf("%q should now be %q, old syntax will be removed in a future version", lbl, strings.ReplaceAll(lbl.String(), "$", "#"))
+		return replaceIndexRef(ref)
+	})
+	if refErrs.HasError() {
+		return refErrs.Error().Subject(lbl.String())
 	}
-	if lbl.Namespace != D.NSProxy {
-		return
+
+	en, ok := entries.Load(lbl.Target)
+	if !ok {
+		en = &entry.RawEntry{
+			Alias:     lbl.Target,
+			Container: container,
+		}
+		entries.Store(lbl.Target, en)
 	}
-	if lbl.Target == D.WildcardAlias {
-		// apply label for all aliases
-		entries.RangeAll(func(a string, e *entry.RawEntry) {
-			if err = D.ApplyLabel(e, lbl); err != nil {
-				b.Add(err)
-			}
-		})
-	} else {
-		lbl.Target = AliasRefRegex.ReplaceAllStringFunc(lbl.Target, replaceIndexRef)
-		lbl.Target = AliasRefRegexOld.ReplaceAllStringFunc(lbl.Target, func(s string) string {
-			logrus.Warnf("%q should now be %q, old syntax will be removed in a future version", lbl, strings.ReplaceAll(lbl.String(), "$", "#"))
-			return replaceIndexRef(s)
-		})
-		if refErr.HasError() {
-			b.Add(refErr.Build())
-			return
-		}
-		config, ok := entries.Load(lbl.Target)
-		if !ok {
-			b.Add(E.NotExist("alias", lbl.Target))
-			return
-		}
-		if err = D.ApplyLabel(config, lbl); err != nil {
-			b.Add(err)
-		}
-	}
-	return
+
+	return docker.ApplyLabel(en, lbl)
 }

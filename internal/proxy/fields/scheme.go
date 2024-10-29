@@ -6,12 +6,14 @@ import (
 
 type Scheme string
 
-func NewScheme[String ~string](s String) (Scheme, E.Error) {
+var ErrInvalidScheme = E.New("invalid scheme")
+
+func NewScheme(s string) (Scheme, error) {
 	switch s {
 	case "http", "https", "tcp", "udp":
 		return Scheme(s), nil
 	}
-	return "", E.Invalid("scheme", s)
+	return "", ErrInvalidScheme.Subject(s)
 }
 
 func (s Scheme) IsHTTP() bool   { return s == "http" }

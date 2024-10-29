@@ -24,6 +24,11 @@ type (
 	NestedLabelMap map[string]U.SerializedObject
 )
 
+var (
+	ErrApplyToNil    = E.New("label value is nil")
+	ErrFieldNotExist = E.New("field does not exist")
+)
+
 func (l *Label) String() string {
 	if l.Attribute == "" {
 		return l.Namespace + "." + l.Target
@@ -41,7 +46,7 @@ func (l *Label) String() string {
 //   - error: an error if the field does not exist.
 func ApplyLabel[T any](obj *T, l *Label) E.Error {
 	if obj == nil {
-		return E.Invalid("nil object", l)
+		return ErrApplyToNil.Subject(l.String())
 	}
 	switch nestedLabel := l.Value.(type) {
 	case *Label:
@@ -54,7 +59,7 @@ func ApplyLabel[T any](obj *T, l *Label) E.Error {
 			}
 		}
 		if !field.IsValid() {
-			return E.NotExist("field", l.Attribute)
+			return ErrFieldNotExist.Subject(l.Attribute).Subject(l.String())
 		}
 		dst, ok := field.Interface().(NestedLabelMap)
 		if !ok {
@@ -65,7 +70,11 @@ func ApplyLabel[T any](obj *T, l *Label) E.Error {
 			} else {
 				field = field.Addr()
 			}
-			return U.Deserialize(U.SerializedObject{nestedLabel.Namespace: nestedLabel.Value}, field.Interface())
+			err := U.Deserialize(U.SerializedObject{nestedLabel.Namespace: nestedLabel.Value}, field.Interface())
+			if err != nil {
+				return err.Subject(l.String())
+			}
+			return nil
 		}
 		if dst == nil {
 			field.Set(reflect.MakeMap(reflect.TypeFor[NestedLabelMap]()))
@@ -77,18 +86,22 @@ func ApplyLabel[T any](obj *T, l *Label) E.Error {
 		dst[nestedLabel.Namespace][nestedLabel.Attribute] = nestedLabel.Value
 		return nil
 	default:
-		return U.Deserialize(U.SerializedObject{l.Attribute: l.Value}, obj)
+		err := U.Deserialize(U.SerializedObject{l.Attribute: l.Value}, obj)
+		if err != nil {
+			return err.Subject(l.String())
+		}
+		return nil
 	}
 }
 
-func ParseLabel(label string, value string) (*Label, E.Error) {
+func ParseLabel(label string, value string) *Label {
 	parts := strings.Split(label, ".")
 
 	if len(parts) < 2 {
 		return &Label{
 			Namespace: label,
 			Value:     value,
-		}, nil
+		}
 	}
 
 	l := &Label{
@@ -104,12 +117,9 @@ func ParseLabel(label string, value string) (*Label, E.Error) {
 		l.Attribute = parts[2]
 	default:
 		l.Attribute = parts[2]
-		nestedLabel, err := ParseLabel(strings.Join(parts[3:], "."), value)
-		if err != nil {
-			return nil, err
-		}
+		nestedLabel := ParseLabel(strings.Join(parts[3:], "."), value)
 		l.Value = nestedLabel
 	}
 
-	return l, nil
+	return l
 }

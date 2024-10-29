@@ -12,22 +12,23 @@ type StreamScheme struct {
 	ProxyScheme     Scheme `json:"proxy"`
 }
 
-func ValidateStreamScheme(s string) (ss *StreamScheme, err E.Error) {
-	ss = &StreamScheme{}
+func ValidateStreamScheme(s string) (*StreamScheme, error) {
+	ss := &StreamScheme{}
 	parts := strings.Split(s, ":")
 	if len(parts) == 1 {
 		parts = []string{s, s}
 	} else if len(parts) != 2 {
-		return nil, E.Invalid("stream scheme", s)
+		return nil, ErrInvalidScheme.Subject(s)
 	}
-	ss.ListeningScheme, err = NewScheme(parts[0])
-	if err.HasError() {
+
+	var lErr, pErr error
+	ss.ListeningScheme, lErr = NewScheme(parts[0])
+	ss.ProxyScheme, pErr = NewScheme(parts[1])
+
+	if err := E.Join(lErr, pErr); err != nil {
 		return nil, err
 	}
-	ss.ProxyScheme, err = NewScheme(parts[1])
-	if err.HasError() {
-		return nil, err
-	}
+
 	return ss, nil
 }
 

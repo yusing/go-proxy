@@ -13,10 +13,10 @@ import (
 var testMiddlewareCompose []byte
 
 func TestBuild(t *testing.T) {
-	middlewares, err := BuildMiddlewaresFromYAML(testMiddlewareCompose)
-	ExpectNoError(t, err.Error())
-	_, err = E.Check(json.MarshalIndent(middlewares, "", "  "))
-	ExpectNoError(t, err.Error())
+	errs := E.NewBuilder("")
+	middlewares := BuildMiddlewaresFromYAML("", testMiddlewareCompose, errs)
+	ExpectNoError(t, errs.Error())
+	E.Must(json.MarshalIndent(middlewares, "", "  "))
 	// t.Log(string(data))
 	// TODO: test
 }

@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/gotify/server/v2/model"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
@@ -39,7 +39,7 @@ func newGotifyClient(cfg map[string]any) (Provider, E.Error) {
 
 	url, uErr := url.Parse(client.URL)
 	if uErr != nil {
-		return nil, E.FailWith("parse url", uErr)
+		return nil, E.Errorf("invalid gotify URL %s", client.URL)
 	}
 
 	client.url = url
@@ -52,30 +52,23 @@ func (client *GotifyClient) Name() string {
 }
 
 // Send implements NotifProvider.
-func (client *GotifyClient) Send(ctx context.Context, entry *logrus.Entry) error {
+func (client *GotifyClient) Send(ctx context.Context, logMsg *LogMessage) error {
 	var priority int
-	var title string
 
-	switch entry.Level {
-	case logrus.WarnLevel:
+	switch logMsg.Level {
+	case zerolog.WarnLevel:
 		priority = 2
-		title = "Warning"
-	case logrus.ErrorLevel:
+	case zerolog.ErrorLevel:
 		priority = 5
-		title = "Error"
-	case logrus.FatalLevel, logrus.PanicLevel:
+	case zerolog.FatalLevel, zerolog.PanicLevel:
 		priority = 8
-		title = "Critical"
 	default:
 		return nil
 	}
-	if subjects := FieldsAsTitle(entry); subjects != "" {
-		title = subjects + " " + title
-	}
 
 	msg := &GotifyMessage{
-		Title:    title,
-		Message:  entry.Message,
+		Title:    logMsg.Title,
+		Message:  logMsg.Message,
 		Priority: priority,
 	}
 

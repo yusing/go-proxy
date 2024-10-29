@@ -57,8 +57,7 @@ func (w *ModifyResponseWriter) WriteHeader(code int) {
 	}
 
 	if err := w.modifier(&resp); err != nil {
-		w.modifierErr = err
-		logger.Errorf("error modifying response: %s", err)
+		w.modifierErr = fmt.Errorf("response modifier error: %w", err)
 		w.w.WriteHeader(http.StatusInternalServerError)
 		return
 	}

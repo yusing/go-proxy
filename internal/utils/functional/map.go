@@ -1,16 +1,18 @@
 package functional
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/puzpuzpuz/xsync/v3"
-	E "github.com/yusing/go-proxy/internal/error"
 	"gopkg.in/yaml.v3"
 )
 
 type Map[KT comparable, VT any] struct {
 	*xsync.MapOf[KT, VT]
 }
+
+const minParallelSize = 4
 
 func NewMapOf[KT comparable, VT any](options ...func(*xsync.MapConfig)) Map[KT, VT] {
 	return Map[KT, VT]{xsync.NewMapOf[KT, VT](options...)}
@@ -113,6 +115,11 @@ func (m Map[KT, VT]) RangeAll(do func(k KT, v VT)) {
 //
 //	nothing
 func (m Map[KT, VT]) RangeAllParallel(do func(k KT, v VT)) {
+	if m.Size() < minParallelSize {
+		m.RangeAll(do)
+		return
+	}
+
 	var wg sync.WaitGroup
 
 	m.Range(func(k KT, v VT) bool {
@@ -124,6 +131,45 @@ func (m Map[KT, VT]) RangeAllParallel(do func(k KT, v VT)) {
 		return true
 	})
 	wg.Wait()
+}
+
+// CollectErrors calls the given function for each key-value pair in the map,
+// then returns a slice of errors collected.
+func (m Map[KT, VT]) CollectErrors(do func(k KT, v VT) error) []error {
+	errs := make([]error, 0)
+	m.Range(func(k KT, v VT) bool {
+		if err := do(k, v); err != nil {
+			errs = append(errs, err)
+		}
+		return true
+	})
+	return errs
+}
+
+// CollectErrors calls the given function for each key-value pair in the map,
+// then returns a slice of errors collected.
+func (m Map[KT, VT]) CollectErrorsParallel(do func(k KT, v VT) error) []error {
+	if m.Size() < minParallelSize {
+		return m.CollectErrors(do)
+	}
+
+	errs := make([]error, 0)
+	mu := sync.Mutex{}
+	wg := sync.WaitGroup{}
+	m.Range(func(k KT, v VT) bool {
+		wg.Add(1)
+		go func() {
+			if err := do(k, v); err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+			wg.Done()
+		}()
+		return true
+	})
+	wg.Wait()
+	return errs
 }
 
 // RemoveAll removes all key-value pairs from the map where the value matches the given criteria.
@@ -160,12 +206,12 @@ func (m Map[KT, VT]) Has(k KT) bool {
 // Returns:
 //
 //	error: if the unmarshaling fails
-func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) E.Error {
+func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) error {
 	if m.Size() != 0 {
-		return E.FailedWhy("unmarshal from yaml", "map is not empty")
+		return errors.New("cannot unmarshal into non-empty map")
 	}
 	tmp := make(map[KT]VT)
-	if err := E.From(yaml.Unmarshal(data, tmp)); err != nil {
+	if err := yaml.Unmarshal(data, tmp); err != nil {
 		return err
 	}
 	for k, v := range tmp {

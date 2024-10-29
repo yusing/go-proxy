@@ -4,14 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -100,7 +100,7 @@ type (
 		subtasks   F.Set[*task]
 		subTasksWg sync.WaitGroup
 
-		name, line string
+		name string
 
 		OnFinishedFuncs []func()
 		OnFinishedMu    sync.Mutex
@@ -113,6 +113,8 @@ type (
 var (
 	ErrProgramExiting = errors.New("program exiting")
 	ErrTaskCanceled   = errors.New("task canceled")
+
+	logger = logging.With().Str("module", "task").Logger()
 )
 
 // GlobalTask returns a new Task with the given name, derived from the global context.
@@ -159,14 +161,22 @@ func GlobalContextWait(timeout time.Duration) {
 		case <-done:
 			return
 		case <-after:
-			logrus.Warn("Timeout waiting for these tasks to finish:\n" + globalTask.tree())
+			logger.Warn().Msg("Timeout waiting for these tasks to finish:\n" + globalTask.tree())
 			return
 		}
 	}
 }
 
+func (t *task) trace() *zerolog.Event {
+	return logger.Trace().Str("name", t.name)
+}
+
 func (t *task) Name() string {
-	return t.name
+	if !common.IsTrace {
+		return t.name
+	}
+	parts := strings.Split(t.name, " > ")
+	return parts[len(parts)-1]
 }
 
 func (t *task) String() string {
@@ -212,20 +222,18 @@ func (t *task) OnFinished(about string, fn func()) {
 		onCompTask := GlobalTask(t.name + " > OnFinished > " + about)
 		go t.runAllOnFinished(onCompTask)
 	}
-	var file string
-	var line int
-	if common.IsTrace {
-		_, file, line, _ = runtime.Caller(1)
-	}
 	idx := len(t.OnFinishedFuncs)
 	wrapped := func() {
 		defer func() {
 			if err := recover(); err != nil {
-				logrus.Errorf("panic in %s > OnFinished[%d]: %q\nline %s:%d\n%v", t.name, idx, about, file, line, err)
+				logger.Error().
+					Str("name", t.name).
+					Interface("err", err).
+					Msg("panic in " + about)
 			}
 		}()
 		fn()
-		logrus.Tracef("line %s:%d\n%s > OnFinished[%d] done: %s", file, line, t.name, idx, about)
+		logger.Trace().Str("name", t.name).Msgf("OnFinished[%d] done: %s", idx, about)
 	}
 	t.OnFinishedFuncs = append(t.OnFinishedFuncs, wrapped)
 }
@@ -236,7 +244,7 @@ func (t *task) OnCancel(about string, fn func()) {
 		<-t.ctx.Done()
 		fn()
 		onCompTask.Finish("done")
-		logrus.Tracef("%s > onCancel done: %s", t.name, about)
+		t.trace().Msg("onCancel done: " + about)
 	}()
 }
 
@@ -276,14 +284,10 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 	parent.subTasksWg.Add(1)
 	parent.subtasks.Add(subtask)
 	if common.IsTrace {
-		_, file, line, ok := runtime.Caller(3)
-		if ok {
-			subtask.line = fmt.Sprintf("%s:%d", file, line)
-		}
-		logrus.Tracef("line %s\n%s started", subtask.line, name)
+		subtask.trace().Msg("started")
 		go func() {
 			subtask.Wait()
-			logrus.Tracef("%s finished: %s", subtask.Name(), subtask.FinishCause())
+			subtask.trace().Msg("finished: " + subtask.FinishCause().Error())
 		}()
 	}
 	go func() {
@@ -324,12 +328,6 @@ func (t *task) tree(prefix ...string) string {
 		pre = prefix[0]
 		sb.WriteString(pre + "- ")
 	}
-	if t.line != "" {
-		sb.WriteString("line " + t.line + "\n")
-		if len(pre) > 0 {
-			sb.WriteString(pre + "- ")
-		}
-	}
 	sb.WriteString(t.Name() + "\n")
 	t.subtasks.RangeAll(func(subtask *task) {
 		sb.WriteString(subtask.tree(pre + "  "))
@@ -341,7 +339,6 @@ func (t *task) tree(prefix ...string) string {
 //
 // The map contains the following keys:
 // - name: the name of the task
-// - line: the line number of the task, if available
 // - subtasks: a slice of maps, each representing a subtask
 //
 // The subtask maps contain the same keys, recursively.
@@ -354,11 +351,8 @@ func (t *task) tree(prefix ...string) string {
 // only.
 func (t *task) serialize() map[string]any {
 	m := make(map[string]any)
-	parts := strings.Split(t.name, ">")
-	m["name"] = strings.TrimSpace(parts[len(parts)-1])
-	if t.line != "" {
-		m["line"] = t.line
-	}
+	parts := strings.Split(t.name, " > ")
+	m["name"] = parts[len(parts)-1]
 	if t.subtasks.Size() > 0 {
 		m["subtasks"] = make([]map[string]any, 0, t.subtasks.Size())
 		t.subtasks.RangeAll(func(subtask *task) {

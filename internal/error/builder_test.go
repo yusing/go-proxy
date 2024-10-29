@@ -1,6 +1,9 @@
 package error_test
 
 import (
+	"context"
+	"errors"
+	"io"
 	"testing"
 
 	. "github.com/yusing/go-proxy/internal/error"
@@ -8,14 +11,13 @@ import (
 )
 
 func TestBuilderEmpty(t *testing.T) {
-	eb := NewBuilder("qwer")
-	ExpectTrue(t, eb.Build() == nil)
-	ExpectTrue(t, eb.Build().NoError())
+	eb := NewBuilder("foo")
+	ExpectTrue(t, errors.Is(eb.Error(), nil))
 	ExpectFalse(t, eb.HasError())
 }
 
 func TestBuilderAddNil(t *testing.T) {
-	eb := NewBuilder("asdf")
+	eb := NewBuilder("foo")
 	var err Error
 	for range 3 {
 		eb.Add(nil)
@@ -23,41 +25,31 @@ func TestBuilderAddNil(t *testing.T) {
 	for range 3 {
 		eb.Add(err)
 	}
-	ExpectTrue(t, eb.Build() == nil)
-	ExpectTrue(t, eb.Build().NoError())
+	eb.AddRange(nil, nil, err)
 	ExpectFalse(t, eb.HasError())
+	ExpectTrue(t, eb.Error() == nil)
+}
+
+func TestBuilderIs(t *testing.T) {
+	eb := NewBuilder("foo")
+	eb.Add(context.Canceled)
+	eb.Add(io.ErrShortBuffer)
+	ExpectTrue(t, eb.HasError())
+	ExpectError(t, io.ErrShortBuffer, eb.Error())
+	ExpectError(t, context.Canceled, eb.Error())
 }
 
 func TestBuilderNested(t *testing.T) {
-	eb := NewBuilder("error occurred")
-	eb.Add(Failure("Action 1").With(Invalid("Inner", "1")).With(Invalid("Inner", "2")))
-	eb.Add(Failure("Action 2").With(Invalid("Inner", "3")))
+	eb := NewBuilder("action failed")
+	eb.Add(New("Action 1").Withf("Inner: 1").Withf("Inner: 2"))
+	eb.Add(New("Action 2").Withf("Inner: 3"))
 
-	got := eb.Build().String()
-	expected1 := (`error occurred:
-  - Action 1 failed:
-    - invalid Inner: 1
-    - invalid Inner: 2
-  - Action 2 failed:
-    - invalid Inner: 3`)
-	expected2 := (`error occurred:
-  - Action 1 failed:
-    - invalid Inner: "1"
-    - invalid Inner: "2"
-  - Action 2 failed:
-    - invalid Inner: "3"`)
-	ExpectEqualAny(t, got, []string{expected1, expected2})
-}
-
-func TestBuilderTo(t *testing.T) {
-	eb := NewBuilder("error occurred")
-	eb.Addf("abcd")
-
-	var err Error
-	eb.To(&err)
-	got := err.String()
-	expected := (`error occurred:
-  - abcd`)
-
+	got := eb.String()
+	expected := `action failed
+  • Action 1
+    • Inner: 1
+    • Inner: 2
+  • Action 2
+    • Inner: 3`
 	ExpectEqual(t, got, expected)
 }

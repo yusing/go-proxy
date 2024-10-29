@@ -6,7 +6,7 @@ import (
 	"time"
 
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type Trace struct {
@@ -88,7 +88,7 @@ func (m *Middleware) AddTracef(msg string, args ...any) *Trace {
 		return nil
 	}
 	return addTrace(&Trace{
-		Time:    U.FormatTime(time.Now()),
+		Time:    strutils.FormatTime(time.Now()),
 		Caller:  m.Fullname(),
 		Message: fmt.Sprintf(msg, args...),
 	})

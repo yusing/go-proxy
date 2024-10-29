@@ -2,12 +2,11 @@ package watcher
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	docker_events "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/watcher/events"
@@ -15,10 +14,11 @@ import (
 
 type (
 	DockerWatcher struct {
+		zerolog.Logger
+
 		host        string
 		client      D.Client
 		clientOwned bool
-		logrus.FieldLogger
 	}
 	DockerListOptions = docker_events.ListOptions
 )
@@ -47,7 +47,7 @@ var (
 	dockerWatcherRetryInterval = 3 * time.Second
 )
 
-func DockerrFilterContainer(nameOrID string) filters.KeyValuePair {
+func DockerFilterContainerNameID(nameOrID string) filters.KeyValuePair {
 	return filters.Arg("container", nameOrID)
 }
 
@@ -55,18 +55,21 @@ func NewDockerWatcher(host string) DockerWatcher {
 	return DockerWatcher{
 		host:        host,
 		clientOwned: true,
-		FieldLogger: (logrus.
-			WithField("module", "docker_watcher").
-			WithField("host", host)),
+		Logger: logger.With().
+			Str("type", "docker").
+			Str("host", host).
+			Logger(),
 	}
 }
 
 func NewDockerWatcherWithClient(client D.Client) DockerWatcher {
 	return DockerWatcher{
 		client: client,
-		FieldLogger: (logrus.
-			WithField("module", "docker_watcher").
-			WithField("host", client.DaemonHost()))}
+		Logger: logger.With().
+			Str("type", "docker").
+			Str("host", client.DaemonHost()).
+			Logger(),
+	}
 }
 
 func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Error) {
@@ -88,7 +91,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 		}()
 
 		if !w.client.Connected() {
-			var err E.Error
+			var err error
 			attempts := 0
 			for {
 				w.client, err = D.ConnectClient(w.host)
@@ -96,7 +99,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 					break
 				}
 				attempts++
-				errCh <- E.FailWith(fmt.Sprintf("docker connection attempt #%d", attempts), err)
+				errCh <- E.Errorf("docker connection attempt #%d: %w", attempts, err)
 				select {
 				case <-ctx.Done():
 					return
@@ -113,14 +116,14 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 		for {
 			select {
 			case <-ctx.Done():
-				if err := E.From(ctx.Err()); err != nil && err.IsNot(context.Canceled) {
+				if err := E.From(ctx.Err()); err != nil && !err.Is(context.Canceled) {
 					errCh <- err
 				}
 				return
 			case msg := <-cEventCh:
 				action, ok := events.DockerEventMap[msg.Action]
 				if !ok {
-					w.Debugf("ignored unknown docker event: %s for container %s", msg.Action, msg.Actor.Attributes["name"])
+					w.Debug().Msgf("ignored unknown docker event: %s for container %s", msg.Action, msg.Actor.Attributes["name"])
 					continue
 				}
 				event := Event{

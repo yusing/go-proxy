@@ -11,7 +11,7 @@ func (p *Provider) Setup() (err E.Error) {
 		if !err.Is(os.ErrNotExist) { // ignore if cert doesn't exist
 			return err
 		}
-		logger.Debug("obtaining cert due to error loading cert")
+		logger.Debug().Msg("obtaining cert due to error loading cert")
 		if err = p.ObtainCert(); err != nil {
 			return err
 		}
@@ -20,7 +20,7 @@ func (p *Provider) Setup() (err E.Error) {
 	p.ScheduleRenewal()
 
 	for _, expiry := range p.GetExpiries() {
-		logger.Infof("certificate expire on %s", expiry)
+		logger.Info().Msg("certificate expire on " + expiry.String())
 		break
 	}
 

@@ -8,11 +8,20 @@ import (
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 
 	"github.com/yusing/go-proxy/internal/config/types"
 )
 
 type Config types.AutoCertConfig
+
+var (
+	ErrMissingDomain   = E.New("missing field 'domains'")
+	ErrMissingEmail    = E.New("missing field 'email'")
+	ErrMissingProvider = E.New("missing field 'provider'")
+	ErrUnknownProvider = E.New("unknown provider")
+)
 
 func NewConfig(cfg *types.AutoCertConfig) *Config {
 	if cfg.CertPath == "" {
@@ -27,35 +36,36 @@ func NewConfig(cfg *types.AutoCertConfig) *Config {
 	return (*Config)(cfg)
 }
 
-func (cfg *Config) GetProvider() (provider *Provider, res E.Error) {
-	b := E.NewBuilder("unable to initialize autocert")
-	defer b.To(&res)
+func (cfg *Config) GetProvider() (*Provider, E.Error) {
+	b := E.NewBuilder("autocert errors")
 
 	if cfg.Provider != ProviderLocal {
 		if len(cfg.Domains) == 0 {
-			b.Addf("%s", "no domains specified")
+			b.Add(ErrMissingDomain)
 		}
 		if cfg.Provider == "" {
-			b.Addf("%s", "no provider specified")
+			b.Add(ErrMissingProvider)
 		}
 		if cfg.Email == "" {
-			b.Addf("%s", "no email specified")
+			b.Add(ErrMissingEmail)
 		}
 		// check if provider is implemented
 		_, ok := providersGenMap[cfg.Provider]
 		if !ok {
-			b.Addf("unknown provider: %q", cfg.Provider)
+			b.Add(ErrUnknownProvider.
+				Subject(cfg.Provider).
+				Withf(strutils.DoYouMean(utils.NearestField(cfg.Provider, providersGenMap))))
 		}
 	}
 
 	if b.HasError() {
-		return
+		return nil, b.Error()
 	}
 
-	privKey, err := E.Check(ecdsa.GenerateKey(elliptic.P256(), rand.Reader))
-	if err.HasError() {
-		b.Add(E.FailWith("generate private key", err))
-		return
+	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		b.Addf("generate private key: %w", err)
+		return nil, b.Error()
 	}
 
 	user := &User{
@@ -66,11 +76,9 @@ func (cfg *Config) GetProvider() (provider *Provider, res E.Error) {
 	legoCfg := lego.NewConfig(user)
 	legoCfg.Certificate.KeyType = certcrypto.RSA2048
 
-	provider = &Provider{
+	return &Provider{
 		cfg:     cfg,
 		user:    user,
 		legoCfg: legoCfg,
-	}
-
-	return
+	}, nil
 }

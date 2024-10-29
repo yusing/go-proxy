@@ -1,6 +1,8 @@
 package fields
 
 import (
+	"errors"
+	"fmt"
 	"regexp"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -13,12 +15,17 @@ type (
 
 var pathPattern = regexp.MustCompile(`^(/[-\w./]*({\$\})?|((GET|POST|DELETE|PUT|HEAD|OPTION) /[-\w./]*({\$\})?))$`)
 
-func ValidatePathPattern(s string) (PathPattern, E.Error) {
+var (
+	ErrEmptyPathPattern   = errors.New("path must not be empty")
+	ErrInvalidPathPattern = errors.New("invalid path pattern")
+)
+
+func ValidatePathPattern(s string) (PathPattern, error) {
 	if len(s) == 0 {
-		return "", E.Invalid("path", "must not be empty")
+		return "", ErrEmptyPathPattern
 	}
 	if !pathPattern.MatchString(s) {
-		return "", E.Invalid("path pattern", s)
+		return "", fmt.Errorf("%w %q", ErrInvalidPathPattern, s)
 	}
 	return PathPattern(s), nil
 }
@@ -27,13 +34,15 @@ func ValidatePathPatterns(s []string) (PathPatterns, E.Error) {
 	if len(s) == 0 {
 		return []PathPattern{"/"}, nil
 	}
+	errs := E.NewBuilder("invalid path patterns")
 	pp := make(PathPatterns, len(s))
 	for i, v := range s {
 		pattern, err := ValidatePathPattern(v)
 		if err != nil {
-			return nil, err
+			errs.Add(err)
+		} else {
+			pp[i] = pattern
 		}
-		pp[i] = pattern
 	}
-	return pp, nil
+	return pp, errs.Error()
 }

@@ -20,16 +20,13 @@ func ReloadServer() E.Error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		failure := E.Failure("server reload").Extraf("status code: %v", resp.StatusCode)
-		b, err := io.ReadAll(resp.Body)
+		failure := E.Errorf("server reload status %v", resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return failure.Extraf("unable to read response body: %s", err)
+			return failure.With(err)
 		}
-		reloadErr, ok := E.FromJSON(b)
-		if ok {
-			return E.Join("reload success, but server returned error", reloadErr)
-		}
-		return failure.Extraf("unable to read response body")
+		reloadErr := string(body)
+		return failure.Withf(reloadErr)
 	}
 	return nil
 }
@@ -42,7 +39,7 @@ func List[T any](what string) (_ T, outErr E.Error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		outErr = E.Failure("list "+what).Extraf("status code: %v", resp.StatusCode)
+		outErr = E.Errorf("list %s: failed, status %v", what, resp.StatusCode)
 		return
 	}
 	var res T

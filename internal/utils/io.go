@@ -83,20 +83,20 @@ func NewBidirectionalPipe(ctx context.Context, rw1 io.ReadWriteCloser, rw2 io.Re
 	}
 }
 
-func (p BidirectionalPipe) Start() error {
+func (p BidirectionalPipe) Start() E.Error {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	b := E.NewBuilder("bidirectional pipe error")
 	go func() {
-		b.AddE(p.pSrcDst.Start())
+		b.Add(p.pSrcDst.Start())
 		wg.Done()
 	}()
 	go func() {
-		b.AddE(p.pDstSrc.Start())
+		b.Add(p.pDstSrc.Start())
 		wg.Done()
 	}()
 	wg.Wait()
-	return b.Build().Error()
+	return b.Error()
 }
 
 // Copyright 2009 The Go Authors. All rights reserved.
@@ -152,18 +152,18 @@ func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {
 	return Copy(&ContextWriter{ctx: ctx, Writer: dst}, &ContextReader{ctx: ctx, Reader: src})
 }
 
-func LoadJSON[T any](path string, pointer *T) E.Error {
-	data, err := E.Check(os.ReadFile(path))
-	if err.HasError() {
+func LoadJSON[T any](path string, pointer *T) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
 		return err
 	}
-	return E.From(json.Unmarshal(data, pointer))
+	return json.Unmarshal(data, pointer)
 }
 
-func SaveJSON[T any](path string, pointer *T, perm os.FileMode) E.Error {
-	data, err := E.Check(json.Marshal(pointer))
-	if err.HasError() {
+func SaveJSON[T any](path string, pointer *T, perm os.FileMode) error {
+	data, err := json.Marshal(pointer)
+	if err != nil {
 		return err
 	}
-	return E.From(os.WriteFile(path, data, perm))
+	return os.WriteFile(path, data, perm)
 }

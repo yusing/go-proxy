@@ -1,6 +1,3 @@
 package fields
 
-type (
-	Alias    string
-	NewAlias = Alias
-)
+type Alias string

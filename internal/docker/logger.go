@@ -1,5 +1,7 @@
 package docker
 
-import "github.com/sirupsen/logrus"
+import (
+	"github.com/yusing/go-proxy/internal/logging"
+)
 
-var logger = logrus.WithField("module", "docker")
+var logger = logging.With().Str("module", "docker").Logger()

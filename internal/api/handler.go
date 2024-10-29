@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
-	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
 	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -38,7 +37,6 @@ func NewHandler() http.Handler {
 	mux.HandleFunc("PUT", "/v1/file/{filename...}", v1.SetFileContent)
 	mux.HandleFunc("GET", "/v1/stats", v1.Stats)
 	mux.HandleFunc("GET", "/v1/stats/ws", v1.StatsWS)
-	mux.HandleFunc("GET", "/v1/error_page", errorpage.GetHandleFunc())
 	return mux
 }
 
@@ -50,7 +48,7 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		host, _, _ := net.SplitHostPort(r.RemoteAddr)
 		if host != "127.0.0.1" && host != "localhost" && host != "[::1]" {
-			Logger.Warnf("blocked API request from %s", host)
+			LogWarn(r).Msgf("blocked API request from %s", host)
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}

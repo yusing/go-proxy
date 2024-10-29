@@ -16,7 +16,7 @@ func TestSetModifyResponse(t *testing.T) {
 
 	t.Run("set_options", func(t *testing.T) {
 		mr, err := ModifyResponse.m.WithOptionsClone(opts)
-		ExpectNoError(t, err.Error())
+		ExpectNoError(t, err)
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).SetHeaders, opts["set_headers"].(map[string]string))
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).AddHeaders, opts["add_headers"].(map[string]string))
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).HideHeaders, opts["hide_headers"].([]string))
@@ -26,7 +26,7 @@ func TestSetModifyResponse(t *testing.T) {
 		result, err := newMiddlewareTest(ModifyResponse.m, &testArgs{
 			middlewareOpt: opts,
 		})
-		ExpectNoError(t, err.Error())
+		ExpectNoError(t, err)
 		ExpectEqual(t, result.ResponseHeaders.Get("User-Agent"), "go-proxy/v0.5.0")
 		t.Log(result.ResponseHeaders.Get("Accept-Encoding"))
 		ExpectTrue(t, slices.Contains(result.ResponseHeaders.Values("Accept-Encoding"), "test-value"))

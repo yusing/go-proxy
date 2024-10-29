@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -29,6 +31,8 @@ type (
 		Options middleware.OptionsRaw `json:"options,omitempty" yaml:"options,omitempty"`
 	}
 	LoadBalancer struct {
+		zerolog.Logger
+
 		impl
 		*Config
 
@@ -48,6 +52,7 @@ const maxWeight weightType = 100
 
 func New(cfg *Config) *LoadBalancer {
 	lb := &LoadBalancer{
+		Logger: logger.With().Str("name", cfg.Link).Logger(),
 		Config: new(Config),
 		pool:   newPool(),
 		task:   task.DummyTask(),
@@ -102,7 +107,7 @@ func (lb *LoadBalancer) UpdateConfigIfNeeded(cfg *Config) {
 		if lb.Mode == Unset && cfg.Mode != Unset {
 			lb.Mode = cfg.Mode
 			if !lb.Mode.ValidateUpdate() {
-				logger.Warnf("loadbalancer %s: invalid mode %q, fallback to %q", cfg.Link, cfg.Mode, lb.Mode)
+				lb.Error().Msgf("invalid mode %q, fallback to %q", cfg.Mode, lb.Mode)
 			}
 			lb.updateImpl()
 		}
@@ -131,7 +136,11 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 
 	lb.rebalance()
 	lb.impl.OnAddServer(srv)
-	logger.Debugf("[add] %s to loadbalancer %s: %d servers available", srv.Name, lb.Link, lb.pool.Size())
+
+	lb.Debug().
+		Str("action", "add").
+		Str("server", srv.Name).
+		Msgf("%d servers available", lb.pool.Size())
 }
 
 func (lb *LoadBalancer) RemoveServer(srv *Server) {
@@ -148,13 +157,15 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 	lb.rebalance()
 	lb.impl.OnRemoveServer(srv)
 
+	lb.Debug().
+		Str("action", "remove").
+		Str("server", srv.Name).
+		Msgf("%d servers left", lb.pool.Size())
+
 	if lb.pool.Size() == 0 {
 		lb.task.Finish("no server left")
-		logger.Infof("loadbalancer %s stopped", lb.Link)
 		return
 	}
-
-	logger.Debugf("[remove] %s from loadbalancer %s: %d servers left", srv.Name, lb.Link, lb.pool.Size())
 }
 
 func (lb *LoadBalancer) rebalance() {
@@ -218,7 +229,7 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
 		defer cancel()
 		// send dummy request to wake all servers
-		var dummyRW *DummyResponseWriter
+		var dummyRW gphttp.DummyResponseWriter
 		for _, srv := range srvs {
 			// wake only if server implements Waker
 			_, ok := srv.handler.(idlewatcher.Waker)

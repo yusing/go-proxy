@@ -1,21 +1,31 @@
 package notif
 
 import (
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/task"
+	"github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type (
 	Dispatcher struct {
 		task      task.Task
-		logCh     chan *logrus.Entry
+		logCh     chan *LogMessage
 		providers F.Set[Provider]
+	}
+	LogMessage struct {
+		Level          zerolog.Level
+		Title, Message string
 	}
 )
 
 var dispatcher *Dispatcher
+
+var ErrUnknownNotifProvider = E.New("unknown notification provider")
+
+const dispatchErr = "notification dispatch error"
 
 func init() {
 	dispatcher = newNotifDispatcher()
@@ -25,7 +35,7 @@ func init() {
 func newNotifDispatcher() *Dispatcher {
 	return &Dispatcher{
 		task:      task.GlobalTask("notif dispatcher"),
-		logCh:     make(chan *logrus.Entry),
+		logCh:     make(chan *LogMessage),
 		providers: F.NewSet[Provider](),
 	}
 }
@@ -34,11 +44,13 @@ func GetDispatcher() *Dispatcher {
 	return dispatcher
 }
 
-func RegisterProvider(configSubTask task.Task, cfg ProviderConfig) (Provider, E.Error) {
+func RegisterProvider(configSubTask task.Task, cfg ProviderConfig) (Provider, error) {
 	name := configSubTask.Name()
 	createFunc, ok := Providers[name]
 	if !ok {
-		return nil, E.NotExist("provider", name)
+		return nil, ErrUnknownNotifProvider.
+			Subject(name).
+			Withf(strutils.DoYouMean(utils.NearestField(name, Providers)))
 	}
 	if provider, err := createFunc(cfg); err != nil {
 		return nil, err
@@ -53,7 +65,6 @@ func RegisterProvider(configSubTask task.Task, cfg ProviderConfig) (Provider, E.
 
 func (disp *Dispatcher) start() {
 	defer dispatcher.task.Finish("dispatcher stopped")
-	defer close(dispatcher.logCh)
 
 	for {
 		select {
@@ -65,36 +76,39 @@ func (disp *Dispatcher) start() {
 	}
 }
 
-func (disp *Dispatcher) dispatch(entry *logrus.Entry) {
+func (disp *Dispatcher) dispatch(msg *LogMessage) {
 	task := disp.task.Subtask("dispatch notif")
-	defer task.Finish("notifs dispatched")
+	defer task.Finish("notif dispatched")
 
-	errs := E.NewBuilder("errors sending notif")
+	errs := E.NewBuilder(dispatchErr)
 	disp.providers.RangeAllParallel(func(p Provider) {
-		if err := p.Send(task.Context(), entry); err != nil {
-			errs.Addf("%s: %s", p.Name(), err)
+		if err := p.Send(task.Context(), msg); err != nil {
+			errs.Add(E.PrependSubject(p.Name(), err))
 		}
 	})
-	if err := errs.Build(); err != nil {
-		logrus.Error("notif dispatcher failure: ", err)
+	if errs.HasError() {
+		E.LogError(errs.About(), errs.Error())
 	}
 }
 
-// Levels implements logrus.Hook.
-func (disp *Dispatcher) Levels() []logrus.Level {
-	return []logrus.Level{
-		logrus.WarnLevel,
-		logrus.ErrorLevel,
-		logrus.FatalLevel,
-		logrus.PanicLevel,
-	}
-}
+// Run implements zerolog.Hook.
+// func (disp *Dispatcher) Run(e *zerolog.Event, level zerolog.Level, message string) {
+// 	if strings.HasPrefix(message, dispatchErr) { // prevent recursion
+// 		return
+// 	}
+// 	switch level {
+// 	case zerolog.WarnLevel, zerolog.ErrorLevel, zerolog.FatalLevel, zerolog.PanicLevel:
+// 		disp.logCh <- &LogMessage{
+// 			Level:   level,
+// 			Message: message,
+// 		}
+// 	}
+// }
 
-// Fire implements logrus.Hook.
-func (disp *Dispatcher) Fire(entry *logrus.Entry) error {
-	if disp.providers.Size() == 0 {
-		return nil
+func Notify(title, msg string) {
+	dispatcher.logCh <- &LogMessage{
+		Level:   zerolog.InfoLevel,
+		Title:   title,
+		Message: msg,
 	}
-	disp.logCh <- entry
-	return nil
 }

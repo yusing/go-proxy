@@ -65,7 +65,7 @@ func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
 						go func() {
 							defer func() {
 								if err := recover(); err != nil {
-									e.onError(E.PanicRecv("onFlush: %s", err).Subject(e.task.Parent().Name()))
+									e.onError(E.Errorf("recovered panic in onFlush: %v", err).Subject(e.task.Parent().String()))
 								}
 							}()
 							e.onFlush(flushTask, queue)

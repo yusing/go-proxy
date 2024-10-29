@@ -7,13 +7,13 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
 	PT "github.com/yusing/go-proxy/internal/proxy/fields"
 	"github.com/yusing/go-proxy/internal/task"
@@ -33,6 +33,8 @@ type (
 		rp           *gphttp.ReverseProxy
 
 		task task.Task
+
+		l zerolog.Logger
 	}
 
 	SubdomainKey = PT.Alias
@@ -88,6 +90,10 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 		ReverseProxyEntry: entry,
 		rp:                rp,
 		task:              task.DummyTask(),
+		l: logger.With().
+			Str("type", string(entry.Scheme)).
+			Str("name", string(entry.Alias)).
+			Logger(),
 	}
 	return r, nil
 }
@@ -107,11 +113,11 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 	defer httpRoutesMu.Unlock()
 
 	if !entry.UseHealthCheck(r) && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
-		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
+		r.l.Error().Msg("healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled")
 		if r.HealthCheck == nil {
 			r.HealthCheck = new(health.HealthCheckConfig)
 		}
-		r.HealthCheck.Disable = true
+		r.HealthCheck.Disable = false
 	}
 
 	switch {
@@ -143,7 +149,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 
 	if r.HealthMon != nil {
 		if err := r.HealthMon.Start(r.task.Subtask("health monitor")); err != nil {
-			logrus.Warn(E.FailWith("health monitor", err))
+			E.LogWarn("health monitor error", err, &r.l)
 		}
 	}
 
@@ -209,15 +215,13 @@ func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	// With StatusNotFound, they won't know whether it's the path, or the subdomain that is invalid.
 	if err != nil {
 		if !middleware.ServeStaticErrorPageFile(w, r) {
-			logrus.Error(E.Failure("request").
-				Subjectf("%s %s", r.Method, r.URL.String()).
-				With(err))
+			logger.Err(err).Str("method", r.Method).Str("url", r.URL.String()).Msg("request")
 			errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
 			if ok {
 				w.WriteHeader(http.StatusNotFound)
 				w.Header().Set("Content-Type", "text/html; charset=utf-8")
 				if _, err := w.Write(errorPage); err != nil {
-					logrus.Errorf("failed to respond error page to %s: %s", r.RemoteAddr, err)
+					logger.Err(err).Msg("failed to write error page")
 				}
 			} else {
 				http.Error(w, err.Error(), http.StatusNotFound)

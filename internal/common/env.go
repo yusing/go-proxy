@@ -7,8 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -40,7 +38,7 @@ func GetEnvBool(key string, defaultValue bool) bool {
 	}
 	b, err := strconv.ParseBool(value)
 	if err != nil {
-		log.Fatalf("Invalid boolean value: %s", value)
+		log.Fatalf("env %s: invalid boolean value: %s", key, value)
 	}
 	return b
 }
@@ -57,7 +55,7 @@ func GetAddrEnv(key, defaultValue, scheme string) (addr, host, port, fullURL str
 	addr = GetEnv(key, defaultValue)
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		logrus.Fatalf("Invalid address: %s", addr)
+		log.Fatalf("env %s: invalid address: %s", key, addr)
 	}
 	if host == "" {
 		host = "localhost"

@@ -7,13 +7,16 @@ import (
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
 type DirWatcher struct {
+	zerolog.Logger
+
 	dir string
 	w   *fsnotify.Watcher
 
@@ -23,7 +26,7 @@ type DirWatcher struct {
 	eventCh chan Event
 	errCh   chan E.Error
 
-	ctx context.Context
+	task task.Task
 }
 
 // NewDirectoryWatcher returns a DirWatcher instance.
@@ -34,22 +37,26 @@ type DirWatcher struct {
 //
 // Note that the returned DirWatcher is not ready to use until the goroutine
 // started by NewDirectoryWatcher has finished.
-func NewDirectoryWatcher(ctx context.Context, dirPath string) *DirWatcher {
+func NewDirectoryWatcher(callerSubtask task.Task, dirPath string) *DirWatcher {
 	//! subdirectories are not watched
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
-		logrus.Panicf("unable to create fs watcher: %s", err)
+		logger.Panic().Err(err).Msg("unable to create fs watcher")
 	}
 	if err = w.Add(dirPath); err != nil {
-		logrus.Panicf("unable to create fs watcher: %s", err)
+		logger.Panic().Err(err).Msg("unable to create fs watcher")
 	}
 	helper := &DirWatcher{
+		Logger: logger.With().
+			Str("type", "dir").
+			Str("path", dirPath).
+			Logger(),
 		dir:     dirPath,
 		w:       w,
 		fwMap:   F.NewMapOf[string, *fileWatcher](),
 		eventCh: make(chan Event),
 		errCh:   make(chan E.Error),
-		ctx:     ctx,
+		task:    callerSubtask,
 	}
 	go helper.start()
 	return helper
@@ -73,14 +80,10 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 		eventCh: make(chan Event),
 		errCh:   make(chan E.Error),
 	}
-	go func() {
-		defer func() {
-			close(s.eventCh)
-			close(s.errCh)
-		}()
-		<-h.ctx.Done()
-		logrus.Debugf("file watcher %s stopped", relPath)
-	}()
+	h.task.OnFinished("close file watcher for "+relPath, func() {
+		close(s.eventCh)
+		close(s.errCh)
+	})
 	h.fwMap.Store(relPath, s)
 	return s
 }
@@ -88,11 +91,10 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 func (h *DirWatcher) start() {
 	defer close(h.eventCh)
 	defer h.w.Close()
-	defer logrus.Debugf("directory watcher %s stopped", h.dir)
 
 	for {
 		select {
-		case <-h.ctx.Done():
+		case <-h.task.Context().Done():
 			return
 		case fsEvent, ok := <-h.w.Events:
 			if !ok {
@@ -122,9 +124,9 @@ func (h *DirWatcher) start() {
 			// send event to directory watcher
 			select {
 			case h.eventCh <- msg:
-				logrus.Debugf("sent event to directory watcher %s", h.dir)
+				h.Debug().Msg("sent event to directory watcher")
 			default:
-				logrus.Debugf("failed to send event to directory watcher %s", h.dir)
+				h.Debug().Msg("failed to send event to directory watcher")
 			}
 
 			// send event to file watcher too
@@ -132,12 +134,12 @@ func (h *DirWatcher) start() {
 			if ok {
 				select {
 				case w.eventCh <- msg:
-					logrus.Debugf("sent event to file watcher %s", relPath)
+					h.Debug().Msg("sent event to file watcher " + relPath)
 				default:
-					logrus.Debugf("failed to send event to file watcher %s", relPath)
+					h.Debug().Msg("failed to send event to file watcher " + relPath)
 				}
 			} else {
-				logrus.Debugf("file watcher not found: %s", relPath)
+				h.Debug().Msg("file watcher not found: " + relPath)
 			}
 		case err := <-h.w.Errors:
 			if errors.Is(err, fsnotify.ErrClosed) {

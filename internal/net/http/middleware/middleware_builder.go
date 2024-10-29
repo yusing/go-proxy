@@ -4,64 +4,60 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"gopkg.in/yaml.v3"
 )
 
-func BuildMiddlewaresFromComposeFile(filePath string) (map[string]*Middleware, E.Error) {
+func BuildMiddlewaresFromComposeFile(filePath string, eb *E.Builder) map[string]*Middleware {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, E.FailWith("read middleware compose file", err)
+		eb.Add(err)
+		return nil
 	}
-	return BuildMiddlewaresFromYAML(fileContent)
+	return BuildMiddlewaresFromYAML(path.Base(filePath), fileContent, eb)
 }
 
-func BuildMiddlewaresFromYAML(data []byte) (middlewares map[string]*Middleware, outErr E.Error) {
-	b := E.NewBuilder("middlewares compile errors")
-	defer b.To(&outErr)
-
+func BuildMiddlewaresFromYAML(source string, data []byte, eb *E.Builder) map[string]*Middleware {
 	var rawMap map[string][]map[string]any
 	err := yaml.Unmarshal(data, &rawMap)
 	if err != nil {
-		b.Add(E.FailWith("yaml unmarshal", err))
-		return
+		eb.Add(err)
+		return nil
 	}
-	middlewares = make(map[string]*Middleware)
+	middlewares := make(map[string]*Middleware)
 	for name, defs := range rawMap {
-		chainErr := E.NewBuilder("%s", name)
+		chainErr := E.NewBuilder("")
 		chain := make([]*Middleware, 0, len(defs))
 		for i, def := range defs {
 			if def["use"] == nil || def["use"] == "" {
-				chainErr.Add(E.Missing("use").Subjectf(".%d", i))
+				chainErr.Addf("item %d: missing field 'use'", i)
 				continue
 			}
 			baseName := def["use"].(string)
-			base, ok := Get(baseName)
-			if !ok {
-				base, ok = middlewares[baseName]
-				if !ok {
-					chainErr.Add(E.NotExist("middleware", baseName).Subjectf(".%d", i))
-					continue
-				}
+			base, err := Get(baseName)
+			if err != nil {
+				chainErr.Add(err.Subjectf("%s[%d]", name, i))
+				continue
 			}
 			delete(def, "use")
 			m, err := base.WithOptionsClone(def)
 			if err != nil {
-				chainErr.Add(err.Subjectf("item%d", i))
+				chainErr.Add(err.Subjectf("%s[%d]", name, i))
 				continue
 			}
 			m.name = fmt.Sprintf("%s[%d]", name, i)
 			chain = append(chain, m)
 		}
 		if chainErr.HasError() {
-			b.Add(chainErr.Build())
+			eb.Add(chainErr.Error().Subject(source))
 		} else {
 			middlewares[name+"@file"] = BuildMiddlewareFromChain(name, chain)
 		}
 	}
-	return
+	return middlewares
 }
 
 // TODO: check conflict or duplicates.
@@ -86,11 +82,13 @@ func BuildMiddlewareFromChain(name string, chain []*Middleware) *Middleware {
 	}
 	if len(modResps) > 0 {
 		m.modifyResponse = func(res *Response) error {
-			b := E.NewBuilder("errors in middleware")
+			errs := E.NewBuilder("modify response errors")
 			for _, mr := range modResps {
-				b.Add(E.From(mr.modifyResponse(res)).Subject(mr.name))
+				if err := mr.modifyResponse(res); err != nil {
+					errs.Add(E.From(err).Subject(mr.name))
+				}
 			}
-			return b.Build().Error()
+			return errs.Error()
 		}
 	}
 

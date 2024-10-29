@@ -11,20 +11,22 @@ import (
 )
 
 type ipHash struct {
+	*LoadBalancer
+
 	realIP *middleware.Middleware
 	pool   servers
 	mu     sync.Mutex
 }
 
 func (lb *LoadBalancer) newIPHash() impl {
-	impl := new(ipHash)
+	impl := &ipHash{LoadBalancer: lb}
 	if len(lb.Options) == 0 {
 		return impl
 	}
 	var err E.Error
 	impl.realIP, err = middleware.NewRealIP(lb.Options)
 	if err != nil {
-		logger.Errorf("loadbalancer %s invalid real_ip options: %s, ignoring", lb.Link, err)
+		E.LogError("invalid real_ip options, ignoring", err, &impl.Logger)
 	}
 	return impl
 }
@@ -70,7 +72,7 @@ func (impl *ipHash) serveHTTP(rw http.ResponseWriter, r *http.Request) {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		http.Error(rw, "Internal error", http.StatusInternalServerError)
-		logger.Errorf("invalid remote address %s: %s", r.RemoteAddr, err)
+		impl.Err(err).Msg("invalid remote address " + r.RemoteAddr)
 		return
 	}
 	idx := hashIP(ip) % uint32(len(impl.pool))

@@ -1,11 +1,10 @@
 package provider
 
 import (
-	"errors"
 	"os"
 	"path"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
@@ -17,53 +16,49 @@ import (
 type FileProvider struct {
 	fileName string
 	path     string
+	l        zerolog.Logger
 }
 
-func FileProviderImpl(filename string) (ProviderImpl, E.Error) {
+func FileProviderImpl(filename string) (ProviderImpl, error) {
 	impl := &FileProvider{
 		fileName: filename,
 		path:     path.Join(common.ConfigBasePath, filename),
+		l:        logger.With().Str("type", "file").Str("name", filename).Logger(),
 	}
 	_, err := os.Stat(impl.path)
-	switch {
-	case err == nil:
-		return impl, nil
-	case errors.Is(err, os.ErrNotExist):
-		return nil, E.NotExist("file", impl.path)
-	default:
-		return nil, E.UnexpectedError(err)
+	if err != nil {
+		return nil, err
 	}
+	return impl, nil
 }
 
 func Validate(data []byte) E.Error {
 	return U.ValidateYaml(U.GetSchema(common.FileProviderSchemaPath), data)
 }
 
-func (p FileProvider) String() string {
+func (p *FileProvider) String() string {
 	return p.fileName
 }
 
-func (p *FileProvider) LoadRoutesImpl() (routes R.Routes, res E.Error) {
-	routes = R.NewRoutes()
+func (p *FileProvider) Logger() *zerolog.Logger {
+	return &p.l
+}
 
-	b := E.NewBuilder("validation failure")
-	defer b.To(&res)
-
+func (p *FileProvider) loadRoutesImpl() (R.Routes, E.Error) {
+	routes := R.NewRoutes()
 	entries := entry.NewProxyEntries()
 
-	data, err := E.Check(os.ReadFile(p.path))
+	data, err := os.ReadFile(p.path)
 	if err != nil {
-		b.Add(E.FailWith("read file", err))
-		return
+		return routes, E.From(err)
 	}
 
-	if err = entries.UnmarshalFromYAML(data); err != nil {
-		b.Add(err)
-		return
+	if err := entries.UnmarshalFromYAML(data); err != nil {
+		return routes, E.From(err)
 	}
 
 	if err := Validate(data); err != nil {
-		logrus.Warn(err)
+		E.LogWarn(p.fileName+": validation failure", err)
 	}
 
 	return R.FromEntries(entries)

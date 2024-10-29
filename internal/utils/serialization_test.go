@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"errors"
 	"reflect"
 	"testing"
 
@@ -37,14 +38,14 @@ var testStructSerialized = map[string]any{
 
 func TestSerialize(t *testing.T) {
 	s, err := Serialize(testStruct)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectDeepEqual(t, s, testStructSerialized)
 }
 
 func TestDeserialize(t *testing.T) {
 	var s S
 	err := Deserialize(testStructSerialized, &s)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectDeepEqual(t, s, testStruct)
 }
 
@@ -65,42 +66,42 @@ func TestStringIntConvert(t *testing.T) {
 	ok, err := ConvertString(s, reflect.ValueOf(&test.i8))
 
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.i8, int8(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.i16))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.i16, int16(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.i32))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.i32, int32(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.i64))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.i64, int64(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.u8))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.u8, uint8(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.u16))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.u16, uint16(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.u32))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.u32, uint32(127))
 
 	ok, err = ConvertString(s, reflect.ValueOf(&test.u64))
 	ExpectTrue(t, ok)
-	ExpectNoError(t, err.Error())
+	ExpectNoError(t, err)
 	ExpectEqual(t, test.u64, uint64(127))
 }
 
@@ -113,6 +114,8 @@ type testType struct {
 	bar string
 }
 
+var errInvalid = errors.New("invalid input type")
+
 func (c *testType) ConvertFrom(v any) E.Error {
 	switch v := v.(type) {
 	case string:
@@ -122,14 +125,14 @@ func (c *testType) ConvertFrom(v any) E.Error {
 		c.foo = v
 		return nil
 	default:
-		return E.Invalid("input type", v)
+		return E.Errorf("%w %T", errInvalid, v)
 	}
 }
 
 func TestConvertor(t *testing.T) {
 	t.Run("string", func(t *testing.T) {
 		m := new(testModel)
-		ExpectNoError(t, Deserialize(map[string]any{"Test": "bar"}, m).Error())
+		ExpectNoError(t, Deserialize(map[string]any{"Test": "bar"}, m))
 
 		ExpectEqual(t, m.Test.foo, 0)
 		ExpectEqual(t, m.Test.bar, "bar")
@@ -137,7 +140,7 @@ func TestConvertor(t *testing.T) {
 
 	t.Run("int", func(t *testing.T) {
 		m := new(testModel)
-		ExpectNoError(t, Deserialize(map[string]any{"Test": 123}, m).Error())
+		ExpectNoError(t, Deserialize(map[string]any{"Test": 123}, m))
 
 		ExpectEqual(t, m.Test.foo, 123)
 		ExpectEqual(t, m.Test.bar, "")
@@ -145,6 +148,6 @@ func TestConvertor(t *testing.T) {
 
 	t.Run("invalid", func(t *testing.T) {
 		m := new(testModel)
-		ExpectError(t, E.ErrInvalid, Deserialize(map[string]any{"Test": 123.456}, m).Error())
+		ExpectError(t, errInvalid, Deserialize(map[string]any{"Test": 123.456}, m))
 	})
 }

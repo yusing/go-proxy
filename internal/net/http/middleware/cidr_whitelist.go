@@ -15,9 +15,9 @@ type cidrWhitelist struct {
 }
 
 type cidrWhitelistOpts struct {
-	Allow      []*types.CIDR
-	StatusCode int
-	Message    string
+	Allow      []*types.CIDR `json:"allow"`
+	StatusCode int           `json:"statusCode"`
+	Message    string        `json:"message"`
 
 	cachedAddr F.Map[string, bool] // cache for trusted IPs
 }
@@ -47,7 +47,7 @@ func NewCIDRWhitelist(opts OptionsRaw) (*Middleware, E.Error) {
 		return nil, err
 	}
 	if len(wl.cidrWhitelistOpts.Allow) == 0 {
-		return nil, E.Missing("allow range")
+		return nil, E.New("no allowed CIDRs")
 	}
 	return wl.m, nil
 }

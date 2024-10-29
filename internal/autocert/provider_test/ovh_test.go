@@ -45,6 +45,6 @@ oauth2_config:
 	testYaml = testYaml[1:] // remove first \n
 	opt := make(map[string]any)
 	ExpectNoError(t, yaml.Unmarshal([]byte(testYaml), opt))
-	ExpectNoError(t, U.Deserialize(opt, cfg).Error())
+	ExpectNoError(t, U.Deserialize(opt, cfg))
 	ExpectDeepEqual(t, cfg, cfgExpected)
 }

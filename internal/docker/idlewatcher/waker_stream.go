@@ -7,7 +7,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -16,25 +16,25 @@ func (w *Watcher) Addr() net.Addr {
 	return w.stream.Addr()
 }
 
+// Setup implements types.Stream.
 func (w *Watcher) Setup() error {
 	return w.stream.Setup()
 }
 
 // Accept implements types.Stream.
-func (w *Watcher) Accept() (conn net.Conn, err error) {
+func (w *Watcher) Accept() (conn types.StreamConn, err error) {
 	conn, err = w.stream.Accept()
 	if err != nil {
-		logrus.Errorf("accept failed with error: %s", err)
 		return
 	}
-	if err := w.wakeFromStream(); err != nil {
-		w.l.Error(err)
+	if wakeErr := w.wakeFromStream(); wakeErr != nil {
+		w.WakeError(wakeErr).Msg("error waking from stream")
 	}
 	return
 }
 
 // Handle implements types.Stream.
-func (w *Watcher) Handle(conn net.Conn) error {
+func (w *Watcher) Handle(conn types.StreamConn) error {
 	if err := w.wakeFromStream(); err != nil {
 		return err
 	}
@@ -54,11 +54,11 @@ func (w *Watcher) wakeFromStream() error {
 		return nil
 	}
 
-	w.l.Debug("wake signal received")
+	w.WakeDebug().Msg("wake signal received")
 	wakeErr := w.wakeIfStopped()
 	if wakeErr != nil {
-		wakeErr = fmt.Errorf("wake failed with error: %w", wakeErr)
-		w.l.Error(wakeErr)
+		wakeErr = fmt.Errorf("%s failed: %w", w.String(), wakeErr)
+		w.WakeError(wakeErr).Msg("wake failed")
 		return wakeErr
 	}
 
@@ -69,18 +69,18 @@ func (w *Watcher) wakeFromStream() error {
 		select {
 		case <-w.task.Context().Done():
 			cause := w.task.FinishCause()
-			w.l.Debugf("wake canceled: %s", cause)
+			w.WakeDebug().Str("cause", cause.Error()).Msg("canceled")
 			return cause
 		case <-ctx.Done():
 			cause := context.Cause(ctx)
-			w.l.Debugf("wake canceled: %s", cause)
+			w.WakeDebug().Str("cause", cause.Error()).Msg("timeout")
 			return cause
 		default:
 		}
 
 		if w.Status() == health.StatusHealthy {
 			w.resetIdleTimer()
-			logrus.Infof("container %s is ready, passing through to %s", w.String(), w.hc.URL())
+			w.Debug().Msg("container is ready, passing through to " + w.hc.URL().String())
 			return nil
 		}
 

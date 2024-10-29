@@ -1,6 +1,7 @@
 package types
 
 import (
+	"errors"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/docker"
@@ -30,7 +31,7 @@ const (
 	StopMethodKill  StopMethod = "kill"
 )
 
-func ValidateConfig(cont *docker.Container) (cfg *Config, res E.Error) {
+func ValidateConfig(cont *docker.Container) (*Config, E.Error) {
 	if cont == nil {
 		return nil, nil
 	}
@@ -44,26 +45,16 @@ func ValidateConfig(cont *docker.Container) (cfg *Config, res E.Error) {
 		}, nil
 	}
 
-	b := E.NewBuilder("invalid idlewatcher config")
-	defer b.To(&res)
+	errs := E.NewBuilder("invalid idlewatcher config")
 
-	idleTimeout, err := validateDurationPostitive(cont.IdleTimeout)
-	b.Add(err.Subjectf("%s", "idle_timeout"))
+	idleTimeout := E.Collect(errs, validateDurationPostitive, cont.IdleTimeout)
+	wakeTimeout := E.Collect(errs, validateDurationPostitive, cont.WakeTimeout)
+	stopTimeout := E.Collect(errs, validateDurationPostitive, cont.StopTimeout)
+	stopMethod := E.Collect(errs, validateStopMethod, cont.StopMethod)
+	signal := E.Collect(errs, validateSignal, cont.StopSignal)
 
-	wakeTimeout, err := validateDurationPostitive(cont.WakeTimeout)
-	b.Add(err.Subjectf("%s", "wake_timeout"))
-
-	stopTimeout, err := validateDurationPostitive(cont.StopTimeout)
-	b.Add(err.Subjectf("%s", "stop_timeout"))
-
-	stopMethod, err := validateStopMethod(cont.StopMethod)
-	b.Add(err)
-
-	signal, err := validateSignal(cont.StopSignal)
-	b.Add(err)
-
-	if err := b.Build(); err != nil {
-		return
+	if errs.HasError() {
+		return nil, errs.Error()
 	}
 
 	return &Config{
@@ -80,33 +71,33 @@ func ValidateConfig(cont *docker.Container) (cfg *Config, res E.Error) {
 	}, nil
 }
 
-func validateDurationPostitive(value string) (time.Duration, E.Error) {
+func validateDurationPostitive(value string) (time.Duration, error) {
 	d, err := time.ParseDuration(value)
 	if err != nil {
-		return 0, E.Invalid("duration", value).With(err)
+		return 0, err
 	}
 	if d < 0 {
-		return 0, E.Invalid("duration", "negative value")
+		return 0, errors.New("duration must be positive")
 	}
 	return d, nil
 }
 
-func validateSignal(s string) (Signal, E.Error) {
+func validateSignal(s string) (Signal, error) {
 	switch s {
 	case "", "SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT",
 		"INT", "TERM", "HUP", "QUIT":
 		return Signal(s), nil
 	}
 
-	return "", E.Invalid("signal", s)
+	return "", errors.New("invalid signal " + s)
 }
 
-func validateStopMethod(s string) (StopMethod, E.Error) {
+func validateStopMethod(s string) (StopMethod, error) {
 	sm := StopMethod(s)
 	switch sm {
 	case StopMethodPause, StopMethodStop, StopMethodKill:
 		return sm, nil
 	default:
-		return "", E.Invalid("stop_method", sm)
+		return "", errors.New("invalid stop method " + s)
 	}
 }

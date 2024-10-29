@@ -7,9 +7,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
-	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
@@ -20,19 +18,24 @@ func (w *Watcher) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if !shouldNext {
 		return
 	}
-	w.rp.ServeHTTP(rw, r)
+	select {
+	case <-r.Context().Done():
+		return
+	default:
+		w.rp.ServeHTTP(rw, r)
+	}
 }
 
 func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldNext bool) {
 	w.resetIdleTimer()
 
-	if r.Body != nil {
-		defer r.Body.Close()
-	}
-
 	// pass through if container is already ready
 	if w.ready.Load() {
 		return true
+	}
+
+	if r.Body != nil {
+		defer r.Body.Close()
 	}
 
 	accept := gphttp.GetAccept(r.Header)
@@ -49,23 +52,22 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 		rw.Header().Add("Cache-Control", "must-revalidate")
 		rw.Header().Add("Connection", "close")
 		if _, err := rw.Write(body); err != nil {
-			w.l.Errorf("error writing http response: %s", err)
+			w.Err(err).Msg("error writing http response")
 		}
-		return
+		return false
 	}
 
 	ctx, cancel := context.WithTimeoutCause(r.Context(), w.WakeTimeout, errors.New("wake timeout"))
 	defer cancel()
 
-	checkCanceled := func() bool {
+	checkCanceled := func() (canceled bool) {
 		select {
-		case <-w.task.Context().Done():
-			w.l.Debugf("wake canceled: %s", context.Cause(w.task.Context()))
-			http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
-			return true
 		case <-ctx.Done():
-			w.l.Debugf("wake canceled: %s", context.Cause(ctx))
-			http.Error(rw, "Waking timed out", http.StatusGatewayTimeout)
+			w.WakeDebug().Str("cause", context.Cause(ctx).Error()).Msg("canceled")
+			return true
+		case <-w.task.Context().Done():
+			w.WakeDebug().Str("cause", w.task.FinishCause().Error()).Msg("canceled")
+			http.Error(rw, "Service unavailable", http.StatusServiceUnavailable)
 			return true
 		default:
 			return false
@@ -76,12 +78,12 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 		return false
 	}
 
-	w.l.Debug("wake signal received")
+	w.WakeTrace().Msg("signal received")
 	err := w.wakeIfStopped()
 	if err != nil {
-		w.l.Error(E.FailWith("wake", err))
+		w.WakeError(err).Send()
 		http.Error(rw, "Error waking container", http.StatusInternalServerError)
-		return
+		return false
 	}
 
 	for {
@@ -92,11 +94,11 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 		if w.Status() == health.StatusHealthy {
 			w.resetIdleTimer()
 			if isCheckRedirect {
-				logrus.Debugf("container %s is ready, redirecting to %s ...", w.String(), w.hc.URL())
+				w.Debug().Msgf("redirecting to %s ...", w.hc.URL())
 				rw.WriteHeader(http.StatusOK)
-				return
+				return false
 			}
-			logrus.Infof("container %s is ready, passing through to %s", w.String(), w.hc.URL())
+			w.Debug().Msgf("passing through to %s ...", w.hc.URL())
 			return true
 		}
 

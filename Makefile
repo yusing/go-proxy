@@ -65,3 +65,6 @@ debug-list-containers:
 ci-test:
 	mkdir -p /tmp/artifacts
 	act -n --artifact-server-path /tmp/artifacts -s GITHUB_TOKEN="$$(gh auth token)"
+
+cloc:
+	cloc --not-match-f '_test.go$$' cmd internal pkg

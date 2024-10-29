@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"net/http"
 	"os"
@@ -10,15 +9,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/api"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	"github.com/yusing/go-proxy/internal/notif"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
 	"github.com/yusing/go-proxy/internal/task"
@@ -33,44 +31,26 @@ func main() {
 		return
 	}
 
-	l := logrus.WithField("module", "main")
-	timeFmt := "01-02 15:04:05"
-	fullTS := true
-
-	if common.IsTrace {
-		logrus.SetLevel(logrus.TraceLevel)
-		timeFmt = "04:05"
-		fullTS = false
-	} else if common.IsDebug {
-		logrus.SetLevel(logrus.DebugLevel)
-	}
-
-	if args.Command != common.CommandStart {
-		logrus.SetOutput(io.Discard)
-	} else {
-		logrus.SetFormatter(&logrus.TextFormatter{
-			DisableSorting:  true,
-			FullTimestamp:   fullTS,
-			ForceColors:     true,
-			TimestampFormat: timeFmt,
-		})
-		logrus.Infof("go-proxy version %s", pkg.GetVersion())
-		logrus.AddHook(notif.GetDispatcher())
-	}
-
 	if args.Command == common.CommandReload {
 		if err := query.ReloadServer(); err != nil {
-			log.Fatal(err)
+			E.LogFatal("server reload error", err)
 		}
-		log.Print("ok")
+		logging.Info().Msg("ok")
 		return
 	}
 
-	// exit if only validate config
+	if args.Command == common.CommandStart {
+		logging.Info().Msgf("go-proxy version %s", pkg.GetVersion())
+		logging.Trace().Msg("trace enabled")
+		// logging.AddHook(notif.GetDispatcher())
+	} else {
+		logging.DiscardLogger()
+	}
+
 	if args.Command == common.CommandValidate {
 		data, err := os.ReadFile(common.ConfigPath)
 		if err == nil {
-			err = config.Validate(data).Error()
+			err = config.Validate(data)
 		}
 		if err != nil {
 			log.Fatal("config error: ", err)
@@ -88,7 +68,7 @@ func main() {
 	var cfg *config.Config
 	var err E.Error
 	if cfg, err = config.Load(); err != nil {
-		logrus.Warn(err)
+		E.LogWarn("errors in config", err)
 	}
 
 	switch args.Command {
@@ -145,10 +125,10 @@ func main() {
 	autocert := config.GetAutoCertProvider()
 	if autocert != nil {
 		if err := autocert.Setup(); err != nil {
-			l.Fatal(err)
+			E.LogFatal("autocert setup error", err)
 		}
 	} else {
-		l.Info("autocert not configured")
+		logging.Info().Msg("autocert not configured")
 	}
 
 	proxyServer := server.InitProxyServer(server.Options{
@@ -174,7 +154,7 @@ func main() {
 	<-sig
 
 	// grafully shutdown
-	logrus.Info("shutting down")
+	logging.Info().Msg("shutting down")
 	task.CancelGlobalContext()
 	task.GlobalContextWait(time.Second * time.Duration(config.Value().TimeoutShutdown))
 }
@@ -182,15 +162,15 @@ func main() {
 func prepareDirectory(dir string) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0o755); err != nil {
-			logrus.Fatalf("failed to create directory %s: %v", dir, err)
+			logging.Fatal().Msgf("failed to create directory %s: %v", dir, err)
 		}
 	}
 }
 
 func printJSON(obj any) {
-	j, err := E.Check(json.MarshalIndent(obj, "", "  "))
+	j, err := json.MarshalIndent(obj, "", "  ")
 	if err != nil {
-		logrus.Fatal(err)
+		logging.Fatal().Err(err).Send()
 	}
 	rawLogger := log.New(os.Stdout, "", 0)
 	rawLogger.Printf("%s", j) // raw output for convenience using "jq"

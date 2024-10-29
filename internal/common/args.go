@@ -3,8 +3,7 @@ package common
 import (
 	"flag"
 	"fmt"
-
-	"github.com/sirupsen/logrus"
+	"log"
 )
 
 type Args struct {
@@ -44,7 +43,7 @@ func GetArgs() Args {
 	flag.Parse()
 	args.Command = flag.Arg(0)
 	if err := validateArg(args.Command); err != nil {
-		logrus.Fatal(err)
+		log.Fatalf("invalid command: %s", err)
 	}
 	return args
 }
@@ -55,5 +54,5 @@ func validateArg(arg string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid command: %s", arg)
+	return fmt.Errorf("invalid command %q", arg)
 }

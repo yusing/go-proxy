@@ -1,5 +1,5 @@
 package loadbalancer
 
-import "github.com/sirupsen/logrus"
+import "github.com/yusing/go-proxy/internal/logging"
 
-var logger = logrus.WithField("module", "load_balancer")
+var logger = logging.With().Str("module", "load_balancer").Logger()

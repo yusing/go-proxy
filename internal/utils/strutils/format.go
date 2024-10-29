@@ -1,9 +1,11 @@
-package utils
+package strutils
 
 import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
 func FormatDuration(d time.Duration) string {
@@ -53,6 +55,10 @@ func ParseBool(s string) bool {
 	default:
 		return false
 	}
+}
+
+func DoYouMean(s string) string {
+	return "Did you mean " + ansi.HighlightGreen + s + ansi.Reset + "?"
 }
 
 func pluralize(n int64) string {

@@ -1,9 +1,9 @@
 package fields
 
 import (
+	"errors"
 	"testing"
 
-	E "github.com/yusing/go-proxy/internal/error"
 	U "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -38,10 +38,10 @@ var invalidPatterns = []string{
 func TestPathPatternRegex(t *testing.T) {
 	for _, pattern := range validPatterns {
 		_, err := ValidatePathPattern(pattern)
-		U.ExpectNoError(t, err.Error())
+		U.ExpectNoError(t, err)
 	}
 	for _, pattern := range invalidPatterns {
 		_, err := ValidatePathPattern(pattern)
-		U.ExpectError2(t, pattern, E.ErrInvalid, err.Error())
+		U.ExpectTrue(t, errors.Is(err, ErrInvalidPathPattern))
 	}
 }

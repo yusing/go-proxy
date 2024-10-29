@@ -2,14 +2,15 @@ package config
 
 import (
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/route"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
@@ -31,7 +32,7 @@ type Config struct {
 var (
 	instance   *Config
 	cfgWatcher watcher.Watcher
-	logger     = logrus.WithField("module", "config")
+	logger     = logging.With().Str("module", "config").Logger()
 	reloadMu   sync.Mutex
 )
 
@@ -80,7 +81,7 @@ func WatchChanges() {
 		configEventFlushInterval,
 		OnConfigChange,
 		func(err E.Error) {
-			logger.Error(err)
+			E.LogError("config reload error", err, &logger)
 		},
 	)
 	eventQueue.Start(cfgWatcher.Events(task.Context()))
@@ -93,15 +94,16 @@ func OnConfigChange(flushTask task.Task, ev []events.Event) {
 	// just reload once and check the last event
 	switch ev[len(ev)-1].Action {
 	case events.ActionFileRenamed:
-		logger.Warn(cfgRenameWarn)
+		logger.Warn().Msg(cfgRenameWarn)
 		return
 	case events.ActionFileDeleted:
-		logger.Warn(cfgDeleteWarn)
+		logger.Warn().Msg(cfgDeleteWarn)
 		return
 	}
 
 	if err := Reload(); err != nil {
-		logger.Error(err)
+		// recovered in event queue
+		panic(err)
 	}
 }
 
@@ -138,63 +140,57 @@ func (cfg *Config) Task() task.Task {
 }
 
 func (cfg *Config) StartProxyProviders() {
-	b := E.NewBuilder("errors starting providers")
-	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
-		b.Add(p.Start(cfg.task.Subtask(p.String())))
-	})
+	errs := cfg.providers.CollectErrorsParallel(
+		func(_ string, p *proxy.Provider) error {
+			subtask := cfg.task.Subtask(p.String())
+			return p.Start(subtask)
+		})
 
-	if b.HasError() {
-		logger.Error(b.Build())
+	if err := E.Join(errs...); err != nil {
+		E.LogError("route provider errors", err, &logger)
 	}
 }
 
-func (cfg *Config) load() (res E.Error) {
-	errs := E.NewBuilder("errors loading config")
-	defer errs.To(&res)
+func (cfg *Config) load() E.Error {
+	const errMsg = "config load error"
 
-	logger.Debug("loading config")
-	defer logger.Debug("loaded config")
-
-	data, err := E.Check(os.ReadFile(common.ConfigPath))
+	data, err := os.ReadFile(common.ConfigPath)
 	if err != nil {
-		errs.Add(E.FailWith("read config", err))
-		logrus.Fatal(errs.Build())
+		E.LogFatal(errMsg, err, &logger)
 	}
 
 	if !common.NoSchemaValidation {
-		if err = Validate(data); err != nil {
-			errs.Add(E.FailWith("schema validation", err))
-			logrus.Fatal(errs.Build())
+		if err := Validate(data); err != nil {
+			E.LogFatal(errMsg, err, &logger)
 		}
 	}
 
 	model := types.DefaultConfig()
 	if err := E.From(yaml.Unmarshal(data, model)); err != nil {
-		errs.Add(E.FailWith("parse config", err))
-		logrus.Fatal(errs.Build())
+		E.LogFatal(errMsg, err, &logger)
 	}
 
 	// errors are non fatal below
+	errs := E.NewBuilder(errMsg)
 	errs.Add(cfg.initNotification(model.Providers.Notification))
 	errs.Add(cfg.initAutoCert(&model.AutoCert))
 	errs.Add(cfg.loadRouteProviders(&model.Providers))
 
 	cfg.value = model
 	route.SetFindMuxDomains(model.MatchDomains)
-	return
+	return errs.Error()
 }
 
 func (cfg *Config) initNotification(notifCfgMap types.NotificationConfigMap) (err E.Error) {
 	if len(notifCfgMap) == 0 {
 		return
 	}
-	errs := E.NewBuilder("errors initializing notification providers")
-
+	errs := E.NewBuilder("notification providers load errors")
 	for name, notifCfg := range notifCfgMap {
 		_, err := notif.RegisterProvider(cfg.task.Subtask(name), notifCfg)
 		errs.Add(err)
 	}
-	return errs.Build()
+	return errs.Error()
 }
 
 func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error) {
@@ -203,40 +199,45 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error)
 	}
 
 	cfg.autocertProvider, err = autocert.NewConfig(autocertCfg).GetProvider()
-	if err != nil {
-		err = E.FailWith("autocert provider", err)
-	}
 	return
 }
 
-func (cfg *Config) loadRouteProviders(providers *types.Providers) (outErr E.Error) {
+func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
 	subtask := cfg.task.Subtask("load route providers")
 	defer subtask.Finish("done")
 
-	errs := E.NewBuilder("errors loading route providers")
-	results := E.NewBuilder("loaded providers")
-	defer errs.To(&outErr)
+	errs := E.NewBuilder("route provider errors")
+	results := E.NewBuilder("loaded route providers")
 
+	lenLongestName := 0
 	for _, filename := range providers.Files {
 		p, err := proxy.NewFileProvider(filename)
 		if err != nil {
-			errs.Add(err)
+			errs.Add(E.PrependSubject(filename, err))
 			continue
 		}
 		cfg.providers.Store(p.GetName(), p)
-		errs.Add(p.LoadRoutes().Subject(filename))
-		results.Addf("%d routes from %s", p.NumRoutes(), p.String())
+		if len(p.GetName()) > lenLongestName {
+			lenLongestName = len(p.GetName())
+		}
 	}
 	for name, dockerHost := range providers.Docker {
 		p, err := proxy.NewDockerProvider(name, dockerHost)
 		if err != nil {
-			errs.Add(err.Subjectf("%s (%s)", name, dockerHost))
+			errs.Add(E.PrependSubject(name, err))
 			continue
 		}
 		cfg.providers.Store(p.GetName(), p)
-		errs.Add(p.LoadRoutes().Subject(p.GetName()))
-		results.Addf("%d routes from %s", p.NumRoutes(), p.String())
+		if len(p.GetName()) > lenLongestName {
+			lenLongestName = len(p.GetName())
+		}
 	}
-	logger.Info(results.Build())
-	return
+	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
+		if err := p.LoadRoutes(); err != nil {
+			errs.Add(err.Subject(p.String()))
+		}
+		results.Addf("%-"+strconv.Itoa(lenLongestName)+"s %d routes", p.GetName(), p.NumRoutes())
+	})
+	logger.Info().Msg(results.String())
+	return errs.Error()
 }

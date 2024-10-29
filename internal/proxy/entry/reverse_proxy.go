@@ -53,7 +53,7 @@ func (rp *ReverseProxyEntry) IdlewatcherConfig() *idlewatcher.Config {
 	return rp.Idlewatcher
 }
 
-func validateRPEntry(m *RawEntry, s fields.Scheme, b E.Builder) *ReverseProxyEntry {
+func validateRPEntry(m *RawEntry, s fields.Scheme, errs *E.Builder) *ReverseProxyEntry {
 	cont := m.Container
 	if cont == nil {
 		cont = docker.DummyContainer
@@ -64,35 +64,26 @@ func validateRPEntry(m *RawEntry, s fields.Scheme, b E.Builder) *ReverseProxyEnt
 		lb = nil
 	}
 
-	host, err := fields.ValidateHost(m.Host)
-	b.Add(err)
+	host := E.Collect(errs, fields.ValidateHost, m.Host)
+	port := E.Collect(errs, fields.ValidatePort, m.Port)
+	pathPats := E.Collect(errs, fields.ValidatePathPatterns, m.PathPatterns)
+	url := E.Collect(errs, url.Parse, fmt.Sprintf("%s://%s:%d", s, host, port))
+	iwCfg := E.Collect(errs, idlewatcher.ValidateConfig, m.Container)
 
-	port, err := fields.ValidatePort(m.Port)
-	b.Add(err)
-
-	pathPatterns, err := fields.ValidatePathPatterns(m.PathPatterns)
-	b.Add(err)
-
-	url, err := E.Check(url.Parse(fmt.Sprintf("%s://%s:%d", s, host, port)))
-	b.Add(err)
-
-	idleWatcherCfg, err := idlewatcher.ValidateConfig(m.Container)
-	b.Add(err)
-
-	if err != nil {
+	if errs.HasError() {
 		return nil
 	}
 
 	return &ReverseProxyEntry{
 		Raw:          m,
-		Alias:        fields.NewAlias(m.Alias),
+		Alias:        fields.Alias(m.Alias),
 		Scheme:       s,
 		URL:          net.NewURL(url),
 		NoTLSVerify:  m.NoTLSVerify,
-		PathPatterns: pathPatterns,
+		PathPatterns: pathPats,
 		HealthCheck:  m.HealthCheck,
 		LoadBalance:  lb,
 		Middlewares:  m.Middlewares,
-		Idlewatcher:  idleWatcherCfg,
+		Idlewatcher:  iwCfg,
 	}
 }

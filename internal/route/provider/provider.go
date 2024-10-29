@@ -1,11 +1,12 @@
 package provider
 
 import (
+	"errors"
 	"fmt"
 	"path"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/task"
@@ -22,13 +23,12 @@ type (
 		routes R.Routes
 
 		watcher W.Watcher
-
-		l *logrus.Entry
 	}
 	ProviderImpl interface {
 		fmt.Stringer
+		loadRoutesImpl() (R.Routes, E.Error)
 		NewWatcher() W.Watcher
-		LoadRoutesImpl() (R.Routes, E.Error)
+		Logger() *zerolog.Logger
 	}
 	ProviderType  string
 	ProviderStats struct {
@@ -45,20 +45,22 @@ const (
 	providerEventFlushInterval = 300 * time.Millisecond
 )
 
+var (
+	ErrEmptyProviderName = errors.New("empty provider name")
+)
+
 func newProvider(name string, t ProviderType) *Provider {
-	p := &Provider{
+	return &Provider{
 		name:   name,
 		t:      t,
 		routes: R.NewRoutes(),
 	}
-	p.l = logrus.WithField("provider", p)
-	return p
 }
 
-func NewFileProvider(filename string) (p *Provider, err E.Error) {
+func NewFileProvider(filename string) (p *Provider, err error) {
 	name := path.Base(filename)
 	if name == "" {
-		return nil, E.Invalid("file name", "empty")
+		return nil, ErrEmptyProviderName
 	}
 	p = newProvider(name, ProviderTypeFile)
 	p.ProviderImpl, err = FileProviderImpl(filename)
@@ -69,9 +71,9 @@ func NewFileProvider(filename string) (p *Provider, err E.Error) {
 	return
 }
 
-func NewDockerProvider(name string, dockerHost string) (p *Provider, err E.Error) {
+func NewDockerProvider(name string, dockerHost string) (p *Provider, err error) {
 	if name == "" {
-		return nil, E.Invalid("provider name", "empty")
+		return nil, ErrEmptyProviderName
 	}
 
 	p = newProvider(name, ProviderTypeDocker)
@@ -106,7 +108,7 @@ func (p *Provider) startRoute(parent task.Task, r *R.Route) E.Error {
 	if err != nil {
 		p.routes.Delete(r.Entry.Alias)
 		subtask.Finish(err) // just to ensure
-		return err
+		return err.Subject(r.Entry.Alias)
 	} else {
 		p.routes.Store(r.Entry.Alias, r)
 		subtask.OnFinished("del from provider", func() {
@@ -117,16 +119,14 @@ func (p *Provider) startRoute(parent task.Task, r *R.Route) E.Error {
 }
 
 // Start implements task.TaskStarter.
-func (p *Provider) Start(configSubtask task.Task) (res E.Error) {
-	errors := E.NewBuilder("errors starting routes")
-	defer errors.To(&res)
-
+func (p *Provider) Start(configSubtask task.Task) E.Error {
 	// routes and event queue will stop on parent cancel
 	providerTask := configSubtask
 
-	p.routes.RangeAllParallel(func(alias string, r *R.Route) {
-		errors.Add(p.startRoute(providerTask, r))
-	})
+	errs := p.routes.CollectErrorsParallel(
+		func(alias string, r *R.Route) error {
+			return p.startRoute(providerTask, r)
+		})
 
 	eventQueue := events.NewEventQueue(
 		providerTask,
@@ -139,11 +139,15 @@ func (p *Provider) Start(configSubtask task.Task) (res E.Error) {
 			flushTask.Finish("events flushed")
 		},
 		func(err E.Error) {
-			p.l.Error(err)
+			E.LogError("event error", err, p.Logger())
 		},
 	)
 	eventQueue.Start(p.watcher.Events(providerTask.Context()))
-	return
+
+	if err := E.Join(errs...); err != nil {
+		return err.Subject(p.String())
+	}
+	return nil
 }
 
 func (p *Provider) RangeRoutes(do func(string, *R.Route)) {
@@ -156,14 +160,14 @@ func (p *Provider) GetRoute(alias string) (*R.Route, bool) {
 
 func (p *Provider) LoadRoutes() E.Error {
 	var err E.Error
-	p.routes, err = p.LoadRoutesImpl()
+	p.routes, err = p.loadRoutesImpl()
 	if p.routes.Size() > 0 {
 		return err
 	}
 	if err == nil {
 		return nil
 	}
-	return E.FailWith("loading routes", err)
+	return err
 }
 
 func (p *Provider) NumRoutes() int {

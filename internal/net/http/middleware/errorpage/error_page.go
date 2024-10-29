@@ -1,14 +1,15 @@
 package errorpage
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"path"
 	"sync"
 
-	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
+	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -23,9 +24,10 @@ var (
 )
 
 var setup = sync.OnceFunc(func() {
-	dirWatcher = W.NewDirectoryWatcher(context.Background(), errPagesBasePath)
+	task := task.GlobalTask("error page")
+	dirWatcher = W.NewDirectoryWatcher(task.Subtask("dir watcher"), errPagesBasePath)
 	loadContent()
-	go watchDir()
+	go watchDir(task)
 })
 
 func GetStaticFile(filename string) ([]byte, bool) {
@@ -44,7 +46,7 @@ func GetErrorPageByStatus(statusCode int) (content []byte, ok bool) {
 func loadContent() {
 	files, err := U.ListFiles(errPagesBasePath, 0)
 	if err != nil {
-		Logger.Error(err)
+		logger.Err(err).Msg("failed to list error page resources")
 		return
 	}
 	for _, file := range files {
@@ -53,19 +55,21 @@ func loadContent() {
 		}
 		content, err := os.ReadFile(file)
 		if err != nil {
-			Logger.Errorf("failed to read error page resource %s: %s", file, err)
+			logger.Warn().Err(err).Msgf("failed to read error page resource %s", file)
 			continue
 		}
 		file = path.Base(file)
-		Logger.Infof("error page resource %s loaded", file)
+		logging.Info().Msgf("error page resource %s loaded", file)
 		fileContentMap.Store(file, content)
 	}
 }
 
-func watchDir() {
-	eventCh, errCh := dirWatcher.Events(context.Background())
+func watchDir(task task.Task) {
+	eventCh, errCh := dirWatcher.Events(task.Context())
 	for {
 		select {
+		case <-task.Context().Done():
+			return
 		case event, ok := <-eventCh:
 			if !ok {
 				return
@@ -77,14 +81,14 @@ func watchDir() {
 				loadContent()
 			case events.ActionFileDeleted:
 				fileContentMap.Delete(filename)
-				Logger.Infof("error page resource %s deleted", filename)
+				logger.Warn().Msgf("error page resource %s deleted", filename)
 			case events.ActionFileRenamed:
-				Logger.Infof("error page resource %s deleted", filename)
+				logger.Warn().Msgf("error page resource %s deleted", filename)
 				fileContentMap.Delete(filename)
 				loadContent()
 			}
 		case err := <-errCh:
-			Logger.Errorf("error watching error page directory: %s", err)
+			E.LogError("error watching error page directory", err, &logger)
 		}
 	}
 }

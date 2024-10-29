@@ -6,26 +6,37 @@ import (
 	"path"
 	"strings"
 
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-var middlewares map[string]*Middleware
+var allMiddlewares map[string]*Middleware
 
-func Get(name string) (middleware *Middleware, ok bool) {
-	middleware, ok = middlewares[U.ToLowerNoSnake(name)]
-	return
+var (
+	ErrUnknownMiddleware    = E.New("unknown middleware")
+	ErrDuplicatedMiddleware = E.New("duplicated middleware")
+)
+
+func Get(name string) (*Middleware, Error) {
+	middleware, ok := allMiddlewares[U.ToLowerNoSnake(name)]
+	if !ok {
+		return nil, ErrUnknownMiddleware.
+			Subject(name).
+			Withf(strutils.DoYouMean(utils.NearestField(name, allMiddlewares)))
+	}
+	return middleware, nil
 }
 
 func All() map[string]*Middleware {
-	return middlewares
+	return allMiddlewares
 }
 
 // initialize middleware names and label parsers
 func init() {
-	middlewares = map[string]*Middleware{
+	allMiddlewares = map[string]*Middleware{
 		"setxforwarded":    SetXForwarded,
 		"hidexforwarded":   HideXForwarded,
 		"redirecthttp":     RedirectHTTP,
@@ -39,10 +50,10 @@ func init() {
 
 		// !experimental
 		"forwardauth": ForwardAuth.m,
-		"oauth2":      OAuth2.m,
+		// "oauth2":      OAuth2.m,
 	}
 	names := make(map[*Middleware][]string)
-	for name, m := range middlewares {
+	for name, m := range allMiddlewares {
 		names[m] = append(names[m], http.CanonicalHeaderKey(name))
 	}
 	for m, names := range names {
@@ -55,27 +66,30 @@ func init() {
 }
 
 func LoadComposeFiles() {
-	b := E.NewBuilder("failed to load middlewares")
+	errs := E.NewBuilder("middleware compile errors")
 	middlewareDefs, err := U.ListFiles(common.MiddlewareComposeBasePath, 0)
 	if err != nil {
-		logrus.Errorf("failed to list middleware definitions: %s", err)
+		logger.Err(err).Msg("failed to list middleware definitions")
 		return
 	}
 	for _, defFile := range middlewareDefs {
-		mws, err := BuildMiddlewaresFromComposeFile(defFile)
+		mws := BuildMiddlewaresFromComposeFile(defFile, errs)
+		if len(mws) == 0 {
+			continue
+		}
 		for name, m := range mws {
-			if _, ok := middlewares[name]; ok {
-				b.Add(E.Duplicated("middleware", name))
+			if _, ok := allMiddlewares[name]; ok {
+				errs.Add(ErrDuplicatedMiddleware.Subject(name))
 				continue
 			}
-			middlewares[U.ToLowerNoSnake(name)] = m
-			logger.Infof("middleware %s loaded from %s", name, path.Base(defFile))
+			allMiddlewares[U.ToLowerNoSnake(name)] = m
+			logger.Info().
+				Str("name", name).
+				Str("src", path.Base(defFile)).
+				Msg("middleware loaded")
 		}
-		b.Add(err.Subject(path.Base(defFile)))
 	}
-	if b.HasError() {
-		logger.Error(b.Build())
+	if errs.HasError() {
+		E.LogError(errs.About(), errs.Error(), &logger)
 	}
 }
-
-var logger = logrus.WithField("module", "middlewares")

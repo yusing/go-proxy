@@ -8,24 +8,31 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/sirupsen/logrus"
-	"github.com/yusing/go-proxy/internal/api/v1/errorpage"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
 )
 
-var CustomErrorPage = &Middleware{
-	before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
-		if !ServeStaticErrorPageFile(w, r) {
-			next(w, r)
-		}
-	},
-	modifyResponse: func(resp *Response) error {
+var CustomErrorPage *Middleware
+
+func init() {
+	CustomErrorPage = customErrorPage()
+}
+
+func customErrorPage() *Middleware {
+	m := &Middleware{
+		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
+			if !ServeStaticErrorPageFile(w, r) {
+				next(w, r)
+			}
+		},
+	}
+	m.modifyResponse = func(resp *Response) error {
 		// only handles non-success status code and html/plain content type
 		contentType := gphttp.GetContentType(resp.Header)
 		if !gphttp.IsSuccess(resp.StatusCode) && (contentType.IsHTML() || contentType.IsPlainText()) {
 			errorPage, ok := errorpage.GetErrorPageByStatus(resp.StatusCode)
 			if ok {
-				errPageLogger.Debugf("error page for status %d loaded", resp.StatusCode)
+				CustomErrorPage.Debug().Msgf("error page for status %d loaded", resp.StatusCode)
 				/* trunk-ignore(golangci-lint/errcheck) */
 				io.Copy(io.Discard, resp.Body) // drain the original body
 				resp.Body.Close()
@@ -34,12 +41,13 @@ var CustomErrorPage = &Middleware{
 				resp.Header.Set("Content-Length", strconv.Itoa(len(errorPage)))
 				resp.Header.Set("Content-Type", "text/html; charset=utf-8")
 			} else {
-				errPageLogger.Errorf("unable to load error page for status %d", resp.StatusCode)
+				CustomErrorPage.Error().Msgf("unable to load error page for status %d", resp.StatusCode)
 			}
 			return nil
 		}
 		return nil
-	},
+	}
+	return m
 }
 
 func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
@@ -51,7 +59,7 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
 		filename := path[len(gphttp.StaticFilePathPrefix):]
 		file, ok := errorpage.GetStaticFile(filename)
 		if !ok {
-			errPageLogger.Errorf("unable to load resource %s", filename)
+			logger.Error().Msg("unable to load resource " + filename)
 			return false
 		}
 		ext := filepath.Ext(filename)
@@ -63,15 +71,13 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
 		case ".css":
 			w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		default:
-			errPageLogger.Errorf("unexpected file type %q for %s", ext, filename)
+			logger.Error().Msgf("unexpected file type %q for %s", ext, filename)
 		}
 		if _, err := w.Write(file); err != nil {
-			errPageLogger.WithError(err).Errorf("unable to write resource %s", filename)
+			logger.Err(err).Msg("unable to write resource " + filename)
 			http.Error(w, "Error page failure", http.StatusInternalServerError)
 		}
 		return true
 	}
 	return false
 }
-
-var errPageLogger = logrus.WithField("middleware", "error_page")

@@ -31,14 +31,14 @@ func (impl *leastConn) ServeHTTP(srvs servers, rw http.ResponseWriter, r *http.R
 	srv := srvs[0]
 	minConn, ok := impl.nConn.Load(srv)
 	if !ok {
-		logger.Errorf("[BUG] server %s not found", srv.Name)
+		impl.Error().Msgf("[BUG] server %s not found", srv.Name)
 		http.Error(rw, "Internal error", http.StatusInternalServerError)
 	}
 
 	for i := 1; i < len(srvs); i++ {
 		nConn, ok := impl.nConn.Load(srvs[i])
 		if !ok {
-			logger.Errorf("[BUG] server %s not found", srv.Name)
+			impl.Error().Msgf("[BUG] server %s not found", srv.Name)
 			http.Error(rw, "Internal error", http.StatusInternalServerError)
 		}
 		if nConn.Load() < minConn.Load() {

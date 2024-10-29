@@ -42,7 +42,7 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 
 	watcher, err := registerWatcher(providerSubTask, entry, waker)
 	if err != nil {
-		return nil, err
+		return nil, E.Errorf("register watcher: %w", err)
 	}
 
 	if rp != nil {
@@ -75,6 +75,9 @@ func (w *Watcher) Start(routeSubTask task.Task) E.Error {
 
 // Finish implements health.HealthMonitor.
 func (w *Watcher) Finish(reason any) {
+	if w.stream != nil {
+		w.stream.Close()
+	}
 }
 
 // Name implements health.HealthMonitor.

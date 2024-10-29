@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -13,10 +14,9 @@ var testCIDRWhitelistCompose []byte
 var deny, accept *Middleware
 
 func TestCIDRWhitelist(t *testing.T) {
-	mids, err := BuildMiddlewaresFromYAML(testCIDRWhitelistCompose)
-	if err != nil {
-		panic(err)
-	}
+	errs := E.NewBuilder("")
+	mids := BuildMiddlewaresFromYAML("", testCIDRWhitelistCompose, errs)
+	ExpectNoError(t, errs.Error())
 	deny = mids["deny@file"]
 	accept = mids["accept@file"]
 	if deny == nil || accept == nil {
@@ -26,7 +26,7 @@ func TestCIDRWhitelist(t *testing.T) {
 	t.Run("deny", func(t *testing.T) {
 		for range 10 {
 			result, err := newMiddlewareTest(deny, nil)
-			ExpectNoError(t, err.Error())
+			ExpectNoError(t, err)
 			ExpectEqual(t, result.ResponseStatus, cidrWhitelistDefaults().StatusCode)
 			ExpectEqual(t, string(result.Data), cidrWhitelistDefaults().Message)
 		}
@@ -35,7 +35,7 @@ func TestCIDRWhitelist(t *testing.T) {
 	t.Run("accept", func(t *testing.T) {
 		for range 10 {
 			result, err := newMiddlewareTest(accept, nil)
-			ExpectNoError(t, err.Error())
+			ExpectNoError(t, err)
 			ExpectEqual(t, result.ResponseStatus, http.StatusOK)
 		}
 	})

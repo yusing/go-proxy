@@ -4,12 +4,15 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
+	"io"
 	"log"
+
 	"net/http"
 	"time"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/autocert"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 )
 
@@ -23,6 +26,8 @@ type Server struct {
 	startTime    time.Time
 
 	task task.Task
+
+	l zerolog.Logger
 }
 
 type Options struct {
@@ -34,22 +39,11 @@ type Options struct {
 	Handler         http.Handler
 }
 
-type LogrusWrapper struct {
-	*logrus.Entry
-}
-
-func (l LogrusWrapper) Write(b []byte) (int, error) {
-	return l.Logger.WriterLevel(logrus.ErrorLevel).Write(b)
-}
-
 func NewServer(opt Options) (s *Server) {
 	var httpSer, httpsSer *http.Server
 	var httpHandler http.Handler
 
-	logger := log.Default()
-	logger.SetOutput(LogrusWrapper{
-		logrus.WithFields(logrus.Fields{"?": "server", "name": opt.Name}),
-	})
+	logger := logging.With().Str("module", "server").Str("name", opt.Name).Logger()
 
 	certAvailable := false
 	if opt.CertProvider != nil {
@@ -67,14 +61,14 @@ func NewServer(opt Options) (s *Server) {
 		httpSer = &http.Server{
 			Addr:     opt.HTTPAddr,
 			Handler:  httpHandler,
-			ErrorLog: logger,
+			ErrorLog: log.New(io.Discard, "", 0), // most are tls related
 		}
 	}
 	if certAvailable && opt.HTTPSAddr != "" {
 		httpsSer = &http.Server{
 			Addr:     opt.HTTPSAddr,
 			Handler:  opt.Handler,
-			ErrorLog: logger,
+			ErrorLog: log.New(io.Discard, "", 0), // most are tls related
 			TLSConfig: &tls.Config{
 				GetCertificate: opt.CertProvider.GetCert,
 			},
@@ -86,6 +80,7 @@ func NewServer(opt Options) (s *Server) {
 		http:         httpSer,
 		https:        httpsSer,
 		task:         task.GlobalTask(opt.Name + " server"),
+		l:            logger,
 	}
 }
 
@@ -101,19 +96,19 @@ func (s *Server) Start() {
 
 	s.startTime = time.Now()
 	if s.http != nil {
-		s.httpStarted = true
-		logrus.Printf("starting http %s server on %s", s.Name, s.http.Addr)
 		go func() {
 			s.handleErr("http", s.http.ListenAndServe())
 		}()
+		s.httpStarted = true
+		s.l.Info().Str("addr", s.http.Addr).Msg("server started")
 	}
 
 	if s.https != nil {
-		s.httpsStarted = true
-		logrus.Printf("starting https %s server on %s", s.Name, s.https.Addr)
 		go func() {
 			s.handleErr("https", s.https.ListenAndServeTLS(s.CertProvider.GetCertPath(), s.CertProvider.GetKeyPath()))
 		}()
+		s.httpsStarted = true
+		s.l.Info().Str("addr", s.https.Addr).Msgf("server started")
 	}
 
 	s.task.OnFinished("stop server", s.stop)
@@ -144,7 +139,7 @@ func (s *Server) handleErr(scheme string, err error) {
 	case err == nil, errors.Is(err, http.ErrServerClosed), errors.Is(err, context.Canceled):
 		return
 	default:
-		logrus.Fatalf("%s server %s error: %s", scheme, s.Name, err)
+		s.l.Fatal().Err(err).Str("scheme", scheme).Msg("server error")
 	}
 }
 
@@ -162,5 +157,3 @@ func redirectToTLSHandler(port string) http.HandlerFunc {
 		http.Redirect(w, r, r.URL.String(), redirectCode)
 	}
 }
-
-var logger = logrus.WithField("module", "server")

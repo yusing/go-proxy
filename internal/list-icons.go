@@ -53,7 +53,7 @@ func ListAvailableIcons() ([]string, error) {
 			icons = append(icons, content.Path)
 		}
 	}
-	err = utils.SaveJSON(iconsCachePath, &icons, 0o644).Error()
+	err = utils.SaveJSON(iconsCachePath, &icons, 0o644)
 	if err != nil {
 		log.Print("error saving cache", err)
 	}

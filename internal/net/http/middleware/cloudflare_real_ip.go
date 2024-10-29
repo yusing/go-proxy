@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 var (
 	cfCIDRsLastUpdate time.Time
 	cfCIDRsMu         sync.Mutex
-	cfCIDRsLogger     = logrus.WithField("middleware", "CloudflareRealIP")
+	cfCIDRsLogger     = logger.With().Str("name", "CloudflareRealIP").Logger()
 )
 
 var CloudflareRealIP = &realIP{
@@ -80,13 +80,13 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 		)
 		if err != nil {
 			cfCIDRsLastUpdate = time.Now().Add(-cfCIDRsUpdateRetryInterval - cfCIDRsUpdateInterval)
-			cfCIDRsLogger.Errorf("failed to update cloudflare range: %s, retry in %s", err, cfCIDRsUpdateRetryInterval)
+			cfCIDRsLogger.Err(err).Msg("failed to update cloudflare range, retry in " + strutils.FormatDuration(cfCIDRsUpdateRetryInterval))
 			return nil
 		}
 	}
 
 	cfCIDRsLastUpdate = time.Now()
-	cfCIDRsLogger.Debugf("cloudflare CIDR range updated")
+	cfCIDRsLogger.Info().Msg("cloudflare CIDR range updated")
 	return
 }
 

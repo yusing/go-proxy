@@ -89,5 +89,5 @@ func FromEntries(entries entry.RawEntries) (Routes, E.Error) {
 		}
 	})
 
-	return routes, b.Build()
+	return routes, b.Error()
 }

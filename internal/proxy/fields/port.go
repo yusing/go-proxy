@@ -4,22 +4,25 @@ import (
 	"strconv"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type Port int
 
-func ValidatePort[String ~string](v String) (Port, E.Error) {
-	p, err := strconv.Atoi(string(v))
+var ErrPortOutOfRange = E.New("port out of range")
+
+func ValidatePort[String ~string](v String) (Port, error) {
+	p, err := strutils.Atoi(string(v))
 	if err != nil {
-		return ErrPort, E.Invalid("port number", v).With(err)
+		return ErrPort, err
 	}
 	return ValidatePortInt(p)
 }
 
-func ValidatePortInt[Int int | uint16](v Int) (Port, E.Error) {
+func ValidatePortInt[Int int | uint16](v Int) (Port, error) {
 	p := Port(v)
 	if !p.inBound() {
-		return ErrPort, E.OutOfRange("port", p)
+		return ErrPort, ErrPortOutOfRange.Subject(strconv.Itoa(int(p)))
 	}
 	return p, nil
 }

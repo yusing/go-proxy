@@ -9,8 +9,8 @@ import (
 	"github.com/yusing/go-proxy/internal/proxy/entry"
 	"github.com/yusing/go-proxy/internal/route"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
-	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 func DumpEntries() map[string]*entry.RawEntry {
@@ -61,7 +61,7 @@ func HomepageConfig() homepage.Config {
 		}
 
 		if item.Name == "" {
-			item.Name = U.Title(
+			item.Name = strutils.Title(
 				strings.ReplaceAll(
 					strings.ReplaceAll(alias, "-", " "),
 					"_", " ",

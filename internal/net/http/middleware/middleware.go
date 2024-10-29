@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -31,6 +32,8 @@ type (
 
 	Middleware struct {
 		_ U.NoCopy
+
+		zerolog.Logger
 
 		name string
 
@@ -78,13 +81,19 @@ func (m *Middleware) MarshalJSON() ([]byte, error) {
 }
 
 func (m *Middleware) WithOptionsClone(optsRaw OptionsRaw) (*Middleware, E.Error) {
-	if len(optsRaw) != 0 && m.withOptions != nil {
-		return m.withOptions(optsRaw)
+	if m.withOptions != nil {
+		m, err := m.withOptions(optsRaw)
+		if err != nil {
+			return nil, err
+		}
+		m.Logger = logger.With().Str("name", m.name).Logger()
+		return m, nil
 	}
 
 	// WithOptionsClone is called only once
 	// set withOptions and labelParser will not be used after that
 	return &Middleware{
+		Logger:         logger.With().Str("name", m.name).Logger(),
 		name:           m.name,
 		before:         m.before,
 		modifyResponse: m.modifyResponse,
@@ -108,24 +117,20 @@ func (m *Middleware) ModifyResponse(resp *Response) error {
 }
 
 // TODO: check conflict or duplicates.
-func createMiddlewares(middlewaresMap map[string]OptionsRaw) (middlewares []*Middleware, res E.Error) {
-	middlewares = make([]*Middleware, 0, len(middlewaresMap))
+func createMiddlewares(middlewaresMap map[string]OptionsRaw) ([]*Middleware, E.Error) {
+	middlewares := make([]*Middleware, 0, len(middlewaresMap))
 
-	invalidM := E.NewBuilder("invalid middlewares")
-	invalidOpts := E.NewBuilder("invalid options")
-	defer func() {
-		invalidM.Add(invalidOpts.Build())
-		invalidM.To(&res)
-	}()
+	errs := E.NewBuilder("middlewares compile error")
+	invalidOpts := E.NewBuilder("options compile error")
 
 	for name, opts := range middlewaresMap {
-		m, ok := Get(name)
-		if !ok {
-			invalidM.Add(E.NotExist("middleware", name))
+		m, err := Get(name)
+		if err != nil {
+			errs.Add(err)
 			continue
 		}
 
-		m, err := m.WithOptionsClone(opts)
+		m, err = m.WithOptionsClone(opts)
 		if err != nil {
 			invalidOpts.Add(err.Subject(name))
 			continue
@@ -133,7 +138,10 @@ func createMiddlewares(middlewaresMap map[string]OptionsRaw) (middlewares []*Mid
 		middlewares = append(middlewares, m)
 	}
 
-	return
+	if invalidOpts.HasError() {
+		errs.Add(invalidOpts.Error())
+	}
+	return middlewares, errs.Error()
 }
 
 func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.Error) {

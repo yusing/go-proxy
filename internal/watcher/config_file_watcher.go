@@ -1,10 +1,10 @@
 package watcher
 
 import (
-	"context"
 	"sync"
 
 	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/task"
 )
 
 var (
@@ -17,7 +17,7 @@ func NewConfigFileWatcher(filename string) Watcher {
 	configDirWatcherMu.Lock()
 	defer configDirWatcherMu.Unlock()
 	if configDirWatcher == nil {
-		configDirWatcher = NewDirectoryWatcher(context.Background(), common.ConfigBasePath)
+		configDirWatcher = NewDirectoryWatcher(task.GlobalTask("config watcher"), common.ConfigBasePath)
 	}
 	return configDirWatcher.Add(filename)
 }

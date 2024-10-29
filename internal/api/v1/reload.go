@@ -9,8 +9,8 @@ import (
 
 func Reload(w http.ResponseWriter, r *http.Request) {
 	if err := config.Reload(); err != nil {
-		U.RespondJSON(w, r, err.JSONObject(), http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
+		U.HandleErr(w, r, err)
+		return
 	}
+	U.WriteBody(w, []byte("OK"))
 }

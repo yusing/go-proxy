@@ -51,34 +51,25 @@ func (s *StreamEntry) IdlewatcherConfig() *idlewatcher.Config {
 	return s.Idlewatcher
 }
 
-func validateStreamEntry(m *RawEntry, b E.Builder) *StreamEntry {
+func validateStreamEntry(m *RawEntry, errs *E.Builder) *StreamEntry {
 	cont := m.Container
 	if cont == nil {
 		cont = docker.DummyContainer
 	}
 
-	host, err := fields.ValidateHost(m.Host)
-	b.Add(err)
+	host := E.Collect(errs, fields.ValidateHost, m.Host)
+	port := E.Collect(errs, fields.ValidateStreamPort, m.Port)
+	scheme := E.Collect(errs, fields.ValidateStreamScheme, m.Scheme)
+	url := E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", scheme.ListeningScheme, host, port.ListeningPort))
+	idleWatcherCfg := E.Collect(errs, idlewatcher.ValidateConfig, m.Container)
 
-	port, err := fields.ValidateStreamPort(m.Port)
-	b.Add(err)
-
-	scheme, err := fields.ValidateStreamScheme(m.Scheme)
-	b.Add(err)
-
-	url, err := E.Check(net.ParseURL(fmt.Sprintf("%s://%s:%d", scheme.ProxyScheme, m.Host, port.ProxyPort)))
-	b.Add(err)
-
-	idleWatcherCfg, err := idlewatcher.ValidateConfig(m.Container)
-	b.Add(err)
-
-	if b.HasError() {
+	if errs.HasError() {
 		return nil
 	}
 
 	return &StreamEntry{
 		Raw:         m,
-		Alias:       fields.NewAlias(m.Alias),
+		Alias:       fields.Alias(m.Alias),
 		Scheme:      *scheme,
 		URL:         url,
 		Host:        host,

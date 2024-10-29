@@ -24,11 +24,12 @@ type (
 		client http.Client
 	}
 	forwardAuthOpts struct {
-		Address                  string
-		TrustForwardHeader       bool
-		AuthResponseHeaders      []string
-		AddAuthCookiesToResponse []string
-		transport                http.RoundTripper
+		Address                  string   `json:"address"`
+		TrustForwardHeader       bool     `json:"trustForwardHeader"`
+		AuthResponseHeaders      []string `json:"authResponseHeaders"`
+		AddAuthCookiesToResponse []string `json:"addAuthCookiesToResponse"`
+
+		transport http.RoundTripper
 	}
 )
 
@@ -39,13 +40,11 @@ var ForwardAuth = &forwardAuth{
 func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	fa := new(forwardAuth)
 	fa.forwardAuthOpts = new(forwardAuthOpts)
-	err := Deserialize(optsRaw, fa.forwardAuthOpts)
-	if err != nil {
+	if err := Deserialize(optsRaw, fa.forwardAuthOpts); err != nil {
 		return nil, err
 	}
-	_, err = E.Check(url.Parse(fa.Address))
-	if err != nil {
-		return nil, E.Invalid("address", fa.Address)
+	if _, err := url.Parse(fa.Address); err != nil {
+		return nil, E.From(err)
 	}
 
 	fa.m = &Middleware{

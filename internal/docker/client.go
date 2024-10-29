@@ -1,14 +1,15 @@
 package docker
 
 import (
+	"errors"
 	"net/http"
 	"sync"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/client"
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -22,7 +23,7 @@ type (
 		key      string
 		refCount *U.RefCount
 
-		l logrus.FieldLogger
+		l zerolog.Logger
 	}
 )
 
@@ -70,7 +71,7 @@ func (c *SharedClient) Close() error {
 // Returns:
 //   - Client: the Docker client connection.
 //   - error: an error if the connection failed.
-func ConnectClient(host string) (Client, E.Error) {
+func ConnectClient(host string) (Client, error) {
 	clientMapMu.Lock()
 	defer clientMapMu.Unlock()
 
@@ -85,13 +86,13 @@ func ConnectClient(host string) (Client, E.Error) {
 
 	switch host {
 	case "":
-		return nil, E.Invalid("docker host", "empty")
+		return nil, errors.New("empty docker host")
 	case common.DockerHostFromEnv:
 		opt = clientOptEnvHost
 	default:
-		helper, err := E.Check(connhelper.GetConnectionHelper(host))
-		if err.HasError() {
-			return nil, E.UnexpectedError(err.Error())
+		helper, err := connhelper.GetConnectionHelper(host)
+		if err != nil {
+			logging.Panic().Err(err).Msg("failed to get connection helper")
 		}
 		if helper != nil {
 			httpClient := &http.Client{
@@ -113,9 +114,9 @@ func ConnectClient(host string) (Client, E.Error) {
 		}
 	}
 
-	client, err := E.Check(client.NewClientWithOpts(opt...))
+	client, err := client.NewClientWithOpts(opt...)
 
-	if err.HasError() {
+	if err != nil {
 		return nil, err
 	}
 
@@ -123,9 +124,9 @@ func ConnectClient(host string) (Client, E.Error) {
 		Client:   client,
 		key:      host,
 		refCount: U.NewRefCounter(),
-		l:        logger.WithField("docker_client", client.DaemonHost()),
+		l:        logger.With().Str("address", client.DaemonHost()).Logger(),
 	}
-	c.l.Debugf("client connected")
+	c.l.Trace().Msg("client connected")
 
 	clientMap.Store(host, c)
 
@@ -135,7 +136,7 @@ func ConnectClient(host string) (Client, E.Error) {
 
 		if c.Connected() {
 			c.Client.Close()
-			c.l.Debugf("client closed")
+			c.l.Trace().Msg("client closed")
 		}
 	}()
 	return c, nil

@@ -13,11 +13,7 @@ type (
 		m *Middleware
 	}
 	// order: set_headers -> add_headers -> hide_headers
-	modifyResponseOpts struct {
-		SetHeaders  map[string]string
-		AddHeaders  map[string]string
-		HideHeaders []string
-	}
+	modifyResponseOpts = modifyRequestOpts
 )
 
 var ModifyResponse = &modifyResponse{

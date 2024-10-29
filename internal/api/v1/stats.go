@@ -11,7 +11,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	"github.com/yusing/go-proxy/internal/server"
-	"github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 func Stats(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func StatsWS(w http.ResponseWriter, r *http.Request) {
 	originPats := make([]string, len(config.Value().MatchDomains)+len(localAddresses))
 
 	if len(originPats) == 0 {
-		U.Logger.Warnf("no match domains configured, accepting websocket request from all origins")
+		U.LogWarn(r).Msg("no match domains configured, accepting websocket API request from all origins")
 		originPats = []string{"*"}
 	} else {
 		for i, domain := range config.Value().MatchDomains {
@@ -38,7 +38,7 @@ func StatsWS(w http.ResponseWriter, r *http.Request) {
 		OriginPatterns: originPats,
 	})
 	if err != nil {
-		U.Logger.Errorf("/stats/ws failed to upgrade websocket: %s", err)
+		U.LogError(r).Err(err).Msg("failed to upgrade websocket")
 		return
 	}
 	/* trunk-ignore(golangci-lint/errcheck) */
@@ -53,7 +53,7 @@ func StatsWS(w http.ResponseWriter, r *http.Request) {
 	for range ticker.C {
 		stats := getStats()
 		if err := wsjson.Write(ctx, conn, stats); err != nil {
-			U.Logger.Errorf("/stats/ws failed to write JSON: %s", err)
+			U.LogError(r).Msg("failed to write JSON")
 			return
 		}
 	}
@@ -62,6 +62,6 @@ func StatsWS(w http.ResponseWriter, r *http.Request) {
 func getStats() map[string]any {
 	return map[string]any{
 		"proxies": config.Statistics(),
-		"uptime":  utils.FormatDuration(server.GetProxyServer().Uptime()),
+		"uptime":  strutils.FormatDuration(server.GetProxyServer().Uptime()),
 	}
 }

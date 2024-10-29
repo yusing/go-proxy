@@ -23,18 +23,18 @@ func ValidateEntry(m *RawEntry) (Entry, E.Error) {
 
 	scheme, err := T.NewScheme(m.Scheme)
 	if err != nil {
-		return nil, err
+		return nil, E.From(err)
 	}
 
 	var entry Entry
-	e := E.NewBuilder("error validating entry")
+	errs := E.NewBuilder("entry validation failed")
 	if scheme.IsStream() {
-		entry = validateStreamEntry(m, e)
+		entry = validateStreamEntry(m, errs)
 	} else {
-		entry = validateRPEntry(m, scheme, e)
+		entry = validateRPEntry(m, scheme, errs)
 	}
-	if err := e.Build(); err != nil {
-		return nil, err
+	if errs.HasError() {
+		return nil, errs.Error()
 	}
 	return entry, nil
 }

@@ -12,9 +12,9 @@ type (
 	}
 	// order: set_headers -> add_headers -> hide_headers
 	modifyRequestOpts struct {
-		SetHeaders  map[string]string
-		AddHeaders  map[string]string
-		HideHeaders []string
+		SetHeaders  map[string]string `json:"setHeaders"`
+		AddHeaders  map[string]string `json:"addHeaders"`
+		HideHeaders []string          `json:"hideHeaders"`
 	}
 )
 

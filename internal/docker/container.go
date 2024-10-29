@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
-	"github.com/sirupsen/logrus"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type (
@@ -59,7 +59,7 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 		NetworkMode:        c.HostConfig.NetworkMode,
 
 		Aliases:     helper.getAliases(),
-		IsExcluded:  U.ParseBool(helper.getDeleteLabel(LabelExclude)),
+		IsExcluded:  strutils.ParseBool(helper.getDeleteLabel(LabelExclude)),
 		IsExplicit:  isExplicit,
 		IsDatabase:  helper.isDatabase(),
 		IdleTimeout: helper.getDeleteLabel(LabelIdleTimeout),
@@ -120,7 +120,7 @@ func (c *Container) setPublicIP() {
 	}
 	url, err := url.Parse(c.DockerHost)
 	if err != nil {
-		logrus.Errorf("invalid docker host %q: %v\nfalling back to 127.0.0.1", c.DockerHost, err)
+		logger.Err(err).Msgf("invalid docker host %q, falling back to 127.0.0.1", c.DockerHost)
 		c.PublicIP = "127.0.0.1"
 		return
 	}

@@ -12,25 +12,27 @@ import (
 type EventHandler struct {
 	provider *Provider
 
-	added   []string
-	removed []string
-	paused  []string
-	updated []string
-	errs    E.Builder
+	errs    *E.Builder
+	added   *E.Builder
+	removed *E.Builder
+	updated *E.Builder
 }
 
 func (provider *Provider) newEventHandler() *EventHandler {
 	return &EventHandler{
 		provider: provider,
 		errs:     E.NewBuilder("event errors"),
+		added:    E.NewBuilder("added"),
+		removed:  E.NewBuilder("removed"),
+		updated:  E.NewBuilder("updated"),
 	}
 }
 
 func (handler *EventHandler) Handle(parent task.Task, events []watcher.Event) {
 	oldRoutes := handler.provider.routes
-	newRoutes, err := handler.provider.LoadRoutesImpl()
+	newRoutes, err := handler.provider.loadRoutesImpl()
 	if err != nil {
-		handler.errs.Add(err.Subject("load routes"))
+		handler.errs.Add(err)
 		if newRoutes.Size() == 0 {
 			return
 		}
@@ -41,17 +43,19 @@ func (handler *EventHandler) Handle(parent task.Task, events []watcher.Event) {
 		for _, event := range events {
 			eventsLog.Addf("event %s, actor: name=%s, id=%s", event.Action, event.ActorName, event.ActorID)
 		}
-		handler.provider.l.Debug(eventsLog.String())
+		E.LogDebug(eventsLog.About(), eventsLog.Error(), handler.provider.Logger())
+
 		oldRoutesLog := E.NewBuilder("old routes")
-		oldRoutes.RangeAll(func(k string, r *route.Route) {
-			oldRoutesLog.Addf(k)
+		oldRoutes.RangeAllParallel(func(k string, r *route.Route) {
+			oldRoutesLog.Adds(k)
 		})
-		handler.provider.l.Debug(oldRoutesLog.String())
+		E.LogDebug(oldRoutesLog.About(), oldRoutesLog.Error(), handler.provider.Logger())
+
 		newRoutesLog := E.NewBuilder("new routes")
-		newRoutes.RangeAll(func(k string, r *route.Route) {
-			newRoutesLog.Addf(k)
+		newRoutes.RangeAllParallel(func(k string, r *route.Route) {
+			newRoutesLog.Adds(k)
 		})
-		handler.provider.l.Debug(newRoutesLog.String())
+		E.LogDebug(newRoutesLog.About(), newRoutesLog.Error(), handler.provider.Logger())
 	}
 
 	oldRoutes.RangeAll(func(k string, oldr *route.Route) {
@@ -95,41 +99,35 @@ func (handler *EventHandler) match(event watcher.Event, route *route.Route) bool
 func (handler *EventHandler) Add(parent task.Task, route *route.Route) {
 	err := handler.provider.startRoute(parent, route)
 	if err != nil {
-		handler.errs.Add(E.FailWith("add "+route.Entry.Alias, err))
+		handler.errs.Add(err.Subject("add"))
 	} else {
-		handler.added = append(handler.added, route.Entry.Alias)
+		handler.added.Adds(route.Entry.Alias)
 	}
 }
 
 func (handler *EventHandler) Remove(route *route.Route) {
 	route.Finish("route removed")
 	handler.provider.routes.Delete(route.Entry.Alias)
-	handler.removed = append(handler.removed, route.Entry.Alias)
+	handler.removed.Adds(route.Entry.Alias)
 }
 
 func (handler *EventHandler) Update(parent task.Task, oldRoute *route.Route, newRoute *route.Route) {
 	oldRoute.Finish("route update")
 	err := handler.provider.startRoute(parent, newRoute)
 	if err != nil {
-		handler.errs.Add(E.FailWith("update "+newRoute.Entry.Alias, err))
+		handler.errs.Add(err.Subject("update"))
 	} else {
-		handler.updated = append(handler.updated, newRoute.Entry.Alias)
+		handler.updated.Adds(newRoute.Entry.Alias)
 	}
 }
 
 func (handler *EventHandler) Log() {
 	results := E.NewBuilder("event occured")
-	for _, alias := range handler.added {
-		results.Addf("added %s", alias)
-	}
-	for _, alias := range handler.removed {
-		results.Addf("removed %s", alias)
-	}
-	for _, alias := range handler.updated {
-		results.Addf("updated %s", alias)
-	}
-	results.Add(handler.errs.Build())
-	if result := results.Build(); result != nil {
-		handler.provider.l.Info(result)
+	results.Add(handler.added.Error())
+	results.Add(handler.removed.Error())
+	results.Add(handler.updated.Error())
+	results.Add(handler.errs.Error())
+	if result := results.String(); result != "" {
+		handler.provider.Logger().Info().Msg(result)
 	}
 }

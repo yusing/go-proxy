@@ -9,12 +9,11 @@ import (
 )
 
 var (
-	HTTPClient = &http.Client{
+	httpClient = &http.Client{
 		Timeout: common.ConnectionTimeout,
 		Transport: &http.Transport{
-			Proxy:             http.ProxyFromEnvironment,
 			DisableKeepAlives: true,
-			ForceAttemptHTTP2: true,
+			ForceAttemptHTTP2: false,
 			DialContext: (&net.Dialer{
 				Timeout:   common.DialTimeout,
 				KeepAlive: common.KeepAlive, // this is different from DisableKeepAlives
@@ -23,7 +22,7 @@ var (
 		},
 	}
 
-	Get  = HTTPClient.Get
-	Post = HTTPClient.Post
-	Head = HTTPClient.Head
+	Get  = httpClient.Get
+	Post = httpClient.Post
+	Head = httpClient.Head
 )

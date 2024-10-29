@@ -39,15 +39,16 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var validateErr E.Error
+	var valErr E.Error
 	if filename == common.ConfigFileName {
-		validateErr = config.Validate(content)
+		valErr = config.Validate(content)
 	} else if !strings.HasPrefix(filename, path.Base(common.MiddlewareComposeBasePath)) {
-		validateErr = provider.Validate(content)
+		valErr = provider.Validate(content)
 	}
+	// no validation for include files
 
-	if validateErr != nil {
-		U.RespondJSON(w, r, validateErr.JSONObject(), http.StatusBadRequest)
+	if valErr != nil {
+		U.RespondJSON(w, r, valErr, http.StatusBadRequest)
 		return
 	}
 

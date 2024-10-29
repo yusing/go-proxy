@@ -3,10 +3,14 @@ package health
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -28,6 +32,10 @@ type (
 )
 
 var monMap = F.NewMapOf[string, HealthMonitor]()
+
+var (
+	ErrNegativeInterval = errors.New("negative interval")
+)
 
 func newMonitor(url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
 	mon := &monitor{
@@ -59,10 +67,12 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 	mon.task = routeSubtask
 
 	if mon.config.Interval <= 0 {
-		return E.Invalid("interval", mon.config.Interval)
+		return E.From(ErrNegativeInterval)
 	}
 
 	go func() {
+		logger := logging.With().Str("name", mon.service).Logger()
+
 		defer func() {
 			if mon.status.Load() != StatusError {
 				mon.status.Store(StatusUnknown)
@@ -70,7 +80,7 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 		}()
 
 		if err := mon.checkUpdateHealth(); err != nil {
-			logger.Errorf("healthchecker %s failure: %s", mon.service, err)
+			logger.Err(err).Msg("healthchecker failure")
 			return
 		}
 
@@ -87,7 +97,7 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 			case <-ticker.C:
 				err := mon.checkUpdateHealth()
 				if err != nil {
-					logger.Errorf("healthchecker %s failure: %s", mon.service, err)
+					logger.Err(err).Msg("healthchecker failure")
 					return
 				}
 			}
@@ -128,10 +138,8 @@ func (mon *monitor) Uptime() time.Duration {
 
 // Name implements HealthMonitor.
 func (mon *monitor) Name() string {
-	if mon.task == nil {
-		return ""
-	}
-	return mon.task.Name()
+	parts := strings.Split(mon.service, "/")
+	return parts[len(parts)-1]
 }
 
 // String implements fmt.Stringer of HealthMonitor.
@@ -151,13 +159,14 @@ func (mon *monitor) MarshalJSON() ([]byte, error) {
 	}).MarshalJSON()
 }
 
-func (mon *monitor) checkUpdateHealth() E.Error {
+func (mon *monitor) checkUpdateHealth() error {
+	logger := logging.With().Str("name", mon.Name()).Logger()
 	healthy, detail, err := mon.checkHealth()
 	if err != nil {
 		defer mon.task.Finish(err)
 		mon.status.Store(StatusError)
 		if !errors.Is(err, context.Canceled) {
-			return E.Failure("check health").With(err)
+			return fmt.Errorf("check health: %w", err)
 		}
 		return nil
 	}
@@ -169,9 +178,12 @@ func (mon *monitor) checkUpdateHealth() E.Error {
 	}
 	if healthy != (mon.status.Swap(status) == StatusHealthy) {
 		if healthy {
-			logger.Infof("%s is up", mon.service)
+			logger.Info().Msg("server is up")
+			notif.Notify(mon.service, "server is up")
 		} else {
-			logger.Warnf("%s is down: %s", mon.service, detail)
+			logger.Warn().Msg("server is down")
+			logger.Debug().Msg(detail)
+			notif.Notify(mon.service, "server is down")
 		}
 	}
 

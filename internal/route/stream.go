@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/sirupsen/logrus"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	net "github.com/yusing/go-proxy/internal/net/types"
@@ -18,13 +18,14 @@ import (
 
 type StreamRoute struct {
 	*entry.StreamEntry
-	net.Stream `json:"-"`
+
+	stream net.Stream `json:"-"`
 
 	HealthMon health.HealthMonitor `json:"health"`
 
 	task task.Task
 
-	l logrus.FieldLogger
+	l zerolog.Logger
 }
 
 var (
@@ -39,11 +40,15 @@ func GetStreamProxies() F.Map[string, *StreamRoute] {
 func NewStreamRoute(entry *entry.StreamEntry) (impl, E.Error) {
 	// TODO: support non-coherent scheme
 	if !entry.Scheme.IsCoherent() {
-		return nil, E.Unsupported("scheme", fmt.Sprintf("%v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme))
+		return nil, E.Errorf("unsupported scheme: %v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme)
 	}
 	return &StreamRoute{
 		StreamEntry: entry,
 		task:        task.DummyTask(),
+		l: logger.With().
+			Str("type", string(entry.Scheme.ListeningScheme)).
+			Str("name", entry.TargetName()).
+			Logger(),
 	}, nil
 }
 
@@ -62,57 +67,54 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 	defer streamRoutesMu.Unlock()
 
 	if r.HealthCheck.Disable && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
-		logrus.Warnf("%s.healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled", r.Alias)
-		r.HealthCheck.Disable = true
+		r.l.Error().Msg("healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled")
+		r.HealthCheck.Disable = false
 	}
 
-	// if r.Scheme.ListeningScheme.IsTCP() {
-	// 	r.Stream = NewTCPRoute(r)
-	// } else {
-	// 	r.Stream = NewUDPRoute(r)
-	// }
 	r.task = providerSubtask
-	r.Stream = NewRawStreamRoute(r)
-	r.l = logrus.WithField("route", r.Stream.String())
+	r.stream = NewStream(r)
 
 	switch {
 	case entry.UseIdleWatcher(r):
 		wakerTask := providerSubtask.Parent().Subtask("waker for " + string(r.Alias))
-		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.Stream)
+		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.stream)
 		if err != nil {
 			r.task.Finish(err)
 			return err
 		}
-		r.Stream = waker
+		r.stream = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
 		r.HealthMon = health.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
 	}
 
-	if err := r.Setup(); err != nil {
+	if err := r.stream.Setup(); err != nil {
 		r.task.Finish(err)
-		return E.FailWith("setup", err)
+		return E.From(err)
 	}
 
 	r.task.OnFinished("close stream", func() {
-		if err := r.Close(); err != nil {
-			r.l.Error("close stream error: ", err)
+		if err := r.stream.Close(); err != nil {
+			E.LogError("close stream failed", err, &r.l)
 		}
 	})
-	r.task.OnFinished("remove from route table", func() {
-		streamRoutes.Delete(string(r.Alias))
-	})
 
-	r.l.Infof("listening on %s port %d", r.Scheme.ListeningScheme, r.Port.ListeningPort)
+	r.l.Info().
+		Str("proto", string(r.Scheme.ListeningScheme)).
+		Int("port", int(r.Port.ListeningPort)).
+		Msg("listening")
 
 	if r.HealthMon != nil {
 		if err := r.HealthMon.Start(r.task.Subtask("health monitor")); err != nil {
-			logrus.Warn("health monitor error: ", err)
+			E.LogWarn("health monitor error", err, &r.l)
 		}
 	}
 
 	go r.acceptConnections()
 	streamRoutes.Store(string(r.Alias), r)
+	r.task.OnFinished("remove from route table", func() {
+		streamRoutes.Delete(string(r.Alias))
+	})
 	return nil
 }
 
@@ -128,25 +130,28 @@ func (r *StreamRoute) acceptConnections() {
 		case <-r.task.Context().Done():
 			return
 		default:
-			conn, err := r.Accept()
+			conn, err := r.stream.Accept()
 			if err != nil {
 				select {
 				case <-r.task.Context().Done():
 				default:
-					r.l.Error("accept connection error: ", err)
-					r.task.Finish(err)
+					E.LogError("accept connection error", err, &r.l)
 				}
+				r.task.Finish(err)
 				return
 			}
-			connTask := r.task.Subtask(fmt.Sprintf("connection from %s", conn.RemoteAddr()))
+			if conn == nil {
+				panic("connection is nil")
+			}
+			connTask := r.task.Subtask("connection")
 			go func() {
-				err := r.Handle(conn)
+				err := r.stream.Handle(conn)
 				if err != nil && !errors.Is(err, context.Canceled) {
-					r.l.Error(err)
+					E.LogError("handle connection error", err, &r.l)
+					connTask.Finish(err)
 				} else {
-					connTask.Finish("connection closed")
+					connTask.Finish("closed")
 				}
-				conn.Close()
 			}()
 		}
 	}

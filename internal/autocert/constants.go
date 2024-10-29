@@ -7,7 +7,6 @@ import (
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/providers/dns/duckdns"
 	"github.com/go-acme/lego/v4/providers/dns/ovh"
-	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -36,5 +35,3 @@ var providersGenMap = map[string]ProviderGenerator{
 var (
 	ErrGetCertFailure = errors.New("get certificate failed")
 )
-
-var logger = logrus.WithField("module", "autocert")

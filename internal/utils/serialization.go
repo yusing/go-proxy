@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"github.com/santhosh-tekuri/jsonschema"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,17 +23,27 @@ type (
 	}
 )
 
+var (
+	ErrInvalidType           = E.New("invalid type")
+	ErrNilValue              = E.New("nil")
+	ErrUnsettable            = E.New("unsettable")
+	ErrUnsupportedConvertion = E.New("unsupported convertion")
+	ErrMapMissingColon       = E.New("map missing colon")
+	ErrMapTooManyColons      = E.New("map too many colons")
+	ErrUnknownField          = E.New("unknown field")
+)
+
 func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
 	var i any
 
 	err := yaml.Unmarshal(data, &i)
 	if err != nil {
-		return E.FailWith("unmarshal yaml", err)
+		return E.From(err)
 	}
 
 	m, err := json.Marshal(i)
 	if err != nil {
-		return E.FailWith("marshal json", err)
+		return E.From(err)
 	}
 
 	err = schema.Validate(bytes.NewReader(m))
@@ -43,14 +53,14 @@ func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
 
 	var valErr *jsonschema.ValidationError
 	if !errors.As(err, &valErr) {
-		return E.UnexpectedError(err)
+		panic(err)
 	}
 
 	b := E.NewBuilder("yaml validation error")
 	for _, e := range valErr.Causes {
-		b.Addf(e.Message)
+		b.Adds(e.Message)
 	}
-	return b.Build()
+	return b.Error()
 }
 
 // Serialize converts the given data into a map[string]any representation.
@@ -66,7 +76,7 @@ func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
 // Returns:
 // - result: The resulting map[string]any representation of the data.
 // - error: An error if the data type is unsupported or if there is an error during conversion.
-func Serialize(data any) (SerializedObject, E.Error) {
+func Serialize(data any) (SerializedObject, error) {
 	result := make(map[string]any)
 
 	// Use reflection to inspect the data type
@@ -74,7 +84,7 @@ func Serialize(data any) (SerializedObject, E.Error) {
 
 	// Check if the value is valid
 	if !value.IsValid() {
-		return nil, E.Invalid("data", fmt.Sprintf("type: %T", data))
+		return nil, ErrInvalidType.Subjectf("%T", data)
 	}
 
 	// Dereference pointers if necessary
@@ -123,7 +133,7 @@ func Serialize(data any) (SerializedObject, E.Error) {
 			}
 		}
 	default:
-		return nil, E.Unsupported("type", value.Kind())
+		return nil, errors.New("serialize: unsupported data type " + value.Kind().String())
 	}
 
 	return result, nil
@@ -139,11 +149,10 @@ func Serialize(data any) (SerializedObject, E.Error) {
 // The function returns an error if the target value is not a struct or a map[string]any, or if there is an error during deserialization.
 func Deserialize(src SerializedObject, dst any) E.Error {
 	if src == nil {
-		return E.Invalid("src", "nil")
+		return E.Errorf("deserialize: src is %w", ErrNilValue)
 	}
-
 	if dst == nil {
-		return E.Invalid("nil dst", fmt.Sprintf("type: %T", dst))
+		return E.Errorf("deserialize: dst is %w", ErrNilValue)
 	}
 
 	dstV := reflect.ValueOf(dst)
@@ -151,7 +160,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 
 	if dstV.Kind() == reflect.Ptr {
 		if dstV.IsNil() {
-			return E.Invalid("nil dst", fmt.Sprintf("type: %T", dst))
+			return E.Errorf("deserialize: dst is %w", ErrNilValue)
 		}
 		dstV = dstV.Elem()
 		dstT = dstV.Type()
@@ -161,7 +170,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 	// convert target fields to lower no-snake
 	// then check if the field of data is in the target
 
-	// TODO: use E.Builder to collect errors from all fields
+	errs := E.NewBuilder("deserialize error")
 
 	switch dstV.Kind() {
 	case reflect.Struct:
@@ -173,12 +182,13 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			if field, ok := mapping[ToLowerNoSnake(k)]; ok {
 				err := Convert(reflect.ValueOf(v), field)
 				if err != nil {
-					return err.Subject(k)
+					errs.Add(err.Subject(k))
 				}
 			} else {
-				return E.Unexpected("field", k).Subjectf("%T", dst)
+				errs.Add(ErrUnknownField.Subject(k).Withf(strutils.DoYouMean(NearestField(k, dst))))
 			}
 		}
+		return errs.Error()
 	case reflect.Map:
 		if dstV.IsNil() {
 			dstV.Set(reflect.MakeMap(dstT))
@@ -187,15 +197,14 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			tmp := reflect.New(dstT.Elem()).Elem()
 			err := Convert(reflect.ValueOf(src[k]), tmp)
 			if err != nil {
-				return err.Subject(k)
+				errs.Add(err.Subject(k))
 			}
 			dstV.SetMapIndex(reflect.ValueOf(ToLowerNoSnake(k)), tmp)
 		}
+		return errs.Error()
 	default:
-		return E.Unsupported("target type", fmt.Sprintf("%T", dst))
+		return ErrUnsupportedConvertion.Subject("deserialize to " + dstT.String())
 	}
-
-	return nil
 }
 
 // Convert attempts to convert the src to dst.
@@ -220,7 +229,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 	}
 
 	if !dst.CanSet() {
-		return E.From(fmt.Errorf("%w type %T is unsettable", E.ErrUnsupported, dst.Interface()))
+		return ErrUnsettable.Subject(dstT.String())
 	}
 
 	if dst.Kind() == reflect.Pointer {
@@ -241,12 +250,12 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 	case srcT.Kind() == reflect.Map:
 		obj, ok := src.Interface().(SerializedObject)
 		if !ok {
-			return E.TypeMismatch[SerializedObject](src.Interface())
+			return ErrUnsupportedConvertion.Subject(dstT.String() + " to " + srcT.String())
 		}
 		return Deserialize(obj, dst.Addr().Interface())
 	case srcT.Kind() == reflect.Slice:
 		if dstT.Kind() != reflect.Slice {
-			return E.TypeError("slice", srcT, dstT)
+			return ErrUnsupportedConvertion.Subject(dstT.String() + " to slice")
 		}
 		newSlice := reflect.MakeSlice(dstT, 0, src.Len())
 		i := 0
@@ -271,7 +280,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 	var ok bool
 	// check if (*T).Convertor is implemented
 	if converter, ok = dst.Addr().Interface().(Converter); !ok {
-		return E.TypeError("conversion", srcT, dstT)
+		return ErrUnsupportedConvertion.Subjectf("%s to %s", srcT, dstT)
 	}
 
 	return converter.ConvertFrom(src.Interface())
@@ -297,8 +306,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		}
 		d, err := time.ParseDuration(src)
 		if err != nil {
-			convErr = E.Invalid("duration", src)
-			return
+			return true, E.From(err)
 		}
 		dst.Set(reflect.ValueOf(d))
 		return
@@ -308,24 +316,21 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 	case reflect.Bool:
 		b, err := strconv.ParseBool(src)
 		if err != nil {
-			convErr = E.Invalid("boolean", src)
-			return
+			return true, E.From(err)
 		}
 		dst.Set(reflect.ValueOf(b))
 		return
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		i, err := strconv.ParseInt(src, 10, 64)
 		if err != nil {
-			convErr = E.Invalid("int", src)
-			return
+			return true, E.From(err)
 		}
 		dst.Set(reflect.ValueOf(i).Convert(dst.Type()))
 		return
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		i, err := strconv.ParseUint(src, 10, 64)
 		if err != nil {
-			convErr = E.Invalid("uint", src)
-			return
+			return true, E.From(err)
 		}
 		dst.Set(reflect.ValueOf(i).Convert(dst.Type()))
 		return
@@ -340,7 +345,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 	case reflect.Slice:
 		// one liner is comma separated list
 		if len(lines) == 0 {
-			dst.Set(reflect.ValueOf(CommaSeperatedList(src)))
+			dst.Set(reflect.ValueOf(strutils.CommaSeperatedList(src)))
 			return
 		}
 		sl := make([]string, 0, len(lines))
@@ -356,35 +361,36 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		tmp = sl
 	case reflect.Map:
 		m := make(map[string]string, len(lines))
+		errs := E.NewBuilder("invalid map")
 		for i, line := range lines {
 			parts := strings.Split(line, ":")
 			if len(parts) < 2 {
-				convErr = E.Invalid("map", "missing colon").Subjectf("line#%d", i+1).With(line)
-				return
+				errs.Add(ErrMapMissingColon.Subjectf("line %d", i+1))
 			}
 			if len(parts) > 2 {
-				convErr = E.Invalid("map", "too many colons").Subjectf("line#%d", i+1).With(line)
-				return
+				errs.Add(ErrMapTooManyColons.Subjectf("line %d", i+1))
 			}
 			k := strings.TrimSpace(parts[0])
 			v := strings.TrimSpace(parts[1])
 			m[k] = v
 		}
+		if errs.HasError() {
+			return true, errs.Error()
+		}
 		tmp = m
 	}
 	if tmp == nil {
-		convertible = false
-		return
+		return false, nil
 	}
 	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
-func DeserializeJSON(j map[string]string, target any) E.Error {
-	data, err := E.Check(json.Marshal(j))
+func DeserializeJSON(j map[string]string, target any) error {
+	data, err := json.Marshal(j)
 	if err != nil {
 		return err
 	}
-	return E.From(json.Unmarshal(data, target))
+	return json.Unmarshal(data, target)
 }
 
 func ToLowerNoSnake(s string) string {
