@@ -19,6 +19,8 @@ func highlight(subject string) string {
 
 func PrependSubject(subject string, err error) error {
 	switch err := err.(type) {
+	case nil:
+		return nil
 	case *withSubject:
 		return err.Prepend(subject)
 	case Error:

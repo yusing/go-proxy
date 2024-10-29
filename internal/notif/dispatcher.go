@@ -90,7 +90,7 @@ func (disp *Dispatcher) dispatch(msg *LogMessage) {
 	if errs.HasError() {
 		E.LogError(errs.About(), errs.Error())
 	} else {
-		logging.Debug().Msgf("dispatched notif: %s", msg.Message)
+		logging.Debug().Str("title", msg.Title).Str("message", msg.Message).Msgf("dispatched notif")
 	}
 }
 

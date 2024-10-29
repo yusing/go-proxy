@@ -29,15 +29,15 @@ get:
 
 debug:
 	make build
-	GOPROXY_DEBUG=1 sudo bin/go-proxy
+	sudo GOPROXY_DEBUG=1 bin/go-proxy
 
 debug-trace:
 	make build
-	GOPROXY_DEBUG=1 GOPROXY_TRACE=1 sudo bin/go-proxy
+	sudo GOPROXY_DEBUG=1 GOPROXY_TRACE=1 bin/go-proxy
 
 profile:
 	GODEBUG=gctrace=1 make build
-	GOPROXY_DEBUG=1 sudo bin/go-proxy
+	sudo GOPROXY_DEBUG=1 bin/go-proxy
 
 mtrace:
 	bin/go-proxy debug-ls-mtrace > mtrace.json

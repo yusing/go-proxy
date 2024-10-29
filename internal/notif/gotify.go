@@ -62,8 +62,6 @@ func (client *GotifyClient) Send(ctx context.Context, logMsg *LogMessage) error 
 		priority = 5
 	case zerolog.FatalLevel, zerolog.PanicLevel:
 		priority = 8
-	default:
-		return nil
 	}
 
 	msg := &GotifyMessage{
