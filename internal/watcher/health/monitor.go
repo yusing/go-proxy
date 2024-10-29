@@ -77,6 +77,7 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 			if mon.status.Load() != StatusError {
 				mon.status.Store(StatusUnknown)
 			}
+			mon.task.Finish(nil)
 		}()
 
 		if err := mon.checkUpdateHealth(); err != nil {

@@ -104,8 +104,10 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 		Msg("listening")
 
 	if r.HealthMon != nil {
-		if err := r.HealthMon.Start(r.task.Subtask("health monitor")); err != nil {
+		healthMonTask := r.task.Subtask("health monitor")
+		if err := r.HealthMon.Start(healthMonTask); err != nil {
 			E.LogWarn("health monitor error", err, &r.l)
+			healthMonTask.Finish(err)
 		}
 	}
 
