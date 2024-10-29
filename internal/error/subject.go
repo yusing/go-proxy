@@ -17,12 +17,12 @@ func highlight(subject string) string {
 	return ansi.HighlightRed + subject + ansi.Reset
 }
 
-func PrependSubject(subject string, err error) *withSubject {
+func PrependSubject(subject string, err error) error {
 	switch err := err.(type) {
 	case *withSubject:
 		return err.Prepend(subject)
-	case *baseError:
-		return PrependSubject(subject, err.Err)
+	case Error:
+		return err.Subject(subject)
 	default:
 		return &withSubject{subject, err}
 	}

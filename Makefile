@@ -28,19 +28,19 @@ get:
 	go get -u ./cmd && go mod tidy
 
 debug:
-	make build && sudo GOPROXY_DEBUG=1 bin/go-proxy
+	make build
+	GOPROXY_DEBUG=1 sudo bin/go-proxy
 
 debug-trace:
-	make build && sudo GOPROXY_DEBUG=1 GOPROXY_TRACE=1 bin/go-proxy
+	make build
+	GOPROXY_DEBUG=1 GOPROXY_TRACE=1 sudo bin/go-proxy
 
 profile:
-	GODEBUG=gctrace=1 make build && sudo GOPROXY_DEBUG=1 bin/go-proxy
+	GODEBUG=gctrace=1 make build
+	GOPROXY_DEBUG=1 sudo bin/go-proxy
 
 mtrace:
 	bin/go-proxy debug-ls-mtrace > mtrace.json
-
-run-test:
-	make build && sudo GOPROXY_TEST=1 bin/go-proxy
 
 run:
 	make build && sudo bin/go-proxy

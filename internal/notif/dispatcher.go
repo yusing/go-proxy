@@ -3,6 +3,7 @@ package notif
 import (
 	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -70,8 +71,8 @@ func (disp *Dispatcher) start() {
 		select {
 		case <-disp.task.Context().Done():
 			return
-		case entry := <-disp.logCh:
-			go disp.dispatch(entry)
+		case msg := <-disp.logCh:
+			go disp.dispatch(msg)
 		}
 	}
 }
@@ -88,6 +89,8 @@ func (disp *Dispatcher) dispatch(msg *LogMessage) {
 	})
 	if errs.HasError() {
 		E.LogError(errs.About(), errs.Error())
+	} else {
+		logging.Debug().Msgf("dispatched notif: %s", msg.Message)
 	}
 }
 

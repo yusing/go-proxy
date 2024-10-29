@@ -13,10 +13,14 @@ const (
 // file, folder structure
 
 const (
+	DotEnvPath = ".env"
+
 	ConfigBasePath        = "config"
 	ConfigFileName        = "config.yml"
 	ConfigExampleFileName = "config.example.yml"
 	ConfigPath            = ConfigBasePath + "/" + ConfigFileName
+
+	JWTKeyPath = ConfigBasePath + "/jwt.key"
 
 	MiddlewareComposeBasePath = ConfigBasePath + "/middlewares"
 

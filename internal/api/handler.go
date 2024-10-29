@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
+	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -25,16 +26,17 @@ func NewHandler() http.Handler {
 	mux := NewServeMux()
 	mux.HandleFunc("GET", "/v1", v1.Index)
 	mux.HandleFunc("GET", "/v1/version", v1.GetVersion)
-	mux.HandleFunc("GET", "/v1/checkhealth", v1.CheckHealth)
-	mux.HandleFunc("HEAD", "/v1/checkhealth", v1.CheckHealth)
+	// mux.HandleFunc("GET", "/v1/checkhealth", v1.CheckHealth)
+	// mux.HandleFunc("HEAD", "/v1/checkhealth", v1.CheckHealth)
+	mux.HandleFunc("POST", "/v1/login", auth.LoginHandler)
 	mux.HandleFunc("POST", "/v1/reload", v1.Reload)
-	mux.HandleFunc("GET", "/v1/list", v1.List)
-	mux.HandleFunc("GET", "/v1/list/{what}", v1.List)
-	mux.HandleFunc("GET", "/v1/list/{what}/{which}", v1.List)
-	mux.HandleFunc("GET", "/v1/file", v1.GetFileContent)
-	mux.HandleFunc("GET", "/v1/file/{filename...}", v1.GetFileContent)
-	mux.HandleFunc("POST", "/v1/file/{filename...}", v1.SetFileContent)
-	mux.HandleFunc("PUT", "/v1/file/{filename...}", v1.SetFileContent)
+	mux.HandleFunc("GET", "/v1/list", auth.RequireAuth(v1.List))
+	mux.HandleFunc("GET", "/v1/list/{what}", auth.RequireAuth(v1.List))
+	mux.HandleFunc("GET", "/v1/list/{what}/{which}", auth.RequireAuth(v1.List))
+	mux.HandleFunc("GET", "/v1/file", auth.RequireAuth(v1.GetFileContent))
+	mux.HandleFunc("GET", "/v1/file/{filename...}", auth.RequireAuth(v1.GetFileContent))
+	mux.HandleFunc("POST", "/v1/file/{filename...}", auth.RequireAuth(v1.SetFileContent))
+	mux.HandleFunc("PUT", "/v1/file/{filename...}", auth.RequireAuth(v1.SetFileContent))
 	mux.HandleFunc("GET", "/v1/stats", v1.Stats)
 	mux.HandleFunc("GET", "/v1/stats/ws", v1.StatsWS)
 	return mux

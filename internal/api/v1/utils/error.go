@@ -6,16 +6,21 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
+// HandleErr logs the error and returns an HTTP error response to the client.
+// If code is specified, it will be used as the HTTP status code; otherwise,
+// http.StatusInternalServerError is used.
+//
+// The error is only logged but not returned to the client.
 func HandleErr(w http.ResponseWriter, r *http.Request, origErr error, code ...int) {
 	if origErr == nil {
 		return
 	}
 	LogError(r).Msg(origErr.Error())
+	statusCode := http.StatusInternalServerError
 	if len(code) > 0 {
-		http.Error(w, origErr.Error(), code[0])
-		return
+		statusCode = code[0]
 	}
-	http.Error(w, origErr.Error(), http.StatusInternalServerError)
+	http.Error(w, http.StatusText(statusCode), statusCode)
 }
 
 func ErrMissingKey(k string) error {

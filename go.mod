@@ -8,6 +8,7 @@ require (
 	github.com/docker/docker v27.3.1+incompatible
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-acme/lego/v4 v4.19.2
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gotify/server/v2 v2.5.0
 	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/rs/zerolog v1.33.0

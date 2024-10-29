@@ -100,7 +100,6 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 	})
 
 	r.l.Info().
-		Str("proto", string(r.Scheme.ListeningScheme)).
 		Int("port", int(r.Port.ListeningPort)).
 		Msg("listening")
 

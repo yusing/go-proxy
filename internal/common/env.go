@@ -2,17 +2,19 @@ package common
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+
+	"github.com/rs/zerolog/log"
 )
 
 var (
 	NoSchemaValidation = GetEnvBool("GOPROXY_NO_SCHEMA_VALIDATION", true)
 	IsTest             = GetEnvBool("GOPROXY_TEST", false) || strings.HasSuffix(os.Args[0], ".test")
 	IsDebug            = GetEnvBool("GOPROXY_DEBUG", IsTest)
+	IsDebugSkipAuth    = GetEnvBool("GOPROXY_DEBUG_SKIP_AUTH", false)
 	IsTrace            = GetEnvBool("GOPROXY_TRACE", false) && IsDebug
 
 	ProxyHTTPAddr,
@@ -29,6 +31,10 @@ var (
 	APIHTTPHost,
 	APIHTTPPort,
 	APIHTTPURL = GetAddrEnv("GOPROXY_API_ADDR", "127.0.0.1:8888", "http")
+
+	APIJWTSecret    = decodeJWTKey(GetEnv("GOPROXY_API_JWT_SECRET", generateJWTKey(32)))
+	APIUser         = GetEnv("GOPROXY_API_USER", "admin")
+	APIPasswordHash = HashPassword(GetEnv("GOPROXY_API_PASSWORD", "password"))
 )
 
 func GetEnvBool(key string, defaultValue bool) bool {
@@ -38,7 +44,7 @@ func GetEnvBool(key string, defaultValue bool) bool {
 	}
 	b, err := strconv.ParseBool(value)
 	if err != nil {
-		log.Fatalf("env %s: invalid boolean value: %s", key, value)
+		log.Fatal().Msgf("env %s: invalid boolean value: %s", key, value)
 	}
 	return b
 }
@@ -55,7 +61,7 @@ func GetAddrEnv(key, defaultValue, scheme string) (addr, host, port, fullURL str
 	addr = GetEnv(key, defaultValue)
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		log.Fatalf("env %s: invalid address: %s", key, addr)
+		log.Fatal().Msgf("env %s: invalid address: %s", key, addr)
 	}
 	if host == "" {
 		host = "localhost"
