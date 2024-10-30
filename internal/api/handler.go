@@ -29,6 +29,8 @@ func NewHandler() http.Handler {
 	// mux.HandleFunc("GET", "/v1/checkhealth", v1.CheckHealth)
 	// mux.HandleFunc("HEAD", "/v1/checkhealth", v1.CheckHealth)
 	mux.HandleFunc("POST", "/v1/login", auth.LoginHandler)
+	mux.HandleFunc("GET", "/v1/logout", auth.LogoutHandler)
+	mux.HandleFunc("POST", "/v1/logout", auth.LogoutHandler)
 	mux.HandleFunc("POST", "/v1/reload", v1.Reload)
 	mux.HandleFunc("GET", "/v1/list", auth.RequireAuth(v1.List))
 	mux.HandleFunc("GET", "/v1/list/{what}", auth.RequireAuth(v1.List))

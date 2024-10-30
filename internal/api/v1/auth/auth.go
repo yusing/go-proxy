@@ -80,6 +80,19 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func LogoutHandler(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "token",
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+		Path:     "/",
+	})
+	w.Header().Set("location", "/login")
+	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	if common.IsDebugSkipAuth {
 		return next
