@@ -19,11 +19,11 @@ func generateJWTKey(size int) string {
 	if _, err := rand.Read(bytes); err != nil {
 		log.Panic().Err(err).Msg("failed to generate jwt key")
 	}
-	return base64.URLEncoding.EncodeToString(bytes)
+	return base64.StdEncoding.EncodeToString(bytes)
 }
 
 func decodeJWTKey(key string) []byte {
-	bytes, err := base64.URLEncoding.DecodeString(key)
+	bytes, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
 		log.Panic().Err(err).Msg("failed to decode jwt key")
 	}
