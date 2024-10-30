@@ -63,7 +63,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 		},
 	}
-	token := jwt.NewWithClaims(jwt.SigningMethodES512, claim)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claim)
 	tokenStr, err := token.SignedString(common.APIJWTSecret)
 	if err != nil {
 		U.HandleErr(w, r, err)
