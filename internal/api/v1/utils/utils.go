@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/yusing/go-proxy/internal/logging"
@@ -23,7 +24,7 @@ func RespondJSON(w http.ResponseWriter, r *http.Request, data any, code ...int) 
 
 	switch data := data.(type) {
 	case string:
-		j = []byte(`"` + data + `"`)
+		j = []byte(fmt.Sprintf("%q", data))
 	case []byte:
 		j = data
 	default:

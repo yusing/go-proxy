@@ -64,6 +64,11 @@ func SetFindMuxDomains(domains []string) {
 	if len(domains) == 0 {
 		findMuxFunc = findMuxAnyDomain
 	} else {
+		for i, domain := range domains {
+			if !strings.HasPrefix(domain, ".") {
+				domains[i] = "." + domain
+			}
+		}
 		findMuxFunc = findMuxByDomains(domains)
 	}
 }
@@ -210,40 +215,51 @@ func (r *HTTPRoute) addToLoadBalancer() {
 
 func ProxyHandler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findMuxFunc(r.Host)
+	if err == nil {
+		mux.ServeHTTP(w, r)
+		return
+	}
 	// Why use StatusNotFound instead of StatusBadRequest or StatusBadGateway?
 	// On nginx, when route for domain does not exist, it returns StatusBadGateway.
 	// Then scraper / scanners will know the subdomain is invalid.
 	// With StatusNotFound, they won't know whether it's the path, or the subdomain that is invalid.
-	if err != nil {
-		if !middleware.ServeStaticErrorPageFile(w, r) {
-			logger.Err(err).Str("method", r.Method).Str("url", r.URL.String()).Msg("request")
-			errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
-			if ok {
-				w.WriteHeader(http.StatusNotFound)
-				w.Header().Set("Content-Type", "text/html; charset=utf-8")
-				if _, err := w.Write(errorPage); err != nil {
-					logger.Err(err).Msg("failed to write error page")
-				}
-			} else {
-				http.Error(w, err.Error(), http.StatusNotFound)
+	if !middleware.ServeStaticErrorPageFile(w, r) {
+		logger.Err(err).Str("method", r.Method).Str("url", r.URL.String()).Msg("request")
+		errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
+		if ok {
+			w.WriteHeader(http.StatusNotFound)
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			if _, err := w.Write(errorPage); err != nil {
+				logger.Err(err).Msg("failed to write error page")
 			}
+		} else {
+			http.Error(w, err.Error(), http.StatusNotFound)
 		}
-		return
 	}
-	mux.ServeHTTP(w, r)
 }
 
 func findMuxAnyDomain(host string) (http.Handler, error) {
 	hostSplit := strings.Split(host, ".")
 	n := len(hostSplit)
-	if n <= 2 {
+	switch {
+	case n == 3:
+		host = hostSplit[0]
+	case n > 3:
+		var builder strings.Builder
+		builder.Grow(2*n - 3)
+		builder.WriteString(hostSplit[0])
+		for _, part := range hostSplit[:n-2] {
+			builder.WriteRune('.')
+			builder.WriteString(part)
+		}
+		host = builder.String()
+	default:
 		return nil, errors.New("missing subdomain in url")
 	}
-	sd := strings.Join(hostSplit[:n-2], ".")
-	if r, ok := httpRoutes.Load(sd); ok {
+	if r, ok := httpRoutes.Load(host); ok {
 		return r.handler, nil
 	}
-	return nil, fmt.Errorf("no such route: %s", sd)
+	return nil, fmt.Errorf("no such route: %s", host)
 }
 
 func findMuxByDomains(domains []string) func(host string) (http.Handler, error) {
@@ -251,20 +267,18 @@ func findMuxByDomains(domains []string) func(host string) (http.Handler, error) 
 		var subdomain string
 
 		for _, domain := range domains {
-			if !strings.HasPrefix(domain, ".") {
-				domain = "." + domain
-			}
-			subdomain = strings.TrimSuffix(host, domain)
-			if len(subdomain) < len(host) {
+			if strings.HasSuffix(host, domain) {
+				subdomain = strings.TrimSuffix(host, domain)
 				break
 			}
 		}
-		if len(subdomain) == len(host) { // not matched
-			return nil, fmt.Errorf("%s does not match any base domain", host)
+
+		if subdomain != "" { // matched
+			if r, ok := httpRoutes.Load(subdomain); ok {
+				return r.handler, nil
+			}
+			return nil, fmt.Errorf("no such route: %s", subdomain)
 		}
-		if r, ok := httpRoutes.Load(subdomain); ok {
-			return r.handler, nil
-		}
-		return nil, fmt.Errorf("no such route: %s", subdomain)
+		return nil, fmt.Errorf("%s does not match any base domain", host)
 	}
 }

@@ -404,7 +404,7 @@ func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 
-	err = U.Copy2(req.Context(), rw, res.Body)
+	_, err = io.Copy(rw, res.Body)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			p.errorHandler(rw, req, err, true)

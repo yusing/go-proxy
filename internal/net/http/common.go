@@ -16,13 +16,12 @@ var (
 		Proxy:                 http.ProxyFromEnvironment,
 		DialContext:           defaultDialer.DialContext,
 		ForceAttemptHTTP2:     true,
-		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
+		MaxIdleConnsPerHost:   100,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
 	DefaultTransportNoTLS = func() *http.Transport {
-		var clone = DefaultTransport.Clone()
+		clone := DefaultTransport.Clone()
 		clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		return clone
 	}()
