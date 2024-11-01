@@ -26,16 +26,39 @@ import (
 func main() {
 	args := common.GetArgs()
 
-	if args.Command == common.CommandSetup {
+	switch args.Command {
+	case common.CommandSetup:
 		internal.Setup()
 		return
-	}
-
-	if args.Command == common.CommandReload {
+	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {
 			E.LogFatal("server reload error", err)
 		}
 		logging.Info().Msg("ok")
+		return
+	case common.CommandListIcons:
+		icons, err := internal.ListAvailableIcons()
+		if err != nil {
+			log.Fatal(err)
+		}
+		printJSON(icons)
+		return
+	case common.CommandListRoutes:
+		routes, err := query.ListRoutes()
+		if err != nil {
+			log.Printf("failed to connect to api server: %s", err)
+			log.Printf("falling back to config file")
+			printJSON(config.RoutesByAlias())
+		} else {
+			printJSON(routes)
+		}
+		return
+	case common.CommandDebugListMTrace:
+		trace, err := query.ListMiddlewareTraces()
+		if err != nil {
+			log.Fatal(err)
+		}
+		printJSON(trace)
 		return
 	}
 
@@ -75,42 +98,11 @@ func main() {
 	case common.CommandListConfigs:
 		printJSON(config.Value())
 		return
-	case common.CommandListRoutes:
-		routes, err := query.ListRoutes()
-		if err != nil {
-			log.Printf("failed to connect to api server: %s", err)
-			log.Printf("falling back to config file")
-			printJSON(config.RoutesByAlias())
-		} else {
-			printJSON(routes)
-		}
-		return
-	case common.CommandListIcons:
-		icons, err := internal.ListAvailableIcons()
-		if err != nil {
-			log.Fatal(err)
-		}
-		printJSON(icons)
-		return
 	case common.CommandDebugListEntries:
 		printJSON(config.DumpEntries())
 		return
 	case common.CommandDebugListProviders:
 		printJSON(config.DumpProviders())
-		return
-	case common.CommandDebugListMTrace:
-		trace, err := query.ListMiddlewareTraces()
-		if err != nil {
-			log.Fatal(err)
-		}
-		printJSON(trace)
-		return
-	case common.CommandDebugListTasks:
-		tasks, err := query.DebugListTasks()
-		if err != nil {
-			log.Fatal(err)
-		}
-		printJSON(tasks)
 		return
 	}
 
