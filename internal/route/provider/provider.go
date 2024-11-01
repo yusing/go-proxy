@@ -45,9 +45,7 @@ const (
 	providerEventFlushInterval = 300 * time.Millisecond
 )
 
-var (
-	ErrEmptyProviderName = errors.New("empty provider name")
-)
+var ErrEmptyProviderName = errors.New("empty provider name")
 
 func newProvider(name string, t ProviderType) *Provider {
 	return &Provider{
@@ -109,12 +107,11 @@ func (p *Provider) startRoute(parent task.Task, r *R.Route) E.Error {
 		p.routes.Delete(r.Entry.Alias)
 		subtask.Finish(err) // just to ensure
 		return err.Subject(r.Entry.Alias)
-	} else {
-		p.routes.Store(r.Entry.Alias, r)
-		subtask.OnFinished("del from provider", func() {
-			p.routes.Delete(r.Entry.Alias)
-		})
 	}
+	p.routes.Store(r.Entry.Alias, r)
+	subtask.OnFinished("del from provider", func() {
+		p.routes.Delete(r.Entry.Alias)
+	})
 	return nil
 }
 

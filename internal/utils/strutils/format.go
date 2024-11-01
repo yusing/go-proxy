@@ -2,6 +2,7 @@ package strutils
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,10 @@ func ParseBool(s string) bool {
 	default:
 		return false
 	}
+}
+
+func PortString(port uint16) string {
+	return strconv.FormatUint(uint64(port), 10)
 }
 
 func DoYouMean(s string) string {

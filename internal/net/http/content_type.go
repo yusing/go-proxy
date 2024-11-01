@@ -5,8 +5,10 @@ import (
 	"net/http"
 )
 
-type ContentType string
-type AcceptContentType []ContentType
+type (
+	ContentType       string
+	AcceptContentType []ContentType
+)
 
 func GetContentType(h http.Header) ContentType {
 	ct := h.Get("Content-Type")

@@ -44,7 +44,6 @@ func NewStreamRoute(entry *entry.StreamEntry) (impl, E.Error) {
 	}
 	return &StreamRoute{
 		StreamEntry: entry,
-		task:        task.DummyTask(),
 		l: logger.With().
 			Str("type", string(entry.Scheme.ListeningScheme)).
 			Str("name", entry.TargetName()).

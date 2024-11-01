@@ -89,7 +89,6 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	r := &HTTPRoute{
 		ReverseProxyEntry: entry,
 		rp:                rp,
-		task:              task.DummyTask(),
 		l: logger.With().
 			Str("type", string(entry.Scheme)).
 			Str("name", string(entry.Alias)).

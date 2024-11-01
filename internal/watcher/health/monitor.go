@@ -37,7 +37,6 @@ func newMonitor(url types.URL, config *HealthCheckConfig, healthCheckFunc Health
 		config:      config,
 		checkHealth: healthCheckFunc,
 		startTime:   time.Now(),
-		task:        task.DummyTask(),
 	}
 	mon.url.Store(url)
 	mon.status.Store(StatusHealthy)

@@ -52,13 +52,10 @@ func (c *SharedClient) Connected() bool {
 }
 
 // if the client is still referenced, this is no-op.
-func (c *SharedClient) Close() error {
-	if !c.Connected() {
-		return nil
+func (c *SharedClient) Close() {
+	if c.Connected() {
+		c.refCount.Sub()
 	}
-
-	c.refCount.Sub()
-	return nil
 }
 
 // ConnectClient creates a new Docker client connection to the specified host.
@@ -115,7 +112,6 @@ func ConnectClient(host string) (Client, error) {
 	}
 
 	client, err := client.NewClientWithOpts(opt...)
-
 	if err != nil {
 		return nil, err
 	}

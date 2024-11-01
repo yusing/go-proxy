@@ -68,7 +68,7 @@ func validateRPEntry(m *RawEntry, s fields.Scheme, errs *E.Builder) *ReverseProx
 	port := E.Collect(errs, fields.ValidatePort, m.Port)
 	pathPats := E.Collect(errs, fields.ValidatePathPatterns, m.PathPatterns)
 	url := E.Collect(errs, url.Parse, fmt.Sprintf("%s://%s:%d", s, host, port))
-	iwCfg := E.Collect(errs, idlewatcher.ValidateConfig, m.Container)
+	iwCfg := E.Collect(errs, idlewatcher.ValidateConfig, cont)
 
 	if errs.HasError() {
 		return nil

@@ -1,7 +1,7 @@
 package loadbalancer
 
 import (
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type Mode string
@@ -14,7 +14,7 @@ const (
 )
 
 func (mode *Mode) ValidateUpdate() bool {
-	switch U.ToLowerNoSnake(string(*mode)) {
+	switch strutils.ToLowerNoSnake(string(*mode)) {
 	case "":
 		return true
 	case string(RoundRobin):

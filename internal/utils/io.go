@@ -102,7 +102,7 @@ func (p BidirectionalPipe) Start() E.Error {
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // This is a copy of io.Copy with context handling
-// Author: yusing <yusing@6uo.me>
+// Author: yusing <yusing@6uo.me>.
 func Copy(dst *ContextWriter, src *ContextReader) (err error) {
 	size := 32 * 1024
 	if l, ok := src.Reader.(*io.LimitedReader); ok && int64(size) > l.N {

@@ -3,7 +3,6 @@ package idlewatcher
 import (
 	"bytes"
 	_ "embed"
-	"fmt"
 	"strings"
 	"text/template"
 
@@ -21,7 +20,7 @@ var loadingPage []byte
 var loadingPageTmpl = template.Must(template.New("loading_page").Parse(string(loadingPage)))
 
 func (w *Watcher) makeLoadingPageBody() []byte {
-	msg := fmt.Sprintf("%s is starting...", w.ContainerName)
+	msg := w.ContainerName + " is starting..."
 
 	data := new(templateData)
 	data.CheckRedirectHeader = common.HeaderCheckRedirect

@@ -9,7 +9,6 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/utils"
-	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -21,7 +20,7 @@ var (
 )
 
 func Get(name string) (*Middleware, Error) {
-	middleware, ok := allMiddlewares[U.ToLowerNoSnake(name)]
+	middleware, ok := allMiddlewares[strutils.ToLowerNoSnake(name)]
 	if !ok {
 		return nil, ErrUnknownMiddleware.
 			Subject(name).
@@ -34,7 +33,7 @@ func All() map[string]*Middleware {
 	return allMiddlewares
 }
 
-// initialize middleware names and label parsers
+// initialize middleware names and label parsers.
 func init() {
 	allMiddlewares = map[string]*Middleware{
 		"setxforwarded":    SetXForwarded,
@@ -67,7 +66,7 @@ func init() {
 
 func LoadComposeFiles() {
 	errs := E.NewBuilder("middleware compile errors")
-	middlewareDefs, err := U.ListFiles(common.MiddlewareComposeBasePath, 0)
+	middlewareDefs, err := utils.ListFiles(common.MiddlewareComposeBasePath, 0)
 	if err != nil {
 		logger.Err(err).Msg("failed to list middleware definitions")
 		return
@@ -82,7 +81,7 @@ func LoadComposeFiles() {
 				errs.Add(ErrDuplicatedMiddleware.Subject(name))
 				continue
 			}
-			allMiddlewares[U.ToLowerNoSnake(name)] = m
+			allMiddlewares[strutils.ToLowerNoSnake(name)] = m
 			logger.Info().
 				Str("name", name).
 				Str("src", path.Base(defFile)).

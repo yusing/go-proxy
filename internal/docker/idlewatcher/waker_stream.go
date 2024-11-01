@@ -28,7 +28,7 @@ func (w *Watcher) Accept() (conn types.StreamConn, err error) {
 		return
 	}
 	if wakeErr := w.wakeFromStream(); wakeErr != nil {
-		w.WakeError(wakeErr).Msg("error waking from stream")
+		w.WakeError(wakeErr)
 	}
 	return
 }
@@ -58,7 +58,7 @@ func (w *Watcher) wakeFromStream() error {
 	wakeErr := w.wakeIfStopped()
 	if wakeErr != nil {
 		wakeErr = fmt.Errorf("%s failed: %w", w.String(), wakeErr)
-		w.WakeError(wakeErr).Msg("wake failed")
+		w.WakeError(wakeErr)
 		return wakeErr
 	}
 

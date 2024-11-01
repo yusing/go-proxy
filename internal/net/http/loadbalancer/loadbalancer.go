@@ -55,7 +55,6 @@ func New(cfg *Config) *LoadBalancer {
 		Logger: logger.With().Str("name", cfg.Link).Logger(),
 		Config: new(Config),
 		pool:   newPool(),
-		task:   task.DummyTask(),
 	}
 	lb.UpdateConfigIfNeeded(cfg)
 	return lb

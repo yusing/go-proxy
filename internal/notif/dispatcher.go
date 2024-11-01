@@ -53,15 +53,15 @@ func RegisterProvider(configSubTask task.Task, cfg ProviderConfig) (Provider, er
 			Subject(name).
 			Withf(strutils.DoYouMean(utils.NearestField(name, Providers)))
 	}
-	if provider, err := createFunc(cfg); err != nil {
-		return nil, err
-	} else {
+
+	provider, err := createFunc(cfg)
+	if err == nil {
 		dispatcher.providers.Add(provider)
 		configSubTask.OnCancel("remove provider", func() {
 			dispatcher.providers.Remove(provider)
 		})
-		return provider, nil
 	}
+	return provider, err
 }
 
 func (disp *Dispatcher) start() {

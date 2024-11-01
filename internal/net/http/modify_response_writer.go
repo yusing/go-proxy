@@ -10,18 +10,20 @@ import (
 	"net/http"
 )
 
-type ModifyResponseFunc func(*http.Response) error
-type ModifyResponseWriter struct {
-	w http.ResponseWriter
-	r *http.Request
+type (
+	ModifyResponseFunc   func(*http.Response) error
+	ModifyResponseWriter struct {
+		w http.ResponseWriter
+		r *http.Request
 
-	headerSent bool
-	code       int
+		headerSent bool
+		code       int
 
-	modifier    ModifyResponseFunc
-	modified    bool
-	modifierErr error
-}
+		modifier    ModifyResponseFunc
+		modified    bool
+		modifierErr error
+	}
+)
 
 func NewModifyResponseWriter(w http.ResponseWriter, r *http.Request, f ModifyResponseFunc) *ModifyResponseWriter {
 	return &ModifyResponseWriter{

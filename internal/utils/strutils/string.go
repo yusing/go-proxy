@@ -2,7 +2,6 @@ package strutils
 
 import (
 	"net/url"
-	"strconv"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -29,8 +28,8 @@ func ExtractPort(fullURL string) (int, error) {
 	return Atoi(url.Port())
 }
 
-func PortString(port uint16) string {
-	return strconv.FormatUint(uint64(port), 10)
+func ToLowerNoSnake(s string) string {
+	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
 }
 
 func LevenshteinDistance(a, b string) int {
@@ -60,7 +59,7 @@ func LevenshteinDistance(a, b string) int {
 				cost = 1
 			}
 
-			v1[j+1] = min(v1[j]+1, v0[j+1]+1, v0[j]+cost)
+			v1[j+1] = min3(v1[j]+1, v0[j+1]+1, v0[j]+cost)
 		}
 
 		for j := 0; j <= len(b); j++ {
@@ -71,7 +70,7 @@ func LevenshteinDistance(a, b string) int {
 	return v1[len(b)]
 }
 
-func min(a, b, c int) int {
+func min3(a, b, c int) int {
 	if a < b && a < c {
 		return a
 	}

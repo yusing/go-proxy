@@ -18,9 +18,10 @@ func NearestField(input string, s any) string {
 		if t.Kind() == reflect.Ptr {
 			t = t.Elem()
 		}
-		if t.Kind() == reflect.Struct {
+		switch t.Kind() {
+		case reflect.Struct:
 			fields = make([]string, 0)
-			for i := 0; i < t.NumField(); i++ {
+			for i := range t.NumField() {
 				jsonTag, ok := t.Field(i).Tag.Lookup("json")
 				if ok {
 					fields = append(fields, jsonTag)
@@ -28,13 +29,13 @@ func NearestField(input string, s any) string {
 					fields = append(fields, t.Field(i).Name)
 				}
 			}
-		} else if t.Kind() == reflect.Map {
+		case reflect.Map:
 			keys := reflect.ValueOf(s).MapKeys()
 			fields = make([]string, len(keys))
 			for i, key := range keys {
 				fields[i] = key.String()
 			}
-		} else {
+		default:
 			panic("unsupported type: " + t.String())
 		}
 	}

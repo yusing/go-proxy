@@ -45,17 +45,18 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 		return nil, E.Errorf("register watcher: %w", err)
 	}
 
-	if rp != nil {
+	switch {
+	case rp != nil:
 		waker.hc = health.NewHTTPHealthChecker(entry.TargetURL(), hcCfg, rp.Transport)
-	} else if stream != nil {
+	case stream != nil:
 		waker.hc = health.NewRawHealthChecker(entry.TargetURL(), hcCfg)
-	} else {
+	default:
 		panic("both nil")
 	}
 	return watcher, nil
 }
 
-// lifetime should follow route provider
+// lifetime should follow route provider.
 func NewHTTPWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, rp, nil)
 }

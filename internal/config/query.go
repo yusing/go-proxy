@@ -69,17 +69,18 @@ func HomepageConfig() homepage.Config {
 			)
 		}
 
-		if entry.IsDocker(r) {
+		switch {
+		case entry.IsDocker(r):
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
 			item.SourceType = string(proxy.ProviderTypeDocker)
-		} else if entry.UseLoadBalance(r) {
+		case entry.UseLoadBalance(r):
 			if item.Category == "" {
 				item.Category = "Load-balanced"
 			}
 			item.SourceType = "loadbalancer"
-		} else {
+		default:
 			if item.Category == "" {
 				item.Category = "Others"
 			}

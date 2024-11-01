@@ -27,26 +27,31 @@ func (b *Builder) HasError() bool {
 	return len(b.errs) > 0
 }
 
-func (b *Builder) Error() Error {
+func (b *Builder) error() Error {
 	if !b.HasError() {
 		return nil
-	}
-	if len(b.errs) == 1 {
-		return From(b.errs[0])
 	}
 	return &nestedError{Err: New(b.about), Extras: b.errs}
 }
 
+func (b *Builder) Error() Error {
+	if len(b.errs) == 1 {
+		return From(b.errs[0])
+	}
+	return b.error()
+}
+
 func (b *Builder) String() string {
-	if !b.HasError() {
+	err := b.error()
+	if err == nil {
 		return ""
 	}
-	return (&nestedError{Err: New(b.about), Extras: b.errs}).Error()
+	return err.Error()
 }
 
 // Add adds an error to the Builder.
 //
-// adding nil is no-op,
+// adding nil is no-op.
 func (b *Builder) Add(err error) *Builder {
 	if err == nil {
 		return b
@@ -87,6 +92,21 @@ func (b *Builder) Addf(format string, args ...any) *Builder {
 		b.Adds(format)
 	}
 
+	return b
+}
+
+func (b *Builder) AddFrom(other *Builder, flatten bool) *Builder {
+	if other == nil || !other.HasError() {
+		return b
+	}
+
+	b.Lock()
+	defer b.Unlock()
+	if flatten {
+		b.errs = append(b.errs, other.errs...)
+	} else {
+		b.errs = append(b.errs, other.error())
+	}
 	return b
 }
 

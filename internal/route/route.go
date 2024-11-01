@@ -80,11 +80,12 @@ func FromEntries(entries entry.RawEntries) (Routes, E.Error) {
 	entries.RangeAllParallel(func(alias string, en *entry.RawEntry) {
 		en.Alias = alias
 		r, err := NewRoute(en)
-		if err != nil {
+		switch {
+		case err != nil:
 			b.Add(err.Subject(alias))
-		} else if entry.ShouldNotServe(r) {
+		case entry.ShouldNotServe(r):
 			return
-		} else {
+		default:
 			routes.Store(alias, r)
 		}
 	})

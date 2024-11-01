@@ -22,8 +22,10 @@ type Trace struct {
 
 type Traces []*Trace
 
-var traces = Traces{}
-var tracesMu sync.Mutex
+var (
+	traces   = make(Traces, 0)
+	tracesMu sync.Mutex
+)
 
 const MaxTraceNum = 100
 

@@ -27,7 +27,7 @@ var (
 	ErrInvalidType           = E.New("invalid type")
 	ErrNilValue              = E.New("nil")
 	ErrUnsettable            = E.New("unsettable")
-	ErrUnsupportedConvertion = E.New("unsupported convertion")
+	ErrUnsupportedConversion = E.New("unsupported conversion")
 	ErrMapMissingColon       = E.New("map missing colon")
 	ErrMapTooManyColons      = E.New("map too many colons")
 	ErrUnknownField          = E.New("unknown field")
@@ -176,10 +176,10 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 	case reflect.Struct:
 		mapping := make(map[string]reflect.Value)
 		for _, field := range reflect.VisibleFields(dstT) {
-			mapping[ToLowerNoSnake(field.Name)] = dstV.FieldByName(field.Name)
+			mapping[strutils.ToLowerNoSnake(field.Name)] = dstV.FieldByName(field.Name)
 		}
 		for k, v := range src {
-			if field, ok := mapping[ToLowerNoSnake(k)]; ok {
+			if field, ok := mapping[strutils.ToLowerNoSnake(k)]; ok {
 				err := Convert(reflect.ValueOf(v), field)
 				if err != nil {
 					errs.Add(err.Subject(k))
@@ -199,11 +199,11 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			if err != nil {
 				errs.Add(err.Subject(k))
 			}
-			dstV.SetMapIndex(reflect.ValueOf(ToLowerNoSnake(k)), tmp)
+			dstV.SetMapIndex(reflect.ValueOf(strutils.ToLowerNoSnake(k)), tmp)
 		}
 		return errs.Error()
 	default:
-		return ErrUnsupportedConvertion.Subject("deserialize to " + dstT.String())
+		return ErrUnsupportedConversion.Subject("deserialize to " + dstT.String())
 	}
 }
 
@@ -250,12 +250,12 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 	case srcT.Kind() == reflect.Map:
 		obj, ok := src.Interface().(SerializedObject)
 		if !ok {
-			return ErrUnsupportedConvertion.Subject(dstT.String() + " to " + srcT.String())
+			return ErrUnsupportedConversion.Subject(dstT.String() + " to " + srcT.String())
 		}
 		return Deserialize(obj, dst.Addr().Interface())
 	case srcT.Kind() == reflect.Slice:
 		if dstT.Kind() != reflect.Slice {
-			return ErrUnsupportedConvertion.Subject(dstT.String() + " to slice")
+			return ErrUnsupportedConversion.Subject(dstT.String() + " to slice")
 		}
 		newSlice := reflect.MakeSlice(dstT, 0, src.Len())
 		i := 0
@@ -280,7 +280,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 	var ok bool
 	// check if (*T).Convertor is implemented
 	if converter, ok = dst.Addr().Interface().(Converter); !ok {
-		return ErrUnsupportedConvertion.Subjectf("%s to %s", srcT, dstT)
+		return ErrUnsupportedConversion.Subjectf("%s to %s", srcT, dstT)
 	}
 
 	return converter.ConvertFrom(src.Interface())
@@ -310,6 +310,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		}
 		dst.Set(reflect.ValueOf(d))
 		return
+	default:
 	}
 	// primitive types / simple types
 	switch dst.Kind() {
@@ -391,8 +392,4 @@ func DeserializeJSON(j map[string]string, target any) error {
 		return err
 	}
 	return json.Unmarshal(data, target)
-}
-
-func ToLowerNoSnake(s string) string {
-	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
 }

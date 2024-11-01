@@ -17,7 +17,6 @@ import (
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher"
-	W "github.com/yusing/go-proxy/internal/watcher"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
@@ -108,8 +107,8 @@ func (w *Watcher) WakeTrace() *zerolog.Event {
 	return w.Trace().Str("action", "wake")
 }
 
-func (w *Watcher) WakeError(err error) *zerolog.Event {
-	return w.Err(err).Str("action", "wake")
+func (w *Watcher) WakeError(err error) {
+	w.Err(err).Str("action", "wake").Msg("error")
 }
 
 func (w *Watcher) LogReason(action, reason string) {
@@ -204,17 +203,17 @@ func (w *Watcher) resetIdleTimer() {
 
 func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask task.Task, eventCh <-chan events.Event, errCh <-chan E.Error) {
 	eventTask = w.task.Subtask("docker event watcher")
-	eventCh, errCh = dockerWatcher.EventsWithOptions(eventTask.Context(), W.DockerListOptions{
-		Filters: W.NewDockerFilter(
-			W.DockerFilterContainer,
-			W.DockerFilterContainerNameID(w.ContainerID),
-			W.DockerFilterStart,
-			W.DockerFilterStop,
-			W.DockerFilterDie,
-			W.DockerFilterKill,
-			W.DockerFilterDestroy,
-			W.DockerFilterPause,
-			W.DockerFilterUnpause,
+	eventCh, errCh = dockerWatcher.EventsWithOptions(eventTask.Context(), watcher.DockerListOptions{
+		Filters: watcher.NewDockerFilter(
+			watcher.DockerFilterContainer,
+			watcher.DockerFilterContainerNameID(w.ContainerID),
+			watcher.DockerFilterStart,
+			watcher.DockerFilterStop,
+			watcher.DockerFilterDie,
+			watcher.DockerFilterKill,
+			watcher.DockerFilterDestroy,
+			watcher.DockerFilterPause,
+			watcher.DockerFilterUnpause,
 		),
 	})
 	return
@@ -230,9 +229,9 @@ func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask tas
 // stop method.
 //
 // it exits only if the context is canceled, the container is destroyed,
-// errors occured on docker client, or route provider died (mainly caused by config reload).
+// errors occurred on docker client, or route provider died (mainly caused by config reload).
 func (w *Watcher) watchUntilDestroy() (returnCause error) {
-	dockerWatcher := W.NewDockerWatcherWithClient(w.client)
+	dockerWatcher := watcher.NewDockerWatcherWithClient(w.client)
 	eventTask, dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
 	defer eventTask.Finish("stopped")
 
@@ -279,9 +278,13 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 		case <-w.ticker.C:
 			w.ticker.Stop()
 			if w.ContainerRunning {
-				if err := w.stopByMethod(); err != nil && !errors.Is(err, context.Canceled) {
+				err := w.stopByMethod()
+				switch {
+				case errors.Is(err, context.Canceled):
+					continue
+				case err != nil:
 					w.Err(err).Msgf("container stop with method %q failed", w.StopMethod)
-				} else {
+				default:
 					w.LogReason("container stopped", "idle timeout")
 				}
 			}

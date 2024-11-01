@@ -19,24 +19,33 @@ import (
 const errPagesBasePath = common.ErrorPagesBasePath
 
 var (
+	setupMu        sync.Mutex
 	dirWatcher     W.Watcher
 	fileContentMap = F.NewMapOf[string, []byte]()
 )
 
-var setup = sync.OnceFunc(func() {
+func setup() {
+	setupMu.Lock()
+	defer setupMu.Unlock()
+
+	if dirWatcher != nil {
+		return
+	}
+
 	task := task.GlobalTask("error page")
 	dirWatcher = W.NewDirectoryWatcher(task.Subtask("dir watcher"), errPagesBasePath)
 	loadContent()
 	go watchDir(task)
-})
+}
 
 func GetStaticFile(filename string) ([]byte, bool) {
+	setup()
 	return fileContentMap.Load(filename)
 }
 
 // try <statusCode>.html -> 404.html -> not ok.
 func GetErrorPageByStatus(statusCode int) (content []byte, ok bool) {
-	content, ok = fileContentMap.Load(fmt.Sprintf("%d.html", statusCode))
+	content, ok = GetStaticFile(fmt.Sprintf("%d.html", statusCode))
 	if !ok && statusCode != 404 {
 		return fileContentMap.Load("404.html")
 	}

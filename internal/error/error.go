@@ -22,7 +22,7 @@ type Error interface {
 	Subjectf(format string, args ...any) Error
 }
 
-// this makes JSON marshalling work,
+// this makes JSON marshaling work,
 // as the builtin one doesn't.
 type errStr string
 

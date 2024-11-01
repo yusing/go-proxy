@@ -14,7 +14,7 @@ import (
 )
 
 func ReloadServer() E.Error {
-	resp, err := U.Post(fmt.Sprintf("%s/v1/reload", common.APIHTTPURL), "", nil)
+	resp, err := U.Post(common.APIHTTPURL+"/v1/reload", "", nil)
 	if err != nil {
 		return E.From(err)
 	}

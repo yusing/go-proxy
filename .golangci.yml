@@ -108,6 +108,7 @@ linters:
     - prealloc # Too many false-positive.
     - makezero # Not relevant
     - dupl # Too strict
+    - gci # I don't care
     - gosec # Too strict
     - gochecknoinits
     - gochecknoglobals

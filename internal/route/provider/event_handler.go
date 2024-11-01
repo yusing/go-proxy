@@ -18,9 +18,9 @@ type EventHandler struct {
 	updated *E.Builder
 }
 
-func (provider *Provider) newEventHandler() *EventHandler {
+func (p *Provider) newEventHandler() *EventHandler {
 	return &EventHandler{
-		provider: provider,
+		provider: p,
 		errs:     E.NewBuilder("event errors"),
 		added:    E.NewBuilder("added"),
 		removed:  E.NewBuilder("removed"),
@@ -60,11 +60,12 @@ func (handler *EventHandler) Handle(parent task.Task, events []watcher.Event) {
 
 	oldRoutes.RangeAll(func(k string, oldr *route.Route) {
 		newr, ok := newRoutes.Load(k)
-		if !ok {
+		switch {
+		case !ok:
 			handler.Remove(oldr)
-		} else if handler.matchAny(events, newr) {
+		case handler.matchAny(events, newr):
 			handler.Update(parent, oldr, newr)
-		} else if entry.ShouldNotServe(newr) {
+		case entry.ShouldNotServe(newr):
 			handler.Remove(oldr)
 		}
 	})
@@ -122,11 +123,11 @@ func (handler *EventHandler) Update(parent task.Task, oldRoute *route.Route, new
 }
 
 func (handler *EventHandler) Log() {
-	results := E.NewBuilder("event occured")
-	results.Add(handler.added.Error())
-	results.Add(handler.removed.Error())
-	results.Add(handler.updated.Error())
-	results.Add(handler.errs.Error())
+	results := E.NewBuilder("event occurred")
+	results.AddFrom(handler.added, false)
+	results.AddFrom(handler.removed, false)
+	results.AddFrom(handler.updated, false)
+	results.AddFrom(handler.errs, false)
 	if result := results.String(); result != "" {
 		handler.provider.Logger().Info().Msg(result)
 	}

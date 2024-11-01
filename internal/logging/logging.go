@@ -15,13 +15,14 @@ func init() {
 	var level zerolog.Level
 	var exclude []string
 
-	if common.IsTrace {
+	switch {
+	case common.IsTrace:
 		timeFmt = "04:05"
 		level = zerolog.TraceLevel
-	} else if common.IsDebug {
+	case common.IsDebug:
 		timeFmt = "01-02 15:04"
 		level = zerolog.DebugLevel
-	} else {
+	default:
 		timeFmt = "01-02 15:04"
 		level = zerolog.InfoLevel
 		exclude = []string{"module"}
