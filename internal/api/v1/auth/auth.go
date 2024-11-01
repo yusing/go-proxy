@@ -30,8 +30,6 @@ var (
 	ErrInvalidPassword = E.New("invalid password")
 )
 
-const tokenExpiration = 24 * time.Hour
-
 func validatePassword(cred *Credentials) error {
 	if cred.Username != common.APIUser {
 		return ErrInvalidUsername.Subject(cred.Username)
@@ -54,7 +52,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expiresAt := time.Now().Add(tokenExpiration)
+	expiresAt := time.Now().Add(common.APIJWTTokenTTL)
 	claim := &Claims{
 		Username: creds.Username,
 		RegisteredClaims: jwt.RegisteredClaims{

@@ -6,6 +6,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/rs/zerolog/log"
 )
@@ -33,6 +34,7 @@ var (
 	APIHTTPURL = GetAddrEnv("GOPROXY_API_ADDR", "127.0.0.1:8888", "http")
 
 	APIJWTSecret    = decodeJWTKey(GetEnv("GOPROXY_API_JWT_SECRET", generateJWTKey(32)))
+	APIJWTTokenTTL  = GetDurationEnv("GOPROXY_API_JWT_TOKEN_TTL", time.Hour)
 	APIUser         = GetEnv("GOPROXY_API_USER", "admin")
 	APIPasswordHash = HashPassword(GetEnv("GOPROXY_API_PASSWORD", "password"))
 )
@@ -68,4 +70,16 @@ func GetAddrEnv(key, defaultValue, scheme string) (addr, host, port, fullURL str
 	}
 	fullURL = fmt.Sprintf("%s://%s:%s", scheme, host, port)
 	return
+}
+
+func GetDurationEnv(key string, defaultValue time.Duration) time.Duration {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		return defaultValue
+	}
+	d, err := time.ParseDuration(value)
+	if err != nil {
+		log.Fatal().Msgf("env %s: invalid duration value: %s", key, value)
+	}
+	return d
 }
