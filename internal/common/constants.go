@@ -13,7 +13,8 @@ const (
 // file, folder structure
 
 const (
-	DotEnvPath = ".env"
+	DotEnvPath        = ".env"
+	DotEnvExamplePath = ".env.example"
 
 	ConfigBasePath        = "config"
 	ConfigFileName        = "config.yml"

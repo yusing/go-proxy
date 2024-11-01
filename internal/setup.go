@@ -16,6 +16,7 @@ var (
 	baseURL         = "https://github.com/yusing/go-proxy/raw/" + branch
 	requiredConfigs = []Config{
 		{common.ConfigBasePath, true, false, ""},
+		{common.DotEnvPath, false, true, common.DotEnvExamplePath},
 		{common.ComposeFileName, false, true, common.ComposeExampleFileName},
 		{path.Join(common.ConfigBasePath, common.ConfigFileName), false, true, common.ConfigExampleFileName},
 	}
@@ -40,7 +41,7 @@ func Setup() {
 		config.setup()
 	}
 
-	log.Println("done")
+	log.Println("setup finished")
 }
 
 func (c *Config) setup() {
@@ -96,7 +97,7 @@ func fetch(remoteFilename string, outFileName string) {
 		log.Printf("%q already exists, downloading to %q\n", outFileName, remoteFilename)
 		outFileName = remoteFilename
 	}
-	log.Printf("downloading %q\n", remoteFilename)
+	log.Printf("downloading %q to %q\n", remoteFilename, outFileName)
 
 	url, err := url.JoinPath(baseURL, remoteFilename)
 	if err != nil {
@@ -120,7 +121,7 @@ func fetch(remoteFilename string, outFileName string) {
 		log.Fatalf("failed to write to file: %s\n", err)
 	}
 
-	log.Printf("downloaded to %q\n", outFileName)
+	log.Print("done")
 
 	resp.Body.Close()
 }

@@ -4,31 +4,19 @@ services:
         container_name: go-proxy-frontend
         restart: unless-stopped
         network_mode: host
+        env_file: .env
         depends_on:
             - app
         # if you also want to proxy the WebUI and access it via gp.y.z
         # labels:
         #   - proxy.aliases=gp
         #   - proxy.gp.port=3000
-
-        # Make sure the value is same as `GOPROXY_API_ADDR` below (if you have changed it)
-        #
-        # environment:
-        #     GOPROXY_API_ADDR: 127.0.0.1:8888
     app:
         image: ghcr.io/yusing/go-proxy:latest
         container_name: go-proxy
         restart: always
         network_mode: host
-        environment:
-            # (Optional) change this to your timezone to get correct log timestamp
-            TZ: ETC/UTC
-
-            # Change these if you need
-            #
-            # GOPROXY_HTTP_ADDR: :80
-            # GOPROXY_HTTPS_ADDR: :443
-            # GOPROXY_API_ADDR: 127.0.0.1:8888
+        env_file: .env
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./config:/app/config
