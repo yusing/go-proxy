@@ -12,7 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
-// ServeHTTP implements http.Handler
+// ServeHTTP implements http.Handler.
 func (w *Watcher) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	shouldNext := w.wakeFromHTTP(rw, r)
 	if !shouldNext {
@@ -81,7 +81,7 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 	w.WakeTrace().Msg("signal received")
 	err := w.wakeIfStopped()
 	if err != nil {
-		w.WakeError(err).Send()
+		w.WakeError(err)
 		http.Error(rw, "Error waking container", http.StatusInternalServerError)
 		return false
 	}

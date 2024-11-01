@@ -8,7 +8,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -27,8 +26,6 @@ func createGlobalTask() (t *task) {
 
 type (
 	// Task controls objects' lifetime.
-	//
-	// Task must be initialized, use DummyTask if the task is not yet started.
 	//
 	// Objects that uses a task should implement the TaskStarter and the TaskFinisher interface.
 	//
@@ -167,8 +164,8 @@ func GlobalContextWait(timeout time.Duration) {
 	}
 }
 
-func (t *task) trace() *zerolog.Event {
-	return logger.Trace().Str("name", t.name)
+func (t *task) trace(msg string) {
+	logger.Trace().Str("name", t.name).Msg(msg)
 }
 
 func (t *task) Name() string {
@@ -244,7 +241,7 @@ func (t *task) OnCancel(about string, fn func()) {
 		<-t.ctx.Done()
 		fn()
 		onCompTask.Finish("done")
-		t.trace().Msg("onCancel done: " + about)
+		t.trace("onCancel done: " + about)
 	}()
 }
 
@@ -284,10 +281,10 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 	parent.subTasksWg.Add(1)
 	parent.subtasks.Add(subtask)
 	if common.IsTrace {
-		subtask.trace().Msg("started")
+		subtask.trace("started")
 		go func() {
 			subtask.Wait()
-			subtask.trace().Msg("finished: " + subtask.FinishCause().Error())
+			subtask.trace("finished: " + subtask.FinishCause().Error())
 		}()
 	}
 	go func() {
