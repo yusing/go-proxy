@@ -32,8 +32,6 @@ var (
 
 const tokenExpiration = 24 * time.Hour
 
-const jwtClaimKeyUsername = "username"
-
 func validatePassword(cred *Credentials) error {
 	if cred.Username != common.APIUser {
 		return ErrInvalidUsername.Subject(cred.Username)
@@ -114,7 +112,7 @@ func checkToken(w http.ResponseWriter, r *http.Request) (ok bool) {
 	var claims Claims
 	token, err := jwt.ParseWithClaims(tokenCookie.Value, &claims, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", t.Header["alg"])
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
 		}
 		return common.APIJWTSecret, nil
 	})

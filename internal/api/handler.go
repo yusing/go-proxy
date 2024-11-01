@@ -9,7 +9,6 @@ import (
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/config"
 )
 
 type ServeMux struct{ *http.ServeMux }
@@ -26,8 +25,6 @@ func NewHandler() http.Handler {
 	mux := NewServeMux()
 	mux.HandleFunc("GET", "/v1", v1.Index)
 	mux.HandleFunc("GET", "/v1/version", v1.GetVersion)
-	// mux.HandleFunc("GET", "/v1/checkhealth", v1.CheckHealth)
-	// mux.HandleFunc("HEAD", "/v1/checkhealth", v1.CheckHealth)
 	mux.HandleFunc("POST", "/v1/login", auth.LoginHandler)
 	mux.HandleFunc("GET", "/v1/logout", auth.LogoutHandler)
 	mux.HandleFunc("POST", "/v1/logout", auth.LogoutHandler)
@@ -57,11 +54,5 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		f(w, r)
-	}
-}
-
-func wrap(cfg *config.Config, f func(cfg *config.Config, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		f(cfg, w, r)
 	}
 }

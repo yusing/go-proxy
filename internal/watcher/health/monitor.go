@@ -13,7 +13,6 @@ import (
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type (
@@ -31,11 +30,7 @@ type (
 	}
 )
 
-var monMap = F.NewMapOf[string, HealthMonitor]()
-
-var (
-	ErrNegativeInterval = errors.New("negative interval")
-)
+var ErrNegativeInterval = errors.New("negative interval")
 
 func newMonitor(url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
 	mon := &monitor{
@@ -49,16 +44,11 @@ func newMonitor(url types.URL, config *HealthCheckConfig, healthCheckFunc Health
 	return mon
 }
 
-func Inspect(service string) (HealthMonitor, bool) {
-	return monMap.Load(service)
-}
-
 func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cancel context.CancelFunc) {
 	if mon.task != nil {
 		return context.WithTimeoutCause(mon.task.Context(), mon.config.Timeout, errors.New(cause))
-	} else {
-		return context.WithTimeoutCause(context.Background(), mon.config.Timeout, errors.New(cause))
 	}
+	return context.WithTimeoutCause(context.Background(), mon.config.Timeout, errors.New(cause))
 }
 
 // Start implements task.TaskStarter.
@@ -84,9 +74,6 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 			logger.Err(err).Msg("healthchecker failure")
 			return
 		}
-
-		monMap.Store(mon.service, mon)
-		defer monMap.Delete(mon.service)
 
 		ticker := time.NewTicker(mon.config.Interval)
 		defer ticker.Stop()

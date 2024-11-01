@@ -3,6 +3,7 @@ package autocert
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"os"
 	"path"
 	"reflect"
@@ -34,6 +35,8 @@ type (
 
 	CertExpiries map[string]time.Time
 )
+
+var ErrGetCertFailure = errors.New("get certificate failed")
 
 func (p *Provider) GetCert(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
 	if p.tlsCert == nil {
@@ -248,10 +251,7 @@ func (p *Provider) renewIfNeeded() E.Error {
 		return nil
 	}
 
-	if err := p.ObtainCert(); err != nil {
-		return err
-	}
-	return nil
+	return p.ObtainCert()
 }
 
 func getCertExpiries(cert *tls.Certificate) (CertExpiries, error) {

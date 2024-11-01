@@ -19,7 +19,7 @@ import (
 type StreamRoute struct {
 	*entry.StreamEntry
 
-	stream net.Stream `json:"-"`
+	stream net.Stream
 
 	HealthMon health.HealthMonitor `json:"health"`
 

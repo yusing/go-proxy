@@ -1,8 +1,6 @@
 package autocert
 
 import (
-	"errors"
-
 	"github.com/go-acme/lego/v4/providers/dns/clouddns"
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/providers/dns/duckdns"
@@ -31,7 +29,3 @@ var providersGenMap = map[string]ProviderGenerator{
 	ProviderDuckdns:    providerGenerator(duckdns.NewDefaultConfig, duckdns.NewDNSProviderConfig),
 	ProviderOVH:        providerGenerator(ovh.NewDefaultConfig, ovh.NewDNSProviderConfig),
 }
-
-var (
-	ErrGetCertFailure = errors.New("get certificate failed")
-)

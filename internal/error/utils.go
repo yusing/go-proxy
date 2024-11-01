@@ -1,11 +1,8 @@
 package error
 
 import (
-	"errors"
 	"fmt"
 )
-
-var ErrInvalidErrorJson = errors.New("invalid error json")
 
 func newError(message string) error {
 	return errStr(message)
