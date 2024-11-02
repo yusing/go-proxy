@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -64,10 +65,17 @@ func NewRateLimiter(optsRaw OptionsRaw) (*Middleware, E.Error) {
 func (rl *rateLimiter) limit(next http.HandlerFunc, w ResponseWriter, r *Request) {
 	rl.mu.Lock()
 
-	limiter, ok := rl.requestMap[r.RemoteAddr]
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		rl.m.Debug().Msgf("unable to parse remote address %s", r.RemoteAddr)
+		http.Error(w, "Internal error", http.StatusInternalServerError)
+		return
+	}
+
+	limiter, ok := rl.requestMap[host]
 	if !ok {
 		limiter = rl.newLimiter()
-		rl.requestMap[r.RemoteAddr] = limiter
+		rl.requestMap[host] = limiter
 	}
 
 	rl.mu.Unlock()
