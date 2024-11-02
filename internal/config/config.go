@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -177,6 +178,11 @@ func (cfg *Config) load() E.Error {
 	errs.Add(cfg.loadRouteProviders(&model.Providers))
 
 	cfg.value = model
+	for i, domain := range model.MatchDomains {
+		if !strings.HasPrefix(domain, ".") {
+			model.MatchDomains[i] = "." + domain
+		}
+	}
 	route.SetFindMuxDomains(model.MatchDomains)
 	return errs.Error()
 }

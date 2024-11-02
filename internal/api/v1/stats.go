@@ -19,18 +19,21 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 }
 
 func StatsWS(w http.ResponseWriter, r *http.Request) {
-	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
-	originPats := make([]string, len(config.Value().MatchDomains)+len(localAddresses))
+	var originPats []string
 
-	if len(originPats) == 0 {
+	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
+
+	if len(config.Value().MatchDomains) == 0 {
 		U.LogWarn(r).Msg("no match domains configured, accepting websocket API request from all origins")
 		originPats = []string{"*"}
 	} else {
+		originPats = make([]string, len(config.Value().MatchDomains))
 		for i, domain := range config.Value().MatchDomains {
-			originPats[i] = "*." + domain
+			originPats[i] = "*" + domain
 		}
 		originPats = append(originPats, localAddresses...)
 	}
+	U.LogInfo(r).Msgf("websocket API request from origins: %s", originPats)
 	if common.IsDebug {
 		originPats = []string{"*"}
 	}

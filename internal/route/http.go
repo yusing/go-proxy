@@ -64,11 +64,6 @@ func SetFindMuxDomains(domains []string) {
 	if len(domains) == 0 {
 		findMuxFunc = findMuxAnyDomain
 	} else {
-		for i, domain := range domains {
-			if !strings.HasPrefix(domain, ".") {
-				domains[i] = "." + domain
-			}
-		}
 		findMuxFunc = findMuxByDomains(domains)
 	}
 }
