@@ -30,9 +30,7 @@ type (
 var (
 	RateLimiter            = &Middleware{withOptions: NewRateLimiter}
 	rateLimiterOptsDefault = rateLimiterOpts{
-		Average: 100,
-		Burst:   1,
-		Period:  time.Second,
+		Period: time.Second,
 	}
 )
 

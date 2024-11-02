@@ -1,3 +1,4 @@
+---
 services:
     frontend:
         image: ghcr.io/yusing/go-proxy-frontend:latest
@@ -27,14 +28,15 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./config:/app/config
+            - ./error_pages:/app/error_pages
 
             # (Optional) choose one of below to enable https
             # 1. use existing certificate
-            # if your cert is not named `cert.crt` change `cert_path` in `config/config.yml`
-            # if your cert key is not named `priv.key` change `key_path` in `config/config.yml`
 
-            # - /path/to/certs:/app/certs
+            # - /path/to/certs/cert.crt:/app/certs/cert.crt
+            # - /path/to/certs/priv.key:/app/certs/priv.key
 
-            # 2. use autocert, certs will be stored in ./certs (or other path you specify)
+            # 2. use autocert, certs will be stored in ./certs
+            #    you can also use a docker volume to store it
 
             # - ./certs:/app/certs
