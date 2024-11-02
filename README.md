@@ -24,6 +24,7 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
   - [Key Features](#key-features)
   - [Getting Started](#getting-started)
     - [Setup](#setup)
+    - [Manual Setup](#manual-setup)
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
   - [Screenshots](#screenshots)
     - [idlesleeper](#idlesleeper)
@@ -59,10 +60,12 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
     docker pull ghcr.io/yusing/go-proxy:latest
     ```
 
-2.  Create new directory, `cd` into it, then run setup
+2.  Create new directory, `cd` into it, then run setup, or [set up manually](#manual-setup) 
 
     ```shell
     docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup
+    # Then set the JWT secret
+    sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
     ```
 
 3.  Setup DNS Records point to machine which runs `go-proxy`, e.g.
@@ -82,6 +85,22 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
     -   For more info, [See Wiki]([wiki](https://github.com/yusing/go-proxy/wiki))
 
 [🔼Back to top](#table-of-content)
+
+### Manual Setup
+
+1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
+  `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/config.example.yml -O config/config.yml`
+
+2. Grab `.env.example` into `.env`
+  `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/.env.example -O .env`
+
+3. Grab `compose.example.yml` into `compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/compose.example.yml -O compose.yml`
+
+4. Set the JWT secret
+   `sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env`
+
+5. Start the container `docker compose up -d`
 
 ### Use JSON Schema in VSCode
 
