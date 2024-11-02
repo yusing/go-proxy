@@ -25,6 +25,7 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
   - [Getting Started](#getting-started)
     - [Setup](#setup)
     - [Manual Setup](#manual-setup)
+    - [Folder structrue](#folder-structrue)
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
   - [Screenshots](#screenshots)
     - [idlesleeper](#idlesleeper)
@@ -101,6 +102,23 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
    `sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env`
 
 5. Start the container `docker compose up -d`
+
+### Folder structrue
+
+```shell
+├── certs
+│   ├── cert.crt
+│   └── priv.key
+├── compose.yml
+├── config
+│   ├── config.yml
+│   ├── middlewares
+│   │   ├── middleware1.yml
+│   │   ├── middleware2.yml
+│   ├── provider1.yml
+│   └── provider2.yml
+└── .env
+```
 
 ### Use JSON Schema in VSCode
 
