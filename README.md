@@ -90,15 +90,19 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 ### Manual Setup
 
 1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
-  `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/config.example.yml -O config/config.yml`
+
+    `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/config.example.yml -O config/config.yml`
 
 2. Grab `.env.example` into `.env`
-  `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/.env.example -O .env`
+   
+    `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/.env.example -O .env`
 
 3. Grab `compose.example.yml` into `compose.yml`
+   
    `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/compose.example.yml -O compose.yml`
 
 4. Set the JWT secret
+   
    `sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env`
 
 5. Start the container `docker compose up -d`
