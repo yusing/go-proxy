@@ -7,10 +7,17 @@ services:
         env_file: .env
         depends_on:
             - app
-        # if you also want to proxy the WebUI and access it via gp.y.z
-        # labels:
-        #   - proxy.aliases=gp
-        #   - proxy.gp.port=3000
+        # modify below to fit your needs
+        labels:
+            proxy.aliases: gp
+            proxy.#1.port: 3000
+            proxy.#1.middlewares.cidr_whitelist.status_code: 403
+            proxy.#1.middlewares.cidr_whitelist.message: IP not allowed
+            proxy.#1.middlewares.cidr_whitelist.allow: |
+                - 127.0.0.1
+                - 10.0.0.0/8
+                - 192.168.0.0/16
+                - 172.16.0.0/12
     app:
         image: ghcr.io/yusing/go-proxy:latest
         container_name: go-proxy
