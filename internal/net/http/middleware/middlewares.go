@@ -35,20 +35,23 @@ func All() map[string]*Middleware {
 
 // initialize middleware names and label parsers.
 func init() {
+	// snakes and cases will be stripped on `Get`
+	// so keys are lowercase without snake.
 	allMiddlewares = map[string]*Middleware{
 		"setxforwarded":    SetXForwarded,
 		"hidexforwarded":   HideXForwarded,
 		"redirecthttp":     RedirectHTTP,
-		"modifyresponse":   ModifyResponse.m,
-		"modifyrequest":    ModifyRequest.m,
+		"modifyresponse":   ModifyResponse,
+		"modifyrequest":    ModifyRequest,
 		"errorpage":        CustomErrorPage,
 		"customerrorpage":  CustomErrorPage,
-		"realip":           RealIP.m,
-		"cloudflarerealip": CloudflareRealIP.m,
-		"cidrwhitelist":    CIDRWhiteList.m,
+		"realip":           RealIP,
+		"cloudflarerealip": CloudflareRealIP,
+		"cidrwhitelist":    CIDRWhiteList,
+		"ratelimit":        RateLimiter,
 
 		// !experimental
-		"forwardauth": ForwardAuth.m,
+		"forwardauth": ForwardAuth,
 		// "oauth2":      OAuth2.m,
 	}
 	names := make(map[*Middleware][]string)

@@ -7,7 +7,7 @@ import (
 
 type (
 	modifyRequest struct {
-		*modifyRequestOpts
+		modifyRequestOpts
 		m *Middleware
 	}
 	// order: set_headers -> add_headers -> hide_headers
@@ -18,9 +18,7 @@ type (
 	}
 )
 
-var ModifyRequest = &modifyRequest{
-	m: &Middleware{withOptions: NewModifyRequest},
-}
+var ModifyRequest = &Middleware{withOptions: NewModifyRequest}
 
 func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyRequest)
@@ -34,8 +32,7 @@ func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 		impl:   mr,
 		before: Rewrite(mrFunc),
 	}
-	mr.modifyRequestOpts = new(modifyRequestOpts)
-	err := Deserialize(optsRaw, mr.modifyRequestOpts)
+	err := Deserialize(optsRaw, &mr.modifyRequestOpts)
 	if err != nil {
 		return nil, err
 	}

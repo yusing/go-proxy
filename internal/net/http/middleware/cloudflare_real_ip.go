@@ -29,9 +29,7 @@ var (
 	cfCIDRsLogger     = logger.With().Str("name", "CloudflareRealIP").Logger()
 )
 
-var CloudflareRealIP = &realIP{
-	m: &Middleware{withOptions: NewCloudflareRealIP},
-}
+var CloudflareRealIP = &Middleware{withOptions: NewCloudflareRealIP}
 
 func NewCloudflareRealIP(_ OptionsRaw) (*Middleware, E.Error) {
 	cri := new(realIP)
@@ -46,7 +44,7 @@ func NewCloudflareRealIP(_ OptionsRaw) (*Middleware, E.Error) {
 			next(w, r)
 		},
 	}
-	cri.realIPOpts = &realIPOpts{
+	cri.realIPOpts = realIPOpts{
 		Header:    "CF-Connecting-IP",
 		Recursive: true,
 	}

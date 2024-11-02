@@ -19,7 +19,7 @@ import (
 
 type (
 	forwardAuth struct {
-		*forwardAuthOpts
+		forwardAuthOpts
 		m      *Middleware
 		client http.Client
 	}
@@ -33,14 +33,11 @@ type (
 	}
 )
 
-var ForwardAuth = &forwardAuth{
-	m: &Middleware{withOptions: NewForwardAuthfunc},
-}
+var ForwardAuth = &Middleware{withOptions: NewForwardAuthfunc}
 
 func NewForwardAuthfunc(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	fa := new(forwardAuth)
-	fa.forwardAuthOpts = new(forwardAuthOpts)
-	if err := Deserialize(optsRaw, fa.forwardAuthOpts); err != nil {
+	if err := Deserialize(optsRaw, &fa.forwardAuthOpts); err != nil {
 		return nil, err
 	}
 	if _, err := url.Parse(fa.Address); err != nil {

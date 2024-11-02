@@ -27,8 +27,8 @@ func TestCIDRWhitelist(t *testing.T) {
 		for range 10 {
 			result, err := newMiddlewareTest(deny, nil)
 			ExpectNoError(t, err)
-			ExpectEqual(t, result.ResponseStatus, cidrWhitelistDefaults().StatusCode)
-			ExpectEqual(t, string(result.Data), cidrWhitelistDefaults().Message)
+			ExpectEqual(t, result.ResponseStatus, cidrWhitelistDefaults.StatusCode)
+			ExpectEqual(t, string(result.Data), cidrWhitelistDefaults.Message)
 		}
 	})
 

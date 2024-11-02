@@ -9,16 +9,14 @@ import (
 
 type (
 	modifyResponse struct {
-		*modifyResponseOpts
+		modifyResponseOpts
 		m *Middleware
 	}
 	// order: set_headers -> add_headers -> hide_headers
 	modifyResponseOpts = modifyRequestOpts
 )
 
-var ModifyResponse = &modifyResponse{
-	m: &Middleware{withOptions: NewModifyResponse},
-}
+var ModifyResponse = &Middleware{withOptions: NewModifyResponse}
 
 func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyResponse)
@@ -28,8 +26,7 @@ func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	} else {
 		mr.m.modifyResponse = mr.modifyResponse
 	}
-	mr.modifyResponseOpts = new(modifyResponseOpts)
-	err := Deserialize(optsRaw, mr.modifyResponseOpts)
+	err := Deserialize(optsRaw, &mr.modifyResponseOpts)
 	if err != nil {
 		return nil, err
 	}

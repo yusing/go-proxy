@@ -28,22 +28,20 @@ get:
 	go get -u ./cmd && go mod tidy
 
 debug:
-	make build
-	sudo GOPROXY_DEBUG=1 bin/go-proxy
+	GOPROXY_DEBUG=1 make run
 
 debug-trace:
-	make build
-	sudo GOPROXY_DEBUG=1 GOPROXY_TRACE=1 bin/go-proxy
+	GOPROXY_DEBUG=1 GOPROXY_TRACE=1 run
 
 profile:
-	GODEBUG=gctrace=1 make build
-	sudo GOPROXY_DEBUG=1 bin/go-proxy
+	GODEBUG=gctrace=1 make debug
+
+run: build
+	sudo setcap CAP_NET_BIND_SERVICE=+eip bin/go-proxy
+	bin/go-proxy
 
 mtrace:
 	bin/go-proxy debug-ls-mtrace > mtrace.json
-
-run:
-	make build && sudo bin/go-proxy
 
 archive:
 	git archive HEAD -o ../go-proxy-$$(date +"%Y%m%d%H%M").zip

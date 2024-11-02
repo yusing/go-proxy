@@ -28,7 +28,6 @@ type (
 	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.Error)
 
 	OptionsRaw = map[string]any
-	Options    any
 
 	Middleware struct {
 		_ U.NoCopy

@@ -10,7 +10,7 @@ import (
 // https://nginx.org/en/docs/http/ngx_http_realip_module.html
 
 type realIP struct {
-	*realIPOpts
+	realIPOpts
 	m *Middleware
 }
 
@@ -30,16 +30,13 @@ type realIPOpts struct {
 	Recursive bool `json:"recursive"`
 }
 
-var RealIP = &realIP{
-	m: &Middleware{withOptions: NewRealIP},
-}
-
-var realIPOptsDefault = func() *realIPOpts {
-	return &realIPOpts{
+var (
+	RealIP            = &Middleware{withOptions: NewRealIP}
+	realIPOptsDefault = realIPOpts{
 		Header: "X-Real-IP",
 		From:   []*types.CIDR{},
 	}
-}
+)
 
 func NewRealIP(opts OptionsRaw) (*Middleware, E.Error) {
 	riWithOpts := new(realIP)
@@ -47,10 +44,13 @@ func NewRealIP(opts OptionsRaw) (*Middleware, E.Error) {
 		impl:   riWithOpts,
 		before: Rewrite(riWithOpts.setRealIP),
 	}
-	riWithOpts.realIPOpts = realIPOptsDefault()
-	err := Deserialize(opts, riWithOpts.realIPOpts)
+	riWithOpts.realIPOpts = realIPOptsDefault
+	err := Deserialize(opts, &riWithOpts.realIPOpts)
 	if err != nil {
 		return nil, err
+	}
+	if len(riWithOpts.From) == 0 {
+		return nil, E.New("no allowed CIDRs").Subject("from")
 	}
 	return riWithOpts.m, nil
 }
@@ -70,9 +70,10 @@ func (ri *realIP) setRealIP(req *Request) {
 	if err != nil {
 		clientIPStr = req.RemoteAddr
 	}
-	clientIP := net.ParseIP(clientIPStr)
 
-	var isTrusted = false
+	clientIP := net.ParseIP(clientIPStr)
+	isTrusted := false
+
 	for _, CIDR := range ri.From {
 		if CIDR.Contains(clientIP) {
 			isTrusted = true

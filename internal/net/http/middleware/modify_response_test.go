@@ -15,7 +15,7 @@ func TestSetModifyResponse(t *testing.T) {
 	}
 
 	t.Run("set_options", func(t *testing.T) {
-		mr, err := ModifyResponse.m.WithOptionsClone(opts)
+		mr, err := ModifyResponse.WithOptionsClone(opts)
 		ExpectNoError(t, err)
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).SetHeaders, opts["set_headers"].(map[string]string))
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).AddHeaders, opts["add_headers"].(map[string]string))
@@ -23,7 +23,7 @@ func TestSetModifyResponse(t *testing.T) {
 	})
 
 	t.Run("request_headers", func(t *testing.T) {
-		result, err := newMiddlewareTest(ModifyResponse.m, &testArgs{
+		result, err := newMiddlewareTest(ModifyResponse, &testArgs{
 			middlewareOpt: opts,
 		})
 		ExpectNoError(t, err)
