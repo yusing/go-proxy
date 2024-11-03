@@ -23,6 +23,7 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
   - [Table of content](#table-of-content)
   - [Key Features](#key-features)
   - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
     - [Setup](#setup)
     - [Manual Setup](#manual-setup)
     - [Folder structrue](#folder-structrue)
@@ -53,9 +54,16 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
 ## Getting Started
 
+### Prerequisites
+
+Setup DNS Records point to machine which runs `GoDoxy`, e.g.
+
+-   A Record: `*.y.z` -> `10.0.10.1`
+-   AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+
 ### Setup
 
-1.  Pull docker image 
+1.  Pull the latest docker images
     
     ```shell
     docker pull ghcr.io/yusing/go-proxy:latest
@@ -65,20 +73,24 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
     ```shell
     docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup
-    # Then set the JWT secret
-    sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
     ```
 
-3.  Setup DNS Records point to machine which runs `go-proxy`, e.g.
+3. _(Optional)_ setup WebUI login
 
-    -   A Record: `*.y.z` -> `10.0.10.1`
-    -   AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+    - set random JWT secret
+        ```shell
+        sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env`
+        ```
 
-4.  Setup `docker-socket-proxy` other docker nodes _(if any)_ (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) and then them inside `config.yml`
+    - change username and password for WebUI authentication
+        ```shell
+        sed -i "s|GOPROXY_API_USERNAME=.*|GOPROXY_API_USERNAME=admin|g" .env
+        sed -i "s|GOPROXY_API_PASSWORD=.*|GOPROXY_API_PASSWORD=some-strong-password|g" .env
+        ```
 
-5.  Run go-proxy `docker compose up -d` 
-    then list all routes to see if further configurations are needed:
-    `docker exec go-proxy /app/go-proxy ls-routes`
+4.  _(Optional)_ setup `docker-socket-proxy` other docker nodes (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) then add them inside `config.yml`
+
+5.  Start the container `docker compose up -d`
 
 6.  You may now do some extra configuration
     -   With text editor (e.g. Visual Studio Code)
@@ -100,12 +112,6 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 3. Grab `compose.example.yml` into `compose.yml`
    
    `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/compose.example.yml -O compose.yml`
-
-4. Set the JWT secret
-   
-   `sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env`
-
-5. Start the container `docker compose up -d`
 
 ### Folder structrue
 
