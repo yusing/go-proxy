@@ -6,6 +6,7 @@ type (
 		AutoCert        AutoCertConfig `json:"autocert" yaml:",flow"`
 		ExplicitOnly    bool           `json:"explicit_only" yaml:"explicit_only"`
 		MatchDomains    []string       `json:"match_domains" yaml:"match_domains"`
+		Homepage        HomepageConfig `json:"homepage" yaml:"homepage"`
 		TimeoutShutdown int            `json:"timeout_shutdown" yaml:"timeout_shutdown"`
 		RedirectToHTTPS bool           `json:"redirect_to_https" yaml:"redirect_to_https"`
 	}
@@ -18,8 +19,10 @@ type (
 
 func DefaultConfig() *Config {
 	return &Config{
-		Providers:       Providers{},
 		TimeoutShutdown: 3,
+		Homepage: HomepageConfig{
+			UseDefaultCategories: true,
+		},
 		RedirectToHTTPS: false,
 	}
 }

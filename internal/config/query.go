@@ -69,15 +69,17 @@ func HomepageConfig() homepage.Config {
 			)
 		}
 
-		if en.Container != nil && item.Category == "" {
-			if category, ok := homepage.PredefinedCategories[en.Container.ImageName]; ok {
-				item.Category = category
+		if instance.value.Homepage.UseDefaultCategories {
+			if en.Container != nil && item.Category == "" {
+				if category, ok := homepage.PredefinedCategories[en.Container.ImageName]; ok {
+					item.Category = category
+				}
 			}
-		}
 
-		if item.Category == "" {
-			if category, ok := homepage.PredefinedCategories[strings.ToLower(alias)]; ok {
-				item.Category = category
+			if item.Category == "" {
+				if category, ok := homepage.PredefinedCategories[strings.ToLower(alias)]; ok {
+					item.Category = category
+				}
 			}
 		}
 

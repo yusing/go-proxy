@@ -168,5 +168,5 @@ func printJSON(obj any) {
 		logging.Fatal().Err(err).Send()
 	}
 	rawLogger := log.New(os.Stdout, "", 0)
-	rawLogger.Printf("%s", j) // raw output for convenience using "jq"
+	rawLogger.Print(string(j)) // raw output for convenience using "jq"
 }

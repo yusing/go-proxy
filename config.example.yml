@@ -57,13 +57,19 @@ providers:
 #   - my.site
 #   - node1.my.app
 
+# homepage config
+#
+homepage:
+  # use default app categories detected from alias or docker image name
+  use_default_categories: true
+
 # Below are fixed options (non hot-reloadable)
 
 # timeout for shutdown (in seconds)
 #
-# timeout_shutdown: 5
+timeout_shutdown: 5
 
 # global setting redirect http requests to https (if https available, otherwise this will be ignored)
 # proxy.<alias>.middlewares.redirect_http will override this
 #
-# redirect_to_https: false
+redirect_to_https: false
