@@ -33,11 +33,17 @@ var (
 	APIHTTPPort,
 	APIHTTPURL = GetAddrEnv("GOPROXY_API_ADDR", "127.0.0.1:8888", "http")
 
-	APIJWTSecret    = decodeJWTKey(GetEnv("GOPROXY_API_JWT_SECRET", generateJWTKey(32)))
+	APIJWTSecret    = decodeJWTKey(GetEnv("GOPROXY_API_JWT_SECRET", ""))
 	APIJWTTokenTTL  = GetDurationEnv("GOPROXY_API_JWT_TOKEN_TTL", time.Hour)
 	APIUser         = GetEnv("GOPROXY_API_USER", "admin")
 	APIPasswordHash = HashPassword(GetEnv("GOPROXY_API_PASSWORD", "password"))
 )
+
+func init() {
+	if APIJWTSecret == nil {
+		log.Warn().Msg("API JWT secret is empty, authentication is disabled")
+	}
+}
 
 func GetEnvBool(key string, defaultValue bool) bool {
 	value, ok := os.LookupEnv(key)

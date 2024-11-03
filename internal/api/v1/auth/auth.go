@@ -90,7 +90,7 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
-	if common.IsDebugSkipAuth {
+	if common.IsDebugSkipAuth || common.APIJWTSecret == nil {
 		return next
 	}
 
