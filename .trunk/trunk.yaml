@@ -17,6 +17,9 @@ runtimes:
     - go@1.23.2
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
+  disabled:
+    - markdownlint
+    - yamllint
   enabled:
     - hadolint@2.12.0
     - actionlint@1.7.3
@@ -24,14 +27,12 @@ lint:
     - git-diff-check
     - gofmt@1.20.4
     - golangci-lint@1.61.0
-    - markdownlint@0.42.0
     - osv-scanner@1.9.0
     - oxipng@9.1.2
     - prettier@3.3.3
     - shellcheck@0.10.0
     - shfmt@3.6.0
     - trufflehog@3.82.7
-    - yamllint@1.35.1
 actions:
   disabled:
     - trunk-announce

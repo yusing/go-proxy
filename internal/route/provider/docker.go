@@ -31,7 +31,7 @@ var (
 
 func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, error) {
 	if dockerHost == common.DockerHostFromEnv {
-		dockerHost = common.GetEnv("DOCKER_HOST", client.DefaultDockerHost)
+		dockerHost = common.GetEnvString("DOCKER_HOST", client.DefaultDockerHost)
 	}
 	return &DockerProvider{
 		name,
