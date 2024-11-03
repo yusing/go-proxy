@@ -69,6 +69,18 @@ func HomepageConfig() homepage.Config {
 			)
 		}
 
+		if en.Container != nil && item.Category == "" {
+			if category, ok := homepage.PredefinedCategories[en.Container.ImageName]; ok {
+				item.Category = category
+			}
+		}
+
+		if item.Category == "" {
+			if category, ok := homepage.PredefinedCategories[strings.ToLower(alias)]; ok {
+				item.Category = category
+			}
+		}
+
 		switch {
 		case entry.IsDocker(r):
 			if item.Category == "" {
