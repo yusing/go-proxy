@@ -40,7 +40,7 @@ var (
 )
 
 func init() {
-	if APIJWTSecret == nil {
+	if APIJWTSecret == nil && GetArgs().Command == CommandStart {
 		log.Warn().Msg("API JWT secret is empty, authentication is disabled")
 	}
 }

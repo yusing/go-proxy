@@ -51,7 +51,7 @@ func init() {
 	).Level(level).With().Timestamp().Logger()
 }
 
-func DiscardLogger() { logger = zerolog.Nop() }
+func DiscardLogger() { zerolog.SetGlobalLevel(zerolog.Disabled) }
 
 func AddHook(h zerolog.Hook) { logger = logger.Hook(h) }
 
