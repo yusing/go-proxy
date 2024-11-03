@@ -7,6 +7,7 @@ config*/
 certs*/
 bin/
 error_pages/
+!examples/error_pages/
 
 logs/
 log/
