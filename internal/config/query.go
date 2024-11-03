@@ -89,7 +89,7 @@ func HomepageConfig() homepage.Config {
 
 		if item.URL == "" {
 			if len(domains) > 0 {
-				item.URL = fmt.Sprintf("%s://%s.%s:%s", proto, strings.ToLower(alias), domains[0], port)
+				item.URL = fmt.Sprintf("%s://%s%s:%s", proto, strings.ToLower(alias), domains[0], port)
 			}
 		}
 		item.AltURL = r.TargetURL().String()
