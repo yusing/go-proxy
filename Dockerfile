@@ -26,7 +26,7 @@ RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=bind,src=pkg,dst=/src/pkg \
     make build && \
     mkdir -p /app/error_pages /app/certs && \
-    mv bin/go-proxy /app/go-proxy
+    mv bin/godoxy /app/godoxy
 
 # Stage 2: Final image
 FROM scratch
@@ -50,7 +50,7 @@ COPY config.example.yml /app/config/config.yml
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
 ENV DOCKER_HOST=unix:///var/run/docker.sock
-ENV GOPROXY_DEBUG=0
+ENV GODOXY_DEBUG=0
 
 EXPOSE 80
 EXPOSE 8888
@@ -58,4 +58,4 @@ EXPOSE 443
 
 WORKDIR /app
 
-CMD ["/app/go-proxy"]
+CMD ["/app/godoxy"]

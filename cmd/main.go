@@ -62,7 +62,7 @@ func main() {
 	}
 
 	if args.Command == common.CommandStart {
-		logging.Info().Msgf("go-proxy version %s", pkg.GetVersion())
+		logging.Info().Msgf("GoDoxy version %s", pkg.GetVersion())
 		logging.Trace().Msg("trace enabled")
 		// logging.AddHook(notif.GetDispatcher())
 	} else {

@@ -13,7 +13,7 @@ build:
 	scripts/build.sh
 
 test:
-	GOPROXY_TEST=1 go test ./internal/...
+	GODOXY_TEST=1 go test ./internal/...
 
 up:
 	docker compose up -d
@@ -28,10 +28,10 @@ get:
 	go get -u ./cmd && go mod tidy
 
 debug:
-	GOPROXY_DEBUG=1 make run
+	GODOXY_DEBUG=1 make run
 
 debug-trace:
-	GOPROXY_DEBUG=1 GOPROXY_TRACE=1 run
+	GODOXY_DEBUG=1 GODOXY_TRACE=1 run
 
 profile:
 	GODEBUG=gctrace=1 make debug
