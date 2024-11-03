@@ -48,11 +48,10 @@ func main() {
 		if err != nil {
 			log.Printf("failed to connect to api server: %s", err)
 			log.Printf("falling back to config file")
-			printJSON(config.RoutesByAlias())
 		} else {
 			printJSON(routes)
+			return
 		}
-		return
 	case common.CommandDebugListMTrace:
 		trace, err := query.ListMiddlewareTraces()
 		if err != nil {
@@ -95,6 +94,10 @@ func main() {
 	}
 
 	switch args.Command {
+	case common.CommandListRoutes:
+		cfg.StartProxyProviders()
+		printJSON(config.RoutesByAlias())
+		return
 	case common.CommandListConfigs:
 		printJSON(config.Value())
 		return

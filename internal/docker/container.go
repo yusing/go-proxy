@@ -20,7 +20,7 @@ type (
 		ContainerID   string `json:"container_id" yaml:"-"`
 		ImageName     string `json:"image_name" yaml:"-"`
 
-		Labels map[string]string `json:"labels" yaml:"-"`
+		Labels map[string]string `json:"-" yaml:"-"`
 
 		PublicPortMapping  PortMapping `json:"public_ports" yaml:"-"`  // non-zero publicPort:types.Port
 		PrivatePortMapping PortMapping `json:"private_ports" yaml:"-"` // privatePort:types.Port
