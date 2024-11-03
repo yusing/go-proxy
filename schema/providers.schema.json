@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "go-proxy providers file",
+  "title": "GoDoxy standalone include file",
   "oneOf": [
     {
       "type": "object"

@@ -1,4 +1,4 @@
-# go-proxy
+# GoDoxy
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
@@ -19,7 +19,7 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
 <!-- TOC -->
 
-- [go-proxy](#go-proxy)
+- [GoDoxy](#godoxy)
   - [Table of content](#table-of-content)
   - [Key Features](#key-features)
   - [Getting Started](#getting-started)
