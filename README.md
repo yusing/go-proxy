@@ -72,7 +72,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 2.  Create new directory, `cd` into it, then run setup, or [set up manually](#manual-setup) 
 
     ```shell
-    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup
+    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
     ```
 
 3. _(Optional)_ setup WebUI login
