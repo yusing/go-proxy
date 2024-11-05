@@ -79,7 +79,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
     - set random JWT secret
         ```shell
-        sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env`
+        sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
         ```
 
     - change username and password for WebUI authentication
