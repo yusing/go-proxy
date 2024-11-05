@@ -37,11 +37,11 @@ profile:
 	GODEBUG=gctrace=1 make debug
 
 run: build
-	sudo setcap CAP_NET_BIND_SERVICE=+eip bin/go-proxy
-	bin/go-proxy
+	sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy
+	bin/godoxy
 
 mtrace:
-	bin/go-proxy debug-ls-mtrace > mtrace.json
+	bin/godoxy debug-ls-mtrace > mtrace.json
 
 archive:
 	git archive HEAD -o ../go-proxy-$$(date +"%Y%m%d%H%M").zip
