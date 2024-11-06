@@ -19,6 +19,7 @@ var (
 	IsDebug            = GetEnvBool("DEBUG", IsTest)
 	IsDebugSkipAuth    = GetEnvBool("DEBUG_SKIP_AUTH", false)
 	IsTrace            = GetEnvBool("TRACE", false) && IsDebug
+	IsProduction       = !IsTest && !IsDebug
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,
@@ -34,6 +35,12 @@ var (
 	APIHTTPHost,
 	APIHTTPPort,
 	APIHTTPURL = GetAddrEnv("API_ADDR", "127.0.0.1:8888", "http")
+
+	MetricsHTTPAddr,
+	MetricsHTTPHost,
+	MetricsHTTPPort,
+	MetricsHTTPURL = GetAddrEnv("PROMETHEUS_ADDR", "", "http")
+	PrometheusEnabled = MetricsHTTPURL != ""
 
 	APIJWTSecret    = decodeJWTKey(GetEnvString("API_JWT_SECRET", ""))
 	APIJWTTokenTTL  = GetDurationEnv("API_JWT_TOKEN_TTL", time.Hour)
@@ -79,6 +86,9 @@ func GetEnvBool(key string, defaultValue bool) bool {
 
 func GetAddrEnv(key, defaultValue, scheme string) (addr, host, port, fullURL string) {
 	addr = GetEnvString(key, defaultValue)
+	if addr == "" {
+		return
+	}
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		log.Fatal().Msgf("env %s: invalid address: %s", key, addr)

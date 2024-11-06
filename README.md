@@ -79,13 +79,13 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
     - set random JWT secret
         ```shell
-        sed -i "s|GOPROXY_API_JWT_SECRET=.*|GOPROXY_API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
+        sed -i "s|API_JWT_SECRET=.*|API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
         ```
 
     - change username and password for WebUI authentication
         ```shell
-        sed -i "s|GOPROXY_API_USERNAME=.*|GOPROXY_API_USERNAME=admin|g" .env
-        sed -i "s|GOPROXY_API_PASSWORD=.*|GOPROXY_API_PASSWORD=some-strong-password|g" .env
+        sed -i "s|API_USERNAME=.*|API_USERNAME=admin|g" .env
+        sed -i "s|API_PASSWORD=.*|API_PASSWORD=some-strong-password|g" .env
         ```
 
 4.  _(Optional)_ setup `docker-socket-proxy` other docker nodes (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) then add them inside `config.yml`

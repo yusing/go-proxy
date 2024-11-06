@@ -10,6 +10,7 @@ package http
 // Copyright (c) 2024 yusing
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -22,8 +23,11 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"golang.org/x/net/http/httpguts"
@@ -86,10 +90,50 @@ type ReverseProxy struct {
 	// implementation is used.
 	ModifyResponse func(*http.Response) error
 
-	ServeHTTP http.HandlerFunc
+	HandlerFunc http.HandlerFunc
 
 	TargetName string
 	TargetURL  types.URL
+}
+
+type httpMetricLogger struct {
+	http.ResponseWriter
+	labels metrics.HTTPRouteMetricLabels
+}
+
+// WriteHeader implements http.ResponseWriter.
+func (l *httpMetricLogger) WriteHeader(status int) {
+	l.ResponseWriter.WriteHeader(status)
+	go func() {
+		m := metrics.GetRouteMetrics()
+		m.HTTPReqTotal.Inc()
+
+		// ignore 1xx
+		switch {
+		case status >= 500:
+			m.HTTP5xx.With(l.labels).Inc()
+		case status >= 400:
+			m.HTTP4xx.With(l.labels).Inc()
+		case status >= 200:
+			m.HTTP2xx3xx.With(l.labels).Inc()
+		}
+	}()
+}
+
+// Hijack hijacks the connection.
+func (l *httpMetricLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := l.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+
+	return nil, nil, fmt.Errorf("not a hijacker: %T", l.ResponseWriter)
+}
+
+// Flush sends any buffered data to the client.
+func (l *httpMetricLogger) Flush() {
+	if flusher, ok := l.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -157,7 +201,7 @@ func NewReverseProxy(name string, target types.URL, transport http.RoundTripper)
 		TargetName: name,
 		TargetURL:  target,
 	}
-	rp.ServeHTTP = rp.serveHTTP
+	rp.HandlerFunc = rp.handler
 	return rp
 }
 
@@ -225,9 +269,32 @@ func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response
 	return true
 }
 
-func (p *ReverseProxy) serveHTTP(rw http.ResponseWriter, req *http.Request) {
-	if _, ok := rw.(DummyResponseWriter); ok {
-		return
+func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	p.HandlerFunc(rw, req)
+}
+
+func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
+	if common.PrometheusEnabled {
+		t := time.Now()
+		visitor, _, err := net.SplitHostPort(req.RemoteAddr)
+		if err != nil {
+			visitor = req.RemoteAddr
+		}
+		lbls := metrics.HTTPRouteMetricLabels{
+			Service: p.TargetName,
+			Method:  req.Method,
+			Host:    req.Host,
+			Visitor: visitor,
+			Path:    req.URL.Path,
+		}
+		rw = &httpMetricLogger{
+			ResponseWriter: rw,
+			labels:         lbls,
+		}
+		defer func() {
+			duration := time.Since(t)
+			metrics.GetRouteMetrics().HTTPReqElapsed.With(lbls).Set(float64(duration.Milliseconds()))
+		}()
 	}
 
 	transport := p.Transport

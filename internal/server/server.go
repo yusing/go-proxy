@@ -38,6 +38,12 @@ type Options struct {
 	Handler         http.Handler
 }
 
+func StartServer(opt Options) (s *Server) {
+	s = NewServer(opt)
+	s.Start()
+	return s
+}
+
 func NewServer(opt Options) (s *Server) {
 	var httpSer, httpsSer *http.Server
 	var httpHandler http.Handler

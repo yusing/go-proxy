@@ -11,4 +11,5 @@ type Waker interface {
 	health.HealthMonitor
 	http.Handler
 	net.Stream
+	Wake() error
 }

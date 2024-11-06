@@ -16,6 +16,7 @@ import (
 	"github.com/yusing/go-proxy/internal/config"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/server"
@@ -126,7 +127,7 @@ func main() {
 		logging.Info().Msg("autocert not configured")
 	}
 
-	proxyServer := server.InitProxyServer(server.Options{
+	server.StartServer(server.Options{
 		Name:            "proxy",
 		CertProvider:    autocert,
 		HTTPAddr:        common.ProxyHTTPAddr,
@@ -134,7 +135,7 @@ func main() {
 		Handler:         http.HandlerFunc(R.ProxyHandler),
 		RedirectToHTTPS: config.Value().RedirectToHTTPS,
 	})
-	apiServer := server.InitAPIServer(server.Options{
+	server.StartServer(server.Options{
 		Name:            "api",
 		CertProvider:    autocert,
 		HTTPAddr:        common.APIHTTPAddr,
@@ -142,8 +143,15 @@ func main() {
 		RedirectToHTTPS: config.Value().RedirectToHTTPS,
 	})
 
-	proxyServer.Start()
-	apiServer.Start()
+	if common.PrometheusEnabled {
+		server.StartServer(server.Options{
+			Name:            "metrics",
+			CertProvider:    autocert,
+			HTTPAddr:        common.MetricsHTTPAddr,
+			Handler:         metrics.NewHandler(),
+			RedirectToHTTPS: config.Value().RedirectToHTTPS,
+		})
+	}
 
 	// wait for signal
 	<-sig

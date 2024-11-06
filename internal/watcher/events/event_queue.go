@@ -50,8 +50,25 @@ func NewEventQueue(parent task.Task, flushInterval time.Duration, onFlush OnFlus
 }
 
 func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
+	if common.IsProduction {
+		origOnFlush := e.onFlush
+		// recover panic in onFlush when in production mode
+		e.onFlush = func(flushTask task.Task, events []Event) {
+			defer func() {
+				if err := recover(); err != nil {
+					e.onError(E.New("recovered panic in onFlush").
+						Withf("%v", err).
+						Subject(e.task.Parent().String()))
+				}
+			}()
+			origOnFlush(flushTask, events)
+		}
+	}
+
 	go func() {
 		defer e.ticker.Stop()
+		defer e.task.Finish(nil)
+
 		for {
 			select {
 			case <-e.task.Context().Done():
@@ -61,18 +78,7 @@ func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
 					flushTask := e.task.Subtask("flush events")
 					queue := e.queue
 					e.queue = make([]Event, 0, eventQueueCapacity)
-					if !common.IsDebug {
-						go func() {
-							defer func() {
-								if err := recover(); err != nil {
-									e.onError(E.Errorf("recovered panic in onFlush: %v", err).Subject(e.task.Parent().String()))
-								}
-							}()
-							e.onFlush(flushTask, queue)
-						}()
-					} else {
-						go e.onFlush(flushTask, queue)
-					}
+					go e.onFlush(flushTask, queue)
 					flushTask.Wait()
 				}
 				e.ticker.Reset(e.flushInterval)

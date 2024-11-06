@@ -10,7 +10,6 @@ import (
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
-	"github.com/yusing/go-proxy/internal/server"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -33,7 +32,6 @@ func StatsWS(w http.ResponseWriter, r *http.Request) {
 		}
 		originPats = append(originPats, localAddresses...)
 	}
-	U.LogInfo(r).Msgf("websocket API request from origins: %s", originPats)
 	if common.IsDebug {
 		originPats = []string{"*"}
 	}
@@ -62,9 +60,11 @@ func StatsWS(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+var startTime = time.Now()
+
 func getStats() map[string]any {
 	return map[string]any{
 		"proxies": config.Statistics(),
-		"uptime":  strutils.FormatDuration(server.GetProxyServer().Uptime()),
+		"uptime":  strutils.FormatDuration(time.Since(startTime)),
 	}
 }

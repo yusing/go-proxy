@@ -157,8 +157,8 @@ func patchReverseProxy(rpName string, rp *ReverseProxy, middlewares []*Middlewar
 	mid := BuildMiddlewareFromChain(rpName, middlewares)
 
 	if mid.before != nil {
-		ori := rp.ServeHTTP
-		rp.ServeHTTP = func(w http.ResponseWriter, r *http.Request) {
+		ori := rp.HandlerFunc
+		rp.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
 			mid.before(ori, w, r)
 		}
 	}

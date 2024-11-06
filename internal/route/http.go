@@ -38,10 +38,6 @@ type (
 	}
 
 	SubdomainKey = PT.Alias
-
-	ReverseProxyHandler struct {
-		*gphttp.ReverseProxy
-	}
 )
 
 var (
@@ -51,10 +47,6 @@ var (
 	httpRoutesMu sync.Mutex
 	// globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 )
-
-func (rp ReverseProxyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rp.ReverseProxy.ServeHTTP(w, r)
-}
 
 func GetReverseProxies() F.Map[string, *HTTPRoute] {
 	return httpRoutes
@@ -77,10 +69,11 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 		trans = gphttp.DefaultTransport.Clone()
 	}
 
-	rp := gphttp.NewReverseProxy(string(entry.Alias), entry.URL, trans)
+	service := string(entry.Alias)
+	rp := gphttp.NewReverseProxy(service, entry.URL, trans)
 
 	if len(entry.Middlewares) > 0 {
-		err := middleware.PatchReverseProxy(string(entry.Alias), rp, entry.Middlewares)
+		err := middleware.PatchReverseProxy(service, rp, entry.Middlewares)
 		if err != nil {
 			return nil, err
 		}
@@ -136,11 +129,11 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 	if r.handler == nil {
 		switch {
 		case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
-			r.handler = ReverseProxyHandler{r.rp}
+			r.handler = r.rp
 		default:
 			mux := http.NewServeMux()
 			for _, p := range r.PathPatterns {
-				mux.HandleFunc(string(p), r.rp.ServeHTTP)
+				mux.HandleFunc(string(p), r.rp.HandlerFunc)
 			}
 			r.handler = mux
 		}

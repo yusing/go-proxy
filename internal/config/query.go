@@ -9,7 +9,6 @@ import (
 	"github.com/yusing/go-proxy/internal/proxy/entry"
 	"github.com/yusing/go-proxy/internal/route"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -139,28 +138,16 @@ func Statistics() map[string]any {
 	providerStats := make(map[string]proxy.ProviderStats)
 
 	instance.providers.RangeAll(func(name string, p *proxy.Provider) {
-		providerStats[name] = p.Statistics()
-	})
+		stats := p.Statistics()
+		providerStats[name] = stats
 
-	for _, stats := range providerStats {
 		nTotalRPs += stats.NumRPs
 		nTotalStreams += stats.NumStreams
-	}
+	})
 
 	return map[string]any{
 		"num_total_streams":         nTotalStreams,
 		"num_total_reverse_proxies": nTotalRPs,
 		"providers":                 providerStats,
 	}
-}
-
-func FindRoute(alias string) *route.Route {
-	return F.MapFind(instance.providers,
-		func(p *proxy.Provider) (*route.Route, bool) {
-			if route, ok := p.GetRoute(alias); ok {
-				return route, true
-			}
-			return nil, false
-		},
-	)
 }

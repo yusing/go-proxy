@@ -98,6 +98,10 @@ func registerWatcher(providerSubtask task.Task, entry entry.Entry, waker *waker)
 	return w, nil
 }
 
+func (w *Watcher) Wake() error {
+	return w.wakeIfStopped()
+}
+
 // WakeDebug logs a debug message related to waking the container.
 func (w *Watcher) WakeDebug() *zerolog.Event {
 	return w.Debug().Str("action", "wake")

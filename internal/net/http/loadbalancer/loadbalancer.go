@@ -1,7 +1,6 @@
 package loadbalancer
 
 import (
-	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -225,18 +223,15 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Header.Get(common.HeaderCheckRedirect) != "" {
-		ctx, cancel := context.WithTimeout(r.Context(), 1*time.Second)
-		defer cancel()
-		// send dummy request to wake all servers
-		var dummyRW gphttp.DummyResponseWriter
+		// wake all servers
 		for _, srv := range srvs {
 			// wake only if server implements Waker
-			_, ok := srv.handler.(idlewatcher.Waker)
-			if !ok {
-				continue
+			waker, ok := srv.handler.(idlewatcher.Waker)
+			if ok {
+				if err := waker.Wake(); err != nil {
+					lb.Err(err).Msgf("failed to wake server %s", srv.Name)
+				}
 			}
-			wakeReq := r.Clone(ctx)
-			srv.ServeHTTP(dummyRW, wakeReq)
 		}
 	}
 	lb.impl.ServeHTTP(srvs, rw, r)
