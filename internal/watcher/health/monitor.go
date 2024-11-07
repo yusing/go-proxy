@@ -7,8 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/task"
@@ -171,6 +173,16 @@ func (mon *monitor) checkUpdateHealth() error {
 			logger.Warn().Msg("server is down")
 			logger.Debug().Msg(detail)
 			notif.Notify(mon.service, "server is down")
+		}
+		if common.PrometheusEnabled {
+			go func() {
+				m := metrics.GetRouteMetrics()
+				var up float64
+				if healthy {
+					up = 1
+				}
+				m.HealthStatus.With(metrics.HealthMetricLabels(mon.service)).Set(up)
+			}()
 		}
 	}
 
