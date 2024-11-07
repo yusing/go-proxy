@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net"
+	"strings"
 )
 
 const (
@@ -15,10 +16,7 @@ const (
 
 var SetXForwarded = &Middleware{
 	before: Rewrite(func(req *Request) {
-		req.Header.Del("Forwarded")
-		req.Header.Del(xForwardedFor)
-		req.Header.Del(xForwardedHost)
-		req.Header.Del(xForwardedProto)
+		delXForwarded(req)
 		clientIP, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err == nil {
 			req.Header.Set(xForwardedFor, clientIP)
@@ -35,10 +33,18 @@ var SetXForwarded = &Middleware{
 }
 
 var HideXForwarded = &Middleware{
-	before: Rewrite(func(req *Request) {
-		req.Header.Del("Forwarded")
-		req.Header.Del(xForwardedFor)
-		req.Header.Del(xForwardedHost)
-		req.Header.Del(xForwardedProto)
-	}),
+	before: Rewrite(delXForwarded),
+}
+
+func delXForwarded(req *Request) {
+	req.Header.Del("Forwarded")
+	toRemove := make([]string, 0)
+	for k := range req.Header {
+		if strings.HasPrefix(k, "X-Forwarded-") {
+			toRemove = append(toRemove, k)
+		}
+	}
+	for _, k := range toRemove {
+		req.Header.Del(k)
+	}
 }

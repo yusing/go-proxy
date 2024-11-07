@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"net/http"
+
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 )
@@ -22,11 +24,9 @@ var ModifyRequest = &Middleware{withOptions: NewModifyRequest}
 
 func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyRequest)
-	var mrFunc RewriteFunc
+	mrFunc := mr.modifyRequest
 	if common.IsDebug {
 		mrFunc = mr.modifyRequestWithTrace
-	} else {
-		mrFunc = mr.modifyRequest
 	}
 	mr.m = &Middleware{
 		impl:   mr,
@@ -41,6 +41,9 @@ func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 
 func (mr *modifyRequest) modifyRequest(req *Request) {
 	for k, v := range mr.SetHeaders {
+		if http.CanonicalHeaderKey(k) == "Host" {
+			req.Host = v
+		}
 		req.Header.Set(k, v)
 	}
 	for k, v := range mr.AddHeaders {

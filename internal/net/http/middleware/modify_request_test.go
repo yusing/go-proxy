@@ -9,7 +9,10 @@ import (
 
 func TestSetModifyRequest(t *testing.T) {
 	opts := OptionsRaw{
-		"set_headers":  map[string]string{"User-Agent": "go-proxy/v0.5.0"},
+		"set_headers": map[string]string{
+			"User-Agent": "go-proxy/v0.5.0",
+			"Host":       "test.example.com",
+		},
 		"add_headers":  map[string]string{"Accept-Encoding": "test-value"},
 		"hide_headers": []string{"Accept"},
 	}
@@ -28,6 +31,7 @@ func TestSetModifyRequest(t *testing.T) {
 		})
 		ExpectNoError(t, err)
 		ExpectEqual(t, result.RequestHeaders.Get("User-Agent"), "go-proxy/v0.5.0")
+		ExpectEqual(t, result.RequestHeaders.Get("Host"), "test.example.com")
 		ExpectTrue(t, slices.Contains(result.RequestHeaders.Values("Accept-Encoding"), "test-value"))
 		ExpectEqual(t, result.RequestHeaders.Get("Accept"), "")
 	})

@@ -2,7 +2,6 @@ package middleware
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
 
 	"github.com/rs/zerolog"
@@ -167,7 +166,10 @@ func patchReverseProxy(rpName string, rp *ReverseProxy, middlewares []*Middlewar
 		if rp.ModifyResponse != nil {
 			ori := rp.ModifyResponse
 			rp.ModifyResponse = func(res *http.Response) error {
-				return errors.Join(mid.modifyResponse(res), ori(res))
+				if err := mid.modifyResponse(res); err != nil {
+					return err
+				}
+				return ori(res)
 			}
 		} else {
 			rp.ModifyResponse = mid.modifyResponse

@@ -7,23 +7,14 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 )
 
-type (
-	RouteMetrics struct {
-		HTTPReqTotal,
-		HTTP2xx3xx,
-		HTTP4xx,
-		HTTP5xx *Counter
-		HTTPReqElapsed *Gauge
-		HealthStatus   *Gauge
-	}
-	HTTPRouteMetricLabels struct {
-		Service, Method, Host, Visitor, Path string
-	}
-	StreamRouteMetricLabels struct {
-		Service, Visitor string
-	}
-	HealthMetricLabels string
-)
+type RouteMetrics struct {
+	HTTPReqTotal,
+	HTTP2xx3xx,
+	HTTP4xx,
+	HTTP5xx *Counter
+	HTTPReqElapsed *Gauge
+	HealthStatus   *Gauge
+}
 
 var rm RouteMetrics
 
@@ -36,29 +27,6 @@ const (
 
 func GetRouteMetrics() *RouteMetrics {
 	return &rm
-}
-
-func (lbl *HTTPRouteMetricLabels) toPromLabels() prometheus.Labels {
-	return prometheus.Labels{
-		"service": lbl.Service,
-		"method":  lbl.Method,
-		"host":    lbl.Host,
-		"visitor": lbl.Visitor,
-		"path":    lbl.Path,
-	}
-}
-
-func (lbl *StreamRouteMetricLabels) toPromLabels() prometheus.Labels {
-	return prometheus.Labels{
-		"service": lbl.Service,
-		"visitor": lbl.Visitor,
-	}
-}
-
-func (lbl HealthMetricLabels) toPromLabels() prometheus.Labels {
-	return prometheus.Labels{
-		"service": string(lbl),
-	}
 }
 
 func init() {

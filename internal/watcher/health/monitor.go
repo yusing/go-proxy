@@ -174,16 +174,16 @@ func (mon *monitor) checkUpdateHealth() error {
 			logger.Debug().Msg(detail)
 			notif.Notify(mon.service, "server is down")
 		}
-		if common.PrometheusEnabled {
-			go func() {
-				m := metrics.GetRouteMetrics()
-				var up float64
-				if healthy {
-					up = 1
-				}
-				m.HealthStatus.With(metrics.HealthMetricLabels(mon.service)).Set(up)
-			}()
-		}
+	}
+	if common.PrometheusEnabled {
+		go func() {
+			m := metrics.GetRouteMetrics()
+			var up float64
+			if healthy {
+				up = 1
+			}
+			m.HealthStatus.With(metrics.HealthMetricLabels(mon.service)).Set(up)
+		}()
 	}
 
 	return nil

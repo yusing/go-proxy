@@ -110,6 +110,10 @@ func main() {
 		return
 	}
 
+	if common.APIJWTSecret == nil {
+		logging.Warn().Msg("API JWT secret is empty, authentication is disabled")
+	}
+
 	cfg.StartProxyProviders()
 	config.WatchChanges()
 

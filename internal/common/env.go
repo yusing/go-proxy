@@ -48,12 +48,6 @@ var (
 	APIPasswordHash = HashPassword(GetEnvString("API_PASSWORD", "password"))
 )
 
-func init() {
-	if APIJWTSecret == nil && GetArgs().Command == CommandStart {
-		log.Warn().Msg("API JWT secret is empty, authentication is disabled")
-	}
-}
-
 func GetEnv[T any](key string, defaultValue T, parser func(string) (T, error)) T {
 	var value string
 	var ok bool
