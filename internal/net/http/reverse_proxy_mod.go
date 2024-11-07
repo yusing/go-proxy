@@ -98,15 +98,18 @@ type ReverseProxy struct {
 
 type httpMetricLogger struct {
 	http.ResponseWriter
-	labels metrics.HTTPRouteMetricLabels
+	timestamp time.Time
+	labels    *metrics.HTTPRouteMetricLabels
 }
 
 // WriteHeader implements http.ResponseWriter.
 func (l *httpMetricLogger) WriteHeader(status int) {
 	l.ResponseWriter.WriteHeader(status)
+	duration := time.Since(l.timestamp)
 	go func() {
 		m := metrics.GetRouteMetrics()
 		m.HTTPReqTotal.Inc()
+		m.HTTPReqElapsed.With(l.labels).Set(float64(duration.Milliseconds()))
 
 		// ignore 1xx
 		switch {
@@ -276,11 +279,21 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	if common.PrometheusEnabled {
 		t := time.Now()
-		visitor, _, err := net.SplitHostPort(req.RemoteAddr)
-		if err != nil {
-			visitor = req.RemoteAddr
+		var visitor string
+		if realIP := req.Header.Get("X-Real-IP"); realIP != "" {
+			visitor = realIP
 		}
-		lbls := metrics.HTTPRouteMetricLabels{
+		if fwdIP := req.Header.Get("X-Forwarded-For"); visitor == "" && fwdIP != "" {
+			visitor = fwdIP
+		}
+		if visitor == "" {
+			var err error
+			visitor, _, err = net.SplitHostPort(req.RemoteAddr)
+			if err != nil {
+				visitor = req.RemoteAddr
+			}
+		}
+		lbls := &metrics.HTTPRouteMetricLabels{
 			Service: p.TargetName,
 			Method:  req.Method,
 			Host:    req.Host,
@@ -289,12 +302,9 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		}
 		rw = &httpMetricLogger{
 			ResponseWriter: rw,
+			timestamp:      t,
 			labels:         lbls,
 		}
-		defer func() {
-			duration := time.Since(t)
-			metrics.GetRouteMetrics().HTTPReqElapsed.With(lbls).Set(float64(duration.Milliseconds()))
-		}()
 	}
 
 	transport := p.Transport
