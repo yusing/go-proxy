@@ -11,15 +11,14 @@ import (
 
 type cidrWhitelist struct {
 	cidrWhitelistOpts
-	m *Middleware
+	m          *Middleware
+	cachedAddr F.Map[string, bool] // cache for trusted IPs
 }
 
 type cidrWhitelistOpts struct {
 	Allow      []*types.CIDR `json:"allow"`
 	StatusCode int           `json:"statusCode"`
 	Message    string        `json:"message"`
-
-	cachedAddr F.Map[string, bool] // cache for trusted IPs
 }
 
 var (
@@ -28,7 +27,6 @@ var (
 		Allow:      []*types.CIDR{},
 		StatusCode: http.StatusForbidden,
 		Message:    "IP not allowed",
-		cachedAddr: F.NewMapOf[string, bool](),
 	}
 )
 
@@ -39,6 +37,7 @@ func NewCIDRWhitelist(opts OptionsRaw) (*Middleware, E.Error) {
 		before: wl.checkIP,
 	}
 	wl.cidrWhitelistOpts = cidrWhitelistDefaults
+	wl.cachedAddr = F.NewMapOf[string, bool]()
 	err := Deserialize(opts, &wl.cidrWhitelistOpts)
 	if err != nil {
 		return nil, err
