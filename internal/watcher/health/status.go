@@ -1,11 +1,10 @@
 package health
 
-type Status int
+type Status uint8
 
 const (
-	StatusUnknown Status = (iota << 1)
-
-	StatusHealthy
+	StatusUnknown Status = 0
+	StatusHealthy        = (1 << iota)
 	StatusNapping
 	StatusStarting
 	StatusUnhealthy
