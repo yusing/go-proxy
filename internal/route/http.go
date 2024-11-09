@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -156,6 +157,9 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 		})
 	}
 
+	if common.PrometheusEnabled {
+		r.task.OnFinished("unreg metrics", r.rp.UnregisterMetrics)
+	}
 	return nil
 }
 

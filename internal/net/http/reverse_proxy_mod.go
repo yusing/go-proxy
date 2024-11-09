@@ -10,7 +10,6 @@ package http
 // Copyright (c) 2024 yusing
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
@@ -123,20 +122,8 @@ func (l *httpMetricLogger) WriteHeader(status int) {
 	}()
 }
 
-// Hijack hijacks the connection.
-func (l *httpMetricLogger) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	if h, ok := l.ResponseWriter.(http.Hijacker); ok {
-		return h.Hijack()
-	}
-
-	return nil, nil, fmt.Errorf("not a hijacker: %T", l.ResponseWriter)
-}
-
-// Flush sends any buffered data to the client.
-func (l *httpMetricLogger) Flush() {
-	if flusher, ok := l.ResponseWriter.(http.Flusher); ok {
-		flusher.Flush()
-	}
+func (l *httpMetricLogger) Unwrap() http.ResponseWriter {
+	return l.ResponseWriter
 }
 
 func singleJoiningSlash(a, b string) string {
@@ -206,6 +193,10 @@ func NewReverseProxy(name string, target types.URL, transport http.RoundTripper)
 	}
 	rp.HandlerFunc = rp.handler
 	return rp
+}
+
+func (p *ReverseProxy) UnregisterMetrics() {
+	metrics.GetRouteMetrics().UnregisterService(p.TargetName)
 }
 
 func rewriteRequestURL(req *http.Request, target *url.URL) {
@@ -280,11 +271,13 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	if common.PrometheusEnabled {
 		t := time.Now()
 		var visitor string
-		if realIP := req.Header.Get("X-Real-IP"); realIP != "" {
-			visitor = realIP
+		if realIPs := req.Header.Values("X-Real-IP"); len(realIPs) > 0 {
+			visitor = realIPs[len(realIPs)-1]
 		}
-		if fwdIP := req.Header.Get("X-Forwarded-For"); visitor == "" && fwdIP != "" {
-			visitor = fwdIP
+		if visitor == "" {
+			if fwdIPs := req.Header.Values("X-Forwarded-For"); len(fwdIPs) > 0 {
+				visitor = fwdIPs[len(fwdIPs)-1]
+			}
 		}
 		if visitor == "" {
 			var err error
@@ -444,7 +437,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 			Proto:      outreq.Proto,
 			ProtoMajor: outreq.ProtoMajor,
 			ProtoMinor: outreq.ProtoMinor,
-			Header:     make(http.Header),
+			Header:     http.Header{},
 			Body:       io.NopCloser(bytes.NewReader([]byte("Origin server is not reachable."))),
 			Request:    outreq,
 			TLS:        outreq.TLS,

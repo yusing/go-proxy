@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net"
 	"net/http"
 
@@ -20,7 +19,7 @@ func NewServeMux() ServeMux {
 }
 
 func (mux ServeMux) HandleFunc(method, endpoint string, handler http.HandlerFunc) {
-	mux.ServeMux.HandleFunc(fmt.Sprintf("%s %s", method, endpoint), checkHost(rateLimited(handler)))
+	mux.ServeMux.HandleFunc(method+" "+endpoint, checkHost(rateLimited(handler)))
 }
 
 func NewHandler() http.Handler {
@@ -55,6 +54,7 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
+		LogInfo(r).Interface("headers", r.Header).Msg("API request")
 		f(w, r)
 	}
 }

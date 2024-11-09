@@ -4,12 +4,12 @@ import "github.com/prometheus/client_golang/prometheus"
 
 type (
 	Counter struct {
-		collector prometheus.Counter
 		mv        *prometheus.CounterVec
+		collector prometheus.Counter
 	}
 	Gauge struct {
-		collector prometheus.Gauge
 		mv        *prometheus.GaugeVec
+		collector prometheus.Gauge
 	}
 	Labels interface {
 		toPromLabels() prometheus.Labels
@@ -52,8 +52,8 @@ func (c *Counter) Inc() {
 	c.collector.Inc()
 }
 
-func (c *Counter) With(l Labels) prometheus.Counter {
-	return c.mv.With(l.toPromLabels())
+func (c *Counter) With(l Labels) *Counter {
+	return &Counter{mv: c.mv, collector: c.mv.With(l.toPromLabels())}
 }
 
 func (g *Gauge) Collect(ch chan<- prometheus.Metric) {
@@ -68,6 +68,6 @@ func (g *Gauge) Set(v float64) {
 	g.collector.Set(v)
 }
 
-func (g *Gauge) With(l Labels) prometheus.Gauge {
-	return g.mv.With(l.toPromLabels())
+func (g *Gauge) With(l Labels) *Gauge {
+	return &Gauge{mv: g.mv, collector: g.mv.With(l.toPromLabels())}
 }

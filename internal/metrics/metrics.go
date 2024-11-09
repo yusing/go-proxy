@@ -7,16 +7,24 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 )
 
-type RouteMetrics struct {
-	HTTPReqTotal,
-	HTTP2xx3xx,
-	HTTP4xx,
-	HTTP5xx *Counter
-	HTTPReqElapsed *Gauge
-	HealthStatus   *Gauge
-}
+type (
+	RouteMetrics struct {
+		HTTPReqTotal,
+		HTTP2xx3xx,
+		HTTP4xx,
+		HTTP5xx *Counter
+		HTTPReqElapsed *Gauge
+	}
 
-var rm RouteMetrics
+	ServiceMetrics struct {
+		HealthStatus *Gauge
+	}
+)
+
+var (
+	rm RouteMetrics
+	sm ServiceMetrics
+)
 
 const (
 	routerNamespace     = "router"
@@ -29,10 +37,27 @@ func GetRouteMetrics() *RouteMetrics {
 	return &rm
 }
 
+func GetServiceMetrics() *ServiceMetrics {
+	return &sm
+}
+
+func (rm *RouteMetrics) UnregisterService(service string) {
+	lbls := &HTTPRouteMetricLabels{Service: service}
+	prometheus.Unregister(rm.HTTP2xx3xx.With(lbls))
+	prometheus.Unregister(rm.HTTP4xx.With(lbls))
+	prometheus.Unregister(rm.HTTP5xx.With(lbls))
+	prometheus.Unregister(rm.HTTPReqElapsed.With(lbls))
+}
+
 func init() {
 	if !common.PrometheusEnabled {
 		return
 	}
+	initRouteMetrics()
+	initServiceMetrics()
+}
+
+func initRouteMetrics() {
 	lbls := []string{"service", "method", "host", "visitor", "path"}
 	partitionsHelp := ", partitioned by " + strings.Join(lbls, ", ")
 	rm = RouteMetrics{
@@ -66,6 +91,11 @@ func init() {
 			Name:      "req_elapsed_ms",
 			Help:      "How long it took to process the request and respond a status code" + partitionsHelp,
 		}, lbls...),
+	}
+}
+
+func initServiceMetrics() {
+	sm = ServiceMetrics{
 		HealthStatus: NewGauge(prometheus.GaugeOpts{
 			Namespace: serviceNamespace,
 			Name:      "health_status",

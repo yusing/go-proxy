@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -27,6 +28,8 @@ type (
 		status      U.AtomicValue[Status]
 		checkHealth HealthCheckFunc
 		startTime   time.Time
+
+		metric *metrics.Gauge
 
 		task task.Task
 	}
@@ -61,6 +64,10 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 		return E.From(ErrNegativeInterval)
 	}
 
+	if common.PrometheusEnabled {
+		mon.metric = metrics.GetServiceMetrics().HealthStatus.With(metrics.HealthMetricLabels(mon.service))
+	}
+
 	go func() {
 		logger := logging.With().Str("name", mon.service).Logger()
 
@@ -69,6 +76,9 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 				mon.status.Store(StatusUnknown)
 			}
 			mon.task.Finish(nil)
+			if mon.metric != nil {
+				prometheus.Unregister(mon.metric)
+			}
 		}()
 
 		if err := mon.checkUpdateHealth(); err != nil {
@@ -175,15 +185,8 @@ func (mon *monitor) checkUpdateHealth() error {
 			notif.Notify(mon.service, "server is down")
 		}
 	}
-	if common.PrometheusEnabled {
-		go func() {
-			m := metrics.GetRouteMetrics()
-			var up float64
-			if healthy {
-				up = 1
-			}
-			m.HealthStatus.With(metrics.HealthMetricLabels(mon.service)).Set(up)
-		}()
+	if mon.metric != nil {
+		mon.metric.Set(float64(status))
 	}
 
 	return nil

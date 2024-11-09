@@ -4,8 +4,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/yusing/go-proxy/internal/common"
 	. "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/metrics"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
@@ -20,6 +23,7 @@ type waker struct {
 	rp     *gphttp.ReverseProxy
 	stream net.Stream
 	hc     health.HealthChecker
+	metric *metrics.Gauge
 
 	ready atomic.Bool
 }
@@ -53,6 +57,13 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 	default:
 		panic("both nil")
 	}
+
+	if common.PrometheusEnabled {
+		m := metrics.GetServiceMetrics()
+		fqn := providerSubTask.Parent().Name() + "/" + entry.TargetName()
+		waker.metric = m.HealthStatus.With(metrics.HealthMetricLabels(fqn))
+		waker.metric.Set(float64(watcher.Status()))
+	}
 	return watcher, nil
 }
 
@@ -68,8 +79,11 @@ func NewStreamWaker(providerSubTask task.Task, entry entry.Entry, stream net.Str
 // Start implements health.HealthMonitor.
 func (w *Watcher) Start(routeSubTask task.Task) E.Error {
 	routeSubTask.Finish("ignored")
-	w.task.OnCancel("stop route", func() {
+	w.task.OnCancel("stop route and cleanup", func() {
 		routeSubTask.Parent().Finish(w.task.FinishCause())
+		if w.metric != nil {
+			prometheus.Unregister(w.metric)
+		}
 	})
 	return nil
 }
@@ -96,8 +110,16 @@ func (w *Watcher) Uptime() time.Duration {
 	return 0
 }
 
-// Status implements health.HealthMonitor.
 func (w *Watcher) Status() health.Status {
+	status := w.getStatusUpdateReady()
+	if w.metric != nil {
+		w.metric.Set(float64(status))
+	}
+	return status
+}
+
+// Status implements health.HealthMonitor.
+func (w *Watcher) getStatusUpdateReady() health.Status {
 	if !w.ContainerRunning {
 		return health.StatusNapping
 	}
