@@ -51,7 +51,7 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 
 	switch {
 	case rp != nil:
-		waker.hc = health.NewHTTPHealthChecker(entry.TargetURL(), hcCfg, rp.Transport)
+		waker.hc = health.NewHTTPHealthChecker(entry.TargetURL(), hcCfg)
 	case stream != nil:
 		waker.hc = health.NewRawHealthChecker(entry.TargetURL(), hcCfg)
 	default:

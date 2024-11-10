@@ -6,18 +6,27 @@ import (
 	"net/http"
 
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/pkg"
 )
 
 type HTTPHealthMonitor struct {
 	*monitor
 	method string
-	pinger *http.Client
 }
 
-func NewHTTPHealthMonitor(url types.URL, config *HealthCheckConfig, transport http.RoundTripper) *HTTPHealthMonitor {
+var pinger = &http.Client{
+	Transport: &http.Transport{
+		DisableKeepAlives: true,
+		ForceAttemptHTTP2: false,
+	},
+	CheckRedirect: func(r *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	},
+}
+
+func NewHTTPHealthMonitor(url types.URL, config *HealthCheckConfig) *HTTPHealthMonitor {
 	mon := new(HTTPHealthMonitor)
 	mon.monitor = newMonitor(url, config, mon.CheckHealth)
-	mon.pinger = &http.Client{Timeout: config.Timeout, Transport: transport}
 	if config.UseGet {
 		mon.method = http.MethodGet
 	} else {
@@ -26,8 +35,8 @@ func NewHTTPHealthMonitor(url types.URL, config *HealthCheckConfig, transport ht
 	return mon
 }
 
-func NewHTTPHealthChecker(url types.URL, config *HealthCheckConfig, transport http.RoundTripper) HealthChecker {
-	return NewHTTPHealthMonitor(url, config, transport)
+func NewHTTPHealthChecker(url types.URL, config *HealthCheckConfig) HealthChecker {
+	return NewHTTPHealthMonitor(url, config)
 }
 
 func (mon *HTTPHealthMonitor) CheckHealth() (healthy bool, detail string, err error) {
@@ -46,7 +55,8 @@ func (mon *HTTPHealthMonitor) CheckHealth() (healthy bool, detail string, err er
 	}
 
 	req.Header.Set("Connection", "close")
-	resp, respErr := mon.pinger.Do(req)
+	req.Header.Set("User-Agent", "GoDoxy/"+pkg.GetVersion())
+	resp, respErr := pinger.Do(req)
 	if respErr == nil {
 		resp.Body.Close()
 	}
