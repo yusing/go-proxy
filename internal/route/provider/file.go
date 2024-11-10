@@ -58,7 +58,7 @@ func (p *FileProvider) loadRoutesImpl() (R.Routes, E.Error) {
 	}
 
 	if err := Validate(data); err != nil {
-		E.LogWarn(p.fileName+": validation failure", err)
+		E.LogWarn("validation failure", err.Subject(p.fileName))
 	}
 
 	return R.FromEntries(entries)
