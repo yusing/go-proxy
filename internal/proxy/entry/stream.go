@@ -60,7 +60,7 @@ func validateStreamEntry(m *RawEntry, errs *E.Builder) *StreamEntry {
 	host := E.Collect(errs, fields.ValidateHost, m.Host)
 	port := E.Collect(errs, fields.ValidateStreamPort, m.Port)
 	scheme := E.Collect(errs, fields.ValidateStreamScheme, m.Scheme)
-	url := E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", scheme.ListeningScheme, host, port.ListeningPort))
+	url := E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", scheme.ListeningScheme, host, port.ProxyPort))
 	idleWatcherCfg := E.Collect(errs, idlewatcher.ValidateConfig, cont)
 
 	if errs.HasError() {
