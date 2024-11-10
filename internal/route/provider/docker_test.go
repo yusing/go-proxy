@@ -31,7 +31,7 @@ func TestApplyLabel(t *testing.T) {
 		"POST /upload/{$}",
 		"GET /static",
 	}
-	middlewaresExpect := D.NestedLabelMap{
+	middlewaresExpect := map[string]map[string]any{
 		"middleware1": {
 			"prop1": "value1",
 			"prop2": "value2",
@@ -55,7 +55,6 @@ func TestApplyLabel(t *testing.T) {
 			"proxy.*.scheme":                        "https",
 			"proxy.*.host":                          "app",
 			"proxy.*.port":                          "4567",
-			"proxy.a.no_tls_verify":                 "true",
 			"proxy.a.path_patterns":                 pathPatterns,
 			"proxy.a.middlewares.middleware1.prop1": "value1",
 			"proxy.a.middlewares.middleware1.prop2": "value2",
@@ -213,6 +212,21 @@ func TestDynamicAliases(t *testing.T) {
 	ExpectTrue(t, ok)
 	ExpectEqual(t, raw.Scheme, "http")
 	ExpectEqual(t, raw.Port, "5678")
+}
+
+func TestDisableHealthCheck(t *testing.T) {
+	c := D.FromDocker(&types.Container{
+		Names: dummyNames,
+		State: "running",
+		Labels: map[string]string{
+			"proxy.a.healthcheck.disable": "true",
+			"proxy.a.port":                "1234",
+		},
+	}, client.DefaultDockerHost)
+	raw, ok := E.Must(p.entriesFromContainerLabels(c)).Load("a")
+	ExpectTrue(t, ok)
+
+	ExpectEqual(t, raw.HealthCheck, nil)
 }
 
 func TestPublicIPLocalhost(t *testing.T) {

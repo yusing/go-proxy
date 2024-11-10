@@ -16,14 +16,14 @@ import (
 type ReverseProxyEntry struct { // real model after validation
 	Raw *RawEntry `json:"raw"`
 
-	Alias        fields.Alias              `json:"alias"`
-	Scheme       fields.Scheme             `json:"scheme"`
-	URL          net.URL                   `json:"url"`
-	NoTLSVerify  bool                      `json:"no_tls_verify,omitempty"`
-	PathPatterns fields.PathPatterns       `json:"path_patterns,omitempty"`
-	HealthCheck  *health.HealthCheckConfig `json:"healthcheck,omitempty"`
-	LoadBalance  *loadbalancer.Config      `json:"load_balance,omitempty"`
-	Middlewares  docker.NestedLabelMap     `json:"middlewares,omitempty"`
+	Alias        fields.Alias               `json:"alias"`
+	Scheme       fields.Scheme              `json:"scheme"`
+	URL          net.URL                    `json:"url"`
+	NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
+	PathPatterns fields.PathPatterns        `json:"path_patterns,omitempty"`
+	HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
+	LoadBalance  *loadbalancer.Config       `json:"load_balance,omitempty"`
+	Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`
 
 	/* Docker only */
 	Idlewatcher *idlewatcher.Config `json:"idlewatcher,omitempty"`

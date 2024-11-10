@@ -22,19 +22,21 @@ type (
 
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string                    `json:"-" yaml:"-"`
-		Scheme       string                    `json:"scheme,omitempty" yaml:"scheme"`
-		Host         string                    `json:"host,omitempty" yaml:"host"`
-		Port         string                    `json:"port,omitempty" yaml:"port"`
-		NoTLSVerify  bool                      `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
-		PathPatterns []string                  `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
-		HealthCheck  *health.HealthCheckConfig `json:"healthcheck,omitempty" yaml:"healthcheck"`
-		LoadBalance  *loadbalancer.Config      `json:"load_balance,omitempty" yaml:"load_balance"`
-		Middlewares  docker.NestedLabelMap     `json:"middlewares,omitempty" yaml:"middlewares"`
-		Homepage     *homepage.Item            `json:"homepage,omitempty" yaml:"homepage"`
+		Alias        string                     `json:"-" yaml:"-"`
+		Scheme       string                     `json:"scheme,omitempty" yaml:"scheme"`
+		Host         string                     `json:"host,omitempty" yaml:"host"`
+		Port         string                     `json:"port,omitempty" yaml:"port"`
+		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
+		PathPatterns []string                   `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
+		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty" yaml:"healthcheck"`
+		LoadBalance  *loadbalancer.Config       `json:"load_balance,omitempty" yaml:"load_balance"`
+		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty" yaml:"middlewares"`
+		Homepage     *homepage.Item             `json:"homepage,omitempty" yaml:"homepage"`
 
 		/* Docker only */
 		Container *docker.Container `json:"container,omitempty" yaml:"-"`
+
+		finalized bool
 	}
 
 	RawEntries = F.Map[string, *RawEntry]
@@ -42,7 +44,11 @@ type (
 
 var NewProxyEntries = F.NewMapOf[string, *RawEntry]
 
-func (e *RawEntry) FillMissingFields() {
+func (e *RawEntry) Finalize() {
+	if e.finalized {
+		return
+	}
+
 	isDocker := e.Container != nil
 	cont := e.Container
 	if !isDocker {
@@ -124,14 +130,7 @@ func (e *RawEntry) FillMissingFields() {
 	}
 
 	if e.HealthCheck == nil {
-		e.HealthCheck = new(health.HealthCheckConfig)
-	}
-
-	if e.HealthCheck.Interval == 0 {
-		e.HealthCheck.Interval = common.HealthCheckIntervalDefault
-	}
-	if e.HealthCheck.Timeout == 0 {
-		e.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
+		e.HealthCheck = health.DefaultHealthCheckConfig()
 	}
 
 	if e.HealthCheck.Disable {
@@ -159,6 +158,8 @@ func (e *RawEntry) FillMissingFields() {
 			e.Port = "0"
 		}
 	}
+
+	e.finalized = true
 }
 
 func (e *RawEntry) splitPorts() (lp string, pp string, extra string) {
@@ -168,9 +169,9 @@ func (e *RawEntry) splitPorts() (lp string, pp string, extra string) {
 	} else {
 		lp = portSplit[0]
 		pp = portSplit[1]
-	}
-	if len(portSplit) > 2 {
-		extra = strings.Join(portSplit[2:], ":")
+		if len(portSplit) > 2 {
+			extra = strings.Join(portSplit[2:], ":")
+		}
 	}
 	return
 }

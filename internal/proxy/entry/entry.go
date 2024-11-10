@@ -19,8 +19,6 @@ type Entry interface {
 }
 
 func ValidateEntry(m *RawEntry) (Entry, E.Error) {
-	m.FillMissingFields()
-
 	scheme, err := T.NewScheme(m.Scheme)
 	if err != nil {
 		return nil, E.From(err)
@@ -35,6 +33,9 @@ func ValidateEntry(m *RawEntry) (Entry, E.Error) {
 	}
 	if errs.HasError() {
 		return nil, errs.Error()
+	}
+	if !UseHealthCheck(entry) && (UseLoadBalance(entry) || UseIdleWatcher(entry)) {
+		return nil, E.New("healthCheck.disable cannot be true when loadbalancer or idlewatcher is enabled")
 	}
 	return entry, nil
 }

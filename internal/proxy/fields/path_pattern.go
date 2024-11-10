@@ -32,7 +32,7 @@ func ValidatePathPattern(s string) (PathPattern, error) {
 
 func ValidatePathPatterns(s []string) (PathPatterns, E.Error) {
 	if len(s) == 0 {
-		return []PathPattern{"/"}, nil
+		return nil, nil
 	}
 	errs := E.NewBuilder("invalid path patterns")
 	pp := make(PathPatterns, len(s))

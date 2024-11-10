@@ -14,8 +14,8 @@ type HealthCheckConfig struct {
 	Timeout  time.Duration `json:"timeout" yaml:"timeout"`
 }
 
-func DefaultHealthCheckConfig() HealthCheckConfig {
-	return HealthCheckConfig{
+func DefaultHealthCheckConfig() *HealthCheckConfig {
+	return &HealthCheckConfig{
 		Interval: common.HealthCheckIntervalDefault,
 		Timeout:  common.HealthCheckTimeoutDefault,
 	}

@@ -45,6 +45,7 @@ func (rt *Route) Container() *docker.Container {
 }
 
 func NewRoute(raw *entry.RawEntry) (*Route, E.Error) {
+	raw.Finalize()
 	en, err := entry.ValidateEntry(raw)
 	if err != nil {
 		return nil, err

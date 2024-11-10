@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"regexp"
 	"strconv"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/proxy/entry"
 	"github.com/yusing/go-proxy/internal/route"
+	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher"
 )
@@ -22,12 +22,12 @@ type DockerProvider struct {
 	l                zerolog.Logger
 }
 
-var (
-	AliasRefRegex    = regexp.MustCompile(`#\d+`)
-	AliasRefRegexOld = regexp.MustCompile(`\$\d+`)
-
-	ErrAliasRefIndexOutOfRange = E.New("index out of range")
+const (
+	aliasRefPrefix    = '#'
+	aliasRefPrefixAlt = '$'
 )
+
+var ErrAliasRefIndexOutOfRange = E.New("index out of range")
 
 func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, error) {
 	if dockerHost == common.DockerHostFromEnv {
@@ -114,65 +114,70 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 	}
 
 	errs := E.NewBuilder("label errors")
-	for key, val := range container.Labels {
-		errs.Add(p.applyLabel(container, entries, key, val))
-	}
 
-	// remove all entries that failed to fill in missing fields
-	entries.RangeAll(func(_ string, re *entry.RawEntry) {
-		re.FillMissingFields()
-	})
+	m, err := docker.ParseLabels(container.Labels)
+	errs.Add(err)
+
+	var wildcardProps docker.LabelMap
+
+	for alias, entryMapAny := range m {
+		if len(alias) == 0 {
+			errs.Add(E.New("empty alias"))
+			continue
+		}
+
+		var ok bool
+		entryMap, ok := entryMapAny.(docker.LabelMap)
+		if !ok {
+			errs.Add(E.Errorf("expect mapping, got %T", entryMap).Subject(alias))
+			continue
+		}
+
+		if alias == docker.WildcardAlias {
+			wildcardProps = entryMap
+			continue
+		}
+
+		// check if it is an alias reference
+		switch alias[0] {
+		case aliasRefPrefix, aliasRefPrefixAlt:
+			index, err := strutils.Atoi(alias[1:])
+			if err != nil {
+				errs.Add(err)
+				break
+			}
+			if index < 1 || index > len(container.Aliases) {
+				errs.Add(ErrAliasRefIndexOutOfRange.Subject(strconv.Itoa(index)))
+				break
+			}
+			alias = container.Aliases[index-1]
+		}
+
+		// init entry if not exist
+		var en *entry.RawEntry
+		if en, ok = entries.Load(alias); !ok {
+			en = &entry.RawEntry{
+				Alias:     alias,
+				Container: container,
+			}
+			entries.Store(alias, en)
+		}
+
+		// deserialize map into entry object
+		err := U.Deserialize(entryMap, en)
+		if err != nil {
+			errs.Add(err.Subject(alias))
+		} else {
+			entries.Store(alias, en)
+		}
+	}
+	if wildcardProps != nil {
+		entries.RangeAll(func(alias string, re *entry.RawEntry) {
+			if err := U.Deserialize(wildcardProps, re); err != nil {
+				errs.Add(err.Subject(alias))
+			}
+		})
+	}
 
 	return entries, errs.Error()
-}
-
-func (p *DockerProvider) applyLabel(container *docker.Container, entries entry.RawEntries, key, val string) E.Error {
-	lbl := docker.ParseLabel(key, val)
-	if lbl.Namespace != docker.NSProxy {
-		return nil
-	}
-	if lbl.Target == docker.WildcardAlias {
-		// apply label for all aliases
-		labelErrs := entries.CollectErrors(func(a string, e *entry.RawEntry) error {
-			return docker.ApplyLabel(e, lbl)
-		})
-		if err := E.Join(labelErrs...); err != nil {
-			return err.Subject(lbl.Target)
-		}
-		return nil
-	}
-
-	refErrs := E.NewBuilder("alias ref errors")
-	replaceIndexRef := func(ref string) string {
-		index, err := strutils.Atoi(ref[1:])
-		if err != nil {
-			refErrs.Add(err)
-			return ref
-		}
-		if index < 1 || index > len(container.Aliases) {
-			refErrs.Add(ErrAliasRefIndexOutOfRange.Subject(strconv.Itoa(index)))
-			return ref
-		}
-		return container.Aliases[index-1]
-	}
-
-	lbl.Target = AliasRefRegex.ReplaceAllStringFunc(lbl.Target, replaceIndexRef)
-	lbl.Target = AliasRefRegexOld.ReplaceAllStringFunc(lbl.Target, func(ref string) string {
-		p.l.Warn().Msgf("%q should now be %q, old syntax will be removed in a future version", lbl, strings.ReplaceAll(lbl.String(), "$", "#"))
-		return replaceIndexRef(ref)
-	})
-	if refErrs.HasError() {
-		return refErrs.Error().Subject(lbl.String())
-	}
-
-	en, ok := entries.Load(lbl.Target)
-	if !ok {
-		en = &entry.RawEntry{
-			Alias:     lbl.Target,
-			Container: container,
-		}
-		entries.Store(lbl.Target, en)
-	}
-
-	return docker.ApplyLabel(en, lbl)
 }
