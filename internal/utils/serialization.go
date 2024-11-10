@@ -248,12 +248,18 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 		dst.Set(src.Convert(dstT))
 		return nil
 	case srcT.Kind() == reflect.Map:
+		if src.Len() == 0 {
+			return nil
+		}
 		obj, ok := src.Interface().(SerializedObject)
 		if !ok {
 			return ErrUnsupportedConversion.Subject(dstT.String() + " to " + srcT.String())
 		}
 		return Deserialize(obj, dst.Addr().Interface())
 	case srcT.Kind() == reflect.Slice:
+		if src.Len() == 0 {
+			return nil
+		}
 		if dstT.Kind() != reflect.Slice {
 			return ErrUnsupportedConversion.Subject(dstT.String() + " to slice")
 		}
@@ -337,9 +343,13 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		return
 	}
 	// yaml like
-	lines := strings.Split(strings.TrimSpace(src), "\n")
-	for i := range lines {
-		lines[i] = strings.TrimSpace(lines[i])
+	lines := []string{}
+	src = strings.TrimSpace(src)
+	if src != "" {
+		lines = strings.Split(src, "\n")
+		for i := range lines {
+			lines[i] = strings.TrimSpace(lines[i])
+		}
 	}
 	var tmp any
 	switch dst.Kind() {
@@ -367,9 +377,11 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			parts := strings.Split(line, ":")
 			if len(parts) < 2 {
 				errs.Add(ErrMapMissingColon.Subjectf("line %d", i+1))
+				continue
 			}
 			if len(parts) > 2 {
 				errs.Add(ErrMapTooManyColons.Subjectf("line %d", i+1))
+				continue
 			}
 			k := strings.TrimSpace(parts[0])
 			v := strings.TrimSpace(parts[1])
