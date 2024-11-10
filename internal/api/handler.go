@@ -54,7 +54,7 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
-		LogInfo(r).Interface("headers", r.Header).Msg("API request")
+		LogDebug(r).Interface("headers", r.Header).Msg("API request")
 		f(w, r)
 	}
 }
