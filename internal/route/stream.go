@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
@@ -28,10 +27,7 @@ type StreamRoute struct {
 	l zerolog.Logger
 }
 
-var (
-	streamRoutes   = F.NewMapOf[string, *StreamRoute]()
-	streamRoutesMu sync.Mutex
-)
+var streamRoutes = F.NewMapOf[string, *StreamRoute]()
 
 func GetStreamProxies() F.Map[string, *StreamRoute] {
 	return streamRoutes
@@ -60,14 +56,6 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 	if entry.ShouldNotServe(r) {
 		providerSubtask.Finish("should not serve")
 		return nil
-	}
-
-	streamRoutesMu.Lock()
-	defer streamRoutesMu.Unlock()
-
-	if r.HealthCheck.Disable && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
-		r.l.Error().Msg("healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled")
-		r.HealthCheck.Disable = false
 	}
 
 	r.task = providerSubtask
@@ -111,6 +99,7 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 	}
 
 	go r.acceptConnections()
+
 	streamRoutes.Store(string(r.Alias), r)
 	r.task.OnFinished("remove from route table", func() {
 		streamRoutes.Delete(string(r.Alias))

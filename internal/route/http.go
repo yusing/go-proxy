@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
@@ -44,8 +43,7 @@ type (
 var (
 	findMuxFunc = findMuxAnyDomain
 
-	httpRoutes   = F.NewMapOf[string, *HTTPRoute]()
-	httpRoutesMu sync.Mutex
+	httpRoutes = F.NewMapOf[string, *HTTPRoute]()
 	// globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 )
 
@@ -63,11 +61,10 @@ func SetFindMuxDomains(domains []string) {
 
 func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	var trans *http.Transport
-
 	if entry.NoTLSVerify {
-		trans = gphttp.DefaultTransportNoTLS.Clone()
+		trans = gphttp.DefaultTransportNoTLS
 	} else {
-		trans = gphttp.DefaultTransport.Clone()
+		trans = gphttp.DefaultTransport
 	}
 
 	service := string(entry.Alias)
@@ -102,16 +99,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 		return nil
 	}
 
-	httpRoutesMu.Lock()
-	defer httpRoutesMu.Unlock()
-
-	if !entry.UseHealthCheck(r) && (entry.UseLoadBalance(r) || entry.UseIdleWatcher(r)) {
-		r.l.Error().Msg("healthCheck.disabled cannot be false when loadbalancer or idlewatcher is enabled")
-		if r.HealthCheck == nil {
-			r.HealthCheck = new(health.HealthCheckConfig)
-		}
-		r.HealthCheck.Disable = false
-	}
+	r.task = providerSubtask
 
 	switch {
 	case entry.UseIdleWatcher(r):
@@ -123,12 +111,13 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 		r.handler = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
-		r.HealthMon = health.NewHTTPHealthMonitor(r.TargetURL(), r.HealthCheck, r.rp.Transport)
+		r.HealthMon = health.NewHTTPHealthMonitor(r.rp.TargetURL, r.HealthCheck)
 	}
-	r.task = providerSubtask
 
 	if r.handler == nil {
 		switch {
+		case len(r.PathPatterns) == 0:
+			r.handler = r.rp
 		case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
 			r.handler = r.rp
 		default:
