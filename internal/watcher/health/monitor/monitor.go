@@ -1,4 +1,4 @@
-package health
+package monitor
 
 import (
 	"context"
@@ -16,16 +16,17 @@ import (
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
 	HealthCheckFunc func() (healthy bool, detail string, err error)
 	monitor         struct {
 		service string
-		config  *HealthCheckConfig
+		config  *health.HealthCheckConfig
 		url     U.AtomicValue[types.URL]
 
-		status      U.AtomicValue[Status]
+		status      U.AtomicValue[health.Status]
 		checkHealth HealthCheckFunc
 		startTime   time.Time
 
@@ -37,14 +38,14 @@ type (
 
 var ErrNegativeInterval = errors.New("negative interval")
 
-func newMonitor(url types.URL, config *HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
+func newMonitor(url types.URL, config *health.HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
 	mon := &monitor{
 		config:      config,
 		checkHealth: healthCheckFunc,
 		startTime:   time.Now(),
 	}
 	mon.url.Store(url)
-	mon.status.Store(StatusHealthy)
+	mon.status.Store(health.StatusHealthy)
 	return mon
 }
 
@@ -72,8 +73,8 @@ func (mon *monitor) Start(routeSubtask task.Task) E.Error {
 		logger := logging.With().Str("name", mon.service).Logger()
 
 		defer func() {
-			if mon.status.Load() != StatusError {
-				mon.status.Store(StatusUnknown)
+			if mon.status.Load() != health.StatusError {
+				mon.status.Store(health.StatusUnknown)
 			}
 			mon.task.Finish(nil)
 			if mon.metric != nil {
@@ -121,12 +122,12 @@ func (mon *monitor) URL() types.URL {
 }
 
 // Config implements HealthChecker.
-func (mon *monitor) Config() *HealthCheckConfig {
+func (mon *monitor) Config() *health.HealthCheckConfig {
 	return mon.config
 }
 
 // Status implements HealthMonitor.
-func (mon *monitor) Status() Status {
+func (mon *monitor) Status() health.Status {
 	return mon.status.Load()
 }
 
@@ -163,19 +164,19 @@ func (mon *monitor) checkUpdateHealth() error {
 	healthy, detail, err := mon.checkHealth()
 	if err != nil {
 		defer mon.task.Finish(err)
-		mon.status.Store(StatusError)
+		mon.status.Store(health.StatusError)
 		if !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("check health: %w", err)
 		}
 		return nil
 	}
-	var status Status
+	var status health.Status
 	if healthy {
-		status = StatusHealthy
+		status = health.StatusHealthy
 	} else {
-		status = StatusUnhealthy
+		status = health.StatusUnhealthy
 	}
-	if healthy != (mon.status.Swap(status) == StatusHealthy) {
+	if healthy != (mon.status.Swap(status) == health.StatusHealthy) {
 		if healthy {
 			logger.Info().Msg("server is up")
 			notif.Notify(mon.service, "server is up")

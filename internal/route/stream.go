@@ -13,6 +13,7 @@ import (
 	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
+	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
 type StreamRoute struct {
@@ -72,7 +73,7 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 		r.stream = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
-		r.HealthMon = health.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
+		r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
 	}
 
 	if err := r.stream.Setup(); err != nil {

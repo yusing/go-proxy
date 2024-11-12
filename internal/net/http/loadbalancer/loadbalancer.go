@@ -12,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
+	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
 // TODO: stats of each server.
@@ -248,7 +249,7 @@ func (lb *LoadBalancer) MarshalJSON() ([]byte, error) {
 		extra[v.Name] = v.healthMon
 	})
 
-	return (&health.JSONRepresentation{
+	return (&monitor.JSONRepresentation{
 		Name:    lb.Name(),
 		Status:  lb.Status(),
 		Started: lb.startTime,

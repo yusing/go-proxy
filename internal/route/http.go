@@ -19,6 +19,7 @@ import (
 	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
+	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
 type (
@@ -111,7 +112,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 		r.handler = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
-		r.HealthMon = health.NewHTTPHealthMonitor(r.rp.TargetURL, r.HealthCheck)
+		r.HealthMon = monitor.NewHTTPHealthMonitor(r.rp.TargetURL, r.HealthCheck)
 	}
 
 	if r.handler == nil {

@@ -1,4 +1,4 @@
-package health
+package monitor
 
 import (
 	"crypto/tls"
@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/pkg"
 )
 
@@ -24,7 +25,7 @@ var pinger = &http.Client{
 	},
 }
 
-func NewHTTPHealthMonitor(url types.URL, config *HealthCheckConfig) *HTTPHealthMonitor {
+func NewHTTPHealthMonitor(url types.URL, config *health.HealthCheckConfig) *HTTPHealthMonitor {
 	mon := new(HTTPHealthMonitor)
 	mon.monitor = newMonitor(url, config, mon.CheckHealth)
 	if config.UseGet {
@@ -35,7 +36,7 @@ func NewHTTPHealthMonitor(url types.URL, config *HealthCheckConfig) *HTTPHealthM
 	return mon
 }
 
-func NewHTTPHealthChecker(url types.URL, config *HealthCheckConfig) HealthChecker {
+func NewHTTPHealthChecker(url types.URL, config *health.HealthCheckConfig) health.HealthChecker {
 	return NewHTTPHealthMonitor(url, config)
 }
 

@@ -1,4 +1,4 @@
-package health
+package monitor
 
 import (
 	"encoding/json"
@@ -6,12 +6,13 @@ import (
 
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type JSONRepresentation struct {
 	Name    string
-	Config  *HealthCheckConfig
-	Status  Status
+	Config  *health.HealthCheckConfig
+	Status  health.Status
 	Started time.Time
 	Uptime  time.Duration
 	URL     types.URL

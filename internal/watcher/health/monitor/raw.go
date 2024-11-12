@@ -1,9 +1,10 @@
-package health
+package monitor
 
 import (
 	"net"
 
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
@@ -13,7 +14,7 @@ type (
 	}
 )
 
-func NewRawHealthMonitor(url types.URL, config *HealthCheckConfig) *RawHealthMonitor {
+func NewRawHealthMonitor(url types.URL, config *health.HealthCheckConfig) *RawHealthMonitor {
 	mon := new(RawHealthMonitor)
 	mon.monitor = newMonitor(url, config, mon.CheckHealth)
 	mon.dialer = &net.Dialer{
@@ -23,7 +24,7 @@ func NewRawHealthMonitor(url types.URL, config *HealthCheckConfig) *RawHealthMon
 	return mon
 }
 
-func NewRawHealthChecker(url types.URL, config *HealthCheckConfig) HealthChecker {
+func NewRawHealthChecker(url types.URL, config *health.HealthCheckConfig) health.HealthChecker {
 	return NewRawHealthMonitor(url, config)
 }
 

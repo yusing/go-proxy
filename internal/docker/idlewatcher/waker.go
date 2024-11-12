@@ -15,6 +15,7 @@ import (
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
+	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
 type waker struct {
@@ -51,9 +52,9 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 
 	switch {
 	case rp != nil:
-		waker.hc = health.NewHTTPHealthChecker(entry.TargetURL(), hcCfg)
+		waker.hc = monitor.NewHTTPHealthChecker(entry.TargetURL(), hcCfg)
 	case stream != nil:
-		waker.hc = health.NewRawHealthChecker(entry.TargetURL(), hcCfg)
+		waker.hc = monitor.NewRawHealthChecker(entry.TargetURL(), hcCfg)
 	default:
 		panic("both nil")
 	}
@@ -147,7 +148,7 @@ func (w *Watcher) MarshalJSON() ([]byte, error) {
 	if w.hc.URL().Port() != "0" {
 		url = w.hc.URL()
 	}
-	return (&health.JSONRepresentation{
+	return (&monitor.JSONRepresentation{
 		Name:   w.Name(),
 		Status: w.Status(),
 		Config: w.hc.Config(),
