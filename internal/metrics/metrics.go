@@ -65,7 +65,7 @@ func initRouteMetrics() {
 			Namespace: routerNamespace,
 			Subsystem: routerHTTPSubsystem,
 			Name:      "req_total",
-			Help:      "How many requests processed" + partitionsHelp,
+			Help:      "How many requests processed in total",
 		}),
 		HTTP2xx3xx: NewCounter(prometheus.CounterOpts{
 			Namespace: routerNamespace,
