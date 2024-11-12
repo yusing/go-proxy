@@ -142,18 +142,18 @@ func createMiddlewares(middlewaresMap map[string]OptionsRaw) ([]*Middleware, E.E
 	return middlewares, errs.Error()
 }
 
-func PatchReverseProxy(rpName string, rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.Error) {
+func PatchReverseProxy(rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.Error) {
 	var middlewares []*Middleware
 	middlewares, err = createMiddlewares(middlewaresMap)
 	if err != nil {
 		return
 	}
-	patchReverseProxy(rpName, rp, middlewares)
+	patchReverseProxy(rp, middlewares)
 	return
 }
 
-func patchReverseProxy(rpName string, rp *ReverseProxy, middlewares []*Middleware) {
-	mid := BuildMiddlewareFromChain(rpName, middlewares)
+func patchReverseProxy(rp *ReverseProxy, middlewares []*Middleware) {
+	mid := BuildMiddlewareFromChain(rp.TargetName, middlewares)
 
 	if mid.before != nil {
 		ori := rp.HandlerFunc

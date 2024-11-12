@@ -114,12 +114,12 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.E
 	} else {
 		proxyURL, _ = url.Parse("https://" + testHost) // dummy url, no actual effect
 	}
-	rp := gphttp.NewReverseProxy("test", types.NewURL(proxyURL), &rr)
+	rp := gphttp.NewReverseProxy(middleware.name, types.NewURL(proxyURL), &rr)
 	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr
 	}
-	patchReverseProxy(middleware.name, rp, []*Middleware{mid})
+	patchReverseProxy(rp, []*Middleware{mid})
 	rp.ServeHTTP(w, req)
 	resp := w.Result()
 	defer resp.Body.Close()

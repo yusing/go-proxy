@@ -71,7 +71,7 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	rp := gphttp.NewReverseProxy(service, entry.URL, trans)
 
 	if len(entry.Middlewares) > 0 {
-		err := middleware.PatchReverseProxy(service, rp, entry.Middlewares)
+		err := middleware.PatchReverseProxy(rp, entry.Middlewares)
 		if err != nil {
 			return nil, err
 		}
@@ -155,6 +155,10 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 // Finish implements task.TaskFinisher.
 func (r *HTTPRoute) Finish(reason any) {
 	r.task.Finish(reason)
+}
+
+func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	r.handler.ServeHTTP(w, req)
 }
 
 func (r *HTTPRoute) addToLoadBalancer() {
