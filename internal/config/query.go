@@ -6,14 +6,16 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/homepage"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
-	"github.com/yusing/go-proxy/internal/route"
+	route "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/route/entry"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
+	"github.com/yusing/go-proxy/internal/route/routes"
+	"github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-func DumpEntries() map[string]*entry.RawEntry {
-	entries := make(map[string]*entry.RawEntry)
+func DumpEntries() map[string]*types.RawEntry {
+	entries := make(map[string]*types.RawEntry)
 	instance.providers.RangeAll(func(_ string, p *proxy.Provider) {
 		p.RangeRoutes(func(alias string, r *route.Route) {
 			entries[alias] = r.Entry
@@ -43,8 +45,8 @@ func HomepageConfig() homepage.Config {
 	}
 
 	hpCfg := homepage.NewHomePageConfig()
-	route.GetReverseProxies().RangeAll(func(alias string, r *route.HTTPRoute) {
-		en := r.Raw
+	routes.GetHTTPRoutes().RangeAll(func(alias string, r types.HTTPRoute) {
+		en := r.RawEntry()
 		item := en.Homepage
 		if item == nil {
 			item = new(homepage.Item)
@@ -113,23 +115,23 @@ func HomepageConfig() homepage.Config {
 }
 
 func RoutesByAlias(typeFilter ...route.RouteType) map[string]any {
-	routes := make(map[string]any)
+	rts := make(map[string]any)
 	if len(typeFilter) == 0 || typeFilter[0] == "" {
 		typeFilter = []route.RouteType{route.RouteTypeReverseProxy, route.RouteTypeStream}
 	}
 	for _, t := range typeFilter {
 		switch t {
 		case route.RouteTypeReverseProxy:
-			route.GetReverseProxies().RangeAll(func(alias string, r *route.HTTPRoute) {
-				routes[alias] = r
+			routes.GetHTTPRoutes().RangeAll(func(alias string, r types.HTTPRoute) {
+				rts[alias] = r
 			})
 		case route.RouteTypeStream:
-			route.GetStreamProxies().RangeAll(func(alias string, r *route.StreamRoute) {
-				routes[alias] = r
+			routes.GetStreamRoutes().RangeAll(func(alias string, r types.StreamRoute) {
+				rts[alias] = r
 			})
 		}
 	}
-	return routes
+	return rts
 }
 
 func Statistics() map[string]any {

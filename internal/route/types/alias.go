@@ -1,3 +1,3 @@
-package fields
+package types
 
 type Alias string

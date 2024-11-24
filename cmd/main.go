@@ -14,12 +14,12 @@ import (
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
+	"github.com/yusing/go-proxy/internal/entrypoint"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	R "github.com/yusing/go-proxy/internal/route"
-	"github.com/yusing/go-proxy/internal/server"
+	"github.com/yusing/go-proxy/internal/net/http/server"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
 )
@@ -136,7 +136,7 @@ func main() {
 		CertProvider:    autocert,
 		HTTPAddr:        common.ProxyHTTPAddr,
 		HTTPSAddr:       common.ProxyHTTPSAddr,
-		Handler:         http.HandlerFunc(R.ProxyHandler),
+		Handler:         http.HandlerFunc(entrypoint.Handler),
 		RedirectToHTTPS: config.Value().RedirectToHTTPS,
 	})
 	server.StartServer(server.Options{

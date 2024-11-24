@@ -10,10 +10,10 @@ import (
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config/types"
+	"github.com/yusing/go-proxy/internal/entrypoint"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/notif"
-	"github.com/yusing/go-proxy/internal/route"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -183,7 +183,7 @@ func (cfg *Config) load() E.Error {
 			model.MatchDomains[i] = "." + domain
 		}
 	}
-	route.SetFindMuxDomains(model.MatchDomains)
+	entrypoint.SetFindRouteDomains(model.MatchDomains)
 	return errs.Error()
 }
 

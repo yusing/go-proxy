@@ -7,8 +7,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
-	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/route"
 	U "github.com/yusing/go-proxy/internal/utils"
 	W "github.com/yusing/go-proxy/internal/watcher"
 )
@@ -44,9 +43,9 @@ func (p *FileProvider) Logger() *zerolog.Logger {
 	return &p.l
 }
 
-func (p *FileProvider) loadRoutesImpl() (R.Routes, E.Error) {
-	routes := R.NewRoutes()
-	entries := entry.NewProxyEntries()
+func (p *FileProvider) loadRoutesImpl() (route.Routes, E.Error) {
+	routes := route.NewRoutes()
+	entries := route.NewProxyEntries()
 
 	data, err := os.ReadFile(p.path)
 	if err != nil {
@@ -61,7 +60,7 @@ func (p *FileProvider) loadRoutesImpl() (R.Routes, E.Error) {
 		E.LogWarn("validation failure", err.Subject(p.fileName))
 	}
 
-	return R.FromEntries(entries)
+	return route.FromEntries(entries)
 }
 
 func (p *FileProvider) NewWatcher() W.Watcher {

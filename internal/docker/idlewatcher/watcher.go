@@ -12,7 +12,7 @@ import (
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
+	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -49,7 +49,7 @@ var (
 
 const dockerReqTimeout = 3 * time.Second
 
-func registerWatcher(providerSubtask task.Task, entry entry.Entry, waker *waker) (*Watcher, error) {
+func registerWatcher(providerSubtask task.Task, entry route.Entry, waker *waker) (*Watcher, error) {
 	cfg := entry.IdlewatcherConfig()
 
 	if cfg.IdleTimeout == 0 {

@@ -10,8 +10,8 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
-	T "github.com/yusing/go-proxy/internal/proxy/fields"
+	"github.com/yusing/go-proxy/internal/route/entry"
+	T "github.com/yusing/go-proxy/internal/route/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 

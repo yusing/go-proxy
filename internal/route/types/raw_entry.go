@@ -1,4 +1,4 @@
-package entry
+package types
 
 import (
 	"strconv"
@@ -9,7 +9,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
+	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -29,7 +29,7 @@ type (
 		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
 		PathPatterns []string                   `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
 		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty" yaml:"healthcheck"`
-		LoadBalance  *loadbalancer.Config       `json:"load_balance,omitempty" yaml:"load_balance"`
+		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty" yaml:"load_balance"`
 		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty" yaml:"middlewares"`
 		Homepage     *homepage.Item             `json:"homepage,omitempty" yaml:"homepage"`
 

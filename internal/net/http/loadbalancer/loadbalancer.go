@@ -7,9 +7,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
-	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
@@ -19,19 +18,12 @@ import (
 // TODO: support weighted mode.
 type (
 	impl interface {
-		ServeHTTP(srvs servers, rw http.ResponseWriter, r *http.Request)
+		ServeHTTP(srvs Servers, rw http.ResponseWriter, r *http.Request)
 		OnAddServer(srv *Server)
 		OnRemoveServer(srv *Server)
 	}
-	Config struct {
-		Link    string                `json:"link" yaml:"link"`
-		Mode    Mode                  `json:"mode" yaml:"mode"`
-		Weight  weightType            `json:"weight" yaml:"weight"`
-		Options middleware.OptionsRaw `json:"options,omitempty" yaml:"options,omitempty"`
-	}
-	LoadBalancer struct {
-		zerolog.Logger
 
+	LoadBalancer struct {
 		impl
 		*Config
 
@@ -40,20 +32,20 @@ type (
 		pool   Pool
 		poolMu sync.Mutex
 
-		sumWeight weightType
+		sumWeight Weight
 		startTime time.Time
-	}
 
-	weightType uint16
+		l zerolog.Logger
+	}
 )
 
-const maxWeight weightType = 100
+const maxWeight Weight = 100
 
 func New(cfg *Config) *LoadBalancer {
 	lb := &LoadBalancer{
-		Logger: logger.With().Str("name", cfg.Link).Logger(),
 		Config: new(Config),
-		pool:   newPool(),
+		pool:   types.NewServerPool(),
+		l:      logger.With().Str("name", cfg.Link).Logger(),
 	}
 	lb.UpdateConfigIfNeeded(cfg)
 	return lb
@@ -81,11 +73,11 @@ func (lb *LoadBalancer) Finish(reason any) {
 
 func (lb *LoadBalancer) updateImpl() {
 	switch lb.Mode {
-	case Unset, RoundRobin:
+	case types.ModeUnset, types.ModeRoundRobin:
 		lb.impl = lb.newRoundRobin()
-	case LeastConn:
+	case types.ModeLeastConn:
 		lb.impl = lb.newLeastConn()
-	case IPHash:
+	case types.ModeIPHash:
 		lb.impl = lb.newIPHash()
 	default: // should happen in test only
 		lb.impl = lb.newRoundRobin()
@@ -102,10 +94,10 @@ func (lb *LoadBalancer) UpdateConfigIfNeeded(cfg *Config) {
 
 		lb.Link = cfg.Link
 
-		if lb.Mode == Unset && cfg.Mode != Unset {
+		if lb.Mode == types.ModeUnset && cfg.Mode != types.ModeUnset {
 			lb.Mode = cfg.Mode
 			if !lb.Mode.ValidateUpdate() {
-				lb.Error().Msgf("invalid mode %q, fallback to %q", cfg.Mode, lb.Mode)
+				lb.l.Error().Msgf("invalid mode %q, fallback to %q", cfg.Mode, lb.Mode)
 			}
 			lb.updateImpl()
 		}
@@ -135,7 +127,7 @@ func (lb *LoadBalancer) AddServer(srv *Server) {
 	lb.rebalance()
 	lb.impl.OnAddServer(srv)
 
-	lb.Debug().
+	lb.l.Debug().
 		Str("action", "add").
 		Str("server", srv.Name).
 		Msgf("%d servers available", lb.pool.Size())
@@ -155,7 +147,7 @@ func (lb *LoadBalancer) RemoveServer(srv *Server) {
 	lb.rebalance()
 	lb.impl.OnRemoveServer(srv)
 
-	lb.Debug().
+	lb.l.Debug().
 		Str("action", "remove").
 		Str("server", srv.Name).
 		Msgf("%d servers left", lb.pool.Size())
@@ -174,8 +166,8 @@ func (lb *LoadBalancer) rebalance() {
 		return
 	}
 	if lb.sumWeight == 0 { // distribute evenly
-		weightEach := maxWeight / weightType(lb.pool.Size())
-		remainder := maxWeight % weightType(lb.pool.Size())
+		weightEach := maxWeight / Weight(lb.pool.Size())
+		remainder := maxWeight % Weight(lb.pool.Size())
 		lb.pool.RangeAll(func(_ string, s *Server) {
 			s.Weight = weightEach
 			lb.sumWeight += weightEach
@@ -192,7 +184,7 @@ func (lb *LoadBalancer) rebalance() {
 	lb.sumWeight = 0
 
 	lb.pool.RangeAll(func(_ string, s *Server) {
-		s.Weight = weightType(float64(s.Weight) * scaleFactor)
+		s.Weight = Weight(float64(s.Weight) * scaleFactor)
 		lb.sumWeight += s.Weight
 	})
 
@@ -226,13 +218,7 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if r.Header.Get(common.HeaderCheckRedirect) != "" {
 		// wake all servers
 		for _, srv := range srvs {
-			// wake only if server implements Waker
-			waker, ok := srv.handler.(idlewatcher.Waker)
-			if ok {
-				if err := waker.Wake(); err != nil {
-					lb.Err(err).Msgf("failed to wake server %s", srv.Name)
-				}
-			}
+			srv.TryWake()
 		}
 	}
 	lb.impl.ServeHTTP(srvs, rw, r)
@@ -246,7 +232,7 @@ func (lb *LoadBalancer) Uptime() time.Duration {
 func (lb *LoadBalancer) MarshalJSON() ([]byte, error) {
 	extra := make(map[string]any)
 	lb.pool.RangeAll(func(k string, v *Server) {
-		extra[v.Name] = v.healthMon
+		extra[v.Name] = v.HealthMonitor()
 	})
 
 	return (&monitor.JSONRepresentation{

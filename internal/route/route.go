@@ -4,7 +4,8 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	url "github.com/yusing/go-proxy/internal/net/types"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
+	"github.com/yusing/go-proxy/internal/route/entry"
+	"github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -16,7 +17,7 @@ type (
 		_ U.NoCopy
 		impl
 		Type  RouteType
-		Entry *entry.RawEntry
+		Entry *RawEntry
 	}
 	Routes = F.Map[string, *Route]
 
@@ -27,6 +28,8 @@ type (
 		String() string
 		TargetURL() url.URL
 	}
+	RawEntry   = types.RawEntry
+	RawEntries = types.RawEntries
 )
 
 const (
@@ -36,6 +39,7 @@ const (
 
 // function alias.
 var NewRoutes = F.NewMap[Routes]
+var NewProxyEntries = types.NewProxyEntries
 
 func (rt *Route) Container() *docker.Container {
 	if rt.Entry.Container == nil {
@@ -44,7 +48,7 @@ func (rt *Route) Container() *docker.Container {
 	return rt.Entry.Container
 }
 
-func NewRoute(raw *entry.RawEntry) (*Route, E.Error) {
+func NewRoute(raw *RawEntry) (*Route, E.Error) {
 	raw.Finalize()
 	en, err := entry.ValidateEntry(raw)
 	if err != nil {
@@ -74,11 +78,11 @@ func NewRoute(raw *entry.RawEntry) (*Route, E.Error) {
 	}, nil
 }
 
-func FromEntries(entries entry.RawEntries) (Routes, E.Error) {
+func FromEntries(entries RawEntries) (Routes, E.Error) {
 	b := E.NewBuilder("errors in routes")
 
 	routes := NewRoutes()
-	entries.RangeAllParallel(func(alias string, en *entry.RawEntry) {
+	entries.RangeAllParallel(func(alias string, en *RawEntry) {
 		en.Alias = alias
 		r, err := NewRoute(en)
 		switch {

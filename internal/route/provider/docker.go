@@ -9,7 +9,6 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
 	"github.com/yusing/go-proxy/internal/route"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -55,7 +54,7 @@ func (p *DockerProvider) NewWatcher() watcher.Watcher {
 
 func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
 	routes := route.NewRoutes()
-	entries := entry.NewProxyEntries()
+	entries := route.NewProxyEntries()
 
 	containers, err := docker.ListContainers(p.dockerHost)
 	if err != nil {
@@ -78,7 +77,7 @@ func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
 		// there may be some valid entries in `en`
 		dups := entries.MergeFrom(newEntries)
 		// add the duplicate proxy entries to the error
-		dups.RangeAll(func(k string, v *entry.RawEntry) {
+		dups.RangeAll(func(k string, v *route.RawEntry) {
 			errs.Addf("duplicated alias %s", k)
 		})
 	}
@@ -98,8 +97,8 @@ func (p *DockerProvider) shouldIgnore(container *docker.Container) bool {
 
 // Returns a list of proxy entries for a container.
 // Always non-nil.
-func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container) (entries entry.RawEntries, _ E.Error) {
-	entries = entry.NewProxyEntries()
+func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container) (entries route.RawEntries, _ E.Error) {
+	entries = route.NewProxyEntries()
 
 	if p.shouldIgnore(container) {
 		return
@@ -107,7 +106,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 
 	// init entries map for all aliases
 	for _, a := range container.Aliases {
-		entries.Store(a, &entry.RawEntry{
+		entries.Store(a, &route.RawEntry{
 			Alias:     a,
 			Container: container,
 		})
@@ -154,9 +153,9 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 		}
 
 		// init entry if not exist
-		var en *entry.RawEntry
+		var en *route.RawEntry
 		if en, ok = entries.Load(alias); !ok {
-			en = &entry.RawEntry{
+			en = &route.RawEntry{
 				Alias:     alias,
 				Container: container,
 			}
@@ -172,7 +171,7 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 		}
 	}
 	if wildcardProps != nil {
-		entries.RangeAll(func(alias string, re *entry.RawEntry) {
+		entries.RangeAll(func(alias string, re *route.RawEntry) {
 			if err := U.Deserialize(wildcardProps, re); err != nil {
 				errs.Add(err.Subject(alias))
 			}

@@ -1,4 +1,4 @@
-package route
+package routes
 
 import "github.com/yusing/go-proxy/internal/metrics"
 

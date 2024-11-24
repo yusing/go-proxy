@@ -3,8 +3,8 @@ package provider
 import (
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
 	"github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/route/entry"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher"
 )

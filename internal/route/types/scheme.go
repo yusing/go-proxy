@@ -1,4 +1,4 @@
-package fields
+package types
 
 import (
 	E "github.com/yusing/go-proxy/internal/error"

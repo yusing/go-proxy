@@ -1,25 +1,14 @@
 package entry
 
 import (
-	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
-	net "github.com/yusing/go-proxy/internal/net/types"
-	T "github.com/yusing/go-proxy/internal/proxy/fields"
-	"github.com/yusing/go-proxy/internal/watcher/health"
+	route "github.com/yusing/go-proxy/internal/route/types"
 )
 
-type Entry interface {
-	TargetName() string
-	TargetURL() net.URL
-	RawEntry() *RawEntry
-	LoadBalanceConfig() *loadbalancer.Config
-	HealthCheckConfig() *health.HealthCheckConfig
-	IdlewatcherConfig() *idlewatcher.Config
-}
+type Entry = route.Entry
 
-func ValidateEntry(m *RawEntry) (Entry, E.Error) {
-	scheme, err := T.NewScheme(m.Scheme)
+func ValidateEntry(m *route.RawEntry) (Entry, E.Error) {
+	scheme, err := route.NewScheme(m.Scheme)
 	if err != nil {
 		return nil, E.From(err)
 	}

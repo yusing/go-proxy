@@ -9,9 +9,9 @@ import (
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	net "github.com/yusing/go-proxy/internal/net/types"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
+	"github.com/yusing/go-proxy/internal/route/entry"
+	"github.com/yusing/go-proxy/internal/route/routes"
 	"github.com/yusing/go-proxy/internal/task"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
@@ -19,19 +19,13 @@ import (
 type StreamRoute struct {
 	*entry.StreamEntry
 
-	stream net.Stream
+	net.Stream
 
 	HealthMon health.HealthMonitor `json:"health"`
 
 	task task.Task
 
 	l zerolog.Logger
-}
-
-var streamRoutes = F.NewMapOf[string, *StreamRoute]()
-
-func GetStreamProxies() F.Map[string, *StreamRoute] {
-	return streamRoutes
 }
 
 func NewStreamRoute(entry *entry.StreamEntry) (impl, E.Error) {
@@ -60,29 +54,29 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 	}
 
 	r.task = providerSubtask
-	r.stream = NewStream(r)
+	r.Stream = NewStream(r)
 
 	switch {
 	case entry.UseIdleWatcher(r):
 		wakerTask := providerSubtask.Parent().Subtask("waker for " + string(r.Alias))
-		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.stream)
+		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.Stream)
 		if err != nil {
 			r.task.Finish(err)
 			return err
 		}
-		r.stream = waker
+		r.Stream = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
 		r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
 	}
 
-	if err := r.stream.Setup(); err != nil {
+	if err := r.Stream.Setup(); err != nil {
 		r.task.Finish(err)
 		return E.From(err)
 	}
 
 	r.task.OnFinished("close stream", func() {
-		if err := r.stream.Close(); err != nil {
+		if err := r.Stream.Close(); err != nil {
 			E.LogError("close stream failed", err, &r.l)
 		}
 	})
@@ -101,9 +95,9 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 
 	go r.acceptConnections()
 
-	streamRoutes.Store(string(r.Alias), r)
+	routes.SetStreamRoute(string(r.Alias), r)
 	r.task.OnFinished("remove from route table", func() {
-		streamRoutes.Delete(string(r.Alias))
+		routes.DeleteStreamRoute(string(r.Alias))
 	})
 	return nil
 }
@@ -120,7 +114,7 @@ func (r *StreamRoute) acceptConnections() {
 		case <-r.task.Context().Done():
 			return
 		default:
-			conn, err := r.stream.Accept()
+			conn, err := r.Stream.Accept()
 			if err != nil {
 				select {
 				case <-r.task.Context().Done():
@@ -135,7 +129,7 @@ func (r *StreamRoute) acceptConnections() {
 			}
 			connTask := r.task.Subtask("connection")
 			go func() {
-				err := r.stream.Handle(conn)
+				err := r.Stream.Handle(conn)
 				if err != nil && !errors.Is(err, context.Canceled) {
 					E.LogError("handle connection error", err, &r.l)
 					connTask.Finish(err)

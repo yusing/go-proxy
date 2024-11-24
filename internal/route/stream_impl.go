@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/net/types"
-	T "github.com/yusing/go-proxy/internal/proxy/fields"
+	T "github.com/yusing/go-proxy/internal/route/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 

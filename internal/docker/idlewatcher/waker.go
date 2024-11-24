@@ -6,28 +6,31 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yusing/go-proxy/internal/common"
-	. "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
+	"github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/metrics"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	net "github.com/yusing/go-proxy/internal/net/types"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
+	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
-type waker struct {
-	_ U.NoCopy
+type (
+	Waker = types.Waker
+	waker struct {
+		_ U.NoCopy
 
-	rp     *gphttp.ReverseProxy
-	stream net.Stream
-	hc     health.HealthChecker
-	metric *metrics.Gauge
+		rp     *gphttp.ReverseProxy
+		stream net.Stream
+		hc     health.HealthChecker
+		metric *metrics.Gauge
 
-	ready atomic.Bool
-}
+		ready atomic.Bool
+	}
+)
 
 const (
 	idleWakerCheckInterval = 100 * time.Millisecond
@@ -36,7 +39,7 @@ const (
 
 // TODO: support stream
 
-func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
+func newWaker(providerSubTask task.Task, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
 	hcCfg := entry.HealthCheckConfig()
 	hcCfg.Timeout = idleWakerCheckTimeout
 
@@ -69,11 +72,11 @@ func newWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReversePr
 }
 
 // lifetime should follow route provider.
-func NewHTTPWaker(providerSubTask task.Task, entry entry.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
+func NewHTTPWaker(providerSubTask task.Task, entry route.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, rp, nil)
 }
 
-func NewStreamWaker(providerSubTask task.Task, entry entry.Entry, stream net.Stream) (Waker, E.Error) {
+func NewStreamWaker(providerSubTask task.Task, entry route.Entry, stream net.Stream) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, nil, stream)
 }
 

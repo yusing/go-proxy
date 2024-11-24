@@ -1,10 +1,7 @@
 package route
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
@@ -12,12 +9,12 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
+	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
-	"github.com/yusing/go-proxy/internal/proxy/entry"
-	PT "github.com/yusing/go-proxy/internal/proxy/fields"
+	"github.com/yusing/go-proxy/internal/route/entry"
+	"github.com/yusing/go-proxy/internal/route/routes"
+	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
@@ -38,27 +35,10 @@ type (
 		l zerolog.Logger
 	}
 
-	SubdomainKey = PT.Alias
+	SubdomainKey = route.Alias
 )
 
-var (
-	findMuxFunc = findMuxAnyDomain
-
-	httpRoutes = F.NewMapOf[string, *HTTPRoute]()
-	// globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
-)
-
-func GetReverseProxies() F.Map[string, *HTTPRoute] {
-	return httpRoutes
-}
-
-func SetFindMuxDomains(domains []string) {
-	if len(domains) == 0 {
-		findMuxFunc = findMuxAnyDomain
-	} else {
-		findMuxFunc = findMuxByDomains(domains)
-	}
-}
+// var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
 func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	var trans *http.Transport
@@ -141,9 +121,9 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 	if entry.UseLoadBalance(r) {
 		r.addToLoadBalancer()
 	} else {
-		httpRoutes.Store(string(r.Alias), r)
+		routes.SetHTTPRoute(string(r.Alias), r)
 		r.task.OnFinished("remove from route table", func() {
-			httpRoutes.Delete(string(r.Alias))
+			routes.DeleteHTTPRoute(string(r.Alias))
 		})
 	}
 
@@ -164,7 +144,8 @@ func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (r *HTTPRoute) addToLoadBalancer() {
 	var lb *loadbalancer.LoadBalancer
-	linked, ok := httpRoutes.Load(r.LoadBalance.Link)
+	l, ok := routes.GetHTTPRoute(r.LoadBalance.Link)
+	linked := l.(*HTTPRoute)
 	if ok {
 		lb = linked.loadBalancer
 		lb.UpdateConfigIfNeeded(r.LoadBalance)
@@ -175,96 +156,26 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		lb = loadbalancer.New(r.LoadBalance)
 		lbTask := r.task.Parent().Subtask("loadbalancer " + r.LoadBalance.Link)
 		lbTask.OnCancel("remove lb from routes", func() {
-			httpRoutes.Delete(r.LoadBalance.Link)
+			routes.DeleteHTTPRoute(r.LoadBalance.Link)
 		})
 		lb.Start(lbTask)
 		linked = &HTTPRoute{
 			ReverseProxyEntry: &entry.ReverseProxyEntry{
-				Raw: &entry.RawEntry{
+				Raw: &route.RawEntry{
 					Homepage: r.Raw.Homepage,
 				},
-				Alias: PT.Alias(lb.Link),
+				Alias: route.Alias(lb.Link),
 			},
 			HealthMon:    lb,
 			loadBalancer: lb,
 			handler:      lb,
 		}
-		httpRoutes.Store(r.LoadBalance.Link, linked)
+		routes.SetHTTPRoute(r.LoadBalance.Link, linked)
 	}
 	r.loadBalancer = lb
-	r.server = loadbalancer.NewServer(r.task.String(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
+	r.server = loadbalance.NewServer(r.task.String(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
 	r.task.OnCancel("remove server from lb", func() {
 		lb.RemoveServer(r.server)
 	})
-}
-
-func ProxyHandler(w http.ResponseWriter, r *http.Request) {
-	mux, err := findMuxFunc(r.Host)
-	if err == nil {
-		mux.ServeHTTP(w, r)
-		return
-	}
-	// Why use StatusNotFound instead of StatusBadRequest or StatusBadGateway?
-	// On nginx, when route for domain does not exist, it returns StatusBadGateway.
-	// Then scraper / scanners will know the subdomain is invalid.
-	// With StatusNotFound, they won't know whether it's the path, or the subdomain that is invalid.
-	if !middleware.ServeStaticErrorPageFile(w, r) {
-		logger.Err(err).Str("method", r.Method).Str("url", r.URL.String()).Msg("request")
-		errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
-		if ok {
-			w.WriteHeader(http.StatusNotFound)
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			if _, err := w.Write(errorPage); err != nil {
-				logger.Err(err).Msg("failed to write error page")
-			}
-		} else {
-			http.Error(w, err.Error(), http.StatusNotFound)
-		}
-	}
-}
-
-func findMuxAnyDomain(host string) (http.Handler, error) {
-	hostSplit := strings.Split(host, ".")
-	n := len(hostSplit)
-	switch {
-	case n == 3:
-		host = hostSplit[0]
-	case n > 3:
-		var builder strings.Builder
-		builder.Grow(2*n - 3)
-		builder.WriteString(hostSplit[0])
-		for _, part := range hostSplit[:n-2] {
-			builder.WriteRune('.')
-			builder.WriteString(part)
-		}
-		host = builder.String()
-	default:
-		return nil, errors.New("missing subdomain in url")
-	}
-	if r, ok := httpRoutes.Load(host); ok {
-		return r.handler, nil
-	}
-	return nil, fmt.Errorf("no such route: %s", host)
-}
-
-func findMuxByDomains(domains []string) func(host string) (http.Handler, error) {
-	return func(host string) (http.Handler, error) {
-		var subdomain string
-
-		for _, domain := range domains {
-			if strings.HasSuffix(host, domain) {
-				subdomain = strings.TrimSuffix(host, domain)
-				break
-			}
-		}
-
-		if subdomain != "" { // matched
-			if r, ok := httpRoutes.Load(subdomain); ok {
-				return r.handler, nil
-			}
-			return nil, fmt.Errorf("no such route: %s", subdomain)
-		}
-		return nil, fmt.Errorf("%s does not match any base domain", host)
-	}
 }
