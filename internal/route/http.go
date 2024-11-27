@@ -145,8 +145,9 @@ func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (r *HTTPRoute) addToLoadBalancer() {
 	var lb *loadbalancer.LoadBalancer
 	l, ok := routes.GetHTTPRoute(r.LoadBalance.Link)
-	linked := l.(*HTTPRoute)
+	var linked *HTTPRoute
 	if ok {
+		linked = l.(*HTTPRoute)
 		lb = linked.loadBalancer
 		lb.UpdateConfigIfNeeded(r.LoadBalance)
 		if linked.Raw.Homepage == nil && r.Raw.Homepage != nil {
