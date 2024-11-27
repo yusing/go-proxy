@@ -31,6 +31,12 @@ const (
 	StopMethodKill  StopMethod = "kill"
 )
 
+var validSignals = map[string]struct{}{
+	"":       {},
+	"SIGINT": {}, "SIGTERM": {}, "SIGHUP": {}, "SIGQUIT": {},
+	"INT": {}, "TERM": {}, "HUP": {}, "QUIT": {},
+}
+
 func ValidateConfig(cont *docker.Container) (*Config, E.Error) {
 	if cont == nil {
 		return nil, nil
@@ -83,12 +89,9 @@ func validateDurationPostitive(value string) (time.Duration, error) {
 }
 
 func validateSignal(s string) (Signal, error) {
-	switch s {
-	case "", "SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT",
-		"INT", "TERM", "HUP", "QUIT":
+	if _, ok := validSignals[s]; ok {
 		return Signal(s), nil
 	}
-
 	return "", errors.New("invalid signal " + s)
 }
 
