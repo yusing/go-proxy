@@ -24,6 +24,10 @@ func createGlobalTask() (t *task) {
 	return
 }
 
+func testResetGlobalTask() {
+	globalTask = createGlobalTask()
+}
+
 type (
 	// Task controls objects' lifetime.
 	//
@@ -146,7 +150,7 @@ func CancelGlobalContext() {
 // If the timeout is exceeded, it prints a list of all tasks that were
 // still running when the timeout was reached, and their current tree
 // of subtasks.
-func GlobalContextWait(timeout time.Duration) {
+func GlobalContextWait(timeout time.Duration) (err error) {
 	done := make(chan struct{})
 	after := time.After(timeout)
 	go func() {
@@ -159,7 +163,7 @@ func GlobalContextWait(timeout time.Duration) {
 			return
 		case <-after:
 			logger.Warn().Msg("Timeout waiting for these tasks to finish:\n" + globalTask.tree())
-			return
+			return context.DeadlineExceeded
 		}
 	}
 }

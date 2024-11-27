@@ -1,4 +1,4 @@
-package task_test
+package task
 
 import (
 	"context"
@@ -6,13 +6,10 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/yusing/go-proxy/internal/task"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 func TestTaskCreation(t *testing.T) {
-	defer CancelGlobalContext()
-
 	rootTask := GlobalTask("root-task")
 	subTask := rootTask.Subtask("subtask")
 
@@ -21,8 +18,6 @@ func TestTaskCreation(t *testing.T) {
 }
 
 func TestTaskCancellation(t *testing.T) {
-	defer CancelGlobalContext()
-
 	subTaskDone := make(chan struct{})
 
 	rootTask := GlobalTask("root-task")
@@ -46,33 +41,10 @@ func TestTaskCancellation(t *testing.T) {
 	}
 }
 
-func TestGlobalContextCancellation(t *testing.T) {
-	taskDone := make(chan struct{})
-
-	rootTask := GlobalTask("root-task")
-
-	go func() {
-		rootTask.Wait()
-		close(taskDone)
-	}()
-
-	CancelGlobalContext()
-
-	select {
-	case <-taskDone:
-		err := rootTask.Context().Err()
-		ExpectError(t, context.Canceled, err)
-		cause := context.Cause(rootTask.Context())
-		ExpectError(t, ErrProgramExiting, cause)
-	case <-time.After(1 * time.Second):
-		t.Fatal("subTask context was not canceled as expected")
-	}
-}
-
 func TestOnComplete(t *testing.T) {
-	defer CancelGlobalContext()
+	rootTask := GlobalTask("root-task")
+	task := rootTask.Subtask("test")
 
-	task := GlobalTask("test")
 	var value atomic.Int32
 	task.OnFinished("set value", func() {
 		value.Store(1234)
@@ -82,6 +54,7 @@ func TestOnComplete(t *testing.T) {
 }
 
 func TestGlobalContextWait(t *testing.T) {
+	testResetGlobalTask()
 	defer CancelGlobalContext()
 
 	rootTask := GlobalTask("root-task")
@@ -122,26 +95,34 @@ func TestGlobalContextWait(t *testing.T) {
 }
 
 func TestTimeoutOnGlobalContextWait(t *testing.T) {
-	defer CancelGlobalContext()
+	testResetGlobalTask()
 
 	rootTask := GlobalTask("root-task")
-	subTask := rootTask.Subtask("subtask")
+	rootTask.Subtask("subtask")
 
-	done := make(chan struct{})
-	go func() {
-		GlobalContextWait(500 * time.Millisecond)
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		t.Fatal("GlobalContextWait should have timed out")
-	case <-time.After(200 * time.Millisecond):
-	}
-
-	// Ensure clean exit
-	subTask.Finish("exit")
+	ExpectError(t, context.DeadlineExceeded, GlobalContextWait(200*time.Millisecond))
 }
 
-func TestGlobalContextCancel(t *testing.T) {
+func TestGlobalContextCancellation(t *testing.T) {
+	testResetGlobalTask()
+
+	taskDone := make(chan struct{})
+	rootTask := GlobalTask("root-task")
+
+	go func() {
+		rootTask.Wait()
+		close(taskDone)
+	}()
+
+	CancelGlobalContext()
+
+	select {
+	case <-taskDone:
+		err := rootTask.Context().Err()
+		ExpectError(t, context.Canceled, err)
+		cause := context.Cause(rootTask.Context())
+		ExpectError(t, ErrProgramExiting, cause)
+	case <-time.After(1 * time.Second):
+		t.Fatal("subTask context was not canceled as expected")
+	}
 }
