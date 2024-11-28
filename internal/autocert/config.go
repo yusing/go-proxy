@@ -4,10 +4,13 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/x509"
+	"os"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 
@@ -32,6 +35,9 @@ func NewConfig(cfg *types.AutoCertConfig) *Config {
 	}
 	if cfg.Provider == "" {
 		cfg.Provider = ProviderLocal
+	}
+	if cfg.ACMEKeyPath == "" {
+		cfg.ACMEKeyPath = ACMEKeyFileDefault
 	}
 	return (*Config)(cfg)
 }
@@ -62,10 +68,18 @@ func (cfg *Config) GetProvider() (*Provider, E.Error) {
 		return nil, b.Error()
 	}
 
-	privKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		b.Addf("generate private key: %w", err)
-		return nil, b.Error()
+	var privKey *ecdsa.PrivateKey
+	var err error
+
+	if privKey, err = cfg.loadACMEKey(); err != nil {
+		logging.Err(err).Msg("load ACME private key failed, generating one...")
+		privKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			return nil, E.New("generate ACME private key").With(err)
+		}
+		if err = cfg.saveACMEKey(privKey); err != nil {
+			return nil, E.New("save ACME private key").With(err)
+		}
 	}
 
 	user := &User{
@@ -81,4 +95,20 @@ func (cfg *Config) GetProvider() (*Provider, E.Error) {
 		user:    user,
 		legoCfg: legoCfg,
 	}, nil
+}
+
+func (cfg *Config) loadACMEKey() (*ecdsa.PrivateKey, error) {
+	data, err := os.ReadFile(cfg.ACMEKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	return x509.ParseECPrivateKey(data)
+}
+
+func (cfg *Config) saveACMEKey(key *ecdsa.PrivateKey) error {
+	data, err := x509.MarshalECPrivateKey(key)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(cfg.ACMEKeyPath, data, 0o600)
 }

@@ -28,6 +28,7 @@ type (
 		legoCfg *lego.Config
 		client  *lego.Client
 
+		legoCert     *certificate.Resource
 		tlsCert      *tls.Certificate
 		certExpiries CertExpiries
 	}
@@ -78,14 +79,29 @@ func (p *Provider) ObtainCert() E.Error {
 		}
 	}
 
-	client := p.client
-	req := certificate.ObtainRequest{
-		Domains: p.cfg.Domains,
-		Bundle:  true,
+	var cert *certificate.Resource
+	var err error
+
+	if p.legoCert != nil {
+		cert, err = p.client.Certificate.RenewWithOptions(*p.legoCert, &certificate.RenewOptions{
+			Bundle: true,
+		})
+		if err != nil {
+			p.legoCert = nil
+			logger.Err(err).Msg("cert renew failed, fallback to obtain")
+		} else {
+			p.legoCert = cert
+		}
 	}
-	cert, err := client.Certificate.Obtain(req)
-	if err != nil {
-		return E.From(err)
+
+	if cert == nil {
+		cert, err = p.client.Certificate.Obtain(certificate.ObtainRequest{
+			Domains: p.cfg.Domains,
+			Bundle:  true,
+		})
+		if err != nil {
+			return E.From(err)
+		}
 	}
 
 	if err = p.saveCert(cert); err != nil {
@@ -179,11 +195,18 @@ func (p *Provider) registerACME() error {
 	if p.user.Registration != nil {
 		return nil
 	}
-	reg, err := p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
-	if err != nil {
-		return err
+	if reg, err := p.client.Registration.ResolveAccountByKey(); err == nil {
+		p.user.Registration = reg
+		logger.Info().Msg("reused acme registration from private key")
+		return nil
+	} else {
+		reg, err := p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+		if err != nil {
+			return err
+		}
+		p.user.Registration = reg
+		logger.Info().Interface("reg", reg).Msg("acme registered")
 	}
-	p.user.Registration = reg
 
 	return nil
 }

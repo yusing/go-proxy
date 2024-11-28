@@ -8,10 +8,10 @@ import (
 )
 
 const (
-	certBasePath     = "certs/"
-	CertFileDefault  = certBasePath + "cert.crt"
-	KeyFileDefault   = certBasePath + "priv.key"
-	RegistrationFile = certBasePath + "registration.json"
+	certBasePath       = "certs/"
+	CertFileDefault    = certBasePath + "cert.crt"
+	KeyFileDefault     = certBasePath + "priv.key"
+	ACMEKeyFileDefault = certBasePath + "acme.key"
 )
 
 const (
