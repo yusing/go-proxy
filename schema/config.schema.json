@@ -33,6 +33,12 @@
           "markdownDescription": "default: `certs/priv.key`",
           "type": "string"
         },
+        "acme_key_path": {
+          "title": "path of acme key file to load/store",
+          "default": "certs/acme.key",
+          "markdownDescription": "default: `certs/acme.key`",
+          "type": "string"
+        },
         "provider": {
           "title": "DNS Challenge Provider",
           "default": "local",
