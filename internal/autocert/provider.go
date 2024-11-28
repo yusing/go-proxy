@@ -154,16 +154,21 @@ func (p *Provider) ScheduleRenewal() {
 	}
 	go func() {
 		task := task.GlobalTask("cert renew scheduler")
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
 		defer task.Finish("cert renew scheduler stopped")
+		
 		for {
+			renewalTime := p.ShouldRenewOn()
+			timer := time.NewTimer(time.Until(renewalTime))
+			
 			select {
 			case <-task.Context().Done():
+				timer.Stop()
 				return
-			case <-ticker.C: // check every 5 seconds
+			case <-timer.C:
 				if err := p.renewIfNeeded(); err != nil {
 					E.LogWarn("cert renew failed", err, &logger)
+					// Retry after 1 hour on failure
+					time.Sleep(time.Hour)
 				}
 			}
 		}
