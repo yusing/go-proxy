@@ -11,10 +11,11 @@ type (
 		RedirectToHTTPS bool           `json:"redirect_to_https" yaml:"redirect_to_https"`
 	}
 	Providers struct {
-		Files        []string              `json:"include" yaml:"include"`
-		Docker       map[string]string     `json:"docker" yaml:"docker"`
-		Notification NotificationConfigMap `json:"notification" yaml:"notification"`
+		Files        []string             `json:"include" yaml:"include"`
+		Docker       map[string]string    `json:"docker" yaml:"docker"`
+		Notification []NotificationConfig `json:"notification" yaml:"notification"`
 	}
+	NotificationConfig map[string]any
 )
 
 func DefaultConfig() *Config {

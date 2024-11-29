@@ -2,57 +2,53 @@ package notif
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
-	"net/url"
 
 	"github.com/gotify/server/v2/model"
 	"github.com/rs/zerolog"
-	E "github.com/yusing/go-proxy/internal/error"
-	U "github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
 	GotifyClient struct {
-		GotifyConfig
-
-		url  *url.URL
-		http http.Client
+		N   string `json:"name" validate:"required"`
+		U   string `json:"url" validate:"url"`
+		Tok string `json:"token" validate:"required"`
 	}
-	GotifyConfig struct {
-		URL   string `json:"url" yaml:"url"`
-		Token string `json:"token" yaml:"token"`
-	}
-	GotifyMessage model.Message
+	GotifyMessage model.MessageExternal
 )
 
 const gotifyMsgEndpoint = "/message"
 
-func newGotifyClient(cfg map[string]any) (Provider, E.Error) {
-	client := new(GotifyClient)
-	err := U.Deserialize(cfg, &client.GotifyConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	url, uErr := url.Parse(client.URL)
-	if uErr != nil {
-		return nil, E.Errorf("invalid gotify URL %s", client.URL)
-	}
-
-	client.url = url
-	return client, err
-}
-
-// Name implements NotifProvider.
+// Name implements Provider.
 func (client *GotifyClient) Name() string {
-	return "gotify"
+	return client.N
 }
 
-// Send implements NotifProvider.
-func (client *GotifyClient) Send(ctx context.Context, logMsg *LogMessage) error {
+// Method implements Provider.
+func (client *GotifyClient) Method() string {
+	return http.MethodPost
+}
+
+// URL implements Provider.
+func (client *GotifyClient) URL() string {
+	return client.U + gotifyMsgEndpoint
+}
+
+// Token implements Provider.
+func (client *GotifyClient) Token() string {
+	return client.Tok
+}
+
+// MIMEType implements Provider.
+func (client *GotifyClient) MIMEType() string {
+	return "application/json"
+}
+
+// MakeBody implements Provider.
+func (client *GotifyClient) MakeBody(logMsg *LogMessage) (io.Reader, error) {
 	var priority int
 
 	switch logMsg.Level {
@@ -66,37 +62,29 @@ func (client *GotifyClient) Send(ctx context.Context, logMsg *LogMessage) error 
 
 	msg := &GotifyMessage{
 		Title:    logMsg.Title,
-		Message:  logMsg.Message,
-		Priority: priority,
+		Message:  formatMarkdown(logMsg.Extras),
+		Priority: &priority,
+		Extras: map[string]interface{}{
+			"client::display": map[string]string{
+				"contentType": "text/markdown",
+			},
+		},
 	}
 
 	data, err := json.Marshal(msg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.url.String()+gotifyMsgEndpoint, bytes.NewReader(data))
+	return bytes.NewReader(data), nil
+}
+
+// makeRespError implements Provider.
+func (client *GotifyClient) makeRespError(resp *http.Response) error {
+	var errm model.Error
+	err := json.NewDecoder(resp.Body).Decode(&errm)
 	if err != nil {
-		return fmt.Errorf("error creating request: %w", err)
+		return fmt.Errorf(ProviderGotify+" status %d, but failed to decode err response: %w", resp.StatusCode, err)
 	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+client.Token)
-
-	resp, err := client.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to send gotify message: %w", err)
-	}
-
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		var errm model.Error
-		err = json.NewDecoder(resp.Body).Decode(&errm)
-		if err != nil {
-			return fmt.Errorf("gotify status %d, but failed to decode err response: %w", resp.StatusCode, err)
-		}
-		return fmt.Errorf("gotify status %d %s: %s", resp.StatusCode, errm.Error, errm.ErrorDescription)
-	}
-	return nil
+	return fmt.Errorf(ProviderGotify+" status %d %s: %s", resp.StatusCode, errm.Error, errm.ErrorDescription)
 }

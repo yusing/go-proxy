@@ -1,0 +1,9 @@
+{
+    "embeds": [
+        {
+            "title": $title,
+            "fields": $fields,
+            "color": "$color"
+        }
+    ]
+}

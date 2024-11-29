@@ -187,14 +187,17 @@ func (cfg *Config) load() E.Error {
 	return errs.Error()
 }
 
-func (cfg *Config) initNotification(notifCfgMap types.NotificationConfigMap) (err E.Error) {
-	if len(notifCfgMap) == 0 {
+func (cfg *Config) initNotification(notifCfg []types.NotificationConfig) (err E.Error) {
+	if len(notifCfg) == 0 {
 		return
 	}
 	errs := E.NewBuilder("notification providers load errors")
-	for name, notifCfg := range notifCfgMap {
-		_, err := notif.RegisterProvider(cfg.task.Subtask(name), notifCfg)
-		errs.Add(err)
+	for i, notifier := range notifCfg {
+		_, err := notif.RegisterProvider(cfg.task.Subtask("notifier"), notifier)
+		if err == nil {
+			continue
+		}
+		errs.Add(err.Subjectf("[%d]", i))
 	}
 	return errs.Error()
 }

@@ -2,6 +2,7 @@ package notif
 
 import (
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
@@ -17,14 +18,20 @@ type (
 		providers F.Set[Provider]
 	}
 	LogMessage struct {
-		Level          zerolog.Level
-		Title, Message string
+		Level  zerolog.Level
+		Title  string
+		Extras map[string]any
+		Color  Color
 	}
 )
 
 var dispatcher *Dispatcher
 
-var ErrUnknownNotifProvider = E.New("unknown notification provider")
+var (
+	ErrMissingNotifProvider     = E.New("missing notification provider")
+	ErrInvalidNotifProviderType = E.New("invalid notification provider type")
+	ErrUnknownNotifProvider     = E.New("unknown notification provider")
+)
 
 const dispatchErr = "notification dispatch error"
 
@@ -45,23 +52,32 @@ func GetDispatcher() *Dispatcher {
 	return dispatcher
 }
 
-func RegisterProvider(configSubTask task.Task, cfg ProviderConfig) (Provider, error) {
-	name := configSubTask.Name()
-	createFunc, ok := Providers[name]
+func RegisterProvider(configSubTask task.Task, cfg types.NotificationConfig) (Provider, E.Error) {
+	providerName, ok := cfg["provider"]
 	if !ok {
-		return nil, ErrUnknownNotifProvider.
-			Subject(name).
-			Withf(strutils.DoYouMean(utils.NearestField(name, Providers)))
+		return nil, ErrMissingNotifProvider
 	}
+	switch providerName := providerName.(type) {
+	case string:
+		delete(cfg, "provider")
+		createFunc, ok := Providers[providerName]
+		if !ok {
+			return nil, ErrUnknownNotifProvider.
+				Subject(providerName).
+				Withf(strutils.DoYouMean(utils.NearestField(providerName, Providers)))
+		}
 
-	provider, err := createFunc(cfg)
-	if err == nil {
-		dispatcher.providers.Add(provider)
-		configSubTask.OnCancel("remove provider", func() {
-			dispatcher.providers.Remove(provider)
-		})
+		provider, err := createFunc(cfg)
+		if err == nil {
+			dispatcher.providers.Add(provider)
+			configSubTask.OnCancel("remove provider", func() {
+				dispatcher.providers.Remove(provider)
+			})
+		}
+		return provider, err
+	default:
+		return nil, ErrInvalidNotifProviderType.Subjectf("%T", providerName)
 	}
-	return provider, err
 }
 
 func (disp *Dispatcher) start() {
@@ -83,14 +99,14 @@ func (disp *Dispatcher) dispatch(msg *LogMessage) {
 
 	errs := E.NewBuilder(dispatchErr)
 	disp.providers.RangeAllParallel(func(p Provider) {
-		if err := p.Send(task.Context(), msg); err != nil {
+		if err := notifyProvider(task.Context(), p, msg); err != nil {
 			errs.Add(E.PrependSubject(p.Name(), err))
 		}
 	})
 	if errs.HasError() {
 		E.LogError(errs.About(), errs.Error())
 	} else {
-		logging.Debug().Str("title", msg.Title).Str("message", msg.Message).Msgf("dispatched notif")
+		logging.Debug().Str("title", msg.Title).Msgf("dispatched notif")
 	}
 }
 
@@ -108,10 +124,6 @@ func (disp *Dispatcher) dispatch(msg *LogMessage) {
 // 	}
 // }
 
-func Notify(title, msg string) {
-	dispatcher.logCh <- &LogMessage{
-		Level:   zerolog.InfoLevel,
-		Title:   title,
-		Message: msg,
-	}
+func Notify(msg *LogMessage) {
+	dispatcher.logCh <- msg
 }
