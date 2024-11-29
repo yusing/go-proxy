@@ -2,16 +2,49 @@ package middleware
 
 import (
 	_ "embed"
+	"net"
 	"net/http"
 	"testing"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 //go:embed test_data/cidr_whitelist_test.yml
 var testCIDRWhitelistCompose []byte
 var deny, accept *Middleware
+
+func TestCIDRWhitelistValidation(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
+		_, err := NewCIDRWhitelist(OptionsRaw{
+			"allow":   []string{"1.2.3.4/32"},
+			"message": "test-message",
+		})
+		ExpectNoError(t, err)
+	})
+	t.Run("missing allow", func(t *testing.T) {
+		_, err := NewCIDRWhitelist(OptionsRaw{
+			"message": "test-message",
+		})
+		ExpectError(t, utils.ErrValidationError, err)
+	})
+	t.Run("invalid cidr", func(t *testing.T) {
+		_, err := NewCIDRWhitelist(OptionsRaw{
+			"allow":   []string{"1.2.3.4/123"},
+			"message": "test-message",
+		})
+		ExpectErrorT[*net.ParseError](t, err)
+	})
+	t.Run("invalid status code", func(t *testing.T) {
+		_, err := NewCIDRWhitelist(OptionsRaw{
+			"allow":       []string{"1.2.3.4/32"},
+			"status_code": 600,
+			"message":     "test-message",
+		})
+		ExpectError(t, utils.ErrValidationError, err)
+	})
+}
 
 func TestCIDRWhitelist(t *testing.T) {
 	errs := E.NewBuilder("")
@@ -24,6 +57,7 @@ func TestCIDRWhitelist(t *testing.T) {
 	}
 
 	t.Run("deny", func(t *testing.T) {
+		t.Parallel()
 		for range 10 {
 			result, err := newMiddlewareTest(deny, nil)
 			ExpectNoError(t, err)
@@ -33,6 +67,7 @@ func TestCIDRWhitelist(t *testing.T) {
 	})
 
 	t.Run("accept", func(t *testing.T) {
+		t.Parallel()
 		for range 10 {
 			result, err := newMiddlewareTest(accept, nil)
 			ExpectNoError(t, err)

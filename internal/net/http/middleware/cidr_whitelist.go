@@ -16,9 +16,9 @@ type cidrWhitelist struct {
 }
 
 type cidrWhitelistOpts struct {
-	Allow      []*types.CIDR `json:"allow"`
-	StatusCode int           `json:"statusCode"`
-	Message    string        `json:"message"`
+	Allow      []*types.CIDR `validate:"min=1"`
+	StatusCode int           `validate:"omitempty,gte=400,lte=599"`
+	Message    string
 }
 
 var (
@@ -41,9 +41,6 @@ func NewCIDRWhitelist(opts OptionsRaw) (*Middleware, E.Error) {
 	err := Deserialize(opts, &wl.cidrWhitelistOpts)
 	if err != nil {
 		return nil, err
-	}
-	if len(wl.cidrWhitelistOpts.Allow) == 0 {
-		return nil, E.New("no allowed CIDRs")
 	}
 	return wl.m, nil
 }

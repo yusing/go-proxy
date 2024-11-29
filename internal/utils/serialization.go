@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -32,6 +33,7 @@ var (
 	ErrMapMissingColon       = E.New("map missing colon")
 	ErrMapTooManyColons      = E.New("map too many colons")
 	ErrUnknownField          = E.New("unknown field")
+	ErrValidationError       = E.New("validation error")
 )
 
 var validate = validator.New()
@@ -203,11 +205,23 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 					errs.Add(err.Subject(k))
 				}
 			} else {
-				errs.Add(ErrUnknownField.Subject(k).Withf(strutils.DoYouMean(NearestField(k, dstV.Interface()))))
+				errs.Add(ErrUnknownField.Subject(k).Withf(strutils.DoYouMean(NearestField(k, mapping))))
 			}
 		}
 		if needValidate {
-			errs.Add(validate.Struct(dstV.Interface()))
+			err := validate.Struct(dstV.Interface())
+			var valErrs validator.ValidationErrors
+			if errors.As(err, &valErrs) {
+				for _, e := range valErrs {
+					detail := e.ActualTag()
+					if e.Param() != "" {
+						detail += ":" + e.Param()
+					}
+					errs.Add(ErrValidationError.
+						Subject(strutils.ToLowerNoSnake(e.Field())).
+						Withf("require %q", detail))
+				}
+			}
 		}
 		return errs.Error()
 	case reflect.Map:
@@ -336,6 +350,16 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			return true, E.From(err)
 		}
 		dst.Set(reflect.ValueOf(d))
+		return
+	case reflect.TypeFor[net.IPNet]():
+		if !strings.Contains(src, "/") {
+			src += "/32" // single IP
+		}
+		_, ipnet, err := net.ParseCIDR(src)
+		if err != nil {
+			return true, E.From(err)
+		}
+		dst.Set(reflect.ValueOf(*ipnet))
 		return
 	default:
 	}

@@ -21,9 +21,9 @@ type (
 	}
 
 	rateLimiterOpts struct {
-		Average int           `json:"average"`
-		Burst   int           `json:"burst"`
-		Period  time.Duration `json:"period"`
+		Average int `validate:"min=1,required"`
+		Burst   int `validate:"min=1,required"`
+		Period  time.Duration
 	}
 )
 
