@@ -72,7 +72,7 @@ func (cfg *Config) GetProvider() (*Provider, E.Error) {
 	var err error
 
 	if privKey, err = cfg.loadACMEKey(); err != nil {
-		logging.Err(err).Msg("load ACME private key failed, generating one...")
+		logging.Info().Err(err).Msg("load ACME private key failed, generating one...")
 		privKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 		if err != nil {
 			return nil, E.New("generate ACME private key").With(err)

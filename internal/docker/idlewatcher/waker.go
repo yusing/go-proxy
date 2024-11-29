@@ -132,12 +132,12 @@ func (w *Watcher) getStatusUpdateReady() health.Status {
 		return health.StatusHealthy
 	}
 
-	healthy, _, err := w.hc.CheckHealth()
+	result, err := w.hc.CheckHealth()
 	switch {
 	case err != nil:
 		w.ready.Store(false)
 		return health.StatusError
-	case healthy:
+	case result.Healthy:
 		w.ready.Store(true)
 		return health.StatusHealthy
 	default:

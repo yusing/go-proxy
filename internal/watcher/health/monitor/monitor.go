@@ -20,7 +20,7 @@ import (
 )
 
 type (
-	HealthCheckFunc func() (healthy bool, detail string, err error)
+	HealthCheckFunc func() (result *health.HealthCheckResult, err error)
 	monitor         struct {
 		service string
 		config  *health.HealthCheckConfig
@@ -161,7 +161,7 @@ func (mon *monitor) MarshalJSON() ([]byte, error) {
 
 func (mon *monitor) checkUpdateHealth() error {
 	logger := logging.With().Str("name", mon.Name()).Logger()
-	healthy, detail, err := mon.checkHealth()
+	result, err := mon.checkHealth()
 	if err != nil {
 		defer mon.task.Finish(err)
 		mon.status.Store(health.StatusError)
@@ -171,19 +171,33 @@ func (mon *monitor) checkUpdateHealth() error {
 		return nil
 	}
 	var status health.Status
-	if healthy {
+	if result.Healthy {
 		status = health.StatusHealthy
 	} else {
 		status = health.StatusUnhealthy
 	}
-	if healthy != (mon.status.Swap(status) == health.StatusHealthy) {
-		if healthy {
+	if result.Healthy != (mon.status.Swap(status) == health.StatusHealthy) {
+		extras := map[string]any{
+			"Service Name": mon.service,
+			"Service URL":  mon.url.Load().String(),
+		}
+		if result.Healthy {
 			logger.Info().Msg("server is up")
-			notif.Notify(mon.service, "server is up")
+			extras["Ping"] = fmt.Sprintf("%d ms", result.Latency.Milliseconds())
+			notif.Notify(&notif.LogMessage{
+				Title:  "✅ Service is up ✅",
+				Extras: extras,
+				Color:  notif.Green,
+			})
 		} else {
 			logger.Warn().Msg("server is down")
-			logger.Debug().Msg(detail)
-			notif.Notify(mon.service, "server is down")
+			logger.Debug().Msg(result.Detail)
+			extras["Detail"] = result.Detail
+			notif.Notify(&notif.LogMessage{
+				Title:  "❌ Service went down ❌",
+				Extras: extras,
+				Color:  notif.Red,
+			})
 		}
 	}
 	if mon.metric != nil {

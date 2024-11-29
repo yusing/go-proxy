@@ -10,6 +10,11 @@ import (
 )
 
 type (
+	HealthCheckResult struct {
+		Healthy bool
+		Detail  string
+		Latency time.Duration
+	}
 	HealthMonitor interface {
 		task.TaskStarter
 		task.TaskFinisher
@@ -20,7 +25,7 @@ type (
 		Name() string
 	}
 	HealthChecker interface {
-		CheckHealth() (healthy bool, detail string, err error)
+		CheckHealth() (result *HealthCheckResult, err error)
 		URL() types.URL
 		Config() *HealthCheckConfig
 		UpdateURL(url types.URL)

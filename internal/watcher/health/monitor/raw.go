@@ -2,6 +2,7 @@ package monitor
 
 import (
 	"net"
+	"time"
 
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -28,18 +29,22 @@ func NewRawHealthChecker(url types.URL, config *health.HealthCheckConfig) health
 	return NewRawHealthMonitor(url, config)
 }
 
-func (mon *RawHealthMonitor) CheckHealth() (healthy bool, detail string, err error) {
+func (mon *RawHealthMonitor) CheckHealth() (result *health.HealthCheckResult, err error) {
 	ctx, cancel := mon.ContextWithTimeout("ping request timed out")
 	defer cancel()
 
 	url := mon.url.Load()
+	start := time.Now()
 	conn, dialErr := mon.dialer.DialContext(ctx, url.Scheme, url.Host)
+	result = &health.HealthCheckResult{
+		Latency: time.Since(start),
+	}
 	if dialErr != nil {
-		detail = dialErr.Error()
+		result.Detail = dialErr.Error()
 		/* trunk-ignore(golangci-lint/nilerr) */
 		return
 	}
 	conn.Close()
-	healthy = true
+	result.Healthy = true
 	return
 }
