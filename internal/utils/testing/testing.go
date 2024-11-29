@@ -44,6 +44,15 @@ func ExpectError2(t *testing.T, input any, expected error, err error) {
 	}
 }
 
+func ExpectErrorT[T error](t *testing.T, err error) {
+	t.Helper()
+	var errAs T
+	if !errors.As(err, &errAs) {
+		t.Errorf("expected err %T, got %v", errAs, err)
+		t.FailNow()
+	}
+}
+
 func ExpectEqual[T comparable](t *testing.T, got T, want T) {
 	t.Helper()
 	if got != want {
@@ -98,10 +107,9 @@ func ExpectFalse(t *testing.T, got bool) {
 
 func ExpectType[T any](t *testing.T, got any) (_ T) {
 	t.Helper()
-	tExpect := reflect.TypeFor[T]()
 	_, ok := got.(T)
 	if !ok {
-		t.Fatalf("expected type %s, got %s", tExpect, reflect.TypeOf(got).Elem())
+		t.Fatalf("expected type %s, got %s", reflect.TypeFor[T](), reflect.TypeOf(got).Elem())
 		return
 	}
 	return got.(T)

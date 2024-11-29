@@ -36,7 +36,7 @@ func NearestField(input string, s any) string {
 				fields[i] = key.String()
 			}
 		default:
-			panic("unsupported type: " + t.String())
+			panic("NearestField unsupported type: " + t.String())
 		}
 	}
 	for _, field := range fields {

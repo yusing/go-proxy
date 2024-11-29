@@ -10,6 +10,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/santhosh-tekuri/jsonschema"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -32,6 +33,8 @@ var (
 	ErrMapTooManyColons      = E.New("map too many colons")
 	ErrUnknownField          = E.New("unknown field")
 )
+
+var validate = validator.New()
 
 func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
 	var i any
@@ -143,7 +146,7 @@ func Serialize(data any) (SerializedObject, error) {
 // Deserialize ignores case differences between the field names in the SerializedObject and the target.
 //
 // The target value must be a struct or a map[string]any.
-// If the target value is a struct, the SerializedObject will be deserialized into the struct fields.
+// If the target value is a struct, the SerializedObject will be deserialized into the struct fields and validate if needed.
 // If the target value is a map[string]any, the SerializedObject will be deserialized into the map.
 //
 // The function returns an error if the target value is not a struct or a map[string]any, or if there is an error during deserialization.
@@ -158,9 +161,13 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 	dstV := reflect.ValueOf(dst)
 	dstT := dstV.Type()
 
-	if dstV.Kind() == reflect.Ptr {
+	for dstT.Kind() == reflect.Ptr {
 		if dstV.IsNil() {
-			return E.Errorf("deserialize: dst is %w", ErrNilValue)
+			if dstV.CanSet() {
+				dstV.Set(reflect.New(dstT.Elem()))
+			} else {
+				return E.Errorf("deserialize: dst is %w", ErrNilValue)
+			}
 		}
 		dstV = dstV.Elem()
 		dstT = dstV.Type()
@@ -174,9 +181,20 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 
 	switch dstV.Kind() {
 	case reflect.Struct:
+		needValidate := false
 		mapping := make(map[string]reflect.Value)
 		for _, field := range reflect.VisibleFields(dstT) {
-			mapping[strutils.ToLowerNoSnake(field.Name)] = dstV.FieldByName(field.Name)
+			var key string
+			if jsonTag, ok := field.Tag.Lookup("json"); ok {
+				key = strings.Split(jsonTag, ",")[0]
+			} else {
+				key = field.Name
+			}
+			mapping[strutils.ToLowerNoSnake(key)] = dstV.FieldByName(field.Name)
+			_, ok := field.Tag.Lookup("validate")
+			if ok {
+				needValidate = true
+			}
 		}
 		for k, v := range src {
 			if field, ok := mapping[strutils.ToLowerNoSnake(k)]; ok {
@@ -185,8 +203,11 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 					errs.Add(err.Subject(k))
 				}
 			} else {
-				errs.Add(ErrUnknownField.Subject(k).Withf(strutils.DoYouMean(NearestField(k, dst))))
+				errs.Add(ErrUnknownField.Subject(k).Withf(strutils.DoYouMean(NearestField(k, dstV.Interface()))))
 			}
+		}
+		if needValidate {
+			errs.Add(validate.Struct(dstV.Interface()))
 		}
 		return errs.Error()
 	case reflect.Map:
