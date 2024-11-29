@@ -33,10 +33,7 @@ var (
 	ErrMapMissingColon       = E.New("map missing colon")
 	ErrMapTooManyColons      = E.New("map too many colons")
 	ErrUnknownField          = E.New("unknown field")
-	ErrValidationError       = E.New("validation error")
 )
-
-var validate = validator.New()
 
 func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
 	var i any
@@ -185,6 +182,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 	case reflect.Struct:
 		needValidate := false
 		mapping := make(map[string]reflect.Value)
+		fieldName := make(map[string]string)
 		for _, field := range reflect.VisibleFields(dstT) {
 			var key string
 			if jsonTag, ok := field.Tag.Lookup("json"); ok {
@@ -192,7 +190,9 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			} else {
 				key = field.Name
 			}
-			mapping[strutils.ToLowerNoSnake(key)] = dstV.FieldByName(field.Name)
+			key = strutils.ToLowerNoSnake(key)
+			mapping[key] = dstV.FieldByName(field.Name)
+			fieldName[field.Name] = key
 			_, ok := field.Tag.Lookup("validate")
 			if ok {
 				needValidate = true
@@ -218,7 +218,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 						detail += ":" + e.Param()
 					}
 					errs.Add(ErrValidationError.
-						Subject(strutils.ToLowerNoSnake(e.Field())).
+						Subject(fieldName[e.Field()]).
 						Withf("require %q", detail))
 				}
 			}
