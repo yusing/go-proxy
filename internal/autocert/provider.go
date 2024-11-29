@@ -155,11 +155,11 @@ func (p *Provider) ScheduleRenewal() {
 	go func() {
 		task := task.GlobalTask("cert renew scheduler")
 		defer task.Finish("cert renew scheduler stopped")
-		
+
 		for {
 			renewalTime := p.ShouldRenewOn()
 			timer := time.NewTimer(time.Until(renewalTime))
-			
+
 			select {
 			case <-task.Context().Done():
 				timer.Stop()

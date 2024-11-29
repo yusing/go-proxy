@@ -1,6 +1,7 @@
 package types
 
 import (
+	"bytes"
 	"net"
 	"strings"
 
@@ -40,5 +41,5 @@ func (cidr *CIDR) String() string {
 }
 
 func (cidr *CIDR) Equals(other *CIDR) bool {
-	return (*net.IPNet)(cidr).IP.Equal(other.IP) && cidr.Mask.String() == other.Mask.String()
+	return (*net.IPNet)(cidr).IP.Equal(other.IP) && bytes.Equal(cidr.Mask, other.Mask)
 }
