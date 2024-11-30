@@ -199,11 +199,11 @@ func (p *ReverseProxy) UnregisterMetrics() {
 	metrics.GetRouteMetrics().UnregisterService(p.TargetName)
 }
 
-func rewriteRequestURL(req *http.Request, target *url.URL) {
+func rewriteRequestURL(req *http.Request, target types.URL) {
 	targetQuery := target.RawQuery
 	req.URL.Scheme = target.Scheme
 	req.URL.Host = target.Host
-	req.URL.Path, req.URL.RawPath = joinURLPath(target, req.URL)
+	req.URL.Path, req.URL.RawPath = joinURLPath(target.URL, req.URL)
 	if targetQuery == "" || req.URL.RawQuery == "" {
 		req.URL.RawQuery = targetQuery + req.URL.RawQuery
 	} else {
@@ -346,7 +346,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header = make(http.Header) // Issue 33142: historical behavior was to always allocate
 	}
 
-	rewriteRequestURL(outreq, p.TargetURL.URL)
+	rewriteRequestURL(outreq, p.TargetURL)
 	outreq.Close = false
 
 	reqUpType := UpgradeType(outreq.Header)
@@ -355,6 +355,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	req.Header.Del("Forwarded")
 	RemoveHopByHopHeaders(outreq.Header)
 
 	// Issue 21096: tell backend applications that care about trailer support
@@ -386,14 +387,19 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 			outreq.Header.Set("X-Forwarded-For", clientIP)
 		}
 	}
-	if req.TLS == nil {
-		outreq.Header.Set("X-Forwarded-Proto", "http")
-		outreq.Header.Set("X-Forwarded-Scheme", "http")
+
+	var reqScheme string
+	if req.TLS != nil {
+		reqScheme = "https"
 	} else {
-		outreq.Header.Set("X-Forwarded-Proto", "https")
-		outreq.Header.Set("X-Forwarded-Scheme", "https")
+		reqScheme = "http"
 	}
-	outreq.Header.Set("X-Forwarded-Host", req.Host)
+
+	outreq.Header.Set(HeaderXForwardedMethod, req.Method)
+	outreq.Header.Set(HeaderXForwardedProto, reqScheme)
+	outreq.Header.Set(HeaderXForwardedHost, req.Host)
+	outreq.Header.Set(HeaderXForwardedURI, req.RequestURI)
+	outreq.Header.Set("Origin", reqScheme+"://"+req.Host)
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
 		// If the outbound request doesn't have a User-Agent header set,

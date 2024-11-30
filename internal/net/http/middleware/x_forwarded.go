@@ -3,48 +3,26 @@ package middleware
 import (
 	"net"
 	"strings"
-)
 
-const (
-	xForwardedFor    = "X-Forwarded-For"
-	xForwardedMethod = "X-Forwarded-Method"
-	xForwardedHost   = "X-Forwarded-Host"
-	xForwardedProto  = "X-Forwarded-Proto"
-	xForwardedURI    = "X-Forwarded-Uri"
-	xForwardedPort   = "X-Forwarded-Port"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 )
 
 var SetXForwarded = &Middleware{
 	before: Rewrite(func(req *Request) {
-		delXForwarded(req)
+		req.Header.Del(gphttp.HeaderXForwardedFor)
 		clientIP, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err == nil {
-			req.Header.Set(xForwardedFor, clientIP)
-		} else {
-			req.Header.Set(xForwardedFor, req.RemoteAddr)
-		}
-		req.Header.Set(xForwardedHost, req.Host)
-		if req.TLS == nil {
-			req.Header.Set(xForwardedProto, "http")
-		} else {
-			req.Header.Set(xForwardedProto, "https")
+			req.Header.Set(gphttp.HeaderXForwardedFor, clientIP)
 		}
 	}),
 }
 
 var HideXForwarded = &Middleware{
-	before: Rewrite(delXForwarded),
-}
-
-func delXForwarded(req *Request) {
-	req.Header.Del("Forwarded")
-	toRemove := make([]string, 0)
-	for k := range req.Header {
-		if strings.HasPrefix(k, "X-Forwarded-") {
-			toRemove = append(toRemove, k)
+	before: Rewrite(func(req *Request) {
+		for k := range req.Header {
+			if strings.HasPrefix(k, "X-Forwarded-") {
+				req.Header.Del(k)
+			}
 		}
-	}
-	for _, k := range toRemove {
-		req.Header.Del(k)
-	}
+	}),
 }

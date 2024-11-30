@@ -6,13 +6,14 @@ import (
 	"strings"
 	"testing"
 
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 func TestSetRealIPOpts(t *testing.T) {
 	opts := OptionsRaw{
-		"header": "X-Real-IP",
+		"header": gphttp.HeaderXRealIP,
 		"from": []string{
 			"127.0.0.0/8",
 			"192.168.0.0/16",
@@ -21,7 +22,7 @@ func TestSetRealIPOpts(t *testing.T) {
 		"recursive": true,
 	}
 	optExpected := &realIPOpts{
-		Header: "X-Real-IP",
+		Header: gphttp.HeaderXRealIP,
 		From: []*types.CIDR{
 			{
 				IP:   net.ParseIP("127.0.0.0"),
@@ -50,7 +51,7 @@ func TestSetRealIPOpts(t *testing.T) {
 
 func TestSetRealIP(t *testing.T) {
 	const (
-		testHeader = "X-Real-IP"
+		testHeader = gphttp.HeaderXRealIP
 		testRealIP = "192.168.1.1"
 	)
 	opts := OptionsRaw{
@@ -73,5 +74,5 @@ func TestSetRealIP(t *testing.T) {
 	t.Log(traces)
 	ExpectEqual(t, result.ResponseStatus, http.StatusOK)
 	ExpectEqual(t, strings.Split(result.RemoteAddr, ":")[0], testRealIP)
-	ExpectEqual(t, result.RequestHeaders.Get(xForwardedFor), testRealIP)
+	ExpectEqual(t, result.RequestHeaders.Get(gphttp.HeaderXForwardedFor), testRealIP)
 }

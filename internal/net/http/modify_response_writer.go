@@ -34,6 +34,10 @@ func NewModifyResponseWriter(w http.ResponseWriter, r *http.Request, f ModifyRes
 	}
 }
 
+func (w *ModifyResponseWriter) Unwrap() http.ResponseWriter {
+	return w.w
+}
+
 func (w *ModifyResponseWriter) WriteHeader(code int) {
 	if w.headerSent {
 		return

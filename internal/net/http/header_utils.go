@@ -4,6 +4,16 @@ import (
 	"net/http"
 )
 
+const (
+	HeaderXForwardedMethod = "X-Forwarded-Method"
+	HeaderXForwardedFor    = "X-Forwarded-For"
+	HeaderXForwardedProto  = "X-Forwarded-Proto"
+	HeaderXForwardedHost   = "X-Forwarded-Host"
+	HeaderXForwardedPort   = "X-Forwarded-Port"
+	HeaderXForwardedURI    = "X-Forwarded-Uri"
+	HeaderXRealIP          = "X-Real-IP"
+)
+
 func RemoveHop(h http.Header) {
 	reqUpType := UpgradeType(h)
 	RemoveHopByHopHeaders(h)
