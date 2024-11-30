@@ -130,11 +130,18 @@ func (e *RawEntry) Finalize() {
 	}
 
 	if e.HealthCheck == nil {
-		e.HealthCheck = health.DefaultHealthCheckConfig()
+		e.HealthCheck = new(health.HealthCheckConfig)
 	}
 
 	if e.HealthCheck.Disable {
 		e.HealthCheck = nil
+	} else {
+		if e.HealthCheck.Interval == 0 {
+			e.HealthCheck.Interval = common.HealthCheckIntervalDefault
+		}
+		if e.HealthCheck.Timeout == 0 {
+			e.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
+		}
 	}
 
 	if cont.IdleTimeout != "" {
