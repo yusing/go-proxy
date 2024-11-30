@@ -132,12 +132,11 @@ func main() {
 	}
 
 	server.StartServer(server.Options{
-		Name:            "proxy",
-		CertProvider:    autocert,
-		HTTPAddr:        common.ProxyHTTPAddr,
-		HTTPSAddr:       common.ProxyHTTPSAddr,
-		Handler:         http.HandlerFunc(entrypoint.Handler),
-		RedirectToHTTPS: config.Value().Entrypoint.RedirectToHTTPS,
+		Name:         "proxy",
+		CertProvider: autocert,
+		HTTPAddr:     common.ProxyHTTPAddr,
+		HTTPSAddr:    common.ProxyHTTPSAddr,
+		Handler:      http.HandlerFunc(entrypoint.Handler),
 	})
 	server.StartServer(server.Options{
 		Name:         "api",

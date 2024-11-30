@@ -15,8 +15,7 @@ type (
 		Notification []NotificationConfig `json:"notification" yaml:"notification"`
 	}
 	Entrypoint struct {
-		RedirectToHTTPS bool `json:"redirect_to_https" yaml:"redirect_to_https"`
-		Middlewares     []map[string]any
+		Middlewares []map[string]any `json:"middlewares" yaml:"middlewares"`
 	}
 	NotificationConfig map[string]any
 )
@@ -26,9 +25,6 @@ func DefaultConfig() *Config {
 		TimeoutShutdown: 3,
 		Homepage: HomepageConfig{
 			UseDefaultCategories: true,
-		},
-		Entrypoint: Entrypoint{
-			RedirectToHTTPS: false,
 		},
 	}
 }

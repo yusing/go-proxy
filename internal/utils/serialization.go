@@ -193,9 +193,18 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			key = strutils.ToLowerNoSnake(key)
 			mapping[key] = dstV.FieldByName(field.Name)
 			fieldName[field.Name] = key
+
 			_, ok := field.Tag.Lookup("validate")
 			if ok {
 				needValidate = true
+			}
+
+			aliases, ok := field.Tag.Lookup("aliases")
+			if ok {
+				for _, alias := range strings.Split(aliases, ",") {
+					mapping[alias] = dstV.FieldByName(field.Name)
+					fieldName[field.Name] = alias
+				}
 			}
 		}
 		for k, v := range src {

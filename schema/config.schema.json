@@ -430,10 +430,6 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "redirect_to_https": {
-          "title": "Redirect to HTTPS on HTTP requests",
-          "type": "boolean"
-        },
         "middlewares": {
           "title": "Entrypoint middlewares",
           "type": "array",

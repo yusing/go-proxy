@@ -6,7 +6,6 @@ import (
 	"errors"
 	"io"
 	"log"
-	"net"
 	"net/http"
 	"time"
 
@@ -31,12 +30,11 @@ type Server struct {
 }
 
 type Options struct {
-	Name            string
-	HTTPAddr        string
-	HTTPSAddr       string
-	CertProvider    *autocert.Provider
-	RedirectToHTTPS bool
-	Handler         http.Handler
+	Name         string
+	HTTPAddr     string
+	HTTPSAddr    string
+	CertProvider *autocert.Provider
+	Handler      http.Handler
 }
 
 func StartServer(opt Options) (s *Server) {
@@ -47,7 +45,6 @@ func StartServer(opt Options) (s *Server) {
 
 func NewServer(opt Options) (s *Server) {
 	var httpSer, httpsSer *http.Server
-	var httpHandler http.Handler
 
 	logger := logging.With().Str("module", "server").Str("name", opt.Name).Logger()
 
@@ -57,20 +54,10 @@ func NewServer(opt Options) (s *Server) {
 		certAvailable = err == nil
 	}
 
-	if certAvailable && opt.RedirectToHTTPS && opt.HTTPSAddr != "" {
-		_, port, err := net.SplitHostPort(opt.HTTPSAddr)
-		if err != nil {
-			panic(err)
-		}
-		httpHandler = redirectToTLSHandler(port)
-	} else {
-		httpHandler = opt.Handler
-	}
-
 	if opt.HTTPAddr != "" {
 		httpSer = &http.Server{
 			Addr:     opt.HTTPAddr,
-			Handler:  httpHandler,
+			Handler:  opt.Handler,
 			ErrorLog: log.New(io.Discard, "", 0), // most are tls related
 		}
 	}
@@ -150,20 +137,5 @@ func (s *Server) handleErr(scheme string, err error) {
 		return
 	default:
 		s.l.Fatal().Err(err).Str("scheme", scheme).Msg("server error")
-	}
-}
-
-func redirectToTLSHandler(port string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		r.URL.Scheme = "https"
-		r.URL.Host = r.URL.Hostname() + ":" + port
-
-		var redirectCode int
-		if r.Method == http.MethodGet {
-			redirectCode = http.StatusMovedPermanently
-		} else {
-			redirectCode = http.StatusPermanentRedirect
-		}
-		http.Redirect(w, r, r.URL.String(), redirectCode)
 	}
 }

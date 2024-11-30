@@ -21,10 +21,6 @@
 # 3. other providers, check docs/dns_providers.md for more
 
 entrypoint:
-  # global setting redirect http requests to https (if https available, otherwise this will be ignored)
-  # proxy.<alias>.middlewares.redirect_http will override this
-  #
-  redirect_to_https: false
   middlewares:
     - use: CIDRWhitelist
       allow:
@@ -33,6 +29,7 @@ entrypoint:
         - "192.168.0.0/16"
       status: 403
       message: "Forbidden"
+    - use: RedirectHTTP
 
 providers:
   # include files are standalone yaml files under `config/` directory
