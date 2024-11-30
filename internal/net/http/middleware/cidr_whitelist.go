@@ -17,7 +17,7 @@ type cidrWhitelist struct {
 
 type cidrWhitelistOpts struct {
 	Allow      []*types.CIDR `validate:"min=1"`
-	StatusCode int           `validate:"omitempty,gte=400,lte=599"`
+	StatusCode int           `json:"status" validate:"omitempty,gte=400,lte=599"`
 	Message    string
 }
 
