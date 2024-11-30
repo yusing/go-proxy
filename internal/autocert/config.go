@@ -71,14 +71,17 @@ func (cfg *Config) GetProvider() (*Provider, E.Error) {
 	var privKey *ecdsa.PrivateKey
 	var err error
 
-	if privKey, err = cfg.loadACMEKey(); err != nil {
-		logging.Info().Err(err).Msg("load ACME private key failed, generating one...")
-		privKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			return nil, E.New("generate ACME private key").With(err)
-		}
-		if err = cfg.saveACMEKey(privKey); err != nil {
-			return nil, E.New("save ACME private key").With(err)
+	if cfg.Provider != ProviderLocal {
+		if privKey, err = cfg.loadACMEKey(); err != nil {
+			logging.Info().Err(err).Msg("load ACME private key failed")
+			logging.Info().Msg("generate new ACME private key")
+			privKey, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			if err != nil {
+				return nil, E.New("generate ACME private key").With(err)
+			}
+			if err = cfg.saveACMEKey(privKey); err != nil {
+				return nil, E.New("save ACME private key").With(err)
+			}
 		}
 	}
 
