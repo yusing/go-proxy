@@ -32,11 +32,18 @@ func SetMiddlewares(mws []map[string]any) error {
 	epMiddlewareMu.Lock()
 	defer epMiddlewareMu.Unlock()
 
+	if len(mws) == 0 {
+		epMiddleware = nil
+		return nil
+	}
+
 	mid, err := middleware.BuildMiddlewareFromChainRaw("entrypoint", mws)
 	if err != nil {
 		return err
 	}
 	epMiddleware = mid
+
+	logger.Debug().Msg("entrypoint middleware loaded")
 	return nil
 }
 
@@ -44,8 +51,14 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findRouteFunc(r.Host)
 	if err == nil {
 		if epMiddleware != nil {
-			epMiddleware.ServeHTTP(mux.ServeHTTP, w, r)
-			return
+			epMiddlewareMu.Lock()
+			if epMiddleware != nil {
+				mid := epMiddleware
+				epMiddlewareMu.Unlock()
+				mid.ServeHTTP(mux.ServeHTTP, w, r)
+				return
+			}
+			epMiddlewareMu.Unlock()
 		}
 		mux.ServeHTTP(w, r)
 		return
