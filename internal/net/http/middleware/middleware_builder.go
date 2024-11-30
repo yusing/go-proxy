@@ -11,13 +11,20 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var ErrMissingMiddlewareUse = E.New("missing middleware 'use' field")
+
 func BuildMiddlewaresFromComposeFile(filePath string, eb *E.Builder) map[string]*Middleware {
 	fileContent, err := os.ReadFile(filePath)
 	if err != nil {
 		eb.Add(err)
 		return nil
 	}
-	return BuildMiddlewaresFromYAML(path.Base(filePath), fileContent, eb)
+	mids := BuildMiddlewaresFromYAML(path.Base(filePath), fileContent, eb)
+	results := make(map[string]*Middleware, len(mids))
+	for k, v := range mids {
+		results[k+"@file"] = v
+	}
+	return results
 }
 
 func BuildMiddlewaresFromYAML(source string, data []byte, eb *E.Builder) map[string]*Middleware {
@@ -29,35 +36,44 @@ func BuildMiddlewaresFromYAML(source string, data []byte, eb *E.Builder) map[str
 	}
 	middlewares := make(map[string]*Middleware)
 	for name, defs := range rawMap {
-		chainErr := E.NewBuilder("")
-		chain := make([]*Middleware, 0, len(defs))
-		for i, def := range defs {
-			if def["use"] == nil || def["use"] == "" {
-				chainErr.Addf("item %d: missing field 'use'", i)
-				continue
-			}
-			baseName := def["use"].(string)
-			base, err := Get(baseName)
-			if err != nil {
-				chainErr.Add(err.Subjectf("%s[%d]", name, i))
-				continue
-			}
-			delete(def, "use")
-			m, err := base.WithOptionsClone(def)
-			if err != nil {
-				chainErr.Add(err.Subjectf("%s[%d]", name, i))
-				continue
-			}
-			m.name = fmt.Sprintf("%s[%d]", name, i)
-			chain = append(chain, m)
-		}
-		if chainErr.HasError() {
-			eb.Add(chainErr.Error().Subject(source))
+		chain, err := BuildMiddlewareFromChainRaw(name, defs)
+		if err != nil {
+			eb.Add(err.Subject(source))
 		} else {
-			middlewares[name+"@file"] = BuildMiddlewareFromChain(name, chain)
+			middlewares[name] = chain
 		}
 	}
 	return middlewares
+}
+
+func BuildMiddlewareFromChainRaw(name string, defs []map[string]any) (*Middleware, E.Error) {
+	chainErr := E.NewBuilder("")
+	chain := make([]*Middleware, 0, len(defs))
+	for i, def := range defs {
+		if def["use"] == nil || def["use"] == "" {
+			chainErr.Add(ErrMissingMiddlewareUse.Subjectf("%s[%d]", name, i))
+			continue
+		}
+		baseName := def["use"].(string)
+		base, err := Get(baseName)
+		if err != nil {
+			chainErr.Add(err.Subjectf("%s[%d]", name, i))
+			continue
+		}
+		delete(def, "use")
+		m, err := base.WithOptionsClone(def)
+		if err != nil {
+			chainErr.Add(err.Subjectf("%s[%d]", name, i))
+			continue
+		}
+		m.name = fmt.Sprintf("%s[%d]", name, i)
+		chain = append(chain, m)
+	}
+	if chainErr.HasError() {
+		return nil, chainErr.Error()
+	} else {
+		return BuildMiddlewareFromChain(name, chain), nil
+	}
 }
 
 // TODO: check conflict or duplicates.

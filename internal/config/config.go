@@ -173,6 +173,7 @@ func (cfg *Config) load() E.Error {
 
 	// errors are non fatal below
 	errs := E.NewBuilder(errMsg)
+	errs.Add(entrypoint.SetMiddlewares(model.Entrypoint.Middlewares))
 	errs.Add(cfg.initNotification(model.Providers.Notification))
 	errs.Add(cfg.initAutoCert(&model.AutoCert))
 	errs.Add(cfg.loadRouteProviders(&model.Providers))

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
@@ -14,6 +15,11 @@ import (
 
 var findRouteFunc = findRouteAnyDomain
 
+var (
+	epMiddleware   *middleware.Middleware
+	epMiddlewareMu sync.Mutex
+)
+
 func SetFindRouteDomains(domains []string) {
 	if len(domains) == 0 {
 		findRouteFunc = findRouteAnyDomain
@@ -22,9 +28,25 @@ func SetFindRouteDomains(domains []string) {
 	}
 }
 
+func SetMiddlewares(mws []map[string]any) error {
+	epMiddlewareMu.Lock()
+	defer epMiddlewareMu.Unlock()
+
+	mid, err := middleware.BuildMiddlewareFromChainRaw("entrypoint", mws)
+	if err != nil {
+		return err
+	}
+	epMiddleware = mid
+	return nil
+}
+
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findRouteFunc(r.Host)
 	if err == nil {
+		if epMiddleware != nil {
+			epMiddleware.ServeHTTP(mux.ServeHTTP, w, r)
+			return
+		}
 		mux.ServeHTTP(w, r)
 		return
 	}

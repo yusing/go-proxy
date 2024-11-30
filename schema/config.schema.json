@@ -303,28 +303,105 @@
         },
         "notification": {
           "description": "Notification provider configuration",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "gotify": {
-              "description": "Gotify configuration",
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "url": {
-                  "description": "Gotify URL",
-                  "type": "string"
-                },
-                "token": {
-                  "description": "Gotify token",
-                  "type": "string"
-                }
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "provider"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "Notifier name"
               },
-              "required": [
-                "url",
-                "token"
-              ]
-            }
+              "provider": {
+                "description": "Notifier provider",
+                "type": "string",
+                "enum": [
+                  "gotify",
+                  "webhook"
+                ]
+              }
+            },
+            "oneOf": [
+              {
+                "description": "Gotify configuration",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {},
+                  "provider": {
+                    "const": "gotify"
+                  },
+                  "url": {
+                    "description": "Gotify URL",
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "Gotify token",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "url",
+                  "token"
+                ]
+              },
+              {
+                "description": "Webhook configuration",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {},
+                  "provider": {
+                    "const": "webhook"
+                  },
+                  "url": {
+                    "description": "Webhook URL",
+                    "type": "string"
+                  },
+                  "token": {
+                    "description": "Webhook bearer token",
+                    "type": "string"
+                  },
+                  "template": {
+                    "description": "Webhook template",
+                    "type": "string",
+                    "enum": [
+                      "discord"
+                    ]
+                  },
+                  "payload": {
+                    "description": "Webhook payload",
+                    "type": "string",
+                    "format": "json"
+                  },
+                  "method": {
+                    "description": "Webhook request method",
+                    "type": "string",
+                    "enum": [
+                      "GET",
+                      "POST",
+                      "PUT"
+                    ]
+                  },
+                  "mime_type": {
+                    "description": "Webhook NIME type",
+                    "type": "string"
+                  },
+                  "color_mode": {
+                    "description": "Webhook color mode",
+                    "type": "string",
+                    "enum": [
+                      "hex",
+                      "dec"
+                    ]
+                  }
+                },
+                "required": [
+                  "url"
+                ]
+              }
+            ]
           }
         }
       }
@@ -337,14 +414,48 @@
       },
       "minItems": 1
     },
+    "homepage": {
+      "title": "Homepage configuration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "use_default_categories": {
+          "title": "Use default categories",
+          "type": "boolean"
+        }
+      }
+    },
+    "entrypoint": {
+      "title": "Entrypoint configuration",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "redirect_to_https": {
+          "title": "Redirect to HTTPS on HTTP requests",
+          "type": "boolean"
+        },
+        "middlewares": {
+          "title": "Entrypoint middlewares",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "use"
+            ],
+            "properties": {
+              "use": {
+                "type": "string",
+                "description": "Middleware to use"
+              }
+            }
+          }
+        }
+      }
+    },
     "timeout_shutdown": {
       "title": "Shutdown timeout (in seconds)",
       "type": "integer",
       "minimum": 0
-    },
-    "redirect_to_https": {
-      "title": "Redirect to HTTPS on HTTP requests",
-      "type": "boolean"
     }
   },
   "additionalProperties": false,

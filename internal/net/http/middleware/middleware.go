@@ -23,7 +23,7 @@ type (
 
 	BeforeFunc         func(next http.HandlerFunc, w ResponseWriter, r *Request)
 	RewriteFunc        func(req *Request)
-	ModifyResponseFunc func(resp *Response) error
+	ModifyResponseFunc = gphttp.ModifyResponseFunc
 	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.Error)
 
 	OptionsRaw = map[string]any
@@ -112,6 +112,17 @@ func (m *Middleware) ModifyResponse(resp *Response) error {
 		return m.modifyResponse(resp)
 	}
 	return nil
+}
+
+func (m *Middleware) ServeHTTP(next http.HandlerFunc, w ResponseWriter, r *Request) {
+	if m.modifyResponse != nil {
+		w = gphttp.NewModifyResponseWriter(w, r, m.modifyResponse)
+	}
+	if m.before != nil {
+		m.before(next, w, r)
+	} else {
+		next(w, r)
+	}
 }
 
 // TODO: check conflict or duplicates.

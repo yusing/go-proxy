@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -57,7 +58,11 @@ func NewServer(opt Options) (s *Server) {
 	}
 
 	if certAvailable && opt.RedirectToHTTPS && opt.HTTPSAddr != "" {
-		httpHandler = redirectToTLSHandler(opt.HTTPSAddr)
+		_, port, err := net.SplitHostPort(opt.HTTPSAddr)
+		if err != nil {
+			panic(err)
+		}
+		httpHandler = redirectToTLSHandler(port)
 	} else {
 		httpHandler = opt.Handler
 	}
@@ -151,7 +156,7 @@ func (s *Server) handleErr(scheme string, err error) {
 func redirectToTLSHandler(port string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Scheme = "https"
-		r.URL.Host = r.URL.Hostname() + port
+		r.URL.Host = r.URL.Hostname() + ":" + port
 
 		var redirectCode int
 		if r.Method == http.MethodGet {

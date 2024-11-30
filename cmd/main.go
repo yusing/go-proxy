@@ -137,23 +137,21 @@ func main() {
 		HTTPAddr:        common.ProxyHTTPAddr,
 		HTTPSAddr:       common.ProxyHTTPSAddr,
 		Handler:         http.HandlerFunc(entrypoint.Handler),
-		RedirectToHTTPS: config.Value().RedirectToHTTPS,
+		RedirectToHTTPS: config.Value().Entrypoint.RedirectToHTTPS,
 	})
 	server.StartServer(server.Options{
-		Name:            "api",
-		CertProvider:    autocert,
-		HTTPAddr:        common.APIHTTPAddr,
-		Handler:         api.NewHandler(),
-		RedirectToHTTPS: config.Value().RedirectToHTTPS,
+		Name:         "api",
+		CertProvider: autocert,
+		HTTPAddr:     common.APIHTTPAddr,
+		Handler:      api.NewHandler(),
 	})
 
 	if common.PrometheusEnabled {
 		server.StartServer(server.Options{
-			Name:            "metrics",
-			CertProvider:    autocert,
-			HTTPAddr:        common.MetricsHTTPAddr,
-			Handler:         metrics.NewHandler(),
-			RedirectToHTTPS: config.Value().RedirectToHTTPS,
+			Name:         "metrics",
+			CertProvider: autocert,
+			HTTPAddr:     common.MetricsHTTPAddr,
+			Handler:      metrics.NewHandler(),
 		})
 	}
 

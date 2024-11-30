@@ -20,6 +20,20 @@
 #
 # 3. other providers, check docs/dns_providers.md for more
 
+entrypoint:
+  # global setting redirect http requests to https (if https available, otherwise this will be ignored)
+  # proxy.<alias>.middlewares.redirect_http will override this
+  #
+  redirect_to_https: false
+  middlewares:
+    - use: CIDRWhitelist
+      allow:
+        - "127.0.0.1"
+        - "10.0.0.0/8"
+        - "192.168.0.0/16"
+      status: 403
+      message: "Forbidden"
+
 providers:
   # include files are standalone yaml files under `config/` directory
   #
@@ -41,6 +55,28 @@ providers:
     #
     # remote-1: tcp://10.0.2.1:2375
     # remote-2: ssh://root:1234@10.0.2.2
+
+  # notification providers (notify when service health changes)
+  #
+  # notification:
+  #   - name: gotify
+  #     provider: gotify
+  #     url: https://gotify.domain.tld
+  #     token: abcd
+  #   - name: discord
+  #     provider: webhook
+  #     url: https://discord.com/api/webhooks/...
+  #     template: discord
+  #     # payload: | # discord template implies the following
+  #     #   {
+  #     #     "embeds": [
+  #     #       {
+  #     #         "title": $title,
+  #     #         "fields": $fields,
+  #     #         "color": "$color"
+  #     #       }
+  #     #     ]
+  #     #   }
 # if match_domains not defined
 # any host = alias+[any domain] will match
 # i.e. https://app1.y.z       will match alias app1 for any domain y.z
@@ -68,8 +104,3 @@ homepage:
 # timeout for shutdown (in seconds)
 #
 timeout_shutdown: 5
-
-# global setting redirect http requests to https (if https available, otherwise this will be ignored)
-# proxy.<alias>.middlewares.redirect_http will override this
-#
-redirect_to_https: false
