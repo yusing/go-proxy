@@ -22,6 +22,10 @@ func (set Set[T]) Remove(v T) {
 	set.m.Delete(v)
 }
 
+func (set Set[T]) Clear() {
+	set.m.Clear()
+}
+
 func (set Set[T]) Contains(v T) bool {
 	_, ok := set.m.Load(v)
 	return ok

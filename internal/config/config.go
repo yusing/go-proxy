@@ -192,9 +192,10 @@ func (cfg *Config) initNotification(notifCfg []types.NotificationConfig) (err E.
 	if len(notifCfg) == 0 {
 		return
 	}
+	dispatcher := notif.StartNotifDispatcher(cfg.task)
 	errs := E.NewBuilder("notification providers load errors")
 	for i, notifier := range notifCfg {
-		_, err := notif.RegisterProvider(cfg.task.Subtask("notifier"), notifier)
+		_, err := dispatcher.RegisterProvider(notifier)
 		if err == nil {
 			continue
 		}

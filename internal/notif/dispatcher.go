@@ -35,24 +35,21 @@ var (
 
 const dispatchErr = "notification dispatch error"
 
-func init() {
-	dispatcher = newNotifDispatcher()
-	go dispatcher.start()
-}
-
-func newNotifDispatcher() *Dispatcher {
-	return &Dispatcher{
-		task:      task.GlobalTask("notif dispatcher"),
+func StartNotifDispatcher(parent task.Task) *Dispatcher {
+	dispatcher = &Dispatcher{
+		task:      parent.Subtask("notification dispatcher"),
 		logCh:     make(chan *LogMessage),
 		providers: F.NewSet[Provider](),
 	}
-}
-
-func GetDispatcher() *Dispatcher {
+	go dispatcher.start()
 	return dispatcher
 }
 
-func RegisterProvider(configSubTask task.Task, cfg types.NotificationConfig) (Provider, E.Error) {
+func Notify(msg *LogMessage) {
+	dispatcher.logCh <- msg
+}
+
+func (disp *Dispatcher) RegisterProvider(cfg types.NotificationConfig) (Provider, E.Error) {
 	providerName, ok := cfg["provider"]
 	if !ok {
 		return nil, ErrMissingNotifProvider
@@ -69,10 +66,7 @@ func RegisterProvider(configSubTask task.Task, cfg types.NotificationConfig) (Pr
 
 		provider, err := createFunc(cfg)
 		if err == nil {
-			dispatcher.providers.Add(provider)
-			configSubTask.OnCancel("remove provider", func() {
-				dispatcher.providers.Remove(provider)
-			})
+			disp.providers.Add(provider)
 		}
 		return provider, err
 	default:
@@ -81,7 +75,11 @@ func RegisterProvider(configSubTask task.Task, cfg types.NotificationConfig) (Pr
 }
 
 func (disp *Dispatcher) start() {
-	defer dispatcher.task.Finish("dispatcher stopped")
+	defer func() {
+		disp.providers.Clear()
+		close(disp.logCh)
+		disp.task.Finish("dispatcher stopped")
+	}()
 
 	for {
 		select {
@@ -123,7 +121,3 @@ func (disp *Dispatcher) dispatch(msg *LogMessage) {
 // 		}
 // 	}
 // }
-
-func Notify(msg *LogMessage) {
-	dispatcher.logCh <- msg
-}
