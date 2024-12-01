@@ -49,6 +49,14 @@ func SetMiddlewares(mws []map[string]any) error {
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findRouteFunc(r.Host)
+	if err != nil {
+		// try find with exact match
+		r, ok := routes.GetHTTPRoute(r.Host)
+		if ok {
+			mux = r
+			err = nil
+		}
+	}
 	if err == nil {
 		if epMiddleware != nil {
 			epMiddlewareMu.Lock()
