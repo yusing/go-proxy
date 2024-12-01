@@ -20,7 +20,7 @@ type ReverseProxyEntry struct { // real model after validation
 	Scheme       route.Scheme               `json:"scheme"`
 	URL          net.URL                    `json:"url"`
 	NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
-	PathPatterns route.PathPatterns         `json:"path_patterns,omitempty"`
+	PathPatterns []string                   `json:"path_patterns,omitempty"`
 	HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
 	LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty"`
 	Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`
@@ -66,7 +66,6 @@ func validateRPEntry(m *route.RawEntry, s route.Scheme, errs *E.Builder) *Revers
 
 	host := E.Collect(errs, route.ValidateHost, m.Host)
 	port := E.Collect(errs, route.ValidatePort, m.Port)
-	pathPats := E.Collect(errs, route.ValidatePathPatterns, m.PathPatterns)
 	url := E.Collect(errs, url.Parse, fmt.Sprintf("%s://%s:%d", s, host, port))
 	iwCfg := E.Collect(errs, idlewatcher.ValidateConfig, cont)
 
@@ -80,7 +79,7 @@ func validateRPEntry(m *route.RawEntry, s route.Scheme, errs *E.Builder) *Revers
 		Scheme:       s,
 		URL:          net.NewURL(url),
 		NoTLSVerify:  m.NoTLSVerify,
-		PathPatterns: pathPats,
+		PathPatterns: m.PathPatterns,
 		HealthCheck:  m.HealthCheck,
 		LoadBalance:  lb,
 		Middlewares:  m.Middlewares,

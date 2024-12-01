@@ -102,9 +102,13 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 		case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
 			r.handler = r.rp
 		default:
-			mux := http.NewServeMux()
+			mux := gphttp.NewServeMux()
+			patErrs := E.NewBuilder("invalid path pattern(s)")
 			for _, p := range r.PathPatterns {
-				mux.HandleFunc(string(p), r.rp.HandlerFunc)
+				patErrs.Add(mux.HandleFunc(p, r.rp.HandlerFunc))
+			}
+			if err := patErrs.Error(); err != nil {
+				return err
 			}
 			r.handler = mux
 		}
