@@ -1,42 +1,42 @@
 ---
 services:
-    frontend:
-        image: ghcr.io/yusing/go-proxy-frontend:latest
-        container_name: godoxy-frontend
-        restart: unless-stopped
-        network_mode: host
-        env_file: .env
-        depends_on:
-            - app
-        # modify below to fit your needs
-        labels:
-            proxy.aliases: gp
-            proxy.#1.port: 3000
-            # proxy.#1.middlewares.cidr_whitelist.status: 403
-            # proxy.#1.middlewares.cidr_whitelist.message: IP not allowed
-            # proxy.#1.middlewares.cidr_whitelist.allow: |
-            #     - 127.0.0.1
-            #     - 10.0.0.0/8
-            #     - 192.168.0.0/16
-            #     - 172.16.0.0/12
-    app:
-        image: ghcr.io/yusing/go-proxy:latest
-        container_name: godoxy
-        restart: always
-        network_mode: host
-        env_file: .env
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-            - ./config:/app/config
-            - ./error_pages:/app/error_pages
+  frontend:
+    image: ghcr.io/yusing/go-proxy-frontend:latest
+    container_name: godoxy-frontend
+    restart: unless-stopped
+    network_mode: host
+    env_file: .env
+    depends_on:
+      - app
+    # modify below to fit your needs
+    labels:
+      proxy.aliases: gp
+      proxy.#1.port: 3000
+      # proxy.#1.middlewares.cidr_whitelist.status: 403
+      # proxy.#1.middlewares.cidr_whitelist.message: IP not allowed
+      # proxy.#1.middlewares.cidr_whitelist.allow: |
+      #     - 127.0.0.1
+      #     - 10.0.0.0/8
+      #     - 192.168.0.0/16
+      #     - 172.16.0.0/12
+  app:
+    image: ghcr.io/yusing/go-proxy:latest
+    container_name: godoxy
+    restart: always
+    network_mode: host
+    env_file: .env
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/app/config
+      - ./error_pages:/app/error_pages
 
-            # (Optional) choose one of below to enable https
-            # 1. use existing certificate
+      # (Optional) choose one of below to enable https
+      # 1. use existing certificate
 
-            # - /path/to/certs/cert.crt:/app/certs/cert.crt
-            # - /path/to/certs/priv.key:/app/certs/priv.key
+      # - /path/to/certs/cert.crt:/app/certs/cert.crt
+      # - /path/to/certs/priv.key:/app/certs/priv.key
 
-            # 2. use autocert, certs will be stored in ./certs
-            #    you can also use a docker volume to store it
+      # 2. use autocert, certs will be stored in ./certs
+      #    you can also use a docker volume to store it
 
-            # - ./certs:/app/certs
+      # - ./certs:/app/certs

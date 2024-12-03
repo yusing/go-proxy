@@ -91,7 +91,6 @@ providers:
 #   - node1.my.app
 
 # homepage config
-#
 homepage:
   # use default app categories detected from alias or docker image name
   use_default_categories: true
@@ -99,5 +98,4 @@ homepage:
 # Below are fixed options (non hot-reloadable)
 
 # timeout for shutdown (in seconds)
-#
 timeout_shutdown: 5
