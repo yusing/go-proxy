@@ -44,7 +44,7 @@ func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 func (mr *modifyRequest) checkVarSubstitution() {
 	for _, m := range []map[string]string{mr.SetHeaders, mr.AddHeaders} {
 		for _, v := range m {
-			if strings.Contains(v, "$") {
+			if strings.ContainsRune(v, '$') {
 				mr.needVarSubstitution = true
 				return
 			}
@@ -53,20 +53,32 @@ func (mr *modifyRequest) checkVarSubstitution() {
 }
 
 func (mr *modifyRequest) modifyHeaders(req *Request, resp *Response, headers http.Header) {
-	replaceVars := varReplacerDummy
-	if mr.needVarSubstitution {
-		replaceVars = varReplacer(req, resp)
+	if !mr.needVarSubstitution {
+		for k, v := range mr.SetHeaders {
+			if req != nil && strings.ToLower(k) == "host" {
+				defer func() {
+					req.Host = v
+				}()
+			}
+			headers.Set(k, v)
+		}
+		for k, v := range mr.AddHeaders {
+			headers.Add(k, v)
+		}
+	} else {
+		for k, v := range mr.SetHeaders {
+			if req != nil && strings.ToLower(k) == "host" {
+				defer func() {
+					req.Host = varReplace(req, resp, v)
+				}()
+			}
+			headers.Set(k, varReplace(req, resp, v))
+		}
+		for k, v := range mr.AddHeaders {
+			headers.Add(k, varReplace(req, resp, v))
+		}
 	}
 
-	for k, v := range mr.SetHeaders {
-		if strings.ToLower(k) == "host" {
-			req.Host = replaceVars(v)
-		}
-		headers.Set(k, replaceVars(v))
-	}
-	for k, v := range mr.AddHeaders {
-		headers.Add(k, replaceVars(v))
-	}
 	for _, k := range mr.HideHeaders {
 		headers.Del(k)
 	}
