@@ -1,6 +1,8 @@
 package route
 
 import (
+	"strings"
+
 	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	url "github.com/yusing/go-proxy/internal/net/types"
@@ -84,6 +86,9 @@ func FromEntries(entries RawEntries) (Routes, E.Error) {
 	routes := NewRoutes()
 	entries.RangeAllParallel(func(alias string, en *RawEntry) {
 		en.Alias = alias
+		if strings.HasPrefix(alias, "x-") { // x properties
+			return
+		}
 		r, err := NewRoute(en)
 		switch {
 		case err != nil:
