@@ -5,21 +5,22 @@ import (
 	"testing"
 
 	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/net/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 func TestRedirectToHTTPs(t *testing.T) {
 	result, err := newMiddlewareTest(RedirectHTTP, &testArgs{
-		scheme: "http",
+		reqURL: types.MustParseURL("http://example.com"),
 	})
 	ExpectNoError(t, err)
 	ExpectEqual(t, result.ResponseStatus, http.StatusTemporaryRedirect)
-	ExpectEqual(t, result.ResponseHeaders.Get("Location"), "https://"+testHost+":"+common.ProxyHTTPSPort)
+	ExpectEqual(t, result.ResponseHeaders.Get("Location"), "https://example.com:"+common.ProxyHTTPSPort)
 }
 
 func TestNoRedirect(t *testing.T) {
 	result, err := newMiddlewareTest(RedirectHTTP, &testArgs{
-		scheme: "https",
+		reqURL: types.MustParseURL("https://example.com"),
 	})
 	ExpectNoError(t, err)
 	ExpectEqual(t, result.ResponseStatus, http.StatusOK)

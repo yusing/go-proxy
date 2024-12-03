@@ -97,10 +97,16 @@ func (m *Middleware) AddTracef(msg string, args ...any) *Trace {
 }
 
 func (m *Middleware) AddTraceRequest(msg string, req *Request) *Trace {
+	if !m.trace {
+		return nil
+	}
 	return m.AddTracef("%s", msg).WithRequest(req)
 }
 
 func (m *Middleware) AddTraceResponse(msg string, resp *Response) *Trace {
+	if !m.trace {
+		return nil
+	}
 	return m.AddTracef("%s", msg).WithResponse(resp)
 }
 

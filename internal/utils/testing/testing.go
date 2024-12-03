@@ -109,8 +109,7 @@ func ExpectType[T any](t *testing.T, got any) (_ T) {
 	t.Helper()
 	_, ok := got.(T)
 	if !ok {
-		t.Fatalf("expected type %s, got %s", reflect.TypeFor[T](), reflect.TypeOf(got).Elem())
-		return
+		t.Fatalf("expected type %s, got %T", reflect.TypeFor[T](), got)
 	}
 	return got.(T)
 }

@@ -101,12 +101,21 @@ func TestWebhookBody(t *testing.T) {
 	})
 	ExpectNoError(t, err)
 
-	var body map[string][]map[string]any
+	var body struct {
+		Embeds []struct {
+			Title  string `json:"title"`
+			Fields []struct {
+				Name  string `json:"name"`
+				Value string `json:"value"`
+			} `json:"fields"`
+		} `json:"embeds"`
+	}
+
 	err = json.NewDecoder(bodyReader).Decode(&body)
 	ExpectNoError(t, err)
 
-	ExpectEqual(t, body["embeds"][0]["title"], "abc")
-	fields := ExpectType[[]map[string]any](t, body["embeds"][0]["fields"])
-	ExpectEqual(t, fields[0]["name"], "foo")
-	ExpectEqual(t, fields[0]["value"], "bar")
+	ExpectEqual(t, body.Embeds[0].Title, "abc")
+	fields := body.Embeds[0].Fields
+	ExpectEqual(t, fields[0].Name, "foo")
+	ExpectEqual(t, fields[0].Value, "bar")
 }

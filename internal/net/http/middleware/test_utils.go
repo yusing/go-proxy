@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -18,8 +17,6 @@ import (
 //go:embed test_data/sample_headers.json
 var testHeadersRaw []byte
 var testHeaders http.Header
-
-const testHost = "example.com"
 
 func init() {
 	if !common.IsTest {
@@ -67,16 +64,16 @@ type TestResult struct {
 
 type testArgs struct {
 	middlewareOpt OptionsRaw
-	proxyURL      string
+	reqURL        types.URL
+	upstreamURL   types.URL
 	body          []byte
-	scheme        string
+	realRoundTrip bool
+	headers       http.Header
 }
 
 func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.Error) {
 	var body io.Reader
 	var rr requestRecorder
-	var proxyURL *url.URL
-	var requestTarget string
 	var err error
 
 	if args == nil {
@@ -87,34 +84,24 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.E
 		body = bytes.NewReader(args.body)
 	}
 
-	switch args.scheme {
-	case "":
-		fallthrough
-	case "http":
-		requestTarget = "http://" + testHost
-	case "https":
-		requestTarget = "https://" + testHost
-	default:
-		panic("typo?")
+	if args.reqURL.Nil() {
+		args.reqURL = E.Must(types.ParseURL("https://example.com"))
 	}
 
-	req := httptest.NewRequest(http.MethodGet, requestTarget, body)
+	req := httptest.NewRequest(http.MethodGet, args.reqURL.String(), body)
+	for k, v := range args.headers {
+		req.Header[k] = v
+	}
 	w := httptest.NewRecorder()
 
-	if args.scheme == "https" && req.TLS == nil {
-		panic("bug occurred")
+	if args.upstreamURL.Nil() {
+		args.upstreamURL = E.Must(types.ParseURL("https://10.0.0.1:8443")) // dummy url, no actual effect
 	}
 
-	if args.proxyURL != "" {
-		proxyURL, err = url.Parse(args.proxyURL)
-		if err != nil {
-			return nil, E.From(err)
-		}
+	if args.realRoundTrip {
 		rr.parent = http.DefaultTransport
-	} else {
-		proxyURL, _ = url.Parse("https://" + testHost) // dummy url, no actual effect
 	}
-	rp := gphttp.NewReverseProxy(middleware.name, types.NewURL(proxyURL), &rr)
+	rp := gphttp.NewReverseProxy(middleware.name, args.upstreamURL, &rr)
 	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr

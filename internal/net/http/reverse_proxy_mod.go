@@ -264,6 +264,9 @@ func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response
 }
 
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	// req.Header.Set(HeaderUpstreamScheme, p.TargetURL.Scheme)
+	// req.Header.Set(HeaderUpstreamHost, p.TargetURL.Hostname())
+	// req.Header.Set(HeaderUpstreamPort, p.TargetURL.Port())
 	p.HandlerFunc(rw, req)
 }
 

@@ -164,7 +164,15 @@ func PatchReverseProxy(rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (
 }
 
 func patchReverseProxy(rp *ReverseProxy, middlewares []*Middleware) {
-	mid := BuildMiddlewareFromChain(rp.TargetName, middlewares)
+	mid := BuildMiddlewareFromChain(rp.TargetName, append([]*Middleware{{
+		name: "set_upstream_headers",
+		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
+			r.Header.Set(gphttp.HeaderUpstreamScheme, rp.TargetURL.Scheme)
+			r.Header.Set(gphttp.HeaderUpstreamHost, rp.TargetURL.Hostname())
+			r.Header.Set(gphttp.HeaderUpstreamPort, rp.TargetURL.Port())
+			next(w, r)
+		},
+	}}, middlewares...))
 
 	if mid.before != nil {
 		ori := rp.HandlerFunc

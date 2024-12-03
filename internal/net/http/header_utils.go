@@ -12,6 +12,10 @@ const (
 	HeaderXForwardedPort   = "X-Forwarded-Port"
 	HeaderXForwardedURI    = "X-Forwarded-Uri"
 	HeaderXRealIP          = "X-Real-IP"
+
+	HeaderUpstreamScheme = "X-GoDoxy-Upstream-Scheme"
+	HeaderUpstreamHost   = "X-GoDoxy-Upstream-Host"
+	HeaderUpstreamPort   = "X-GoDoxy-Upstream-Port"
 )
 
 func RemoveHop(h http.Header) {

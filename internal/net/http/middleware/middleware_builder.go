@@ -19,12 +19,7 @@ func BuildMiddlewaresFromComposeFile(filePath string, eb *E.Builder) map[string]
 		eb.Add(err)
 		return nil
 	}
-	mids := BuildMiddlewaresFromYAML(path.Base(filePath), fileContent, eb)
-	results := make(map[string]*Middleware, len(mids))
-	for k, v := range mids {
-		results[k+"@file"] = v
-	}
-	return results
+	return BuildMiddlewaresFromYAML(path.Base(filePath), fileContent, eb)
 }
 
 func BuildMiddlewaresFromYAML(source string, data []byte, eb *E.Builder) map[string]*Middleware {
@@ -40,7 +35,7 @@ func BuildMiddlewaresFromYAML(source string, data []byte, eb *E.Builder) map[str
 		if err != nil {
 			eb.Add(err.Subject(source))
 		} else {
-			middlewares[name] = chain
+			middlewares[name+"@file"] = chain
 		}
 	}
 	return middlewares

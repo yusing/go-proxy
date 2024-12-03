@@ -8,6 +8,14 @@ type URL struct {
 	*urlPkg.URL
 }
 
+func MustParseURL(url string) URL {
+	u, err := ParseURL(url)
+	if err != nil {
+		panic(err)
+	}
+	return u
+}
+
 func ParseURL(url string) (URL, error) {
 	u, err := urlPkg.Parse(url)
 	if err != nil {
@@ -18,6 +26,10 @@ func ParseURL(url string) (URL, error) {
 
 func NewURL(url *urlPkg.URL) URL {
 	return URL{url}
+}
+
+func (u URL) Nil() bool {
+	return u.URL == nil
 }
 
 func (u URL) String() string {

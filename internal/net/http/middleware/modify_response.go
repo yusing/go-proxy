@@ -3,52 +3,28 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-type (
-	modifyResponse struct {
-		modifyResponseOpts
-		m *Middleware
-	}
-	// order: set_headers -> add_headers -> hide_headers
-	modifyResponseOpts = modifyRequestOpts
-)
+type modifyResponse = modifyRequest
 
 var ModifyResponse = &Middleware{withOptions: NewModifyResponse}
 
 func NewModifyResponse(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyResponse)
-	mr.m = &Middleware{impl: mr}
-	if common.IsDebug {
-		mr.m.modifyResponse = mr.modifyResponseWithTrace
-	} else {
-		mr.m.modifyResponse = mr.modifyResponse
+	mr.m = &Middleware{
+		impl: mr,
+		modifyResponse: func(resp *http.Response) error {
+			mr.m.AddTraceResponse("before modify response", resp)
+			mr.modifyHeaders(resp.Request, resp, resp.Header)
+			mr.m.AddTraceResponse("after modify response", resp)
+			return nil
+		},
 	}
-	err := Deserialize(optsRaw, &mr.modifyResponseOpts)
+	err := Deserialize(optsRaw, &mr.modifyRequestOpts)
 	if err != nil {
 		return nil, err
 	}
+	mr.checkVarSubstitution()
 	return mr.m, nil
-}
-
-func (mr *modifyResponse) modifyResponse(resp *http.Response) error {
-	for k, v := range mr.SetHeaders {
-		resp.Header.Set(k, v)
-	}
-	for k, v := range mr.AddHeaders {
-		resp.Header.Add(k, v)
-	}
-	for _, k := range mr.HideHeaders {
-		resp.Header.Del(k)
-	}
-	return nil
-}
-
-func (mr *modifyResponse) modifyResponseWithTrace(resp *http.Response) error {
-	mr.m.AddTraceResponse("before modify response", resp)
-	err := mr.modifyResponse(resp)
-	mr.m.AddTraceResponse("after modify response", resp)
-	return err
 }

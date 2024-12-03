@@ -38,17 +38,23 @@ func init() {
 	// snakes and cases will be stripped on `Get`
 	// so keys are lowercase without snake.
 	allMiddlewares = map[string]*Middleware{
-		"setxforwarded":    SetXForwarded,
-		"hidexforwarded":   HideXForwarded,
-		"redirecthttp":     RedirectHTTP,
-		"modifyresponse":   ModifyResponse,
-		"modifyrequest":    ModifyRequest,
-		"errorpage":        CustomErrorPage,
-		"customerrorpage":  CustomErrorPage,
+		"redirecthttp": RedirectHTTP,
+
+		"request":        ModifyRequest,
+		"modifyrequest":  ModifyRequest,
+		"response":       ModifyResponse,
+		"modifyresponse": ModifyResponse,
+		"setxforwarded":  SetXForwarded,
+		"hidexforwarded": HideXForwarded,
+
+		"errorpage":       CustomErrorPage,
+		"customerrorpage": CustomErrorPage,
+
 		"realip":           RealIP,
 		"cloudflarerealip": CloudflareRealIP,
-		"cidrwhitelist":    CIDRWhiteList,
-		"ratelimit":        RateLimiter,
+
+		"cidrwhitelist": CIDRWhiteList,
+		"ratelimit":     RateLimiter,
 
 		// !experimental
 		"forwardauth": ForwardAuth,

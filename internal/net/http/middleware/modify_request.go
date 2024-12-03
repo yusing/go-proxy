@@ -2,15 +2,16 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
 type (
 	modifyRequest struct {
 		modifyRequestOpts
-		m *Middleware
+		m                   *Middleware
+		needVarSubstitution bool
 	}
 	// order: set_headers -> add_headers -> hide_headers
 	modifyRequestOpts struct {
@@ -24,38 +25,49 @@ var ModifyRequest = &Middleware{withOptions: NewModifyRequest}
 
 func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	mr := new(modifyRequest)
-	mrFunc := mr.modifyRequest
-	if common.IsDebug {
-		mrFunc = mr.modifyRequestWithTrace
-	}
 	mr.m = &Middleware{
-		impl:   mr,
-		before: Rewrite(mrFunc),
+		impl: mr,
+		before: Rewrite(func(req *Request) {
+			mr.m.AddTraceRequest("before modify request", req)
+			mr.modifyHeaders(req, nil, req.Header)
+			mr.m.AddTraceRequest("after modify request", req)
+		}),
 	}
 	err := Deserialize(optsRaw, &mr.modifyRequestOpts)
 	if err != nil {
 		return nil, err
 	}
+	mr.checkVarSubstitution()
 	return mr.m, nil
 }
 
-func (mr *modifyRequest) modifyRequest(req *Request) {
-	for k, v := range mr.SetHeaders {
-		if http.CanonicalHeaderKey(k) == "Host" {
-			req.Host = v
+func (mr *modifyRequest) checkVarSubstitution() {
+	for _, m := range []map[string]string{mr.SetHeaders, mr.AddHeaders} {
+		for _, v := range m {
+			if strings.Contains(v, "$") {
+				mr.needVarSubstitution = true
+				return
+			}
 		}
-		req.Header.Set(k, v)
-	}
-	for k, v := range mr.AddHeaders {
-		req.Header.Add(k, v)
-	}
-	for _, k := range mr.HideHeaders {
-		req.Header.Del(k)
 	}
 }
 
-func (mr *modifyRequest) modifyRequestWithTrace(req *Request) {
-	mr.m.AddTraceRequest("before modify request", req)
-	mr.modifyRequest(req)
-	mr.m.AddTraceRequest("after modify request", req)
+func (mr *modifyRequest) modifyHeaders(req *Request, resp *Response, headers http.Header) {
+	replaceVars := varReplacerDummy
+	if mr.needVarSubstitution {
+		replaceVars = varReplacer(req, resp)
+	}
+
+	for k, v := range mr.SetHeaders {
+		if strings.ToLower(k) == "host" {
+			req.Host = replaceVars(v)
+		}
+		headers.Set(k, replaceVars(v))
+	}
+	for k, v := range mr.AddHeaders {
+		headers.Add(k, replaceVars(v))
+	}
+	for _, k := range mr.HideHeaders {
+		headers.Del(k)
+	}
 }
