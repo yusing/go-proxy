@@ -40,8 +40,10 @@ const (
 )
 
 // function alias.
-var NewRoutes = F.NewMap[Routes]
-var NewProxyEntries = types.NewProxyEntries
+var (
+	NewRoutes       = F.NewMap[Routes]
+	NewProxyEntries = types.NewProxyEntries
+)
 
 func (rt *Route) Container() *docker.Container {
 	if rt.Entry.Container == nil {

@@ -218,7 +218,9 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	if r.Header.Get(common.HeaderCheckRedirect) != "" {
 		// wake all servers
 		for _, srv := range srvs {
-			srv.TryWake()
+			if err := srv.TryWake(); err != nil {
+				lb.l.Warn().Err(err).Str("server", srv.Name).Msg("failed to wake server")
+			}
 		}
 	}
 	lb.impl.ServeHTTP(srvs, rw, r)

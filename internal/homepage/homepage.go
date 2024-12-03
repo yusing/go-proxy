@@ -10,8 +10,8 @@ type (
 		Icon         string         `json:"icon" yaml:"icon"`
 		URL          string         `json:"url" yaml:"url"` // alias + domain
 		Category     string         `json:"category" yaml:"category"`
-		Description  string         `json:"description" yaml:"description"`
-		WidgetConfig map[string]any `json:"widget_config" yaml:",flow"`
+		Description  string         `json:"description" yaml:"description" aliases:"desc"`
+		WidgetConfig map[string]any `json:"widget_config" yaml:",flow" aliases:"widget"`
 
 		SourceType string `json:"source_type" yaml:"-"`
 		AltURL     string `json:"alt_url" yaml:"-"` // original proxy target

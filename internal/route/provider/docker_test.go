@@ -8,7 +8,6 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/docker"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
@@ -17,9 +16,7 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-var (
-	dummyNames = []string{"/a"}
-)
+var dummyNames = []string{"/a"}
 
 func makeEntries(cont *types.Container, dockerHost ...string) route.RawEntries {
 	var p DockerProvider
@@ -29,7 +26,7 @@ func makeEntries(cont *types.Container, dockerHost ...string) route.RawEntries {
 	} else {
 		host = client.DefaultDockerHost
 	}
-	entries := E.Must(p.entriesFromContainerLabels(docker.FromDocker(cont, host)))
+	entries := E.Must(p.entriesFromContainerLabels(D.FromDocker(cont, host)))
 	entries.RangeAll(func(k string, v *route.RawEntry) {
 		v.Finalize()
 	})
@@ -269,7 +266,9 @@ func TestPrivateIPLocalhost(t *testing.T) {
 				"network": {
 					IPAddress: "172.17.0.123",
 				},
-			}}}
+			},
+		},
+	}
 	raw, ok := makeEntries(c).Load("a")
 	ExpectTrue(t, ok)
 	ExpectEqual(t, raw.Container.PrivateIP, "172.17.0.123")
@@ -286,7 +285,8 @@ func TestPrivateIPRemote(t *testing.T) {
 					IPAddress: "172.17.0.123",
 				},
 			},
-		}}
+		},
+	}
 	raw, ok := makeEntries(c, "tcp://1.2.3.4:2375").Load("a")
 	ExpectTrue(t, ok)
 	ExpectEqual(t, raw.Container.PrivateIP, "")

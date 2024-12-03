@@ -8,12 +8,11 @@ import (
 
 func Inspect(dockerHost string, containerID string) (*Container, error) {
 	client, err := ConnectClient(dockerHost)
-	defer client.Close()
-
 	if err != nil {
 		return nil, err
 	}
 
+	defer client.Close()
 	return client.Inspect(containerID)
 }
 

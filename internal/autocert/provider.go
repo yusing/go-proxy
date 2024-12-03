@@ -204,15 +204,14 @@ func (p *Provider) registerACME() error {
 		p.user.Registration = reg
 		logger.Info().Msg("reused acme registration from private key")
 		return nil
-	} else {
-		reg, err := p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
-		if err != nil {
-			return err
-		}
-		p.user.Registration = reg
-		logger.Info().Interface("reg", reg).Msg("acme registered")
 	}
 
+	reg, err := p.client.Registration.Register(registration.RegisterOptions{TermsOfServiceAgreed: true})
+	if err != nil {
+		return err
+	}
+	p.user.Registration = reg
+	logger.Info().Interface("reg", reg).Msg("acme registered")
 	return nil
 }
 

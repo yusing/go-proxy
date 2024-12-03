@@ -40,7 +40,10 @@ func jsonIfTemplateNotUsed(fl validator.FieldLevel) bool {
 }
 
 func init() {
-	utils.Validator().RegisterValidation("jsonIfTemplateNotUsed", jsonIfTemplateNotUsed)
+	err := utils.Validator().RegisterValidation("jsonIfTemplateNotUsed", jsonIfTemplateNotUsed)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Name implements Provider.
@@ -52,9 +55,8 @@ func (webhook *Webhook) Name() string {
 func (webhook *Webhook) Method() string {
 	if webhook.Meth != "" {
 		return webhook.Meth
-	} else {
-		return http.MethodPost
 	}
+	return http.MethodPost
 }
 
 // URL implements Provider.
@@ -71,17 +73,16 @@ func (webhook *Webhook) Token() string {
 func (webhook *Webhook) MIMEType() string {
 	if webhook.MIMETyp != "" {
 		return webhook.MIMETyp
-	} else {
-		return "application/json"
 	}
+	return "application/json"
 }
 
-func (Webhook *Webhook) ColorMode() string {
-	switch Webhook.Template {
+func (webhook *Webhook) ColorMode() string {
+	switch webhook.Template {
 	case "discord":
 		return "dec"
 	default:
-		return Webhook.ColorM
+		return webhook.ColorM
 	}
 }
 
@@ -119,7 +120,7 @@ func (webhook *Webhook) MakeBody(logMsg *LogMessage) (io.Reader, error) {
 	plTempl := strings.NewReplacer(
 		"$title", string(title),
 		"$message", string(message),
-		"$fields", string(fields),
+		"$fields", fields,
 		"$color", color,
 	)
 	var pl string

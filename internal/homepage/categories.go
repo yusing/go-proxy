@@ -1,6 +1,6 @@
 package homepage
 
-// PredefinedCategories by alias or docker image name
+// PredefinedCategories by alias or docker image name.
 var PredefinedCategories = map[string]string{
 	"sonarr":       "Torrenting",
 	"radarr":       "Torrenting",
