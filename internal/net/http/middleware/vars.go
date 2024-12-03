@@ -13,9 +13,10 @@ import (
 type varReplaceFunc func(string) string
 
 var (
-	reArg    = regexp.MustCompile(`\$arg\([\w-_]+\)`)
-	reHeader = regexp.MustCompile(`\$header\([\w-]+\)`)
-	reStatic = regexp.MustCompile(`\$[\w_]+`)
+	reArg        = regexp.MustCompile(`\$arg\([\w-_]+\)`)
+	reHeader     = regexp.MustCompile(`\$header\([\w-]+\)`)
+	reRespHeader = regexp.MustCompile(`\$resp_header\([\w-]+\)`)
+	reStatic     = regexp.MustCompile(`\$[\w_]+`)
 )
 
 func varSubsMap(req *Request, resp *Response) map[string]func() string {
@@ -90,6 +91,13 @@ func varReplacer(req *Request, resp *Response) varReplaceFunc {
 			header := http.CanonicalHeaderKey(match[8 : len(match)-1])
 			return req.Header.Get(header)
 		})
+
+		if resp != nil {
+			s = reRespHeader.ReplaceAllStringFunc(s, func(match string) string {
+				header := http.CanonicalHeaderKey(match[14 : len(match)-1])
+				return resp.Header.Get(header)
+			})
+		}
 
 		// Replace static variables
 		return reStatic.ReplaceAllStringFunc(s, func(match string) string {
