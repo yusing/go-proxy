@@ -34,6 +34,8 @@ const (
 	VarRequestURI         = "$req_uri"
 	VarRequestContentType = "$req_content_type"
 	VarRequestContentLen  = "$req_content_length"
+	VarRemoteHost         = "$remote_host"
+	VarRemotePort         = "$remote_port"
 	VarRemoteAddr         = "$remote_addr"
 	VarUpstreamScheme     = "$upstream_scheme"
 	VarUpstreamHost       = "$upstream_host"
@@ -72,10 +74,24 @@ var staticReqVarSubsMap = map[string]reqVarGetter{
 	VarRequestURI:         func(req *Request) string { return req.URL.RequestURI() },
 	VarRequestContentType: func(req *Request) string { return req.Header.Get("Content-Type") },
 	VarRequestContentLen:  func(req *Request) string { return strconv.FormatInt(req.ContentLength, 10) },
-	VarRemoteAddr:         func(req *Request) string { return req.RemoteAddr },
-	VarUpstreamScheme:     func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamScheme) },
-	VarUpstreamHost:       func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamHost) },
-	VarUpstreamPort:       func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamPort) },
+	VarRemoteHost: func(req *Request) string {
+		clientIP, _, err := net.SplitHostPort(req.RemoteAddr)
+		if err == nil {
+			return clientIP
+		}
+		return ""
+	},
+	VarRemotePort: func(req *Request) string {
+		_, clientPort, err := net.SplitHostPort(req.RemoteAddr)
+		if err == nil {
+			return clientPort
+		}
+		return ""
+	},
+	VarRemoteAddr:     func(req *Request) string { return req.RemoteAddr },
+	VarUpstreamScheme: func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamScheme) },
+	VarUpstreamHost:   func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamHost) },
+	VarUpstreamPort:   func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamPort) },
 	VarUpstreamAddr: func(req *Request) string {
 		upHost := req.Header.Get(gphttp.HeaderUpstreamHost)
 		upPort := req.Header.Get(gphttp.HeaderUpstreamPort)

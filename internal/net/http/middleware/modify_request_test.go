@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"net"
 	"net/http"
 	"slices"
 	"testing"
@@ -26,6 +27,8 @@ func TestModifyRequest(t *testing.T) {
 			"X-Test-Req-Uri":             VarRequestURI,
 			"X-Test-Req-Content-Type":    VarRequestContentType,
 			"X-Test-Req-Content-Length":  VarRequestContentLen,
+			"X-Test-Remote-Host":         VarRemoteHost,
+			"X-Test-Remote-Port":         VarRemotePort,
 			"X-Test-Remote-Addr":         VarRemoteAddr,
 			"X-Test-Upstream-Scheme":     VarUpstreamScheme,
 			"X-Test-Upstream-Host":       VarUpstreamHost,
@@ -76,6 +79,10 @@ func TestModifyRequest(t *testing.T) {
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Req-Uri"), reqURL.RequestURI())
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Req-Content-Type"), "application/json")
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Req-Content-Length"), "100")
+
+		remoteHost, remotePort, _ := net.SplitHostPort(result.RemoteAddr)
+		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Remote-Host"), remoteHost)
+		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Remote-Port"), remotePort)
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Remote-Addr"), result.RemoteAddr)
 
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Upstream-Scheme"), upstreamURL.Scheme)
