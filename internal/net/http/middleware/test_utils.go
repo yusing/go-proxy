@@ -34,24 +34,39 @@ func init() {
 }
 
 type requestRecorder struct {
+	args *testArgs
+
 	parent     http.RoundTripper
 	headers    http.Header
 	remoteAddr string
 }
 
-func (rt *requestRecorder) RoundTrip(req *http.Request) (*http.Response, error) {
+func newRequestRecorder(args *testArgs) *requestRecorder {
+	return &requestRecorder{args: args}
+}
+
+func (rt *requestRecorder) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	rt.headers = req.Header
 	rt.remoteAddr = req.RemoteAddr
 	if rt.parent != nil {
-		return rt.parent.RoundTrip(req)
+		resp, err = rt.parent.RoundTrip(req)
+	} else {
+		resp = &http.Response{
+			Status:        http.StatusText(rt.args.respStatus),
+			StatusCode:    rt.args.respStatus,
+			Header:        testHeaders,
+			Body:          io.NopCloser(bytes.NewReader(rt.args.respBody)),
+			ContentLength: int64(len(rt.args.respBody)),
+			Request:       req,
+			TLS:           req.TLS,
+		}
 	}
-	return &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     testHeaders,
-		Body:       io.NopCloser(bytes.NewBufferString("OK")),
-		Request:    req,
-		TLS:        req.TLS,
-	}, nil
+	if err == nil {
+		for k, v := range rt.args.respHeaders {
+			resp.Header[k] = v
+		}
+	}
+	return resp, nil
 }
 
 type TestResult struct {
@@ -64,56 +79,84 @@ type TestResult struct {
 
 type testArgs struct {
 	middlewareOpt OptionsRaw
-	reqURL        types.URL
 	upstreamURL   types.URL
-	body          []byte
+
 	realRoundTrip bool
-	headers       http.Header
+
+	reqURL    types.URL
+	reqMethod string
+	headers   http.Header
+	body      []byte
+
+	respHeaders http.Header
+	respBody    []byte
+	respStatus  int
 }
 
-func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.Error) {
-	var body io.Reader
-	var rr requestRecorder
-	var err error
-
-	if args == nil {
-		args = new(testArgs)
-	}
-
-	if args.body != nil {
-		body = bytes.NewReader(args.body)
-	}
-
+func (args *testArgs) setDefaults() {
 	if args.reqURL.Nil() {
 		args.reqURL = E.Must(types.ParseURL("https://example.com"))
 	}
-
-	req := httptest.NewRequest(http.MethodGet, args.reqURL.String(), body)
-	for k, v := range args.headers {
-		req.Header[k] = v
+	if args.reqMethod == "" {
+		args.reqMethod = http.MethodGet
 	}
-	w := httptest.NewRecorder()
-
 	if args.upstreamURL.Nil() {
 		args.upstreamURL = E.Must(types.ParseURL("https://10.0.0.1:8443")) // dummy url, no actual effect
 	}
+	if args.respHeaders == nil {
+		args.respHeaders = http.Header{}
+	}
+	if args.respBody == nil {
+		args.respBody = []byte("OK")
+	}
+	if args.respStatus == 0 {
+		args.respStatus = http.StatusOK
+	}
+}
 
+func (args *testArgs) bodyReader() io.Reader {
+	if args.body != nil {
+		return bytes.NewReader(args.body)
+	}
+	return nil
+}
+
+func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.Error) {
+	if args == nil {
+		args = new(testArgs)
+	}
+	args.setDefaults()
+
+	req := httptest.NewRequest(args.reqMethod, args.reqURL.String(), args.bodyReader())
+	for k, v := range args.headers {
+		req.Header[k] = v
+	}
+
+	w := httptest.NewRecorder()
+
+	rr := newRequestRecorder(args)
 	if args.realRoundTrip {
 		rr.parent = http.DefaultTransport
 	}
-	rp := gphttp.NewReverseProxy(middleware.name, args.upstreamURL, &rr)
+
+	rp := gphttp.NewReverseProxy(middleware.name, args.upstreamURL, rr)
+
 	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr
 	}
+
 	patchReverseProxy(rp, []*Middleware{mid})
 	rp.ServeHTTP(w, req)
+
 	resp := w.Result()
 	defer resp.Body.Close()
+
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, E.From(err)
 	}
+
 	return &TestResult{
 		RequestHeaders:  rr.headers,
 		ResponseHeaders: resp.Header,

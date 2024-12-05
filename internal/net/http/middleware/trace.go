@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
 	"time"
 
@@ -42,7 +43,7 @@ func (tr *Trace) WithRequest(req *Request) *Trace {
 	return tr
 }
 
-func (tr *Trace) WithResponse(resp *Response) *Trace {
+func (tr *Trace) WithResponse(resp *http.Response) *Trace {
 	if tr == nil {
 		return nil
 	}
@@ -103,7 +104,7 @@ func (m *Middleware) AddTraceRequest(msg string, req *Request) *Trace {
 	return m.AddTracef("%s", msg).WithRequest(req)
 }
 
-func (m *Middleware) AddTraceResponse(msg string, resp *Response) *Trace {
+func (m *Middleware) AddTraceResponse(msg string, resp *http.Response) *Trace {
 	if !m.trace {
 		return nil
 	}

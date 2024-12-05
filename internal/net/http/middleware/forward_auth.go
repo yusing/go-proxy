@@ -137,13 +137,13 @@ func (fa *forwardAuth) forward(next http.HandlerFunc, w ResponseWriter, req *Req
 		return
 	}
 
-	next.ServeHTTP(gphttp.NewModifyResponseWriter(w, req, func(resp *Response) error {
+	next.ServeHTTP(gphttp.NewModifyResponseWriter(w, req, func(resp *http.Response) error {
 		fa.setAuthCookies(resp, authCookies)
 		return nil
 	}), req)
 }
 
-func (fa *forwardAuth) setAuthCookies(resp *Response, authCookies []*Cookie) {
+func (fa *forwardAuth) setAuthCookies(resp *http.Response, authCookies []*Cookie) {
 	if len(fa.AddAuthCookiesToResponse) == 0 {
 		return
 	}

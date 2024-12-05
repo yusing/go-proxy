@@ -16,14 +16,14 @@ type (
 	ReverseProxy   = gphttp.ReverseProxy
 	ProxyRequest   = gphttp.ProxyRequest
 	Request        = http.Request
-	Response       = http.Response
+	Response       = gphttp.ProxyResponse
 	ResponseWriter = http.ResponseWriter
 	Header         = http.Header
 	Cookie         = http.Cookie
 
 	BeforeFunc         func(next http.HandlerFunc, w ResponseWriter, r *Request)
 	RewriteFunc        func(req *Request)
-	ModifyResponseFunc = gphttp.ModifyResponseFunc
+	ModifyResponseFunc func(*Response) error
 	CloneWithOptFunc   func(opts OptionsRaw) (*Middleware, E.Error)
 
 	OptionsRaw = map[string]any
@@ -116,7 +116,9 @@ func (m *Middleware) ModifyResponse(resp *Response) error {
 
 func (m *Middleware) ServeHTTP(next http.HandlerFunc, w ResponseWriter, r *Request) {
 	if m.modifyResponse != nil {
-		w = gphttp.NewModifyResponseWriter(w, r, m.modifyResponse)
+		w = gphttp.NewModifyResponseWriter(w, r, func(resp *http.Response) error {
+			return m.modifyResponse(&Response{Response: resp, OriginalRequest: r})
+		})
 	}
 	if m.before != nil {
 		m.before(next, w, r)
@@ -176,7 +178,7 @@ func patchReverseProxy(rp *ReverseProxy, middlewares []*Middleware) {
 
 	if mid.before != nil {
 		ori := rp.HandlerFunc
-		rp.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		rp.HandlerFunc = func(w http.ResponseWriter, r *Request) {
 			mid.before(ori, w, r)
 		}
 	}
@@ -184,7 +186,7 @@ func patchReverseProxy(rp *ReverseProxy, middlewares []*Middleware) {
 	if mid.modifyResponse != nil {
 		if rp.ModifyResponse != nil {
 			ori := rp.ModifyResponse
-			rp.ModifyResponse = func(res *http.Response) error {
+			rp.ModifyResponse = func(res *Response) error {
 				if err := mid.modifyResponse(res); err != nil {
 					return err
 				}

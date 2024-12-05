@@ -87,7 +87,7 @@ type ReverseProxy struct {
 	// If ModifyResponse returns an error, ErrorHandler is called
 	// with its error value. If ErrorHandler is nil, its default
 	// implementation is used.
-	ModifyResponse func(*http.Response) error
+	ModifyResponse func(*ProxyResponse) error
 
 	HandlerFunc http.HandlerFunc
 
@@ -199,11 +199,11 @@ func (p *ReverseProxy) UnregisterMetrics() {
 	metrics.GetRouteMetrics().UnregisterService(p.TargetName)
 }
 
-func rewriteRequestURL(req *http.Request, target types.URL) {
-	targetQuery := target.RawQuery
-	req.URL.Scheme = target.Scheme
-	req.URL.Host = target.Host
-	req.URL.Path, req.URL.RawPath = joinURLPath(target.URL, req.URL)
+func (p *ReverseProxy) rewriteRequestURL(req *http.Request) {
+	targetQuery := p.TargetURL.RawQuery
+	req.URL.Scheme = p.TargetURL.Scheme
+	req.URL.Host = p.TargetURL.Host
+	req.URL.Path, req.URL.RawPath = joinURLPath(p.TargetURL.URL, req.URL)
 	if targetQuery == "" || req.URL.RawQuery == "" {
 		req.URL.RawQuery = targetQuery + req.URL.RawQuery
 	} else {
@@ -251,11 +251,11 @@ func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err
 
 // modifyResponse conditionally runs the optional ModifyResponse hook
 // and reports whether the request should proceed.
-func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response, req *http.Request) bool {
+func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response, oriReq, req *http.Request) bool {
 	if p.ModifyResponse == nil {
 		return true
 	}
-	if err := p.ModifyResponse(res); err != nil {
+	if err := p.ModifyResponse(&ProxyResponse{Response: res, OriginalRequest: oriReq}); err != nil {
 		res.Body.Close()
 		p.errorHandler(rw, req, err, true)
 		return false
@@ -349,7 +349,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		outreq.Header = make(http.Header) // Issue 33142: historical behavior was to always allocate
 	}
 
-	rewriteRequestURL(outreq, p.TargetURL)
+	p.rewriteRequestURL(outreq)
 	outreq.Close = false
 
 	reqUpType := UpgradeType(outreq.Header)
@@ -439,6 +439,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	outreq = outreq.WithContext(httptrace.WithClientTrace(outreq.Context(), trace))
 
 	res, err := transport.RoundTrip(outreq)
+
 	roundTripMutex.Lock()
 	roundTripDone = true
 	roundTripMutex.Unlock()
@@ -459,7 +460,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 
 	// Deal with 101 Switching Protocols responses: (WebSocket, h2c, etc)
 	if res.StatusCode == http.StatusSwitchingProtocols {
-		if !p.modifyResponse(rw, res, outreq) {
+		if !p.modifyResponse(rw, res, req, outreq) {
 			return
 		}
 		p.handleUpgradeResponse(rw, outreq, res)
@@ -468,7 +469,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 
 	RemoveHopByHopHeaders(res.Header)
 
-	if !p.modifyResponse(rw, res, outreq) {
+	if !p.modifyResponse(rw, res, req, outreq) {
 		return
 	}
 

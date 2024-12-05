@@ -10,30 +10,30 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-func TestSetModifyRequest(t *testing.T) {
+func TestModifyRequest(t *testing.T) {
 	opts := OptionsRaw{
 		"set_headers": map[string]string{
-			"User-Agent":                "go-proxy/v0.5.0",
-			"Host":                      "$upstream_addr",
-			"X-Test-Req-Method":         "$req_method",
-			"X-Test-Req-Scheme":         "$req_scheme",
-			"X-Test-Req-Host":           "$req_host",
-			"X-Test-Req-Port":           "$req_port",
-			"X-Test-Req-Addr":           "$req_addr",
-			"X-Test-Req-Path":           "$req_path",
-			"X-Test-Req-Query":          "$req_query",
-			"X-Test-Req-Url":            "$req_url",
-			"X-Test-Req-Uri":            "$req_uri",
-			"X-Test-Req-Content-Type":   "$req_content_type",
-			"X-Test-Req-Content-Length": "$req_content_length",
-			"X-Test-Remote-Addr":        "$remote_addr",
-			"X-Test-Upstream-Scheme":    "$upstream_scheme",
-			"X-Test-Upstream-Host":      "$upstream_host",
-			"X-Test-Upstream-Port":      "$upstream_port",
-			"X-Test-Upstream-Addr":      "$upstream_addr",
-			"X-Test-Upstream-Url":       "$upstream_url",
-			"X-Test-Content-Type":       "$header(Content-Type)",
-			"X-Test-Arg-Arg_1":          "$arg(arg_1)",
+			"User-Agent":                 "go-proxy/v0.5.0",
+			"Host":                       VarUpstreamAddr,
+			"X-Test-Req-Method":          VarRequestMethod,
+			"X-Test-Req-Scheme":          VarRequestScheme,
+			"X-Test-Req-Host":            VarRequestHost,
+			"X-Test-Req-Port":            VarRequestPort,
+			"X-Test-Req-Addr":            VarRequestAddr,
+			"X-Test-Req-Path":            VarRequestPath,
+			"X-Test-Req-Query":           VarRequestQuery,
+			"X-Test-Req-Url":             VarRequestURL,
+			"X-Test-Req-Uri":             VarRequestURI,
+			"X-Test-Req-Content-Type":    VarRequestContentType,
+			"X-Test-Req-Content-Length":  VarRequestContentLen,
+			"X-Test-Remote-Addr":         VarRemoteAddr,
+			"X-Test-Upstream-Scheme":     VarUpstreamScheme,
+			"X-Test-Upstream-Host":       VarUpstreamHost,
+			"X-Test-Upstream-Port":       VarUpstreamPort,
+			"X-Test-Upstream-Addr":       VarUpstreamAddr,
+			"X-Test-Upstream-Url":        VarUpstreamURL,
+			"X-Test-Header-Content-Type": "$header(Content-Type)",
+			"X-Test-Arg-Arg_1":           "$arg(arg_1)",
 		},
 		"add_headers":  map[string]string{"Accept-Encoding": "test-value"},
 		"hide_headers": []string{"Accept"},
@@ -84,7 +84,7 @@ func TestSetModifyRequest(t *testing.T) {
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Upstream-Addr"), upstreamURL.Host)
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Upstream-Url"), upstreamURL.String())
 
-		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Content-Type"), "application/json")
+		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Header-Content-Type"), "application/json")
 
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Arg-Arg_1"), "b")
 	})
