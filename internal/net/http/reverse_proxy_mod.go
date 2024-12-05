@@ -275,11 +275,11 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		t := time.Now()
 		var visitor string
 		if realIPs := req.Header.Values("X-Real-IP"); len(realIPs) > 0 {
-			visitor = realIPs[len(realIPs)-1]
+			visitor = realIPs[0]
 		}
 		if visitor == "" {
 			if fwdIPs := req.Header.Values("X-Forwarded-For"); len(fwdIPs) > 0 {
-				visitor = fwdIPs[len(fwdIPs)-1]
+				visitor = fwdIPs[0]
 			}
 		}
 		if visitor == "" {
