@@ -1,0 +1,27 @@
+---
+services:
+  n8n:
+    image: n8nio/n8n
+    container_name: n8n
+    restart: always
+    expose:
+      - 5678
+    labels:
+      proxy.n8n.middlewares.request.set_headers: |
+        SSLRedirect: true
+        STSSeconds: 315360000
+        browserXSSFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        SSLHost: ${DOMAIN_NAME}
+        STSIncludeSubdomains: true
+        STSPreload: true
+    environment:
+      - N8N_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=https
+      - NODE_ENV=production
+      - WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+      - GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+    volumes:
+      - ./data:/home/node/.n8n
