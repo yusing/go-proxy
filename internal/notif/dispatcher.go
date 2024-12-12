@@ -46,6 +46,9 @@ func StartNotifDispatcher(parent task.Task) *Dispatcher {
 }
 
 func Notify(msg *LogMessage) {
+	if dispatcher == nil {
+		return
+	}
 	dispatcher.logCh <- msg
 }
 
