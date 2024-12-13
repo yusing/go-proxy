@@ -73,6 +73,7 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 			if err == nil {
 				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.HealthCheck)
 				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.HealthCheck, fallback)
+				r.task.OnCancel("close docker client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
