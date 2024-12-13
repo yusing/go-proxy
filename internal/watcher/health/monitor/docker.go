@@ -1,8 +1,6 @@
 package monitor
 
 import (
-	"bytes"
-
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/net/types"
 
@@ -36,16 +34,10 @@ func (mon *DockerHealthMonitor) CheckHealth() (result *health.HealthCheckResult,
 	}
 	result = new(health.HealthCheckResult)
 	result.Healthy = cont.State.Health.Status == dockerTypes.Healthy
-	detail := new(bytes.Buffer)
-	for _, status := range cont.State.Health.Log {
-		detail.WriteString(status.Output)
-		detail.WriteString("\n")
-	}
-	result.Detail = detail.String()
 	if len(cont.State.Health.Log) > 0 {
-		last := cont.State.Health.Log[len(cont.State.Health.Log)-1].End
-		first := cont.State.Health.Log[0].Start
-		result.Latency = last.Sub(first)
+		lastLog := cont.State.Health.Log[len(cont.State.Health.Log)-1]
+		result.Detail = lastLog.Output
+		result.Latency = lastLog.End.Sub(lastLog.Start)
 	}
 	return
 }
