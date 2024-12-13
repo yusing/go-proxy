@@ -2,7 +2,6 @@ package monitor
 
 import (
 	"github.com/yusing/go-proxy/internal/docker"
-	"github.com/yusing/go-proxy/internal/net/types"
 
 	dockerTypes "github.com/docker/docker/api/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -19,7 +18,7 @@ func NewDockerHealthMonitor(client *docker.SharedClient, containerID string, con
 	mon := new(DockerHealthMonitor)
 	mon.client = client
 	mon.containerID = containerID
-	mon.monitor = newMonitor(types.URL{}, config, mon.CheckHealth)
+	mon.monitor = newMonitor(fallback.URL(), config, mon.CheckHealth)
 	mon.fallback = fallback
 	return mon
 }

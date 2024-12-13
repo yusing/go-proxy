@@ -38,7 +38,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/goccy/go-json v0.10.3 // indirect
+	github.com/goccy/go-json v0.10.4 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
@@ -57,15 +57,15 @@ require (
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.61.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.57.0 // indirect
-	go.opentelemetry.io/otel v1.32.0 // indirect
+	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.58.0 // indirect
+	go.opentelemetry.io/otel v1.33.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.30.0 // indirect
-	go.opentelemetry.io/otel/metric v1.32.0 // indirect
+	go.opentelemetry.io/otel/metric v1.33.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.30.0 // indirect
-	go.opentelemetry.io/otel/trace v1.32.0 // indirect
-	golang.org/x/crypto v0.30.0 // indirect
+	go.opentelemetry.io/otel/trace v1.33.0 // indirect
+	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/oauth2 v0.24.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect

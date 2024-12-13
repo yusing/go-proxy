@@ -66,9 +66,8 @@ func BuildMiddlewareFromChainRaw(name string, defs []map[string]any) (*Middlewar
 	}
 	if chainErr.HasError() {
 		return nil, chainErr.Error()
-	} else {
-		return BuildMiddlewareFromChain(name, chain), nil
 	}
+	return BuildMiddlewareFromChain(name, chain), nil
 }
 
 // TODO: check conflict or duplicates.
