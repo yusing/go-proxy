@@ -406,7 +406,6 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	outreq.Header.Set(HeaderXForwardedProto, reqScheme)
 	outreq.Header.Set(HeaderXForwardedHost, req.Host)
 	outreq.Header.Set(HeaderXForwardedURI, req.RequestURI)
-	outreq.Header.Set("Origin", reqScheme+"://"+req.Host)
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
 		// If the outbound request doesn't have a User-Agent header set,

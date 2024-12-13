@@ -10,7 +10,7 @@
     }
   ],
   "patternProperties": {
-    "^[a-zA-Z0-9_-]+$": {
+    ".+": {
       "title": "Proxy entry",
       "type": "object",
       "properties": {
