@@ -274,12 +274,20 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	if common.PrometheusEnabled {
 		t := time.Now()
 		var visitor string
-		if realIPs := req.Header.Values("X-Real-IP"); len(realIPs) > 0 {
-			visitor = realIPs[0]
+		if realIPs := req.Header.Values(HeaderXRealIP); len(realIPs) > 0 {
+			if len(realIPs) == 1 {
+				visitor = realIPs[0]
+			} else {
+				p.Warn().Strs("real_ips", realIPs).
+					Str("remote_addr", req.RemoteAddr).
+					Str("request_url", req.URL.String()).
+					Msg("client sent multiple 'X-Real-IP' values, ignoring.")
+			}
 		}
 		if visitor == "" {
-			if fwdIPs := req.Header.Values("X-Forwarded-For"); len(fwdIPs) > 0 {
-				visitor = fwdIPs[0]
+			if fwdIPs := req.Header.Values(HeaderXForwardedFor); len(fwdIPs) > 0 {
+				// right-most IP is the visitor
+				visitor = fwdIPs[len(fwdIPs)-1]
 			}
 		}
 		if visitor == "" {
@@ -385,13 +393,13 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		// If we aren't the first proxy retain prior
 		// X-Forwarded-For information as a comma+space
 		// separated list and fold multiple headers into one.
-		prior, ok := outreq.Header["X-Forwarded-For"]
+		prior, ok := outreq.Header[HeaderXForwardedFor]
 		omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
 		if len(prior) > 0 {
 			clientIP = strings.Join(prior, ", ") + ", " + clientIP
 		}
 		if !omit {
-			outreq.Header.Set("X-Forwarded-For", clientIP)
+			outreq.Header.Set(HeaderXForwardedFor, clientIP)
 		}
 	}
 
