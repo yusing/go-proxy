@@ -16,6 +16,7 @@ import (
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -26,7 +27,10 @@ type (
 		config  *health.HealthCheckConfig
 		url     U.AtomicValue[types.URL]
 
-		status      U.AtomicValue[health.Status]
+		status     U.AtomicValue[health.Status]
+		lastResult *health.HealthCheckResult
+		lastSeen   time.Time
+
 		checkHealth HealthCheckFunc
 		startTime   time.Time
 
@@ -149,13 +153,17 @@ func (mon *monitor) String() string {
 
 // MarshalJSON implements json.Marshaler of HealthMonitor.
 func (mon *monitor) MarshalJSON() ([]byte, error) {
+	res := mon.lastResult
 	return (&JSONRepresentation{
-		Name:    mon.service,
-		Config:  mon.config,
-		Status:  mon.status.Load(),
-		Started: mon.startTime,
-		Uptime:  mon.Uptime(),
-		URL:     mon.url.Load(),
+		Name:     mon.service,
+		Config:   mon.config,
+		Status:   mon.status.Load(),
+		Started:  mon.startTime,
+		Uptime:   mon.Uptime(),
+		Latency:  res.Latency,
+		LastSeen: mon.lastSeen,
+		Detail:   res.Detail,
+		URL:      mon.url.Load(),
 	}).MarshalJSON()
 }
 
@@ -170,19 +178,28 @@ func (mon *monitor) checkUpdateHealth() error {
 		}
 		return nil
 	}
+
+	mon.lastResult = result
 	var status health.Status
 	if result.Healthy {
 		status = health.StatusHealthy
+		mon.lastSeen = time.Now()
 	} else {
 		status = health.StatusUnhealthy
 	}
 	if result.Healthy != (mon.status.Swap(status) == health.StatusHealthy) {
 		extras := map[string]any{
 			"Service Name": mon.service,
-			"Service URL":  mon.url.Load().String(),
+			"Last Seen":    strutils.FormatTime(mon.lastSeen),
+		}
+		if !mon.url.Load().Nil() {
+			extras["Service URL"] = mon.url.Load().String()
+		}
+		if result.Detail != "" {
+			extras["Detail"] = result.Detail
 		}
 		if result.Healthy {
-			logger.Info().Msg("server is up")
+			logger.Info().Msg("service is up")
 			extras["Ping"] = fmt.Sprintf("%d ms", result.Latency.Milliseconds())
 			notif.Notify(&notif.LogMessage{
 				Title:  "✅ Service is up ✅",
@@ -190,9 +207,7 @@ func (mon *monitor) checkUpdateHealth() error {
 				Color:  notif.Green,
 			})
 		} else {
-			logger.Warn().Msg("server is down")
-			logger.Debug().Msg(result.Detail)
-			extras["Detail"] = result.Detail
+			logger.Warn().Msg("service went down")
 			notif.Notify(&notif.LogMessage{
 				Title:  "❌ Service went down ❌",
 				Extras: extras,
