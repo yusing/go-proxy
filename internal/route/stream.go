@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	net "github.com/yusing/go-proxy/internal/net/types"
@@ -67,7 +68,16 @@ func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
 		r.Stream = waker
 		r.HealthMon = waker
 	case entry.UseHealthCheck(r):
-		r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
+		if entry.IsDocker(r) {
+			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
+			if err == nil {
+				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.HealthCheck)
+				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.HealthCheck, fallback)
+			}
+		}
+		if r.HealthMon == nil {
+			r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
+		}
 	}
 
 	if err := r.Stream.Setup(); err != nil {
