@@ -76,7 +76,7 @@ func MatchDomains() []string {
 }
 
 func WatchChanges() {
-	task := task.GlobalTask("Config watcher")
+	task := task.GlobalTask("config watcher")
 	eventQueue := events.NewEventQueue(
 		task,
 		configEventFlushInterval,
