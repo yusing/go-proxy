@@ -112,6 +112,5 @@ func (ri *realIP) setRealIP(req *Request) {
 	req.RemoteAddr = lastNonTrustedIP
 	req.Header.Set(ri.Header, lastNonTrustedIP)
 	req.Header.Set(gphttp.HeaderXRealIP, lastNonTrustedIP)
-	req.Header.Set(gphttp.HeaderXForwardedFor, lastNonTrustedIP)
 	ri.m.AddTracef("set real ip %s", lastNonTrustedIP)
 }
