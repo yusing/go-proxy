@@ -9,44 +9,61 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-type S = struct {
-	I   int
-	S   string
-	IS  []int
-	SS  []string
-	MSI map[string]int
-	MIS map[int]string
+func TestSerializeDeserialize(t *testing.T) {
+	type S struct {
+		I   int
+		S   string
+		IS  []int
+		SS  []string
+		MSI map[string]int
+		MIS map[int]string
+	}
+
+	var testStruct = S{
+		I:   1,
+		S:   "hello",
+		IS:  []int{1, 2, 3},
+		SS:  []string{"a", "b", "c"},
+		MSI: map[string]int{"a": 1, "b": 2, "c": 3},
+		MIS: map[int]string{1: "a", 2: "b", 3: "c"},
+	}
+
+	var testStructSerialized = map[string]any{
+		"I":   1,
+		"S":   "hello",
+		"IS":  []int{1, 2, 3},
+		"SS":  []string{"a", "b", "c"},
+		"MSI": map[string]int{"a": 1, "b": 2, "c": 3},
+		"MIS": map[int]string{1: "a", 2: "b", 3: "c"},
+	}
+
+	t.Run("serialize", func(t *testing.T) {
+		s, err := Serialize(testStruct)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, s, testStructSerialized)
+	})
+
+	t.Run("deserialize", func(t *testing.T) {
+		var s2 S
+		err := Deserialize(testStructSerialized, &s2)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, s2, testStruct)
+	})
 }
 
-var testStruct = S{
-	I:   1,
-	S:   "hello",
-	IS:  []int{1, 2, 3},
-	SS:  []string{"a", "b", "c"},
-	MSI: map[string]int{"a": 1, "b": 2, "c": 3},
-	MIS: map[int]string{1: "a", 2: "b", 3: "c"},
-}
-
-var testStructSerialized = map[string]any{
-	"I":   1,
-	"S":   "hello",
-	"IS":  []int{1, 2, 3},
-	"SS":  []string{"a", "b", "c"},
-	"MSI": map[string]int{"a": 1, "b": 2, "c": 3},
-	"MIS": map[int]string{1: "a", 2: "b", 3: "c"},
-}
-
-func TestSerialize(t *testing.T) {
-	s, err := Serialize(testStruct)
+func TestDeserializeAnonymousField(t *testing.T) {
+	type Anon struct {
+		A, B int
+	}
+	var s struct {
+		Anon
+		C int
+	}
+	err := Deserialize(map[string]any{"a": 1, "b": 2, "c": 3}, &s)
 	ExpectNoError(t, err)
-	ExpectDeepEqual(t, s, testStructSerialized)
-}
-
-func TestDeserialize(t *testing.T) {
-	var s S
-	err := Deserialize(testStructSerialized, &s)
-	ExpectNoError(t, err)
-	ExpectDeepEqual(t, s, testStruct)
+	ExpectEqual(t, s.A, 1)
+	ExpectEqual(t, s.B, 2)
+	ExpectEqual(t, s.C, 3)
 }
 
 func TestStringIntConvert(t *testing.T) {

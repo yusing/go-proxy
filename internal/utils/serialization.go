@@ -141,6 +141,28 @@ func Serialize(data any) (SerializedObject, error) {
 	return result, nil
 }
 
+func extractFields(t reflect.Type) []reflect.StructField {
+	for t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		return nil
+	}
+	var fields []reflect.StructField
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Anonymous {
+			fields = append(fields, extractFields(field.Type)...)
+		} else {
+			fields = append(fields, field)
+		}
+	}
+	return fields
+}
+
 // Deserialize takes a SerializedObject and a target value, and assigns the values in the SerializedObject to the target value.
 // Deserialize ignores case differences between the field names in the SerializedObject and the target.
 //
@@ -183,7 +205,8 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		needValidate := false
 		mapping := make(map[string]reflect.Value)
 		fieldName := make(map[string]string)
-		for _, field := range reflect.VisibleFields(dstT) {
+		fields := extractFields(dstT)
+		for _, field := range fields {
 			var key string
 			if jsonTag, ok := field.Tag.Lookup("json"); ok {
 				key = strings.Split(jsonTag, ",")[0]
