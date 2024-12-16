@@ -18,11 +18,16 @@ import (
 
 var dummyNames = []string{"/a"}
 
-func makeEntries(cont *types.Container, dockerHost ...string) route.RawEntries {
+const (
+	testIP       = "192.168.2.100"
+	testDockerIP = "172.17.0.123"
+)
+
+func makeEntries(cont *types.Container, dockerHostIP ...string) route.RawEntries {
 	var p DockerProvider
 	var host string
-	if len(dockerHost) > 0 {
-		host = dockerHost[0]
+	if len(dockerHostIP) > 0 {
+		host = "tcp://" + dockerHostIP[0] + ":2375"
 	} else {
 		host = client.DefaultDockerHost
 	}
@@ -252,9 +257,9 @@ func TestPublicIPLocalhost(t *testing.T) {
 
 func TestPublicIPRemote(t *testing.T) {
 	c := &types.Container{Names: dummyNames, State: "running"}
-	raw, ok := makeEntries(c, "tcp://1.2.3.4:2375").Load("a")
+	raw, ok := makeEntries(c, testIP).Load("a")
 	ExpectTrue(t, ok)
-	ExpectEqual(t, raw.Container.PublicIP, "1.2.3.4")
+	ExpectEqual(t, raw.Container.PublicIP, testIP)
 	ExpectEqual(t, raw.Host, raw.Container.PublicIP)
 }
 
@@ -264,14 +269,14 @@ func TestPrivateIPLocalhost(t *testing.T) {
 		NetworkSettings: &types.SummaryNetworkSettings{
 			Networks: map[string]*network.EndpointSettings{
 				"network": {
-					IPAddress: "172.17.0.123",
+					IPAddress: testDockerIP,
 				},
 			},
 		},
 	}
 	raw, ok := makeEntries(c).Load("a")
 	ExpectTrue(t, ok)
-	ExpectEqual(t, raw.Container.PrivateIP, "172.17.0.123")
+	ExpectEqual(t, raw.Container.PrivateIP, testDockerIP)
 	ExpectEqual(t, raw.Host, raw.Container.PrivateIP)
 }
 
@@ -282,15 +287,15 @@ func TestPrivateIPRemote(t *testing.T) {
 		NetworkSettings: &types.SummaryNetworkSettings{
 			Networks: map[string]*network.EndpointSettings{
 				"network": {
-					IPAddress: "172.17.0.123",
+					IPAddress: testDockerIP,
 				},
 			},
 		},
 	}
-	raw, ok := makeEntries(c, "tcp://1.2.3.4:2375").Load("a")
+	raw, ok := makeEntries(c, testIP).Load("a")
 	ExpectTrue(t, ok)
 	ExpectEqual(t, raw.Container.PrivateIP, "")
-	ExpectEqual(t, raw.Container.PublicIP, "1.2.3.4")
+	ExpectEqual(t, raw.Container.PublicIP, testIP)
 	ExpectEqual(t, raw.Host, raw.Container.PublicIP)
 }
 
@@ -326,13 +331,13 @@ func TestStreamDefaultValues(t *testing.T) {
 	})
 
 	t.Run("remote", func(t *testing.T) {
-		raw, ok := makeEntries(cont, "tcp://1.2.3.4:2375").Load("a")
+		raw, ok := makeEntries(cont, testIP).Load("a")
 		ExpectTrue(t, ok)
 		en := E.Must(entry.ValidateEntry(raw))
 		a := ExpectType[*entry.StreamEntry](t, en)
 		ExpectEqual(t, a.Scheme.ListeningScheme, T.Scheme("udp"))
 		ExpectEqual(t, a.Scheme.ProxyScheme, T.Scheme("udp"))
-		ExpectEqual(t, a.Host, "1.2.3.4")
+		ExpectEqual(t, a.Host, testIP)
 		ExpectEqual(t, a.Port.ListeningPort, 0)
 		ExpectEqual(t, a.Port.ProxyPort, T.Port(pubPort))
 	})
