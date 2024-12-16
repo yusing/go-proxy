@@ -37,11 +37,13 @@ const (
 	VarRemoteHost         = "$remote_host"
 	VarRemotePort         = "$remote_port"
 	VarRemoteAddr         = "$remote_addr"
-	VarUpstreamScheme     = "$upstream_scheme"
-	VarUpstreamHost       = "$upstream_host"
-	VarUpstreamPort       = "$upstream_port"
-	VarUpstreamAddr       = "$upstream_addr"
-	VarUpstreamURL        = "$upstream_url"
+
+	VarUpstreamName   = "$upstream_name"
+	VarUpstreamScheme = "$upstream_scheme"
+	VarUpstreamHost   = "$upstream_host"
+	VarUpstreamPort   = "$upstream_port"
+	VarUpstreamAddr   = "$upstream_addr"
+	VarUpstreamURL    = "$upstream_url"
 
 	VarRespContentType = "$resp_content_type"
 	VarRespContentLen  = "$resp_content_length"
@@ -89,6 +91,7 @@ var staticReqVarSubsMap = map[string]reqVarGetter{
 		return ""
 	},
 	VarRemoteAddr:     func(req *http.Request) string { return req.RemoteAddr },
+	VarUpstreamName:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamName) },
 	VarUpstreamScheme: func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamScheme) },
 	VarUpstreamHost:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamHost) },
 	VarUpstreamPort:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamPort) },

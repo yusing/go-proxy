@@ -13,6 +13,7 @@ const (
 	HeaderXForwardedURI    = "X-Forwarded-Uri"
 	HeaderXRealIP          = "X-Real-IP"
 
+	HeaderUpstreamName   = "X-GoDoxy-Upstream-Name"
 	HeaderUpstreamScheme = "X-GoDoxy-Upstream-Scheme"
 	HeaderUpstreamHost   = "X-GoDoxy-Upstream-Host"
 	HeaderUpstreamPort   = "X-GoDoxy-Upstream-Port"

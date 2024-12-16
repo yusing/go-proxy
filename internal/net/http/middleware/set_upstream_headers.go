@@ -8,13 +8,14 @@ import (
 
 // internal use only.
 type setUpstreamHeaders struct {
-	Scheme, Host, Port string
+	Name, Scheme, Host, Port string
 }
 
 var suh = NewMiddleware[setUpstreamHeaders]()
 
 func newSetUpstreamHeaders(rp *gphttp.ReverseProxy) *Middleware {
 	m, err := suh.New(OptionsRaw{
+		"name":   rp.TargetName,
 		"scheme": rp.TargetURL.Scheme,
 		"host":   rp.TargetURL.Hostname(),
 		"port":   rp.TargetURL.Port(),
@@ -27,6 +28,7 @@ func newSetUpstreamHeaders(rp *gphttp.ReverseProxy) *Middleware {
 
 // before implements RequestModifier.
 func (s setUpstreamHeaders) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
+	r.Header.Set(gphttp.HeaderUpstreamName, s.Name)
 	r.Header.Set(gphttp.HeaderUpstreamScheme, s.Scheme)
 	r.Header.Set(gphttp.HeaderUpstreamHost, s.Host)
 	r.Header.Set(gphttp.HeaderUpstreamPort, s.Port)
