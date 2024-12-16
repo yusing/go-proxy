@@ -17,27 +17,27 @@ var deny, accept *Middleware
 
 func TestCIDRWhitelistValidation(t *testing.T) {
 	t.Run("valid", func(t *testing.T) {
-		_, err := NewCIDRWhitelist(OptionsRaw{
+		_, err := CIDRWhiteList.New(OptionsRaw{
 			"allow":   []string{"1.2.3.4/32"},
 			"message": "test-message",
 		})
 		ExpectNoError(t, err)
 	})
 	t.Run("missing allow", func(t *testing.T) {
-		_, err := NewCIDRWhitelist(OptionsRaw{
+		_, err := CIDRWhiteList.New(OptionsRaw{
 			"message": "test-message",
 		})
 		ExpectError(t, utils.ErrValidationError, err)
 	})
 	t.Run("invalid cidr", func(t *testing.T) {
-		_, err := NewCIDRWhitelist(OptionsRaw{
+		_, err := CIDRWhiteList.New(OptionsRaw{
 			"allow":   []string{"1.2.3.4/123"},
 			"message": "test-message",
 		})
 		ExpectErrorT[*net.ParseError](t, err)
 	})
 	t.Run("invalid status code", func(t *testing.T) {
-		_, err := NewCIDRWhitelist(OptionsRaw{
+		_, err := CIDRWhiteList.New(OptionsRaw{
 			"allow":       []string{"1.2.3.4/32"},
 			"status_code": 600,
 			"message":     "test-message",

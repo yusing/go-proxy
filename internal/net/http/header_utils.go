@@ -16,6 +16,9 @@ const (
 	HeaderUpstreamScheme = "X-GoDoxy-Upstream-Scheme"
 	HeaderUpstreamHost   = "X-GoDoxy-Upstream-Host"
 	HeaderUpstreamPort   = "X-GoDoxy-Upstream-Port"
+
+	HeaderContentType   = "Content-Type"
+	HeaderContentLength = "Content-Length"
 )
 
 func RemoveHop(h http.Header) {

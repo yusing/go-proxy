@@ -141,7 +141,7 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.E
 
 	rp := gphttp.NewReverseProxy(middleware.name, args.upstreamURL, rr)
 
-	mid, setOptErr := middleware.WithOptionsClone(args.middlewareOpt)
+	mid, setOptErr := middleware.New(args.middlewareOpt)
 	if setOptErr != nil {
 		return nil, setOptErr
 	}

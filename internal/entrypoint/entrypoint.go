@@ -75,7 +75,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 	// On nginx, when route for domain does not exist, it returns StatusBadGateway.
 	// Then scraper / scanners will know the subdomain is invalid.
 	// With StatusNotFound, they won't know whether it's the path, or the subdomain that is invalid.
-	if !middleware.ServeStaticErrorPageFile(w, r) {
+	if served := middleware.ServeStaticErrorPageFile(w, r); !served {
 		logger.Err(err).Str("method", r.Method).Str("url", r.URL.String()).Msg("request")
 		errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
 		if ok {

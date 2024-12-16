@@ -9,26 +9,31 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-func TestTaskCreation(t *testing.T) {
-	rootTask := GlobalTask("root-task")
-	subTask := rootTask.Subtask("subtask")
+const (
+	rootTaskName = "root-task"
+	subTaskName  = "subtask"
+)
 
-	ExpectEqual(t, "root-task", rootTask.Name())
-	ExpectEqual(t, "subtask", subTask.Name())
+func TestTaskCreation(t *testing.T) {
+	rootTask := GlobalTask(rootTaskName)
+	subTask := rootTask.Subtask(subTaskName)
+
+	ExpectEqual(t, rootTaskName, rootTask.Name())
+	ExpectEqual(t, subTaskName, subTask.Name())
 }
 
 func TestTaskCancellation(t *testing.T) {
 	subTaskDone := make(chan struct{})
 
-	rootTask := GlobalTask("root-task")
-	subTask := rootTask.Subtask("subtask")
+	rootTask := GlobalTask(rootTaskName)
+	subTask := rootTask.Subtask(subTaskName)
 
 	go func() {
 		subTask.Wait()
 		close(subTaskDone)
 	}()
 
-	go rootTask.Finish("done")
+	go rootTask.Finish(nil)
 
 	select {
 	case <-subTaskDone:
@@ -42,14 +47,14 @@ func TestTaskCancellation(t *testing.T) {
 }
 
 func TestOnComplete(t *testing.T) {
-	rootTask := GlobalTask("root-task")
-	task := rootTask.Subtask("test")
+	rootTask := GlobalTask(rootTaskName)
+	task := rootTask.Subtask(subTaskName)
 
 	var value atomic.Int32
 	task.OnFinished("set value", func() {
 		value.Store(1234)
 	})
-	task.Finish("done")
+	task.Finish(nil)
 	ExpectEqual(t, value.Load(), 1234)
 }
 
@@ -57,36 +62,36 @@ func TestGlobalContextWait(t *testing.T) {
 	testResetGlobalTask()
 	defer CancelGlobalContext()
 
-	rootTask := GlobalTask("root-task")
+	rootTask := GlobalTask(rootTaskName)
 
 	finished1, finished2 := false, false
 
-	subTask1 := rootTask.Subtask("subtask1")
-	subTask2 := rootTask.Subtask("subtask2")
-	subTask1.OnFinished("set finished", func() {
+	subTask1 := rootTask.Subtask(subTaskName)
+	subTask2 := rootTask.Subtask(subTaskName)
+	subTask1.OnFinished("", func() {
 		finished1 = true
 	})
-	subTask2.OnFinished("set finished", func() {
+	subTask2.OnFinished("", func() {
 		finished2 = true
 	})
 
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		subTask1.Finish("done")
+		subTask1.Finish(nil)
 	}()
 
 	go func() {
 		time.Sleep(500 * time.Millisecond)
-		subTask2.Finish("done")
+		subTask2.Finish(nil)
 	}()
 
 	go func() {
 		subTask1.Wait()
 		subTask2.Wait()
-		rootTask.Finish("done")
+		rootTask.Finish(nil)
 	}()
 
-	GlobalContextWait(1 * time.Second)
+	_ = GlobalContextWait(1 * time.Second)
 	ExpectTrue(t, finished1)
 	ExpectTrue(t, finished2)
 	ExpectError(t, context.Canceled, rootTask.Context().Err())
@@ -97,8 +102,8 @@ func TestGlobalContextWait(t *testing.T) {
 func TestTimeoutOnGlobalContextWait(t *testing.T) {
 	testResetGlobalTask()
 
-	rootTask := GlobalTask("root-task")
-	rootTask.Subtask("subtask")
+	rootTask := GlobalTask(rootTaskName)
+	rootTask.Subtask(subTaskName)
 
 	ExpectError(t, context.DeadlineExceeded, GlobalContextWait(200*time.Millisecond))
 }
@@ -107,7 +112,7 @@ func TestGlobalContextCancellation(t *testing.T) {
 	testResetGlobalTask()
 
 	taskDone := make(chan struct{})
-	rootTask := GlobalTask("root-task")
+	rootTask := GlobalTask(rootTaskName)
 
 	go func() {
 		rootTask.Wait()

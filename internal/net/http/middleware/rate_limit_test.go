@@ -14,7 +14,7 @@ func TestRateLimit(t *testing.T) {
 		"period":  "1s",
 	}
 
-	rl, err := NewRateLimiter(opts)
+	rl, err := RateLimiter.New(opts)
 	ExpectNoError(t, err)
 	for range 10 {
 		result, err := newMiddlewareTest(rl, nil)

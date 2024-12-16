@@ -46,7 +46,7 @@ func TestModifyResponse(t *testing.T) {
 	}
 
 	t.Run("set_options", func(t *testing.T) {
-		mr, err := ModifyResponse.WithOptionsClone(opts)
+		mr, err := ModifyResponse.New(opts)
 		ExpectNoError(t, err)
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).SetHeaders, opts["set_headers"].(map[string]string))
 		ExpectDeepEqual(t, mr.impl.(*modifyResponse).AddHeaders, opts["add_headers"].(map[string]string))

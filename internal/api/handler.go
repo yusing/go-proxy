@@ -60,7 +60,7 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 }
 
 func rateLimited(f http.HandlerFunc) http.HandlerFunc {
-	m, err := middleware.RateLimiter.WithOptionsClone(middleware.OptionsRaw{
+	m, err := middleware.RateLimiter.New(middleware.OptionsRaw{
 		"average": 10,
 		"burst":   10,
 	})

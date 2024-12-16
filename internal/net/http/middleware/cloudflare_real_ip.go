@@ -11,10 +11,13 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/common"
-	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
+
+type cloudflareRealIP struct {
+	realIP realIP
+}
 
 const (
 	cfIPv4CIDRsEndpoint        = "https://www.cloudflare.com/ips-v4"
@@ -29,26 +32,23 @@ var (
 	cfCIDRsLogger     = logger.With().Str("name", "CloudflareRealIP").Logger()
 )
 
-var CloudflareRealIP = &Middleware{withOptions: NewCloudflareRealIP}
+var CloudflareRealIP = NewMiddleware[cloudflareRealIP]()
 
-func NewCloudflareRealIP(_ OptionsRaw) (*Middleware, E.Error) {
-	cri := new(realIP)
-	cri.m = &Middleware{
-		impl: cri,
-		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
-			cidrs := tryFetchCFCIDR()
-			if cidrs != nil {
-				cri.From = cidrs
-			}
-			cri.setRealIP(r)
-			next(w, r)
-		},
-	}
-	cri.realIPOpts = realIPOpts{
+// setup implements MiddlewareWithSetup.
+func (cri *cloudflareRealIP) setup() {
+	cri.realIP.RealIPOpts = RealIPOpts{
 		Header:    "CF-Connecting-IP",
 		Recursive: true,
 	}
-	return cri.m, nil
+}
+
+// before implements RequestModifier.
+func (cri *cloudflareRealIP) before(w http.ResponseWriter, r *http.Request) bool {
+	cidrs := tryFetchCFCIDR()
+	if cidrs != nil {
+		cri.realIP.From = cidrs
+	}
+	return cri.realIP.before(w, r)
 }
 
 func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {

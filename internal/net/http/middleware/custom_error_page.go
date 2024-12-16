@@ -12,45 +12,38 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
 )
 
-var CustomErrorPage *Middleware
+type customErrorPage struct{}
 
-func init() {
-	CustomErrorPage = customErrorPage()
+var CustomErrorPage = NewMiddleware[customErrorPage]()
+
+// before implements RequestModifier.
+func (customErrorPage) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
+	return !ServeStaticErrorPageFile(w, r)
 }
 
-func customErrorPage() *Middleware {
-	m := &Middleware{
-		before: func(next http.HandlerFunc, w ResponseWriter, r *Request) {
-			if !ServeStaticErrorPageFile(w, r) {
-				next(w, r)
-			}
-		},
-	}
-	m.modifyResponse = func(resp *Response) error {
-		// only handles non-success status code and html/plain content type
-		contentType := gphttp.GetContentType(resp.Header)
-		if !gphttp.IsSuccess(resp.StatusCode) && (contentType.IsHTML() || contentType.IsPlainText()) {
-			errorPage, ok := errorpage.GetErrorPageByStatus(resp.StatusCode)
-			if ok {
-				CustomErrorPage.Debug().Msgf("error page for status %d loaded", resp.StatusCode)
-				/* trunk-ignore(golangci-lint/errcheck) */
-				io.Copy(io.Discard, resp.Body) // drain the original body
-				resp.Body.Close()
-				resp.Body = io.NopCloser(bytes.NewReader(errorPage))
-				resp.ContentLength = int64(len(errorPage))
-				resp.Header.Set("Content-Length", strconv.Itoa(len(errorPage)))
-				resp.Header.Set("Content-Type", "text/html; charset=utf-8")
-			} else {
-				CustomErrorPage.Error().Msgf("unable to load error page for status %d", resp.StatusCode)
-			}
-			return nil
+// modifyResponse implements ResponseModifier.
+func (customErrorPage) modifyResponse(resp *http.Response) error {
+	// only handles non-success status code and html/plain content type
+	contentType := gphttp.GetContentType(resp.Header)
+	if !gphttp.IsSuccess(resp.StatusCode) && (contentType.IsHTML() || contentType.IsPlainText()) {
+		errorPage, ok := errorpage.GetErrorPageByStatus(resp.StatusCode)
+		if ok {
+			logger.Debug().Msgf("error page for status %d loaded", resp.StatusCode)
+			_, _ = io.Copy(io.Discard, resp.Body) // drain the original body
+			resp.Body.Close()
+			resp.Body = io.NopCloser(bytes.NewReader(errorPage))
+			resp.ContentLength = int64(len(errorPage))
+			resp.Header.Set(gphttp.HeaderContentLength, strconv.Itoa(len(errorPage)))
+			resp.Header.Set(gphttp.HeaderContentType, "text/html; charset=utf-8")
+		} else {
+			logger.Error().Msgf("unable to load error page for status %d", resp.StatusCode)
 		}
 		return nil
 	}
-	return m
+	return nil
 }
 
-func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
+func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) (served bool) {
 	path := r.URL.Path
 	if path != "" && path[0] != '/' {
 		path = "/" + path
@@ -65,11 +58,11 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) bool {
 		ext := filepath.Ext(filename)
 		switch ext {
 		case ".html":
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set(gphttp.HeaderContentType, "text/html; charset=utf-8")
 		case ".js":
-			w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+			w.Header().Set(gphttp.HeaderContentType, "application/javascript; charset=utf-8")
 		case ".css":
-			w.Header().Set("Content-Type", "text/css; charset=utf-8")
+			w.Header().Set(gphttp.HeaderContentType, "text/css; charset=utf-8")
 		default:
 			logger.Error().Msgf("unexpected file type %q for %s", ext, filename)
 		}

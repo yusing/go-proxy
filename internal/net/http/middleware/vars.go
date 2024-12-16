@@ -11,8 +11,8 @@ import (
 )
 
 type (
-	reqVarGetter  func(*Request) string
-	respVarGetter func(*Response) string
+	reqVarGetter  func(*http.Request) string
+	respVarGetter func(*http.Response) string
 )
 
 var (
@@ -49,50 +49,50 @@ const (
 )
 
 var staticReqVarSubsMap = map[string]reqVarGetter{
-	VarRequestMethod: func(req *Request) string { return req.Method },
-	VarRequestScheme: func(req *Request) string {
+	VarRequestMethod: func(req *http.Request) string { return req.Method },
+	VarRequestScheme: func(req *http.Request) string {
 		if req.TLS != nil {
 			return "https"
 		}
 		return "http"
 	},
-	VarRequestHost: func(req *Request) string {
+	VarRequestHost: func(req *http.Request) string {
 		reqHost, _, err := net.SplitHostPort(req.Host)
 		if err != nil {
 			return req.Host
 		}
 		return reqHost
 	},
-	VarRequestPort: func(req *Request) string {
+	VarRequestPort: func(req *http.Request) string {
 		_, reqPort, _ := net.SplitHostPort(req.Host)
 		return reqPort
 	},
-	VarRequestAddr:        func(req *Request) string { return req.Host },
-	VarRequestPath:        func(req *Request) string { return req.URL.Path },
-	VarRequestQuery:       func(req *Request) string { return req.URL.RawQuery },
-	VarRequestURL:         func(req *Request) string { return req.URL.String() },
-	VarRequestURI:         func(req *Request) string { return req.URL.RequestURI() },
-	VarRequestContentType: func(req *Request) string { return req.Header.Get("Content-Type") },
-	VarRequestContentLen:  func(req *Request) string { return strconv.FormatInt(req.ContentLength, 10) },
-	VarRemoteHost: func(req *Request) string {
+	VarRequestAddr:        func(req *http.Request) string { return req.Host },
+	VarRequestPath:        func(req *http.Request) string { return req.URL.Path },
+	VarRequestQuery:       func(req *http.Request) string { return req.URL.RawQuery },
+	VarRequestURL:         func(req *http.Request) string { return req.URL.String() },
+	VarRequestURI:         func(req *http.Request) string { return req.URL.RequestURI() },
+	VarRequestContentType: func(req *http.Request) string { return req.Header.Get("Content-Type") },
+	VarRequestContentLen:  func(req *http.Request) string { return strconv.FormatInt(req.ContentLength, 10) },
+	VarRemoteHost: func(req *http.Request) string {
 		clientIP, _, err := net.SplitHostPort(req.RemoteAddr)
 		if err == nil {
 			return clientIP
 		}
 		return ""
 	},
-	VarRemotePort: func(req *Request) string {
+	VarRemotePort: func(req *http.Request) string {
 		_, clientPort, err := net.SplitHostPort(req.RemoteAddr)
 		if err == nil {
 			return clientPort
 		}
 		return ""
 	},
-	VarRemoteAddr:     func(req *Request) string { return req.RemoteAddr },
-	VarUpstreamScheme: func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamScheme) },
-	VarUpstreamHost:   func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamHost) },
-	VarUpstreamPort:   func(req *Request) string { return req.Header.Get(gphttp.HeaderUpstreamPort) },
-	VarUpstreamAddr: func(req *Request) string {
+	VarRemoteAddr:     func(req *http.Request) string { return req.RemoteAddr },
+	VarUpstreamScheme: func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamScheme) },
+	VarUpstreamHost:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamHost) },
+	VarUpstreamPort:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamPort) },
+	VarUpstreamAddr: func(req *http.Request) string {
 		upHost := req.Header.Get(gphttp.HeaderUpstreamHost)
 		upPort := req.Header.Get(gphttp.HeaderUpstreamPort)
 		if upPort != "" {
@@ -100,7 +100,7 @@ var staticReqVarSubsMap = map[string]reqVarGetter{
 		}
 		return upHost
 	},
-	VarUpstreamURL: func(req *Request) string {
+	VarUpstreamURL: func(req *http.Request) string {
 		upScheme := req.Header.Get(gphttp.HeaderUpstreamScheme)
 		if upScheme == "" {
 			return ""
@@ -116,12 +116,12 @@ var staticReqVarSubsMap = map[string]reqVarGetter{
 }
 
 var staticRespVarSubsMap = map[string]respVarGetter{
-	VarRespContentType: func(resp *Response) string { return resp.Header.Get("Content-Type") },
-	VarRespContentLen:  func(resp *Response) string { return strconv.FormatInt(resp.ContentLength, 10) },
-	VarRespStatusCode:  func(resp *Response) string { return strconv.Itoa(resp.StatusCode) },
+	VarRespContentType: func(resp *http.Response) string { return resp.Header.Get("Content-Type") },
+	VarRespContentLen:  func(resp *http.Response) string { return strconv.FormatInt(resp.ContentLength, 10) },
+	VarRespStatusCode:  func(resp *http.Response) string { return strconv.Itoa(resp.StatusCode) },
 }
 
-func varReplace(req *Request, resp *Response, s string) string {
+func varReplace(req *http.Request, resp *http.Response, s string) string {
 	if req != nil {
 		// Replace query parameters
 		s = reArg.ReplaceAllStringFunc(s, func(match string) string {

@@ -6,68 +6,56 @@ import (
 	"sync"
 	"time"
 
-	E "github.com/yusing/go-proxy/internal/error"
 	"golang.org/x/time/rate"
 )
 
 type (
 	requestMap  = map[string]*rate.Limiter
 	rateLimiter struct {
-		requestMap requestMap
-		newLimiter func() *rate.Limiter
-		m          *Middleware
+		RateLimiterOpts
+		*Tracer
 
-		mu sync.Mutex
+		requestMap requestMap
+		mu         sync.Mutex
 	}
 
-	rateLimiterOpts struct {
-		Average int `validate:"min=1,required"`
-		Burst   int `validate:"min=1,required"`
-		Period  time.Duration
+	RateLimiterOpts struct {
+		Average int           `validate:"min=1,required"`
+		Burst   int           `validate:"min=1,required"`
+		Period  time.Duration `validate:"min=1s"`
 	}
 )
 
 var (
-	RateLimiter            = &Middleware{withOptions: NewRateLimiter}
-	rateLimiterOptsDefault = rateLimiterOpts{
+	RateLimiter            = NewMiddleware[rateLimiter]()
+	rateLimiterOptsDefault = RateLimiterOpts{
 		Period: time.Second,
 	}
 )
 
-func NewRateLimiter(optsRaw OptionsRaw) (*Middleware, E.Error) {
-	rl := new(rateLimiter)
-	opts := rateLimiterOptsDefault
-	err := Deserialize(optsRaw, &opts)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case opts.Average == 0:
-		return nil, ErrZeroValue.Subject("average")
-	case opts.Burst == 0:
-		return nil, ErrZeroValue.Subject("burst")
-	case opts.Period == 0:
-		return nil, ErrZeroValue.Subject("period")
-	}
+// setup implements MiddlewareWithSetup.
+func (rl *rateLimiter) setup() {
+	rl.RateLimiterOpts = rateLimiterOptsDefault
 	rl.requestMap = make(requestMap, 0)
-	rl.newLimiter = func() *rate.Limiter {
-		return rate.NewLimiter(rate.Limit(opts.Average)*rate.Every(opts.Period), opts.Burst)
-	}
-	rl.m = &Middleware{
-		impl:   rl,
-		before: rl.limit,
-	}
-	return rl.m, nil
 }
 
-func (rl *rateLimiter) limit(next http.HandlerFunc, w ResponseWriter, r *Request) {
+// before implements RequestModifier.
+func (rl *rateLimiter) before(w http.ResponseWriter, r *http.Request) bool {
+	return rl.limit(w, r)
+}
+
+func (rl *rateLimiter) newLimiter() *rate.Limiter {
+	return rate.NewLimiter(rate.Limit(rl.Average)*rate.Every(rl.Period), rl.Burst)
+}
+
+func (rl *rateLimiter) limit(w http.ResponseWriter, r *http.Request) bool {
 	rl.mu.Lock()
 
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		rl.m.Debug().Msgf("unable to parse remote address %s", r.RemoteAddr)
+		rl.AddTracef("unable to parse remote address %s", r.RemoteAddr)
 		http.Error(w, "Internal error", http.StatusInternalServerError)
-		return
+		return false
 	}
 
 	limiter, ok := rl.requestMap[host]
@@ -79,9 +67,9 @@ func (rl *rateLimiter) limit(next http.HandlerFunc, w ResponseWriter, r *Request
 	rl.mu.Unlock()
 
 	if limiter.Allow() {
-		next(w, r)
-		return
+		return true
 	}
 
 	http.Error(w, "rate limit exceeded", http.StatusTooManyRequests)
+	return false
 }

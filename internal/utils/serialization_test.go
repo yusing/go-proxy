@@ -19,23 +19,24 @@ func TestSerializeDeserialize(t *testing.T) {
 		MIS map[int]string
 	}
 
-	var testStruct = S{
-		I:   1,
-		S:   "hello",
-		IS:  []int{1, 2, 3},
-		SS:  []string{"a", "b", "c"},
-		MSI: map[string]int{"a": 1, "b": 2, "c": 3},
-		MIS: map[int]string{1: "a", 2: "b", 3: "c"},
-	}
-
-	var testStructSerialized = map[string]any{
-		"I":   1,
-		"S":   "hello",
-		"IS":  []int{1, 2, 3},
-		"SS":  []string{"a", "b", "c"},
-		"MSI": map[string]int{"a": 1, "b": 2, "c": 3},
-		"MIS": map[int]string{1: "a", 2: "b", 3: "c"},
-	}
+	var (
+		testStruct = S{
+			I:   1,
+			S:   "hello",
+			IS:  []int{1, 2, 3},
+			SS:  []string{"a", "b", "c"},
+			MSI: map[string]int{"a": 1, "b": 2, "c": 3},
+			MIS: map[int]string{1: "a", 2: "b", 3: "c"},
+		}
+		testStructSerialized = map[string]any{
+			"I":   1,
+			"S":   "hello",
+			"IS":  []int{1, 2, 3},
+			"SS":  []string{"a", "b", "c"},
+			"MSI": map[string]int{"a": 1, "b": 2, "c": 3},
+			"MIS": map[int]string{1: "a", 2: "b", 3: "c"},
+		}
+	)
 
 	t.Run("serialize", func(t *testing.T) {
 		s, err := Serialize(testStruct)

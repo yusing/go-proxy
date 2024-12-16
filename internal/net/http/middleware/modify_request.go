@@ -3,45 +3,39 @@ package middleware
 import (
 	"net/http"
 	"strings"
-
-	E "github.com/yusing/go-proxy/internal/error"
 )
 
 type (
 	modifyRequest struct {
-		modifyRequestOpts
-		m                   *Middleware
-		needVarSubstitution bool
+		ModifyRequestOpts
+		*Tracer
 	}
 	// order: set_headers -> add_headers -> hide_headers
-	modifyRequestOpts struct {
+	ModifyRequestOpts struct {
 		SetHeaders  map[string]string
 		AddHeaders  map[string]string
 		HideHeaders []string
+
+		needVarSubstitution bool
 	}
 )
 
-var ModifyRequest = &Middleware{withOptions: NewModifyRequest}
+var ModifyRequest = NewMiddleware[modifyRequest]()
 
-func NewModifyRequest(optsRaw OptionsRaw) (*Middleware, E.Error) {
-	mr := new(modifyRequest)
-	mr.m = &Middleware{
-		impl: mr,
-		before: Rewrite(func(req *Request) {
-			mr.m.AddTraceRequest("before modify request", req)
-			mr.modifyHeaders(req, nil, req.Header)
-			mr.m.AddTraceRequest("after modify request", req)
-		}),
-	}
-	err := Deserialize(optsRaw, &mr.modifyRequestOpts)
-	if err != nil {
-		return nil, err
-	}
+// finalize implements MiddlewareFinalizer.
+func (mr *ModifyRequestOpts) finalize() {
 	mr.checkVarSubstitution()
-	return mr.m, nil
 }
 
-func (mr *modifyRequest) checkVarSubstitution() {
+// before implements RequestModifier.
+func (mr *modifyRequest) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
+	mr.AddTraceRequest("before modify request", r)
+	mr.modifyHeaders(r, nil, r.Header)
+	mr.AddTraceRequest("after modify request", r)
+	return true
+}
+
+func (mr *ModifyRequestOpts) checkVarSubstitution() {
 	for _, m := range []map[string]string{mr.SetHeaders, mr.AddHeaders} {
 		for _, v := range m {
 			if strings.ContainsRune(v, '$') {
@@ -52,10 +46,10 @@ func (mr *modifyRequest) checkVarSubstitution() {
 	}
 }
 
-func (mr *modifyRequest) modifyHeaders(req *Request, resp *Response, headers http.Header) {
+func (mr *ModifyRequestOpts) modifyHeaders(req *http.Request, resp *http.Response, headers http.Header) {
 	if !mr.needVarSubstitution {
 		for k, v := range mr.SetHeaders {
-			if req != nil && strings.ToLower(k) == "host" {
+			if req != nil && strings.EqualFold(k, "host") {
 				defer func() {
 					req.Host = v
 				}()
@@ -67,7 +61,7 @@ func (mr *modifyRequest) modifyHeaders(req *Request, resp *Response, headers htt
 		}
 	} else {
 		for k, v := range mr.SetHeaders {
-			if req != nil && strings.ToLower(k) == "host" {
+			if req != nil && strings.EqualFold(k, "host") {
 				defer func() {
 					req.Host = varReplace(req, resp, v)
 				}()

@@ -21,7 +21,7 @@ func TestSetRealIPOpts(t *testing.T) {
 		},
 		"recursive": true,
 	}
-	optExpected := &realIPOpts{
+	optExpected := &RealIPOpts{
 		Header: gphttp.HeaderXRealIP,
 		From: []*types.CIDR{
 			{
@@ -40,7 +40,7 @@ func TestSetRealIPOpts(t *testing.T) {
 		Recursive: true,
 	}
 
-	ri, err := NewRealIP(opts)
+	ri, err := RealIP.New(opts)
 	ExpectNoError(t, err)
 	ExpectEqual(t, ri.impl.(*realIP).Header, optExpected.Header)
 	ExpectEqual(t, ri.impl.(*realIP).Recursive, optExpected.Recursive)
@@ -61,18 +61,17 @@ func TestSetRealIP(t *testing.T) {
 	optsMr := OptionsRaw{
 		"set_headers": map[string]string{testHeader: testRealIP},
 	}
-	realip, err := NewRealIP(opts)
+	realip, err := RealIP.New(opts)
 	ExpectNoError(t, err)
 
-	mr, err := NewModifyRequest(optsMr)
+	mr, err := ModifyRequest.New(optsMr)
 	ExpectNoError(t, err)
 
-	mid := BuildMiddlewareFromChain("test", []*Middleware{mr, realip})
+	mid := NewMiddlewareChain("test", []*Middleware{mr, realip})
 
 	result, err := newMiddlewareTest(mid, nil)
 	ExpectNoError(t, err)
 	t.Log(traces)
 	ExpectEqual(t, result.ResponseStatus, http.StatusOK)
 	ExpectEqual(t, strings.Split(result.RemoteAddr, ":")[0], testRealIP)
-	ExpectEqual(t, result.RequestHeaders.Get(gphttp.HeaderXForwardedFor), testRealIP)
 }

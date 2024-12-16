@@ -87,7 +87,7 @@ type ReverseProxy struct {
 	// If ModifyResponse returns an error, ErrorHandler is called
 	// with its error value. If ErrorHandler is nil, its default
 	// implementation is used.
-	ModifyResponse func(*ProxyResponse) error
+	ModifyResponse func(*http.Response) error
 
 	HandlerFunc http.HandlerFunc
 
@@ -251,11 +251,14 @@ func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err
 
 // modifyResponse conditionally runs the optional ModifyResponse hook
 // and reports whether the request should proceed.
-func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response, oriReq, req *http.Request) bool {
+func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response, origReq, req *http.Request) bool {
 	if p.ModifyResponse == nil {
 		return true
 	}
-	if err := p.ModifyResponse(&ProxyResponse{Response: res, OriginalRequest: oriReq}); err != nil {
+	res.Request = origReq
+	err := p.ModifyResponse(res)
+	res.Request = req
+	if err != nil {
 		res.Body.Close()
 		p.errorHandler(rw, req, err, true)
 		return false
@@ -264,9 +267,6 @@ func (p *ReverseProxy) modifyResponse(rw http.ResponseWriter, res *http.Response
 }
 
 func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	// req.Header.Set(HeaderUpstreamScheme, p.TargetURL.Scheme)
-	// req.Header.Set(HeaderUpstreamHost, p.TargetURL.Hostname())
-	// req.Header.Set(HeaderUpstreamPort, p.TargetURL.Port())
 	p.HandlerFunc(rw, req)
 }
 
@@ -455,13 +455,13 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		res = &http.Response{
 			Status:     http.StatusText(http.StatusBadGateway),
 			StatusCode: http.StatusBadGateway,
-			Proto:      outreq.Proto,
-			ProtoMajor: outreq.ProtoMajor,
-			ProtoMinor: outreq.ProtoMinor,
+			Proto:      req.Proto,
+			ProtoMajor: req.ProtoMajor,
+			ProtoMinor: req.ProtoMinor,
 			Header:     http.Header{},
 			Body:       io.NopCloser(bytes.NewReader([]byte("Origin server is not reachable."))),
-			Request:    outreq,
-			TLS:        outreq.TLS,
+			Request:    req,
+			TLS:        req.TLS,
 		}
 	}
 

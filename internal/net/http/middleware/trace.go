@@ -1,27 +1,25 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
-	"time"
 
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-type Trace struct {
-	Time        string            `json:"time,omitempty"`
-	Caller      string            `json:"caller,omitempty"`
-	URL         string            `json:"url,omitempty"`
-	Message     string            `json:"msg"`
-	ReqHeaders  map[string]string `json:"req_headers,omitempty"`
-	RespHeaders map[string]string `json:"resp_headers,omitempty"`
-	RespStatus  int               `json:"resp_status,omitempty"`
-	Additional  map[string]any    `json:"additional,omitempty"`
-}
-
-type Traces []*Trace
+type (
+	Trace struct {
+		Time        string            `json:"time,omitempty"`
+		Caller      string            `json:"caller,omitempty"`
+		URL         string            `json:"url,omitempty"`
+		Message     string            `json:"msg"`
+		ReqHeaders  map[string]string `json:"req_headers,omitempty"`
+		RespHeaders map[string]string `json:"resp_headers,omitempty"`
+		RespStatus  int               `json:"resp_status,omitempty"`
+		Additional  map[string]any    `json:"additional,omitempty"`
+	}
+	Traces []*Trace
+)
 
 var (
 	traces   = make(Traces, 0)
@@ -34,7 +32,7 @@ func GetAllTrace() []*Trace {
 	return traces
 }
 
-func (tr *Trace) WithRequest(req *Request) *Trace {
+func (tr *Trace) WithRequest(req *http.Request) *Trace {
 	if tr == nil {
 		return nil
 	}
@@ -76,39 +74,6 @@ func (tr *Trace) WithError(err error) *Trace {
 	}
 	tr.Additional["error"] = err.Error()
 	return tr
-}
-
-func (m *Middleware) EnableTrace() {
-	m.trace = true
-	for _, child := range m.children {
-		child.parent = m
-		child.EnableTrace()
-	}
-}
-
-func (m *Middleware) AddTracef(msg string, args ...any) *Trace {
-	if !m.trace {
-		return nil
-	}
-	return addTrace(&Trace{
-		Time:    strutils.FormatTime(time.Now()),
-		Caller:  m.Fullname(),
-		Message: fmt.Sprintf(msg, args...),
-	})
-}
-
-func (m *Middleware) AddTraceRequest(msg string, req *Request) *Trace {
-	if !m.trace {
-		return nil
-	}
-	return m.AddTracef("%s", msg).WithRequest(req)
-}
-
-func (m *Middleware) AddTraceResponse(msg string, resp *http.Response) *Trace {
-	if !m.trace {
-		return nil
-	}
-	return m.AddTracef("%s", msg).WithResponse(resp)
 }
 
 func addTrace(t *Trace) *Trace {

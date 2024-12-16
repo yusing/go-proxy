@@ -2,58 +2,53 @@ package middleware
 
 import (
 	"net"
+	"net/http"
 
-	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
 // https://nginx.org/en/docs/http/ngx_http_realip_module.html
 
-type realIP struct {
-	realIPOpts
-	m *Middleware
-}
-
-type realIPOpts struct {
-	// Header is the name of the header to use for the real client IP
-	Header string `validate:"required"`
-	// From is a list of Address / CIDRs to trust
-	From []*types.CIDR `validate:"min=1"`
-	/*
-		If recursive search is disabled,
-		the original client address that matches one of the trusted addresses is replaced by
-		the last address sent in the request header field defined by the Header field.
-		If recursive search is enabled,
-		the original client address that matches one of the trusted addresses is replaced by
-		the last non-trusted address sent in the request header field.
-	*/
-	Recursive bool
-}
+type (
+	realIP struct {
+		RealIPOpts
+		*Tracer
+	}
+	RealIPOpts struct {
+		// Header is the name of the header to use for the real client IP
+		Header string `validate:"required"`
+		// From is a list of Address / CIDRs to trust
+		From []*types.CIDR `validate:"required,min=1"`
+		/*
+			If recursive search is disabled,
+			the original client address that matches one of the trusted addresses is replaced by
+			the last address sent in the request header field defined by the Header field.
+			If recursive search is enabled,
+			the original client address that matches one of the trusted addresses is replaced by
+			the last non-trusted address sent in the request header field.
+		*/
+		Recursive bool
+	}
+)
 
 var (
-	RealIP            = &Middleware{withOptions: NewRealIP}
-	realIPOptsDefault = realIPOpts{
+	RealIP            = NewMiddleware[realIP]()
+	realIPOptsDefault = RealIPOpts{
 		Header: "X-Real-IP",
 		From:   []*types.CIDR{},
 	}
 )
 
-func NewRealIP(opts OptionsRaw) (*Middleware, E.Error) {
-	riWithOpts := new(realIP)
-	riWithOpts.m = &Middleware{
-		impl:   riWithOpts,
-		before: Rewrite(riWithOpts.setRealIP),
-	}
-	riWithOpts.realIPOpts = realIPOptsDefault
-	err := Deserialize(opts, &riWithOpts.realIPOpts)
-	if err != nil {
-		return nil, err
-	}
-	if len(riWithOpts.From) == 0 {
-		return nil, E.New("no allowed CIDRs").Subject("from")
-	}
-	return riWithOpts.m, nil
+// setup implements MiddlewareWithSetup.
+func (ri *realIP) setup() {
+	ri.RealIPOpts = realIPOptsDefault
+}
+
+// before implements RequestModifier.
+func (ri *realIP) before(w http.ResponseWriter, r *http.Request) bool {
+	ri.setRealIP(r)
+	return true
 }
 
 func (ri *realIP) isInCIDRList(ip net.IP) bool {
@@ -66,7 +61,7 @@ func (ri *realIP) isInCIDRList(ip net.IP) bool {
 	return false
 }
 
-func (ri *realIP) setRealIP(req *Request) {
+func (ri *realIP) setRealIP(req *http.Request) {
 	clientIPStr, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
 		clientIPStr = req.RemoteAddr
@@ -82,7 +77,7 @@ func (ri *realIP) setRealIP(req *Request) {
 		}
 	}
 	if !isTrusted {
-		ri.m.AddTracef("client ip %s is not trusted", clientIP).With("allowed CIDRs", ri.From)
+		ri.AddTracef("client ip %s is not trusted", clientIP).With("allowed CIDRs", ri.From)
 		return
 	}
 
@@ -90,7 +85,7 @@ func (ri *realIP) setRealIP(req *Request) {
 	var lastNonTrustedIP string
 
 	if len(realIPs) == 0 {
-		ri.m.AddTracef("no real ip found in header %s", ri.Header).WithRequest(req)
+		ri.AddTracef("no real ip found in header %s", ri.Header).WithRequest(req)
 		return
 	}
 
@@ -105,12 +100,12 @@ func (ri *realIP) setRealIP(req *Request) {
 	}
 
 	if lastNonTrustedIP == "" {
-		ri.m.AddTracef("no non-trusted ip found").With("allowed CIDRs", ri.From).With("ips", realIPs)
+		ri.AddTracef("no non-trusted ip found").With("allowed CIDRs", ri.From).With("ips", realIPs)
 		return
 	}
 
 	req.RemoteAddr = lastNonTrustedIP
 	req.Header.Set(ri.Header, lastNonTrustedIP)
 	req.Header.Set(gphttp.HeaderXRealIP, lastNonTrustedIP)
-	ri.m.AddTracef("set real ip %s", lastNonTrustedIP)
+	ri.AddTracef("set real ip %s", lastNonTrustedIP)
 }
