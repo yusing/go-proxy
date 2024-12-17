@@ -18,12 +18,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type (
-	SerializedObject = map[string]any
-	Converter        interface {
-		ConvertFrom(value any) E.Error
-	}
-)
+type SerializedObject = map[string]any
 
 var (
 	ErrInvalidType           = E.New("invalid type")
@@ -349,14 +344,11 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 		}
 	}
 
-	var converter Converter
-	var ok bool
 	// check if (*T).Convertor is implemented
-	if converter, ok = dst.Addr().Interface().(Converter); !ok {
-		return ErrUnsupportedConversion.Subjectf("%s to %s", srcT, dstT)
+	if parser, ok := dst.Addr().Interface().(strutils.Parser); ok {
+		return E.From(parser.Parse(src.String()))
 	}
-
-	return converter.ConvertFrom(src.Interface())
+	return ErrUnsupportedConversion.Subjectf("%s to %s", srcT, dstT)
 }
 
 func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.Error) {

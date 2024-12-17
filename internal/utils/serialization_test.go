@@ -1,11 +1,10 @@
 package utils
 
 import (
-	"errors"
 	"reflect"
+	"strconv"
 	"testing"
 
-	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -132,40 +131,23 @@ type testType struct {
 	bar string
 }
 
-var errInvalid = errors.New("invalid input type")
-
-func (c *testType) ConvertFrom(v any) E.Error {
-	switch v := v.(type) {
-	case string:
-		c.bar = v
-		return nil
-	case int:
-		c.foo = v
-		return nil
-	default:
-		return E.Errorf("%w %T", errInvalid, v)
-	}
+func (c *testType) Parse(v string) (err error) {
+	c.bar = v
+	c.foo, err = strconv.Atoi(v)
+	return
 }
 
 func TestConvertor(t *testing.T) {
-	t.Run("string", func(t *testing.T) {
+	t.Run("valid", func(t *testing.T) {
 		m := new(testModel)
-		ExpectNoError(t, Deserialize(map[string]any{"Test": "bar"}, m))
-
-		ExpectEqual(t, m.Test.foo, 0)
-		ExpectEqual(t, m.Test.bar, "bar")
-	})
-
-	t.Run("int", func(t *testing.T) {
-		m := new(testModel)
-		ExpectNoError(t, Deserialize(map[string]any{"Test": 123}, m))
+		ExpectNoError(t, Deserialize(map[string]any{"Test": "123"}, m))
 
 		ExpectEqual(t, m.Test.foo, 123)
-		ExpectEqual(t, m.Test.bar, "")
+		ExpectEqual(t, m.Test.bar, "123")
 	})
 
 	t.Run("invalid", func(t *testing.T) {
 		m := new(testModel)
-		ExpectError(t, errInvalid, Deserialize(map[string]any{"Test": 123.456}, m))
+		ExpectError(t, strconv.ErrSyntax, Deserialize(map[string]any{"Test": 123}, m))
 	})
 }
