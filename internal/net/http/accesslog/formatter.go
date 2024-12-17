@@ -20,6 +20,7 @@ type (
 		CommonFormatter
 	}
 	JSONLogEntry struct {
+		Time        string              `json:"time"`
 		IP          string              `json:"ip"`
 		Method      string              `json:"method"`
 		Scheme      string              `json:"scheme"`
@@ -101,6 +102,7 @@ func (f JSONFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.R
 	cookies := f.cfg.Cookies.ProcessCookies(req.Cookies())
 
 	entry := JSONLogEntry{
+		Time:        timeNow(),
 		IP:          clientIP(req),
 		Method:      req.Method,
 		Scheme:      scheme(req),
