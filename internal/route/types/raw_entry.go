@@ -24,20 +24,20 @@ type (
 
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string                     `json:"-" yaml:"-"`
-		Scheme       string                     `json:"scheme,omitempty" yaml:"scheme"`
-		Host         string                     `json:"host,omitempty" yaml:"host"`
-		Port         string                     `json:"port,omitempty" yaml:"port"`
-		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty" yaml:"no_tls_verify"` // https proxy only
-		PathPatterns []string                   `json:"path_patterns,omitempty" yaml:"path_patterns"` // http(s) proxy only
-		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty" yaml:"healthcheck"`
-		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty" yaml:"load_balance"`
-		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty" yaml:"middlewares"`
-		Homepage     *homepage.Item             `json:"homepage,omitempty" yaml:"homepage"`
-		AccessLog    *accesslog.Config          `json:"access_log,omitempty" yaml:"access_log"`
+		Alias        string                     `json:"-"`
+		Scheme       string                     `json:"scheme,omitempty"`
+		Host         string                     `json:"host,omitempty"`
+		Port         string                     `json:"port,omitempty"`
+		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
+		PathPatterns []string                   `json:"path_patterns,omitempty"`
+		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
+		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty"`
+		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`
+		Homepage     *homepage.Item             `json:"homepage,omitempty"`
+		AccessLog    *accesslog.Config          `json:"access_log,omitempty"`
 
 		/* Docker only */
-		Container *docker.Container `json:"container,omitempty" yaml:"-"`
+		Container *docker.Container `json:"container,omitempty"`
 
 		finalized bool
 	}

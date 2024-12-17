@@ -13,7 +13,7 @@ func TestNewConfig(t *testing.T) {
 	labels := map[string]string{
 		"proxy.buffer_size":                 "10",
 		"proxy.format":                      "combined",
-		"proxy.file_path":                   "/tmp/access.log",
+		"proxy.path":                        "/tmp/access.log",
 		"proxy.filters.status_codes.values": "200-299",
 		"proxy.filters.method.values":       "GET, POST",
 		"proxy.filters.headers.values":      "foo=bar, baz",

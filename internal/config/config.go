@@ -16,11 +16,10 @@ import (
 	"github.com/yusing/go-proxy/internal/notif"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
 	"github.com/yusing/go-proxy/internal/task"
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher"
 	"github.com/yusing/go-proxy/internal/watcher/events"
-	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -68,7 +67,8 @@ func Load() (*Config, E.Error) {
 }
 
 func Validate(data []byte) E.Error {
-	return U.ValidateYaml(U.GetSchema(common.ConfigSchemaPath), data)
+	var model *types.Config
+	return utils.DeserializeYAML(data, model)
 }
 
 func MatchDomains() []string {
@@ -160,14 +160,8 @@ func (cfg *Config) load() E.Error {
 		E.LogFatal(errMsg, err, &logger)
 	}
 
-	if !common.NoSchemaValidation {
-		if err := Validate(data); err != nil {
-			E.LogFatal(errMsg, err, &logger)
-		}
-	}
-
 	model := types.DefaultConfig()
-	if err := E.From(yaml.Unmarshal(data, model)); err != nil {
+	if err := utils.DeserializeYAML(data, model); err != nil {
 		E.LogFatal(errMsg, err, &logger)
 	}
 
@@ -176,7 +170,7 @@ func (cfg *Config) load() E.Error {
 	errs.Add(entrypoint.SetMiddlewares(model.Entrypoint.Middlewares))
 	errs.Add(entrypoint.SetAccessLogger(cfg.task, model.Entrypoint.AccessLog))
 	errs.Add(cfg.initNotification(model.Providers.Notification))
-	errs.Add(cfg.initAutoCert(&model.AutoCert))
+	errs.Add(cfg.initAutoCert(model.AutoCert))
 	errs.Add(cfg.loadRouteProviders(&model.Providers))
 
 	cfg.value = model

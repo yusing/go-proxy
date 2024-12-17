@@ -14,7 +14,6 @@ require (
 	github.com/prometheus/client_golang v1.20.5
 	github.com/puzpuzpuz/xsync/v3 v3.4.0
 	github.com/rs/zerolog v1.33.0
-	github.com/santhosh-tekuri/jsonschema v1.2.4
 	golang.org/x/net v0.32.0
 	golang.org/x/text v0.21.0
 	golang.org/x/time v0.8.0

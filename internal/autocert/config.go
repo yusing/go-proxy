@@ -27,6 +27,9 @@ var (
 )
 
 func NewConfig(cfg *types.AutoCertConfig) *Config {
+	if cfg == nil {
+		cfg = new(types.AutoCertConfig)
+	}
 	if cfg.CertPath == "" {
 		cfg.CertPath = CertFileDefault
 	}

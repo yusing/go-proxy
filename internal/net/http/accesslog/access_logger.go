@@ -2,6 +2,7 @@ package accesslog
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -37,7 +38,7 @@ const logTimeFormat = "02/Jan/2006:15:04:05 -0700"
 func NewFileAccessLogger(parent *task.Task, cfg *Config) (*AccessLogger, error) {
 	f, err := os.OpenFile(cfg.Path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("access log open error: %w", err)
 	}
 	return NewAccessLogger(parent, f, cfg), nil
 }

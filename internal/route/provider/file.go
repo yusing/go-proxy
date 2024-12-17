@@ -8,7 +8,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils"
 	W "github.com/yusing/go-proxy/internal/watcher"
 )
 
@@ -31,8 +31,9 @@ func FileProviderImpl(filename string) (ProviderImpl, error) {
 	return impl, nil
 }
 
-func Validate(data []byte) E.Error {
-	return U.ValidateYaml(U.GetSchema(common.FileProviderSchemaPath), data)
+func Validate(data []byte) (err E.Error) {
+	_, err = utils.DeserializeYAMLMap[*route.RawEntry](data)
+	return
 }
 
 func (p *FileProvider) String() string {
@@ -45,22 +46,17 @@ func (p *FileProvider) Logger() *zerolog.Logger {
 
 func (p *FileProvider) loadRoutesImpl() (route.Routes, E.Error) {
 	routes := route.NewRoutes()
-	entries := route.NewProxyEntries()
 
 	data, err := os.ReadFile(p.path)
 	if err != nil {
 		return routes, E.From(err)
 	}
 
-	if err := entries.UnmarshalFromYAML(data); err != nil {
-		return routes, E.From(err)
+	entries, err := utils.DeserializeYAMLMap[*route.RawEntry](data)
+	if err == nil {
+		return route.FromEntries(entries)
 	}
-
-	if err := Validate(data); err != nil {
-		E.LogWarn("validation failure", err.Subject(p.fileName))
-	}
-
-	return route.FromEntries(entries)
+	return routes, E.From(err)
 }
 
 func (p *FileProvider) NewWatcher() W.Watcher {

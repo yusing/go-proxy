@@ -1,7 +1,6 @@
 package functional
 
 import (
-	"errors"
 	"sync"
 
 	"github.com/puzpuzpuz/xsync/v3"
@@ -193,31 +192,6 @@ func (m Map[KT, VT]) RemoveAll(criteria func(VT) bool) {
 func (m Map[KT, VT]) Has(k KT) bool {
 	_, ok := m.Load(k)
 	return ok
-}
-
-// UnmarshalFromYAML unmarshals a yaml byte slice into the map.
-//
-// It overwrites all existing key-value pairs in the map.
-//
-// Parameters:
-//
-//	data: yaml byte slice to unmarshal
-//
-// Returns:
-//
-//	error: if the unmarshaling fails
-func (m Map[KT, VT]) UnmarshalFromYAML(data []byte) error {
-	if m.Size() != 0 {
-		return errors.New("cannot unmarshal into non-empty map")
-	}
-	tmp := make(map[KT]VT)
-	if err := yaml.Unmarshal(data, tmp); err != nil {
-		return err
-	}
-	for k, v := range tmp {
-		m.Store(k, v)
-	}
-	return nil
 }
 
 func (m Map[KT, VT]) String() string {

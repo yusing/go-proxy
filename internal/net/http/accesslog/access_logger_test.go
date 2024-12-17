@@ -1,6 +1,7 @@
 package accesslog_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,25 +14,11 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-type testWritter struct {
-	line string
-}
-
-func (w *testWritter) Write(p []byte) (n int, err error) {
-	w.line = string(p)
-	return len(p), nil
-}
-
-func (w *testWritter) Close() error {
-	return nil
-}
-
-var tw testWritter
-
 const (
 	remote        = "192.168.1.1"
-	u             = "http://example.com/?bar=baz&foo=bar"
-	uRedacted     = "http://example.com/?bar=" + RedactedValue + "&foo=" + RedactedValue
+	host          = "example.com"
+	uri           = "/?bar=baz&foo=bar"
+	uriRedacted   = "/?bar=" + RedactedValue + "&foo=" + RedactedValue
 	referer       = "https://www.google.com/"
 	proto         = "HTTP/1.1"
 	ua            = "Go-http-client/1.1"
@@ -41,7 +28,7 @@ const (
 )
 
 var (
-	testURL = E.Must(url.Parse(u))
+	testURL = E.Must(url.Parse("http://" + host + uri))
 	req     = &http.Request{
 		RemoteAddr: remote,
 		Method:     method,
@@ -62,17 +49,21 @@ var (
 		ContentLength: contentLength,
 		Header:        http.Header{"Content-Type": []string{"text/plain"}},
 	}
-	task = taskPkg.GlobalTask("test logger")
 )
+
+func fmtLog(cfg *Config) string {
+	var line bytes.Buffer
+	logger := NewAccessLogger(taskPkg.GlobalTask("test logger"), nil, cfg)
+	logger.Format(&line, req, resp)
+	return line.String()
+}
 
 func TestAccessLoggerCommon(t *testing.T) {
 	config := DefaultConfig
 	config.Format = FormatCommon
-	logger := NewAccessLogger(task, &tw, &config)
-	logger.Log(req, resp)
-	ExpectEqual(t, tw.line,
-		fmt.Sprintf("%s - - [%s] \"%s %s %s\" %d %d\n",
-			remote, TestTimeNow, method, u, proto, status, contentLength,
+	ExpectEqual(t, fmtLog(&config),
+		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
+			host, remote, TestTimeNow, method, uri, proto, status, contentLength,
 		),
 	)
 }
@@ -80,11 +71,9 @@ func TestAccessLoggerCommon(t *testing.T) {
 func TestAccessLoggerCombined(t *testing.T) {
 	config := DefaultConfig
 	config.Format = FormatCombined
-	logger := NewAccessLogger(task, &tw, &config)
-	logger.Log(req, resp)
-	ExpectEqual(t, tw.line,
-		fmt.Sprintf("%s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"\n",
-			remote, TestTimeNow, method, u, proto, status, contentLength, referer, ua,
+	ExpectEqual(t, fmtLog(&config),
+		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"",
+			host, remote, TestTimeNow, method, uri, proto, status, contentLength, referer, ua,
 		),
 	)
 }
@@ -93,11 +82,9 @@ func TestAccessLoggerRedactQuery(t *testing.T) {
 	config := DefaultConfig
 	config.Format = FormatCommon
 	config.Fields.Query.DefaultMode = FieldModeRedact
-	logger := NewAccessLogger(task, &tw, &config)
-	logger.Log(req, resp)
-	ExpectEqual(t, tw.line,
-		fmt.Sprintf("%s - - [%s] \"%s %s %s\" %d %d\n",
-			remote, TestTimeNow, method, uRedacted, proto, status, contentLength,
+	ExpectEqual(t, fmtLog(&config),
+		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
+			host, remote, TestTimeNow, method, uriRedacted, proto, status, contentLength,
 		),
 	)
 }
@@ -105,10 +92,8 @@ func TestAccessLoggerRedactQuery(t *testing.T) {
 func getJSONEntry(t *testing.T, config *Config) JSONLogEntry {
 	t.Helper()
 	config.Format = FormatJSON
-	logger := NewAccessLogger(task, &tw, config)
-	logger.Log(req, resp)
 	var entry JSONLogEntry
-	err := json.Unmarshal([]byte(tw.line), &entry)
+	err := json.Unmarshal([]byte(fmtLog(config)), &entry)
 	ExpectNoError(t, err)
 	return entry
 }

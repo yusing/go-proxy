@@ -2,10 +2,8 @@ package utils
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
-	"os"
 	"sync"
 	"syscall"
 
@@ -150,20 +148,4 @@ func Copy(dst *ContextWriter, src *ContextReader) (err error) {
 
 func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {
 	return Copy(&ContextWriter{ctx: ctx, Writer: dst}, &ContextReader{ctx: ctx, Reader: src})
-}
-
-func LoadJSON[T any](path string, pointer *T) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, pointer)
-}
-
-func SaveJSON[T any](path string, pointer *T, perm os.FileMode) error {
-	data, err := json.Marshal(pointer)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, perm)
 }

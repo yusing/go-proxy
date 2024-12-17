@@ -44,9 +44,6 @@ COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
 # copy binary
 COPY --from=builder /app /app
 
-# copy schema directory
-COPY schema/ /app/schema/
-
 # copy example config
 COPY config.example.yml /app/config/config.yml
 

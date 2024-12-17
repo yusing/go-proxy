@@ -6,16 +6,16 @@ type (
 	Category []*Item
 
 	Item struct {
-		Show         bool           `json:"show" yaml:"show"`
-		Name         string         `json:"name" yaml:"name"`
-		Icon         string         `json:"icon" yaml:"icon"`
-		URL          string         `json:"url" yaml:"url"` // alias + domain
-		Category     string         `json:"category" yaml:"category"`
-		Description  string         `json:"description" yaml:"description" aliases:"desc"`
-		WidgetConfig map[string]any `json:"widget_config" yaml:",flow" aliases:"widget"`
+		Show         bool           `json:"show"`
+		Name         string         `json:"name"`
+		Icon         string         `json:"icon"`
+		URL          string         `json:"url"` // alias + domain
+		Category     string         `json:"category"`
+		Description  string         `json:"description" aliases:"desc"`
+		WidgetConfig map[string]any `json:"widget_config" aliases:"widget"`
 
-		SourceType string `json:"source_type" yaml:"-"`
-		AltURL     string `json:"alt_url" yaml:"-"` // original proxy target
+		SourceType string `json:"source_type"`
+		AltURL     string `json:"alt_url"` // original proxy target
 	}
 )
 

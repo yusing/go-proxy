@@ -1,10 +1,10 @@
 package utils
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"net"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,8 +12,8 @@ import (
 	"unicode"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/santhosh-tekuri/jsonschema"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"gopkg.in/yaml.v3"
 )
@@ -29,36 +29,6 @@ var (
 	ErrMapTooManyColons      = E.New("map too many colons")
 	ErrUnknownField          = E.New("unknown field")
 )
-
-func ValidateYaml(schema *jsonschema.Schema, data []byte) E.Error {
-	var i any
-
-	err := yaml.Unmarshal(data, &i)
-	if err != nil {
-		return E.From(err)
-	}
-
-	m, err := json.Marshal(i)
-	if err != nil {
-		return E.From(err)
-	}
-
-	err = schema.Validate(bytes.NewReader(m))
-	if err == nil {
-		return nil
-	}
-
-	var valErr *jsonschema.ValidationError
-	if !errors.As(err, &valErr) {
-		panic(err)
-	}
-
-	b := E.NewBuilder("yaml validation error")
-	for _, e := range valErr.Causes {
-		b.Adds(e.Message)
-	}
-	return b.Error()
-}
 
 // Serialize converts the given data into a map[string]any representation.
 //
@@ -482,10 +452,38 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
-func DeserializeJSON(j map[string]string, target any) error {
-	data, err := json.Marshal(j)
+func DeserializeYAML[T any](data []byte, target T) E.Error {
+	m := make(map[string]any)
+	if err := yaml.Unmarshal(data, m); err != nil {
+		return E.From(err)
+	}
+	return Deserialize(m, target)
+}
+
+func DeserializeYAMLMap[V any](data []byte) (_ functional.Map[string, V], err E.Error) {
+	m := make(map[string]any)
+	if err = E.From(yaml.Unmarshal(data, m)); err != nil {
+		return
+	}
+	m2 := make(map[string]V, len(m))
+	if err = Deserialize(m, m2); err != nil {
+		return
+	}
+	return functional.NewMapFrom(m2), nil
+}
+
+func LoadJSON[T any](path string, dst *T) error {
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, target)
+	return json.Unmarshal(data, dst)
+}
+
+func SaveJSON[T any](path string, src *T, perm os.FileMode) error {
+	data, err := json.Marshal(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, perm)
 }

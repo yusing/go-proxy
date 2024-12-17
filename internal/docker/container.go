@@ -15,29 +15,29 @@ type (
 	Container   struct {
 		_ U.NoCopy
 
-		DockerHost    string `json:"docker_host" yaml:"-"`
-		ContainerName string `json:"container_name" yaml:"-"`
-		ContainerID   string `json:"container_id" yaml:"-"`
-		ImageName     string `json:"image_name" yaml:"-"`
+		DockerHost    string `json:"docker_host"`
+		ContainerName string `json:"container_name"`
+		ContainerID   string `json:"container_id"`
+		ImageName     string `json:"image_name"`
 
-		Labels map[string]string `json:"-" yaml:"-"`
+		Labels map[string]string `json:"-"`
 
-		PublicPortMapping  PortMapping `json:"public_ports" yaml:"-"`  // non-zero publicPort:types.Port
-		PrivatePortMapping PortMapping `json:"private_ports" yaml:"-"` // privatePort:types.Port
-		PublicIP           string      `json:"public_ip" yaml:"-"`
-		PrivateIP          string      `json:"private_ip" yaml:"-"`
-		NetworkMode        string      `json:"network_mode" yaml:"-"`
+		PublicPortMapping  PortMapping `json:"public_ports"`  // non-zero publicPort:types.Port
+		PrivatePortMapping PortMapping `json:"private_ports"` // privatePort:types.Port
+		PublicIP           string      `json:"public_ip"`
+		PrivateIP          string      `json:"private_ip"`
+		NetworkMode        string      `json:"network_mode"`
 
-		Aliases     []string `json:"aliases" yaml:"-"`
-		IsExcluded  bool     `json:"is_excluded" yaml:"-"`
-		IsExplicit  bool     `json:"is_explicit" yaml:"-"`
-		IsDatabase  bool     `json:"is_database" yaml:"-"`
-		IdleTimeout string   `json:"idle_timeout,omitempty" yaml:"-"`
-		WakeTimeout string   `json:"wake_timeout,omitempty" yaml:"-"`
-		StopMethod  string   `json:"stop_method,omitempty" yaml:"-"`
-		StopTimeout string   `json:"stop_timeout,omitempty" yaml:"-"` // stop_method = "stop" only
-		StopSignal  string   `json:"stop_signal,omitempty" yaml:"-"`  // stop_method = "stop" | "kill" only
-		Running     bool     `json:"running" yaml:"-"`
+		Aliases     []string `json:"aliases"`
+		IsExcluded  bool     `json:"is_excluded"`
+		IsExplicit  bool     `json:"is_explicit"`
+		IsDatabase  bool     `json:"is_database"`
+		IdleTimeout string   `json:"idle_timeout,omitempty"`
+		WakeTimeout string   `json:"wake_timeout,omitempty"`
+		StopMethod  string   `json:"stop_method,omitempty"`
+		StopTimeout string   `json:"stop_timeout,omitempty"` // stop_method = "stop" only
+		StopSignal  string   `json:"stop_signal,omitempty"`  // stop_method = "stop" | "kill" only
+		Running     bool     `json:"running"`
 	}
 )
 

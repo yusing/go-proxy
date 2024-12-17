@@ -14,12 +14,11 @@ import (
 var (
 	prefixes = []string{"GODOXY_", "GOPROXY_", ""}
 
-	NoSchemaValidation = GetEnvBool("NO_SCHEMA_VALIDATION", true)
-	IsTest             = GetEnvBool("TEST", false) || strings.HasSuffix(os.Args[0], ".test")
-	IsDebug            = GetEnvBool("DEBUG", IsTest)
-	IsDebugSkipAuth    = GetEnvBool("DEBUG_SKIP_AUTH", false)
-	IsTrace            = GetEnvBool("TRACE", false) && IsDebug
-	IsProduction       = !IsTest && !IsDebug
+	IsTest          = GetEnvBool("TEST", false) || strings.HasSuffix(os.Args[0], ".test")
+	IsDebug         = GetEnvBool("DEBUG", IsTest)
+	IsDebugSkipAuth = GetEnvBool("DEBUG_SKIP_AUTH", false)
+	IsTrace         = GetEnvBool("TRACE", false) && IsDebug
+	IsProduction    = !IsTest && !IsDebug
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,
