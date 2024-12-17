@@ -4,6 +4,7 @@ import (
 	"os"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 func (p *Provider) Setup() (err E.Error) {
@@ -20,7 +21,7 @@ func (p *Provider) Setup() (err E.Error) {
 	p.ScheduleRenewal()
 
 	for _, expiry := range p.GetExpiries() {
-		logger.Info().Msg("certificate expire on " + expiry.String())
+		logger.Info().Msg("certificate expire on " + strutils.FormatTime(expiry))
 		break
 	}
 
