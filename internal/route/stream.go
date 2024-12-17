@@ -3,7 +3,6 @@ package route
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/docker"
@@ -44,7 +43,7 @@ func NewStreamRoute(entry *entry.StreamEntry) (impl, E.Error) {
 }
 
 func (r *StreamRoute) String() string {
-	return fmt.Sprintf("stream %s", r.Alias)
+	return "stream " + r.TargetName()
 }
 
 // Start implements*task.TaskStarter.
@@ -59,7 +58,7 @@ func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 
 	switch {
 	case entry.UseIdleWatcher(r):
-		wakerTask := providerSubtask.Parent().Subtask("waker for " + string(r.Alias))
+		wakerTask := providerSubtask.Parent().Subtask("waker for " + r.TargetName())
 		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.Stream)
 		if err != nil {
 			r.task.Finish(err)
@@ -71,13 +70,13 @@ func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 		if entry.IsDocker(r) {
 			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
 			if err == nil {
-				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.HealthCheck)
-				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.HealthCheck, fallback)
+				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.Raw.HealthCheck)
+				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.Raw.HealthCheck, fallback)
 				r.task.OnCancel("close docker client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
-			r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
+			r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.Raw.HealthCheck)
 		}
 	}
 
@@ -106,9 +105,9 @@ func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 
 	go r.acceptConnections()
 
-	routes.SetStreamRoute(string(r.Alias), r)
+	routes.SetStreamRoute(r.TargetName(), r)
 	r.task.OnFinished("remove from route table", func() {
-		routes.DeleteStreamRoute(string(r.Alias))
+		routes.DeleteStreamRoute(r.TargetName())
 	})
 	return nil
 }

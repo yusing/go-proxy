@@ -35,25 +35,23 @@ type (
 
 		l zerolog.Logger
 	}
-
-	SubdomainKey = route.Alias
 )
 
 // var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
 func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	var trans *http.Transport
-	if entry.NoTLSVerify {
+	if entry.Raw.NoTLSVerify {
 		trans = gphttp.DefaultTransportNoTLS
 	} else {
 		trans = gphttp.DefaultTransport
 	}
 
-	service := string(entry.Alias)
+	service := entry.TargetName()
 	rp := gphttp.NewReverseProxy(service, entry.URL, trans)
 
-	if len(entry.Middlewares) > 0 {
-		err := middleware.PatchReverseProxy(rp, entry.Middlewares)
+	if len(entry.Raw.Middlewares) > 0 {
+		err := middleware.PatchReverseProxy(rp, entry.Raw.Middlewares)
 		if err != nil {
 			return nil, err
 		}
@@ -63,15 +61,15 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 		ReverseProxyEntry: entry,
 		rp:                rp,
 		l: logger.With().
-			Str("type", string(entry.Scheme)).
-			Str("name", string(entry.Alias)).
+			Str("type", entry.URL.Scheme).
+			Str("name", service).
 			Logger(),
 	}
 	return r, nil
 }
 
 func (r *HTTPRoute) String() string {
-	return string(r.Alias)
+	return r.TargetName()
 }
 
 // Start implements*task.TaskStarter.
@@ -85,7 +83,7 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 
 	switch {
 	case entry.UseIdleWatcher(r):
-		wakerTask := providerSubtask.Parent().Subtask("waker for " + string(r.Alias))
+		wakerTask := providerSubtask.Parent().Subtask("waker for " + r.TargetName())
 		waker, err := idlewatcher.NewHTTPWaker(wakerTask, r.ReverseProxyEntry, r.rp)
 		if err != nil {
 			return err
@@ -96,26 +94,27 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 		if entry.IsDocker(r) {
 			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
 			if err == nil {
-				fallback := monitor.NewHTTPHealthChecker(r.rp.TargetURL, r.HealthCheck)
-				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.HealthCheck, fallback)
+				fallback := monitor.NewHTTPHealthChecker(r.rp.TargetURL, r.Raw.HealthCheck)
+				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.Raw.HealthCheck, fallback)
 				r.task.OnCancel("close docker client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
-			r.HealthMon = monitor.NewHTTPHealthMonitor(r.rp.TargetURL, r.HealthCheck)
+			r.HealthMon = monitor.NewHTTPHealthMonitor(r.rp.TargetURL, r.Raw.HealthCheck)
 		}
 	}
 
 	if r.handler == nil {
+		pathPatterns := r.Raw.PathPatterns
 		switch {
-		case len(r.PathPatterns) == 0:
+		case len(pathPatterns) == 0:
 			r.handler = r.rp
-		case len(r.PathPatterns) == 1 && r.PathPatterns[0] == "/":
+		case len(pathPatterns) == 1 && pathPatterns[0] == "/":
 			r.handler = r.rp
 		default:
 			mux := gphttp.NewServeMux()
 			patErrs := E.NewBuilder("invalid path pattern(s)")
-			for _, p := range r.PathPatterns {
+			for _, p := range pathPatterns {
 				patErrs.Add(mux.HandleFunc(p, r.rp.HandlerFunc))
 			}
 			if err := patErrs.Error(); err != nil {
@@ -136,9 +135,9 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 	if entry.UseLoadBalance(r) {
 		r.addToLoadBalancer()
 	} else {
-		routes.SetHTTPRoute(string(r.Alias), r)
+		routes.SetHTTPRoute(r.TargetName(), r)
 		r.task.OnFinished("remove from route table", func() {
-			routes.DeleteHTTPRoute(string(r.Alias))
+			routes.DeleteHTTPRoute(r.TargetName())
 		})
 	}
 
@@ -159,20 +158,21 @@ func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (r *HTTPRoute) addToLoadBalancer() {
 	var lb *loadbalancer.LoadBalancer
-	l, ok := routes.GetHTTPRoute(r.LoadBalance.Link)
+	cfg := r.Raw.LoadBalance
+	l, ok := routes.GetHTTPRoute(cfg.Link)
 	var linked *HTTPRoute
 	if ok {
 		linked = l.(*HTTPRoute)
 		lb = linked.loadBalancer
-		lb.UpdateConfigIfNeeded(r.LoadBalance)
+		lb.UpdateConfigIfNeeded(cfg)
 		if linked.Raw.Homepage == nil && r.Raw.Homepage != nil {
 			linked.Raw.Homepage = r.Raw.Homepage
 		}
 	} else {
-		lb = loadbalancer.New(r.LoadBalance)
-		lbTask := r.task.Parent().Subtask("loadbalancer " + r.LoadBalance.Link)
+		lb = loadbalancer.New(cfg)
+		lbTask := r.task.Parent().Subtask("loadbalancer " + cfg.Link)
 		lbTask.OnCancel("remove lb from routes", func() {
-			routes.DeleteHTTPRoute(r.LoadBalance.Link)
+			routes.DeleteHTTPRoute(cfg.Link)
 		})
 		if err := lb.Start(lbTask); err != nil {
 			panic(err) // should always return nil
@@ -180,18 +180,18 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		linked = &HTTPRoute{
 			ReverseProxyEntry: &entry.ReverseProxyEntry{
 				Raw: &route.RawEntry{
+					Alias:    cfg.Link,
 					Homepage: r.Raw.Homepage,
 				},
-				Alias: route.Alias(lb.Link),
 			},
 			HealthMon:    lb,
 			loadBalancer: lb,
 			handler:      lb,
 		}
-		routes.SetHTTPRoute(r.LoadBalance.Link, linked)
+		routes.SetHTTPRoute(cfg.Link, linked)
 	}
 	r.loadBalancer = lb
-	r.server = loadbalance.NewServer(r.task.String(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
+	r.server = loadbalance.NewServer(r.task.String(), r.rp.TargetURL, r.Raw.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
 	r.task.OnCancel("remove server from lb", func() {
 		lb.RemoveServer(r.server)

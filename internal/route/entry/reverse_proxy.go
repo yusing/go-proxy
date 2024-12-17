@@ -15,22 +15,14 @@ import (
 
 type ReverseProxyEntry struct { // real model after validation
 	Raw *route.RawEntry `json:"raw"`
-
-	Alias        route.Alias                `json:"alias"`
-	Scheme       route.Scheme               `json:"scheme"`
-	URL          net.URL                    `json:"url"`
-	NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
-	PathPatterns []string                   `json:"path_patterns,omitempty"`
-	HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
-	LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty"`
-	Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`
+	URL net.URL         `json:"url"`
 
 	/* Docker only */
 	Idlewatcher *idlewatcher.Config `json:"idlewatcher,omitempty"`
 }
 
 func (rp *ReverseProxyEntry) TargetName() string {
-	return string(rp.Alias)
+	return rp.Raw.Alias
 }
 
 func (rp *ReverseProxyEntry) TargetURL() net.URL {
@@ -42,11 +34,11 @@ func (rp *ReverseProxyEntry) RawEntry() *route.RawEntry {
 }
 
 func (rp *ReverseProxyEntry) LoadBalanceConfig() *loadbalance.Config {
-	return rp.LoadBalance
+	return rp.Raw.LoadBalance
 }
 
 func (rp *ReverseProxyEntry) HealthCheckConfig() *health.HealthCheckConfig {
-	return rp.HealthCheck
+	return rp.Raw.HealthCheck
 }
 
 func (rp *ReverseProxyEntry) IdlewatcherConfig() *idlewatcher.Config {
@@ -59,14 +51,12 @@ func validateRPEntry(m *route.RawEntry, s route.Scheme, errs *E.Builder) *Revers
 		cont = docker.DummyContainer
 	}
 
-	lb := m.LoadBalance
-	if lb != nil && lb.Link == "" {
-		lb = nil
+	if m.LoadBalance != nil && m.LoadBalance.Link == "" {
+		m.LoadBalance = nil
 	}
 
-	host := E.Collect(errs, route.ValidateHost, m.Host)
 	port := E.Collect(errs, route.ValidatePort, m.Port)
-	url := E.Collect(errs, url.Parse, fmt.Sprintf("%s://%s:%d", s, host, port))
+	url := E.Collect(errs, url.Parse, fmt.Sprintf("%s://%s:%d", s, m.Host, port))
 	iwCfg := E.Collect(errs, idlewatcher.ValidateConfig, cont)
 
 	if errs.HasError() {
@@ -74,15 +64,8 @@ func validateRPEntry(m *route.RawEntry, s route.Scheme, errs *E.Builder) *Revers
 	}
 
 	return &ReverseProxyEntry{
-		Raw:          m,
-		Alias:        route.Alias(m.Alias),
-		Scheme:       s,
-		URL:          net.NewURL(url),
-		NoTLSVerify:  m.NoTLSVerify,
-		PathPatterns: m.PathPatterns,
-		HealthCheck:  m.HealthCheck,
-		LoadBalance:  lb,
-		Middlewares:  m.Middlewares,
-		Idlewatcher:  iwCfg,
+		Raw:         m,
+		URL:         net.NewURL(url),
+		Idlewatcher: iwCfg,
 	}
 }

@@ -45,22 +45,22 @@ func (stream *Stream) Setup() error {
 
 	switch stream.Scheme.ListeningScheme {
 	case "tcp":
-		stream.targetAddr, err = net.ResolveTCPAddr("tcp", fmt.Sprintf("%s:%v", stream.Host, stream.Port.ProxyPort))
+		stream.targetAddr, err = net.ResolveTCPAddr("tcp", stream.URL.Host)
 		if err != nil {
 			return err
 		}
-		tcpListener, err := lcfg.Listen(stream.task.Context(), "tcp", fmt.Sprintf(":%v", stream.Port.ListeningPort))
+		tcpListener, err := lcfg.Listen(stream.task.Context(), "tcp", stream.ListenURL.Host)
 		if err != nil {
 			return err
 		}
 		stream.Port.ListeningPort = T.Port(tcpListener.Addr().(*net.TCPAddr).Port)
 		stream.listener = types.NetListener(tcpListener)
 	case "udp":
-		stream.targetAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("%s:%v", stream.Host, stream.Port.ProxyPort))
+		stream.targetAddr, err = net.ResolveUDPAddr("udp", stream.URL.Host)
 		if err != nil {
 			return err
 		}
-		udpListener, err := lcfg.ListenPacket(stream.task.Context(), "udp", fmt.Sprintf(":%v", stream.Port.ListeningPort))
+		udpListener, err := lcfg.ListenPacket(stream.task.Context(), "udp", stream.ListenURL.Host)
 		if err != nil {
 			return err
 		}

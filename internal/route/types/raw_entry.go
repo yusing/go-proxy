@@ -33,6 +33,7 @@ type (
 		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty" yaml:"load_balance"`
 		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty" yaml:"middlewares"`
 		Homepage     *homepage.Item             `json:"homepage,omitempty" yaml:"homepage"`
+		// AccessLog    *accesslog.Config          `json:"access_log,omitempty" yaml:"access_log"`
 
 		/* Docker only */
 		Container *docker.Container `json:"container,omitempty" yaml:"-"`

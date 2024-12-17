@@ -15,19 +15,17 @@ import (
 type StreamEntry struct {
 	Raw *route.RawEntry `json:"raw"`
 
-	Alias       route.Alias               `json:"alias"`
-	Scheme      route.StreamScheme        `json:"scheme"`
-	URL         net.URL                   `json:"url"`
-	Host        route.Host                `json:"host,omitempty"`
-	Port        route.StreamPort          `json:"port,omitempty"`
-	HealthCheck *health.HealthCheckConfig `json:"healthcheck,omitempty"`
+	Scheme    route.StreamScheme `json:"scheme"`
+	URL       net.URL            `json:"url"`
+	ListenURL net.URL            `json:"listening_url"`
+	Port      route.StreamPort   `json:"port,omitempty"`
 
 	/* Docker only */
 	Idlewatcher *idlewatcher.Config `json:"idlewatcher,omitempty"`
 }
 
 func (s *StreamEntry) TargetName() string {
-	return string(s.Alias)
+	return s.Raw.Alias
 }
 
 func (s *StreamEntry) TargetURL() net.URL {
@@ -44,7 +42,7 @@ func (s *StreamEntry) LoadBalanceConfig() *loadbalance.Config {
 }
 
 func (s *StreamEntry) HealthCheckConfig() *health.HealthCheckConfig {
-	return s.HealthCheck
+	return s.Raw.HealthCheck
 }
 
 func (s *StreamEntry) IdlewatcherConfig() *idlewatcher.Config {
@@ -57,10 +55,10 @@ func validateStreamEntry(m *route.RawEntry, errs *E.Builder) *StreamEntry {
 		cont = docker.DummyContainer
 	}
 
-	host := E.Collect(errs, route.ValidateHost, m.Host)
 	port := E.Collect(errs, route.ValidateStreamPort, m.Port)
 	scheme := E.Collect(errs, route.ValidateStreamScheme, m.Scheme)
-	url := E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", scheme.ListeningScheme, host, port.ProxyPort))
+	url := E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", scheme.ProxyScheme, m.Host, port.ProxyPort))
+	listenURL := E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://:%d", scheme.ListeningScheme, port.ListeningPort))
 	idleWatcherCfg := E.Collect(errs, idlewatcher.ValidateConfig, cont)
 
 	if errs.HasError() {
@@ -69,12 +67,10 @@ func validateStreamEntry(m *route.RawEntry, errs *E.Builder) *StreamEntry {
 
 	return &StreamEntry{
 		Raw:         m,
-		Alias:       route.Alias(m.Alias),
 		Scheme:      *scheme,
 		URL:         url,
-		Host:        host,
+		ListenURL:   listenURL,
 		Port:        port,
-		HealthCheck: m.HealthCheck,
 		Idlewatcher: idleWatcherCfg,
 	}
 }
