@@ -1,10 +1,13 @@
 package types
 
-import "github.com/yusing/go-proxy/internal/net/http/accesslog"
+import (
+	"github.com/yusing/go-proxy/internal/net/http/accesslog"
+	"github.com/yusing/go-proxy/internal/utils"
+)
 
 type (
 	Config struct {
-		AutoCert        *AutoCertConfig `json:"autocert"`
+		AutoCert        *AutoCertConfig `json:"autocert" validate:"omitempty"`
 		Entrypoint      Entrypoint      `json:"entrypoint"`
 		Providers       Providers       `json:"providers"`
 		MatchDomains    []string        `json:"match_domains" validate:"dive,fqdn"`
@@ -18,7 +21,7 @@ type (
 	}
 	Entrypoint struct {
 		Middlewares []map[string]any  `json:"middlewares"`
-		AccessLog   *accesslog.Config `json:"access_log"`
+		AccessLog   *accesslog.Config `json:"access_log" validate:"omitempty"`
 	}
 	NotificationConfig map[string]any
 )
@@ -30,4 +33,8 @@ func DefaultConfig() *Config {
 			UseDefaultCategories: true,
 		},
 	}
+}
+
+func init() {
+	utils.RegisterDefaultValueFactory(DefaultConfig)
 }

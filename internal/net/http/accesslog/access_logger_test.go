@@ -59,9 +59,9 @@ func fmtLog(cfg *Config) string {
 }
 
 func TestAccessLoggerCommon(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Format = FormatCommon
-	ExpectEqual(t, fmtLog(&config),
+	ExpectEqual(t, fmtLog(config),
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
 			host, remote, TestTimeNow, method, uri, proto, status, contentLength,
 		),
@@ -69,9 +69,9 @@ func TestAccessLoggerCommon(t *testing.T) {
 }
 
 func TestAccessLoggerCombined(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Format = FormatCombined
-	ExpectEqual(t, fmtLog(&config),
+	ExpectEqual(t, fmtLog(config),
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"",
 			host, remote, TestTimeNow, method, uri, proto, status, contentLength, referer, ua,
 		),
@@ -79,10 +79,10 @@ func TestAccessLoggerCombined(t *testing.T) {
 }
 
 func TestAccessLoggerRedactQuery(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Format = FormatCommon
 	config.Fields.Query.DefaultMode = FieldModeRedact
-	ExpectEqual(t, fmtLog(&config),
+	ExpectEqual(t, fmtLog(config),
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
 			host, remote, TestTimeNow, method, uriRedacted, proto, status, contentLength,
 		),
@@ -99,8 +99,8 @@ func getJSONEntry(t *testing.T, config *Config) JSONLogEntry {
 }
 
 func TestAccessLoggerJSON(t *testing.T) {
-	config := DefaultConfig
-	entry := getJSONEntry(t, &config)
+	config := DefaultConfig()
+	entry := getJSONEntry(t, config)
 	ExpectEqual(t, entry.IP, remote)
 	ExpectEqual(t, entry.Method, method)
 	ExpectEqual(t, entry.Scheme, "http")

@@ -18,9 +18,9 @@ type Webhook struct {
 	Template string `json:"template" validate:"omitempty,oneof=discord"`
 	Payload  string `json:"payload" validate:"jsonIfTemplateNotUsed"`
 	Tok      string `json:"token"`
-	Meth     string `json:"method" validate:"omitempty,oneof=GET POST PUT"`
+	Meth     string `json:"method" validate:"oneof=GET POST PUT"`
 	MIMETyp  string `json:"mime_type"`
-	ColorM   string `json:"color_mode" validate:"omitempty,oneof=hex dec"`
+	ColorM   string `json:"color_mode" validate:"oneof=hex dec"`
 }
 
 //go:embed templates/discord.json
@@ -28,6 +28,14 @@ var discordPayload string
 
 var webhookTemplates = map[string]string{
 	"discord": discordPayload,
+}
+
+func DefaultValue() *Webhook {
+	return &Webhook{
+		Meth:    "POST",
+		ColorM:  "hex",
+		MIMETyp: "application/json",
+	}
 }
 
 func jsonIfTemplateNotUsed(fl validator.FieldLevel) bool {
@@ -40,6 +48,7 @@ func jsonIfTemplateNotUsed(fl validator.FieldLevel) bool {
 }
 
 func init() {
+	utils.RegisterDefaultValueFactory(DefaultValue)
 	err := utils.Validator().RegisterValidation("jsonIfTemplateNotUsed", jsonIfTemplateNotUsed)
 	if err != nil {
 		panic(err)
@@ -53,10 +62,7 @@ func (webhook *Webhook) Name() string {
 
 // Method implements Provider.
 func (webhook *Webhook) Method() string {
-	if webhook.Meth != "" {
-		return webhook.Meth
-	}
-	return http.MethodPost
+	return webhook.Meth
 }
 
 // URL implements Provider.
@@ -71,10 +77,7 @@ func (webhook *Webhook) Token() string {
 
 // MIMEType implements Provider.
 func (webhook *Webhook) MIMEType() string {
-	if webhook.MIMETyp != "" {
-		return webhook.MIMETyp
-	}
-	return "application/json"
+	return webhook.MIMETyp
 }
 
 func (webhook *Webhook) ColorMode() string {

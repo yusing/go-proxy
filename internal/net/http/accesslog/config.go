@@ -1,5 +1,7 @@
 package accesslog
 
+import "github.com/yusing/go-proxy/internal/utils"
+
 type (
 	Format  string
 	Filters struct {
@@ -30,18 +32,24 @@ var (
 
 const DefaultBufferSize = 100
 
-var DefaultConfig = Config{
-	BufferSize: DefaultBufferSize,
-	Format:     FormatCombined,
-	Fields: Fields{
-		Headers: FieldConfig{
-			DefaultMode: FieldModeDrop,
+func DefaultConfig() *Config {
+	return &Config{
+		BufferSize: DefaultBufferSize,
+		Format:     FormatCombined,
+		Fields: Fields{
+			Headers: FieldConfig{
+				DefaultMode: FieldModeDrop,
+			},
+			Query: FieldConfig{
+				DefaultMode: FieldModeKeep,
+			},
+			Cookies: FieldConfig{
+				DefaultMode: FieldModeDrop,
+			},
 		},
-		Query: FieldConfig{
-			DefaultMode: FieldModeKeep,
-		},
-		Cookies: FieldConfig{
-			DefaultMode: FieldModeDrop,
-		},
-	},
+	}
+}
+
+func init() {
+	utils.RegisterDefaultValueFactory(DefaultConfig)
 }

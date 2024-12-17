@@ -10,9 +10,9 @@ import (
 // Cookie header should be removed,
 // stored in JSONLogEntry.Cookies instead.
 func TestAccessLoggerJSONKeepHeaders(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Fields.Headers.DefaultMode = FieldModeKeep
-	entry := getJSONEntry(t, &config)
+	entry := getJSONEntry(t, config)
 	ExpectDeepEqual(t, len(entry.Headers["Cookie"]), 0)
 	for k, v := range req.Header {
 		if k != "Cookie" {
@@ -22,9 +22,9 @@ func TestAccessLoggerJSONKeepHeaders(t *testing.T) {
 }
 
 func TestAccessLoggerJSONRedactHeaders(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Fields.Headers.DefaultMode = FieldModeRedact
-	entry := getJSONEntry(t, &config)
+	entry := getJSONEntry(t, config)
 	ExpectDeepEqual(t, len(entry.Headers["Cookie"]), 0)
 	for k := range req.Header {
 		if k != "Cookie" {
@@ -34,10 +34,10 @@ func TestAccessLoggerJSONRedactHeaders(t *testing.T) {
 }
 
 func TestAccessLoggerJSONKeepCookies(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Fields.Headers.DefaultMode = FieldModeKeep
 	config.Fields.Cookies.DefaultMode = FieldModeKeep
-	entry := getJSONEntry(t, &config)
+	entry := getJSONEntry(t, config)
 	ExpectDeepEqual(t, len(entry.Headers["Cookie"]), 0)
 	for _, cookie := range req.Cookies() {
 		ExpectEqual(t, entry.Cookies[cookie.Name], cookie.Value)
@@ -45,10 +45,10 @@ func TestAccessLoggerJSONKeepCookies(t *testing.T) {
 }
 
 func TestAccessLoggerJSONRedactCookies(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Fields.Headers.DefaultMode = FieldModeKeep
 	config.Fields.Cookies.DefaultMode = FieldModeRedact
-	entry := getJSONEntry(t, &config)
+	entry := getJSONEntry(t, config)
 	ExpectDeepEqual(t, len(entry.Headers["Cookie"]), 0)
 	for _, cookie := range req.Cookies() {
 		ExpectEqual(t, entry.Cookies[cookie.Name], RedactedValue)
@@ -56,17 +56,17 @@ func TestAccessLoggerJSONRedactCookies(t *testing.T) {
 }
 
 func TestAccessLoggerJSONDropQuery(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Fields.Query.DefaultMode = FieldModeDrop
-	entry := getJSONEntry(t, &config)
+	entry := getJSONEntry(t, config)
 	ExpectDeepEqual(t, entry.Query["foo"], nil)
 	ExpectDeepEqual(t, entry.Query["bar"], nil)
 }
 
 func TestAccessLoggerJSONRedactQuery(t *testing.T) {
-	config := DefaultConfig
+	config := DefaultConfig()
 	config.Fields.Query.DefaultMode = FieldModeRedact
-	entry := getJSONEntry(t, &config)
+	entry := getJSONEntry(t, config)
 	ExpectDeepEqual(t, entry.Query["foo"], []string{RedactedValue})
 	ExpectDeepEqual(t, entry.Query["bar"], []string{RedactedValue})
 }

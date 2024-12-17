@@ -124,6 +124,7 @@ func TestStringIntConvert(t *testing.T) {
 
 type testModel struct {
 	Test testType
+	Baz  string
 }
 
 type testType struct {
@@ -146,8 +147,19 @@ func TestConvertor(t *testing.T) {
 		ExpectEqual(t, m.Test.bar, "123")
 	})
 
+	t.Run("int_to_string", func(t *testing.T) {
+		m := new(testModel)
+		ExpectNoError(t, Deserialize(map[string]any{"Test": "123"}, m))
+
+		ExpectEqual(t, m.Test.foo, 123)
+		ExpectEqual(t, m.Test.bar, "123")
+
+		ExpectNoError(t, Deserialize(map[string]any{"Baz": 123}, m))
+		ExpectEqual(t, m.Baz, "123")
+	})
+
 	t.Run("invalid", func(t *testing.T) {
 		m := new(testModel)
-		ExpectError(t, strconv.ErrSyntax, Deserialize(map[string]any{"Test": 123}, m))
+		ExpectError(t, ErrUnsupportedConversion, Deserialize(map[string]any{"Test": struct{}{}}, m))
 	})
 }
