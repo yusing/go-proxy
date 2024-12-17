@@ -32,6 +32,7 @@ func ToLowerNoSnake(s string) string {
 	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
 }
 
+//nolint:intrange
 func LevenshteinDistance(a, b string) int {
 	if a == b {
 		return 0

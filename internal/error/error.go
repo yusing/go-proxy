@@ -1,4 +1,4 @@
-package error
+package err
 
 type Error interface {
 	error
@@ -24,6 +24,8 @@ type Error interface {
 
 // this makes JSON marshaling work,
 // as the builtin one doesn't.
+//
+//nolint:errname
 type errStr string
 
 func (err errStr) Error() string {

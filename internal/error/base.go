@@ -1,4 +1,4 @@
-package error
+package err
 
 import (
 	"errors"
@@ -6,6 +6,8 @@ import (
 )
 
 // baseError is an immutable wrapper around an error.
+//
+//nolint:recvcheck
 type baseError struct {
 	Err error `json:"err"`
 }

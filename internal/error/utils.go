@@ -1,6 +1,7 @@
-package error
+package err
 
 import (
+	"errors"
 	"fmt"
 )
 
@@ -19,12 +20,12 @@ func Errorf(format string, args ...any) Error {
 	return &baseError{fmt.Errorf(format, args...)}
 }
 
-func From(err error) Error {
+func From(err error) (e Error) {
 	if err == nil {
 		return nil
 	}
-	if err, ok := err.(Error); ok {
-		return err
+	if errors.As(err, &e) {
+		return e
 	}
 	return &baseError{err}
 }

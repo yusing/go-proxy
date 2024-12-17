@@ -41,7 +41,6 @@ func (mon *RawHealthMonitor) CheckHealth() (result *health.HealthCheckResult, er
 	}
 	if dialErr != nil {
 		result.Detail = dialErr.Error()
-		/* trunk-ignore(golangci-lint/nilerr) */
 		return
 	}
 	conn.Close()

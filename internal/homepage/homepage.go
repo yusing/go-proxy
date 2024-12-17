@@ -1,6 +1,7 @@
 package homepage
 
 type (
+	//nolint:recvcheck
 	Config   map[string]Category
 	Category []*Item
 

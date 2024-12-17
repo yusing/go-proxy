@@ -149,7 +149,7 @@ func extractFields(t reflect.Type) []reflect.StructField {
 		return nil
 	}
 	var fields []reflect.StructField
-	for i := 0; i < t.NumField(); i++ {
+	for i := range t.NumField() {
 		field := t.Field(i)
 		if !field.IsExported() {
 			continue

@@ -96,16 +96,16 @@ func (w *UDPForwarder) readFromListener(buf *UDPBuf) (srcAddr *net.UDPAddr, err 
 	return
 }
 
-func (dst *UDPConn) read() (err error) {
-	switch dstConn := dst.conn.(type) {
+func (conn *UDPConn) read() (err error) {
+	switch dstConn := conn.conn.(type) {
 	case *net.UDPConn:
-		dst.buf.n, dst.buf.oobn, _, _, err = dstConn.ReadMsgUDP(dst.buf.data, dst.buf.oob)
+		conn.buf.n, conn.buf.oobn, _, _, err = dstConn.ReadMsgUDP(conn.buf.data, conn.buf.oob)
 	default:
-		dst.buf.n, err = dstConn.Read(dst.buf.data[:dst.buf.n])
-		dst.buf.oobn = 0
+		conn.buf.n, err = dstConn.Read(conn.buf.data[:conn.buf.n])
+		conn.buf.oobn = 0
 	}
 	if err == nil {
-		logger.Debug().Msgf("read from dst %s success (n: %d, oobn: %d)", dst.DstAddrString(), dst.buf.n, dst.buf.oobn)
+		logger.Debug().Msgf("read from dst %s success (n: %d, oobn: %d)", conn.DstAddrString(), conn.buf.n, conn.buf.oobn)
 	}
 	return
 }
@@ -118,17 +118,17 @@ func (w *UDPForwarder) writeToSrc(srcAddr *net.UDPAddr, buf *UDPBuf) (err error)
 	return
 }
 
-func (dst *UDPConn) write() (err error) {
-	switch dstConn := dst.conn.(type) {
+func (conn *UDPConn) write() (err error) {
+	switch dstConn := conn.conn.(type) {
 	case *net.UDPConn:
-		dst.buf.n, dst.buf.oobn, err = dstConn.WriteMsgUDP(dst.buf.data[:dst.buf.n], dst.buf.oob[:dst.buf.oobn], nil)
+		conn.buf.n, conn.buf.oobn, err = dstConn.WriteMsgUDP(conn.buf.data[:conn.buf.n], conn.buf.oob[:conn.buf.oobn], nil)
 		if err == nil {
-			logger.Debug().Msgf("write to dst %s success (n: %d, oobn: %d)", dst.DstAddrString(), dst.buf.n, dst.buf.oobn)
+			logger.Debug().Msgf("write to dst %s success (n: %d, oobn: %d)", conn.DstAddrString(), conn.buf.n, conn.buf.oobn)
 		}
 	default:
-		_, err = dstConn.Write(dst.buf.data[:dst.buf.n])
+		_, err = dstConn.Write(conn.buf.data[:conn.buf.n])
 		if err == nil {
-			logger.Debug().Msgf("write to dst %s success (n: %d)", dst.DstAddrString(), dst.buf.n)
+			logger.Debug().Msgf("write to dst %s success (n: %d)", conn.DstAddrString(), conn.buf.n)
 		}
 	}
 

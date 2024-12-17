@@ -44,6 +44,8 @@ var (
 	watcherMap   = F.NewMapOf[string, *Watcher]()
 	watcherMapMu sync.Mutex
 
+	errShouldNotReachHere = errors.New("should not reach here")
+
 	logger = logging.With().Str("module", "idle_watcher").Logger()
 )
 
@@ -53,7 +55,7 @@ func registerWatcher(providerSubtask task.Task, entry route.Entry, waker *waker)
 	cfg := entry.IdlewatcherConfig()
 
 	if cfg.IdleTimeout == 0 {
-		panic("should not reach here")
+		panic(errShouldNotReachHere)
 	}
 
 	watcherMapMu.Lock()
@@ -104,10 +106,12 @@ func (w *Watcher) Wake() error {
 
 // WakeDebug logs a debug message related to waking the container.
 func (w *Watcher) WakeDebug() *zerolog.Event {
+	//nolint:zerologlint
 	return w.Debug().Str("action", "wake")
 }
 
 func (w *Watcher) WakeTrace() *zerolog.Event {
+	//nolint:zerologlint
 	return w.Trace().Str("action", "wake")
 }
 
@@ -177,7 +181,7 @@ func (w *Watcher) wakeIfStopped() error {
 	case "running":
 		return nil
 	default:
-		panic("should not reach here")
+		panic(errShouldNotReachHere)
 	}
 }
 
@@ -191,7 +195,7 @@ func (w *Watcher) getStopCallback() StopCallback {
 	case idlewatcher.StopMethodKill:
 		cb = w.containerKill
 	default:
-		panic("should not reach here")
+		panic(errShouldNotReachHere)
 	}
 	return func() error {
 		ctx, cancel := context.WithTimeout(w.task.Context(), time.Duration(w.StopTimeout)*time.Second)

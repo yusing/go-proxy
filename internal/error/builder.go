@@ -1,4 +1,4 @@
-package error
+package err
 
 import (
 	"fmt"
@@ -60,7 +60,7 @@ func (b *Builder) Add(err error) *Builder {
 	b.Lock()
 	defer b.Unlock()
 
-	switch err := err.(type) {
+	switch err := From(err).(type) {
 	case *baseError:
 		b.errs = append(b.errs, err.Err)
 	case *nestedError:
@@ -70,7 +70,7 @@ func (b *Builder) Add(err error) *Builder {
 			b.errs = append(b.errs, err)
 		}
 	default:
-		b.errs = append(b.errs, err)
+		panic("bug: should not reach here")
 	}
 
 	return b

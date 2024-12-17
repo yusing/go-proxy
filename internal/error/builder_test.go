@@ -1,4 +1,4 @@
-package error_test
+package err_test
 
 import (
 	"context"

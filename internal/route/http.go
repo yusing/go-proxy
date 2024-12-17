@@ -174,7 +174,9 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		lbTask.OnCancel("remove lb from routes", func() {
 			routes.DeleteHTTPRoute(r.LoadBalance.Link)
 		})
-		lb.Start(lbTask)
+		if err := lb.Start(lbTask); err != nil {
+			panic(err) // should always return nil
+		}
 		linked = &HTTPRoute{
 			ReverseProxyEntry: &entry.ReverseProxyEntry{
 				Raw: &route.RawEntry{

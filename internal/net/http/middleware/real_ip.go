@@ -81,8 +81,8 @@ func (ri *realIP) setRealIP(req *http.Request) {
 		return
 	}
 
-	var realIPs = req.Header.Values(ri.Header)
-	var lastNonTrustedIP string
+	realIPs := req.Header.Values(ri.Header)
+	lastNonTrustedIP := ""
 
 	if len(realIPs) == 0 {
 		ri.AddTracef("no real ip found in header %s", ri.Header).WithRequest(req)

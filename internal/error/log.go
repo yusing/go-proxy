@@ -1,4 +1,4 @@
-package error
+package err
 
 import (
 	"github.com/rs/zerolog"

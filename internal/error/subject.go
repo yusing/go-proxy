@@ -1,4 +1,4 @@
-package error
+package err
 
 import (
 	"strings"
@@ -6,6 +6,7 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
+//nolint:errname
 type withSubject struct {
 	Subject string `json:"subject"`
 	Err     error  `json:"err"`
@@ -18,23 +19,26 @@ func highlight(subject string) string {
 }
 
 func PrependSubject(subject string, err error) error {
-	switch err := err.(type) {
-	case nil:
+	if err == nil {
 		return nil
+	}
+
+	//nolint:errorlint
+	switch err := err.(type) {
 	case *withSubject:
 		return err.Prepend(subject)
 	case Error:
 		return err.Subject(subject)
-	default:
-		return &withSubject{subject, err}
 	}
+	return &withSubject{subject, err}
 }
 
-func (err withSubject) Prepend(subject string) *withSubject {
+func (err *withSubject) Prepend(subject string) *withSubject {
+	clone := *err
 	if subject != "" {
-		err.Subject = subject + subjectSep + err.Subject
+		clone.Subject = subject + subjectSep + clone.Subject
 	}
-	return &err
+	return &clone
 }
 
 func (err *withSubject) Is(other error) bool {

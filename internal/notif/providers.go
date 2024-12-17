@@ -45,10 +45,14 @@ func newNotifProvider[T Provider](cfg map[string]any) (Provider, E.Error) {
 	return client, nil
 }
 
+func formatError(p Provider, err error) error {
+	return fmt.Errorf("%s error: %w", p.Name(), err)
+}
+
 func notifyProvider(ctx context.Context, provider Provider, msg *LogMessage) error {
 	body, err := provider.MakeBody(msg)
 	if err != nil {
-		return fmt.Errorf("%s error: %w", provider.Name(), err)
+		return formatError(provider, err)
 	}
 	req, err := http.NewRequestWithContext(
 		ctx,
@@ -57,7 +61,7 @@ func notifyProvider(ctx context.Context, provider Provider, msg *LogMessage) err
 		body,
 	)
 	if err != nil {
-		return fmt.Errorf("%s error: %w", provider.Name(), err)
+		return formatError(provider, err)
 	}
 
 	req.Header.Set("Content-Type", provider.MIMEType())
@@ -67,7 +71,7 @@ func notifyProvider(ctx context.Context, provider Provider, msg *LogMessage) err
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("%s error: %w", provider.Name(), err)
+		return formatError(provider, err)
 	}
 
 	defer resp.Body.Close()

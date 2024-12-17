@@ -1,4 +1,4 @@
-package error
+package err
 
 import (
 	"errors"
@@ -81,10 +81,10 @@ func TestErrorImmutability(t *testing.T) {
 
 	for range 3 {
 		// t.Logf("%d: %v %T %s", i, errors.Unwrap(err), err, err)
-		err.Subject("foo")
+		_ = err.Subject("foo")
 		ExpectFalse(t, strings.Contains(err.Error(), "foo"))
 
-		err.With(err2)
+		_ = err.With(err2)
 		ExpectFalse(t, strings.Contains(err.Error(), "extra"))
 		ExpectFalse(t, err.Is(err2))
 
@@ -102,7 +102,7 @@ func TestErrorWith(t *testing.T) {
 	ExpectTrue(t, err3.Is(err1))
 	ExpectTrue(t, err3.Is(err2))
 
-	err2.Subject("foo")
+	_ = err2.Subject("foo")
 
 	ExpectTrue(t, err3.Is(err1))
 	ExpectTrue(t, err3.Is(err2))

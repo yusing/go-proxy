@@ -1,4 +1,4 @@
-package error
+package err
 
 import (
 	"errors"
@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+//nolint:recvcheck
 type nestedError struct {
 	Err    error   `json:"err"`
 	Extras []error `json:"extras"`
@@ -66,7 +67,18 @@ func (err *nestedError) Is(other error) bool {
 }
 
 func (err *nestedError) Error() string {
-	return buildError(err, 0)
+	if err == nil {
+		return makeLine("<nil>", 0)
+	}
+
+	lines := make([]string, 0, 1+len(err.Extras))
+	if err.Err != nil {
+		lines = append(lines, makeLine(err.Err.Error(), 0))
+	}
+	if extras := makeLines(err.Extras, 1); len(extras) > 0 {
+		lines = append(lines, extras...)
+	}
+	return strings.Join(lines, "\n")
 }
 
 //go:inline
@@ -86,7 +98,7 @@ func makeLines(errs []error, level int) []string {
 	}
 	lines := make([]string, 0, len(errs))
 	for _, err := range errs {
-		switch err := err.(type) {
+		switch err := From(err).(type) {
 		case *nestedError:
 			if err.Err != nil {
 				lines = append(lines, makeLine(err.Err.Error(), level))
@@ -99,22 +111,4 @@ func makeLines(errs []error, level int) []string {
 		}
 	}
 	return lines
-}
-
-func buildError(err error, level int) string {
-	switch err := err.(type) {
-	case nil:
-		return makeLine("<nil>", level)
-	case *nestedError:
-		lines := make([]string, 0, 1+len(err.Extras))
-		if err.Err != nil {
-			lines = append(lines, makeLine(err.Err.Error(), level))
-		}
-		if extras := makeLines(err.Extras, level+1); len(extras) > 0 {
-			lines = append(lines, extras...)
-		}
-		return strings.Join(lines, "\n")
-	default:
-		return makeLine(err.Error(), level)
-	}
 }
