@@ -85,6 +85,11 @@ func (ri *realIP) setRealIP(req *http.Request) {
 	lastNonTrustedIP := ""
 
 	if len(realIPs) == 0 {
+		// try non-canonical key
+		realIPs = req.Header[ri.Header]
+	}
+
+	if len(realIPs) == 0 {
 		ri.AddTracef("no real ip found in header %s", ri.Header).WithRequest(req)
 		return
 	}

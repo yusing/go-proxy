@@ -38,7 +38,7 @@ var CloudflareRealIP = NewMiddleware[cloudflareRealIP]()
 // setup implements MiddlewareWithSetup.
 func (cri *cloudflareRealIP) setup() {
 	cri.realIP.RealIPOpts = RealIPOpts{
-		Header:    "CF-Connecting-IP",
+		Header:    "Cf-Connecting-Ip",
 		Recursive: cri.Recursive,
 	}
 }
