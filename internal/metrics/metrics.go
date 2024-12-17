@@ -43,10 +43,10 @@ func GetServiceMetrics() *ServiceMetrics {
 
 func (rm *RouteMetrics) UnregisterService(service string) {
 	lbls := &HTTPRouteMetricLabels{Service: service}
-	prometheus.Unregister(rm.HTTP2xx3xx.With(lbls))
-	prometheus.Unregister(rm.HTTP4xx.With(lbls))
-	prometheus.Unregister(rm.HTTP5xx.With(lbls))
-	prometheus.Unregister(rm.HTTPReqElapsed.With(lbls))
+	rm.HTTP2xx3xx.Delete(lbls)
+	rm.HTTP4xx.Delete(lbls)
+	rm.HTTP5xx.Delete(lbls)
+	rm.HTTPReqElapsed.Delete(lbls)
 }
 
 func init() {

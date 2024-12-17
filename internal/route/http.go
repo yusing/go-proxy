@@ -86,6 +86,7 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 		wakerTask := providerSubtask.Parent().Subtask("waker for " + r.TargetName())
 		waker, err := idlewatcher.NewHTTPWaker(wakerTask, r.ReverseProxyEntry, r.rp)
 		if err != nil {
+			r.task.Finish(err)
 			return err
 		}
 		r.handler = waker
@@ -118,6 +119,7 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 				patErrs.Add(mux.HandleFunc(p, r.rp.HandlerFunc))
 			}
 			if err := patErrs.Error(); err != nil {
+				r.task.Finish(err)
 				return err
 			}
 			r.handler = mux

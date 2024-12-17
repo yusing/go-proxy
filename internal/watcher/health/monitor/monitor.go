@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -82,7 +81,7 @@ func (mon *monitor) Start(routeSubtask *task.Task) E.Error {
 			}
 			mon.task.Finish(nil)
 			if mon.metric != nil {
-				prometheus.Unregister(mon.metric)
+				mon.metric.Reset()
 			}
 		}()
 

@@ -56,6 +56,14 @@ func (c *Counter) With(l Labels) *Counter {
 	return &Counter{mv: c.mv, collector: c.mv.With(l.toPromLabels())}
 }
 
+func (c *Counter) Delete(l Labels) {
+	c.mv.Delete(l.toPromLabels())
+}
+
+func (c *Counter) Reset() {
+	c.mv.Reset()
+}
+
 func (g *Gauge) Collect(ch chan<- prometheus.Metric) {
 	g.mv.Collect(ch)
 }
@@ -70,4 +78,12 @@ func (g *Gauge) Set(v float64) {
 
 func (g *Gauge) With(l Labels) *Gauge {
 	return &Gauge{mv: g.mv, collector: g.mv.With(l.toPromLabels())}
+}
+
+func (g *Gauge) Delete(l Labels) {
+	g.mv.Delete(l.toPromLabels())
+}
+
+func (g *Gauge) Reset() {
+	g.mv.Reset()
 }

@@ -4,7 +4,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -86,7 +85,7 @@ func (w *Watcher) Start(routeSubTask *task.Task) E.Error {
 	w.task.OnCancel("stop route and cleanup", func() {
 		routeSubTask.Parent().Finish(w.task.FinishCause())
 		if w.metric != nil {
-			prometheus.Unregister(w.metric)
+			w.metric.Reset()
 		}
 	})
 	return nil
