@@ -26,7 +26,7 @@ type DirWatcher struct {
 	eventCh chan Event
 	errCh   chan E.Error
 
-	task task.Task
+	task *task.Task
 }
 
 // NewDirectoryWatcher returns a DirWatcher instance.
@@ -37,7 +37,7 @@ type DirWatcher struct {
 //
 // Note that the returned DirWatcher is not ready to use until the goroutine
 // started by NewDirectoryWatcher has finished.
-func NewDirectoryWatcher(callerSubtask task.Task, dirPath string) *DirWatcher {
+func NewDirectoryWatcher(callerSubtask *task.Task, dirPath string) *DirWatcher {
 	//! subdirectories are not watched
 	w, err := fsnotify.NewWatcher()
 	if err != nil {

@@ -27,7 +27,7 @@ type Config struct {
 	value            *types.Config
 	providers        F.Map[string, *proxy.Provider]
 	autocertProvider *autocert.Provider
-	task             task.Task
+	task             *task.Task
 }
 
 var (
@@ -88,7 +88,7 @@ func WatchChanges() {
 	eventQueue.Start(cfgWatcher.Events(task.Context()))
 }
 
-func OnConfigChange(flushTask task.Task, ev []events.Event) {
+func OnConfigChange(flushTask *task.Task, ev []events.Event) {
 	defer flushTask.Finish("config reload complete")
 
 	// no matter how many events during the interval
@@ -136,7 +136,7 @@ func GetAutoCertProvider() *autocert.Provider {
 	return instance.autocertProvider
 }
 
-func (cfg *Config) Task() task.Task {
+func (cfg *Config) Task() *task.Task {
 	return cfg.task
 }
 

@@ -13,7 +13,7 @@ import (
 
 type (
 	Dispatcher struct {
-		task      task.Task
+		task      *task.Task
 		logCh     chan *LogMessage
 		providers F.Set[Provider]
 	}
@@ -35,7 +35,7 @@ var (
 
 const dispatchErr = "notification dispatch error"
 
-func StartNotifDispatcher(parent task.Task) *Dispatcher {
+func StartNotifDispatcher(parent *task.Task) *Dispatcher {
 	dispatcher = &Dispatcher{
 		task:      parent.Subtask("notification dispatcher"),
 		logCh:     make(chan *LogMessage),

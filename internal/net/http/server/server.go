@@ -24,7 +24,7 @@ type Server struct {
 	httpsStarted bool
 	startTime    time.Time
 
-	task task.Task
+	task *task.Task
 
 	l zerolog.Logger
 }

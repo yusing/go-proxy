@@ -10,14 +10,14 @@ import (
 
 type (
 	EventQueue struct {
-		task          task.Task
+		task          *task.Task
 		queue         []Event
 		ticker        *time.Ticker
 		flushInterval time.Duration
 		onFlush       OnFlushFunc
 		onError       OnErrorFunc
 	}
-	OnFlushFunc = func(flushTask task.Task, events []Event)
+	OnFlushFunc = func(flushTask *task.Task, events []Event)
 	OnErrorFunc = func(err E.Error)
 )
 
@@ -38,7 +38,7 @@ const eventQueueCapacity = 10
 // but the onFlush function can return earlier (e.g. run in another goroutine).
 //
 // If task is canceled before the flushInterval is reached, the events in queue will be discarded.
-func NewEventQueue(parent task.Task, flushInterval time.Duration, onFlush OnFlushFunc, onError OnErrorFunc) *EventQueue {
+func NewEventQueue(parent *task.Task, flushInterval time.Duration, onFlush OnFlushFunc, onError OnErrorFunc) *EventQueue {
 	return &EventQueue{
 		task:          parent.Subtask("event queue"),
 		queue:         make([]Event, 0, eventQueueCapacity),
@@ -53,7 +53,7 @@ func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
 	if common.IsProduction {
 		origOnFlush := e.onFlush
 		// recover panic in onFlush when in production mode
-		e.onFlush = func(flushTask task.Task, events []Event) {
+		e.onFlush = func(flushTask *task.Task, events []Event) {
 			defer func() {
 				if err := recover(); err != nil {
 					e.onError(E.New("recovered panic in onFlush").

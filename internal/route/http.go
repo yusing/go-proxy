@@ -31,7 +31,7 @@ type (
 		handler      http.Handler
 		rp           *gphttp.ReverseProxy
 
-		task task.Task
+		task *task.Task
 
 		l zerolog.Logger
 	}
@@ -74,8 +74,8 @@ func (r *HTTPRoute) String() string {
 	return string(r.Alias)
 }
 
-// Start implements task.TaskStarter.
-func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
+// Start implements*task.TaskStarter.
+func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 	if entry.ShouldNotServe(r) {
 		providerSubtask.Finish("should not serve")
 		return nil
@@ -148,7 +148,7 @@ func (r *HTTPRoute) Start(providerSubtask task.Task) E.Error {
 	return nil
 }
 
-// Finish implements task.TaskFinisher.
+// Finish implements*task.TaskFinisher.
 func (r *HTTPRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }

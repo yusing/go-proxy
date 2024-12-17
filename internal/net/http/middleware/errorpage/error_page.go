@@ -73,7 +73,7 @@ func loadContent() {
 	}
 }
 
-func watchDir(task task.Task) {
+func watchDir(task *task.Task) {
 	eventCh, errCh := dirWatcher.Events(task.Context())
 	for {
 		select {

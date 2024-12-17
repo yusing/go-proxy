@@ -36,7 +36,7 @@ type (
 
 		metric *metrics.Gauge
 
-		task task.Task
+		task *task.Task
 	}
 )
 
@@ -61,7 +61,7 @@ func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cance
 }
 
 // Start implements task.TaskStarter.
-func (mon *monitor) Start(routeSubtask task.Task) E.Error {
+func (mon *monitor) Start(routeSubtask *task.Task) E.Error {
 	mon.service = routeSubtask.Parent().Name()
 	mon.task = routeSubtask
 

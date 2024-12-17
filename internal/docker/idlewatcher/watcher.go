@@ -32,7 +32,7 @@ type (
 		client       D.Client
 		stopByMethod StopCallback // send a docker command w.r.t. `stop_method`
 		ticker       *time.Ticker
-		task         task.Task
+		task         *task.Task
 	}
 
 	WakeDone     <-chan error
@@ -51,7 +51,7 @@ var (
 
 const dockerReqTimeout = 3 * time.Second
 
-func registerWatcher(providerSubtask task.Task, entry route.Entry, waker *waker) (*Watcher, error) {
+func registerWatcher(providerSubtask *task.Task, entry route.Entry, waker *waker) (*Watcher, error) {
 	cfg := entry.IdlewatcherConfig()
 
 	if cfg.IdleTimeout == 0 {
@@ -209,7 +209,7 @@ func (w *Watcher) resetIdleTimer() {
 	w.ticker.Reset(w.IdleTimeout)
 }
 
-func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask task.Task, eventCh <-chan events.Event, errCh <-chan E.Error) {
+func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask *task.Task, eventCh <-chan events.Event, errCh <-chan E.Error) {
 	eventTask = w.task.Subtask("docker event watcher")
 	eventCh, errCh = dockerWatcher.EventsWithOptions(eventTask.Context(), watcher.DockerListOptions{
 		Filters: watcher.NewDockerFilter(

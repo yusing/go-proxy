@@ -100,7 +100,7 @@ func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Provider) startRoute(parent task.Task, r *R.Route) E.Error {
+func (p *Provider) startRoute(parent *task.Task, r *R.Route) E.Error {
 	subtask := parent.Subtask(p.String() + "/" + r.Entry.Alias)
 	err := r.Start(subtask)
 	if err != nil {
@@ -115,8 +115,8 @@ func (p *Provider) startRoute(parent task.Task, r *R.Route) E.Error {
 	return nil
 }
 
-// Start implements task.TaskStarter.
-func (p *Provider) Start(configSubtask task.Task) E.Error {
+// Start implements*task.TaskStarter.
+func (p *Provider) Start(configSubtask *task.Task) E.Error {
 	// routes and event queue will stop on parent cancel
 	providerTask := configSubtask
 
@@ -128,7 +128,7 @@ func (p *Provider) Start(configSubtask task.Task) E.Error {
 	eventQueue := events.NewEventQueue(
 		providerTask,
 		providerEventFlushInterval,
-		func(flushTask task.Task, events []events.Event) {
+		func(flushTask *task.Task, events []events.Event) {
 			handler := p.newEventHandler()
 			// routes' lifetime should follow the provider's lifetime
 			handler.Handle(providerTask, events)

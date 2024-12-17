@@ -39,7 +39,7 @@ const (
 
 // TODO: support stream
 
-func newWaker(providerSubTask task.Task, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
+func newWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
 	hcCfg := entry.HealthCheckConfig()
 	hcCfg.Timeout = idleWakerCheckTimeout
 
@@ -72,16 +72,16 @@ func newWaker(providerSubTask task.Task, entry route.Entry, rp *gphttp.ReversePr
 }
 
 // lifetime should follow route provider.
-func NewHTTPWaker(providerSubTask task.Task, entry route.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
+func NewHTTPWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, rp, nil)
 }
 
-func NewStreamWaker(providerSubTask task.Task, entry route.Entry, stream net.Stream) (Waker, E.Error) {
+func NewStreamWaker(providerSubTask *task.Task, entry route.Entry, stream net.Stream) (Waker, E.Error) {
 	return newWaker(providerSubTask, entry, nil, stream)
 }
 
 // Start implements health.HealthMonitor.
-func (w *Watcher) Start(routeSubTask task.Task) E.Error {
+func (w *Watcher) Start(routeSubTask *task.Task) E.Error {
 	routeSubTask.Finish("ignored")
 	w.task.OnCancel("stop route and cleanup", func() {
 		routeSubTask.Parent().Finish(w.task.FinishCause())

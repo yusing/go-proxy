@@ -16,11 +16,11 @@ import (
 
 var globalTask = createGlobalTask()
 
-func createGlobalTask() (t *task) {
-	t = new(task)
+func createGlobalTask() (t *Task) {
+	t = new(Task)
 	t.name = "root"
 	t.ctx, t.cancel = context.WithCancelCause(context.Background())
-	t.subtasks = F.NewSet[*task]()
+	t.subtasks = F.NewSet[*Task]()
 	return
 }
 
@@ -29,52 +29,6 @@ func testResetGlobalTask() {
 }
 
 type (
-	// Task controls objects' lifetime.
-	//
-	// Objects that uses a task should implement the TaskStarter and the TaskFinisher interface.
-	//
-	// When passing a Task object to another function,
-	// it must be a sub-task of the current task,
-	// in name of "`currentTaskName`Subtask"
-	//
-	// Use Task.Finish to stop all subtasks of the task.
-	Task interface {
-		TaskFinisher
-		fmt.Stringer
-		// Name returns the name of the task.
-		Name() string
-		// Context returns the context associated with the task. This context is
-		// canceled when Finish of the task is called, or parent task is canceled.
-		Context() context.Context
-		// FinishCause returns the reason / error that caused the task to be finished.
-		FinishCause() error
-		// Parent returns the parent task of the current task.
-		Parent() Task
-		// Subtask returns a new subtask with the given name, derived from the parent's context.
-		//
-		// If the parent's context is already canceled, the returned subtask will be canceled immediately.
-		//
-		// This should not be called after Finish, Wait, or WaitSubTasks is called.
-		Subtask(name string) Task
-		// OnFinished calls fn when all subtasks are finished.
-		//
-		// It cannot be called after Finish or Wait is called.
-		OnFinished(about string, fn func())
-		// OnCancel calls fn when the task is canceled.
-		//
-		// It cannot be called after Finish or Wait is called.
-		OnCancel(about string, fn func())
-		// Wait waits for all subtasks, itself, OnFinished and OnSubtasksFinished to finish.
-		//
-		// It must be called only after Finish is called.
-		Wait()
-		// WaitSubTasks waits for all subtasks of the task to finish.
-		//
-		// No more subtasks can be added after this call.
-		//
-		// It can be called before Finish is called.
-		WaitSubTasks()
-	}
 	TaskStarter interface {
 		// Start starts the object that implements TaskStarter,
 		// and returns an error if it fails to start.
@@ -82,7 +36,7 @@ type (
 		// The task passed must be a subtask of the caller task.
 		//
 		// callerSubtask.Finish must be called when start fails or the object is finished.
-		Start(callerSubtask Task) E.Error
+		Start(callerSubtask *Task) E.Error
 	}
 	TaskFinisher interface {
 		// Finish marks the task as finished and cancel its context.
@@ -93,12 +47,21 @@ type (
 		// Note that it will also cancel all subtasks.
 		Finish(reason any)
 	}
-	task struct {
+	// Task controls objects' lifetime.
+	//
+	// Objects that uses a Task should implement the TaskStarter and the TaskFinisher interface.
+	//
+	// When passing a Task object to another function,
+	// it must be a sub-Task of the current Task,
+	// in name of "`currentTaskName`Subtask"
+	//
+	// Use Task.Finish to stop all subtasks of the Task.
+	Task struct {
 		ctx    context.Context
 		cancel context.CancelCauseFunc
 
-		parent     *task
-		subtasks   F.Set[*task]
+		parent     *Task
+		subtasks   F.Set[*Task]
 		subTasksWg sync.WaitGroup
 
 		name string
@@ -119,7 +82,7 @@ var (
 )
 
 // GlobalTask returns a new Task with the given name, derived from the global context.
-func GlobalTask(format string, args ...any) Task {
+func GlobalTask(format string, args ...any) *Task {
 	if len(args) > 0 {
 		format = fmt.Sprintf(format, args...)
 	}
@@ -168,11 +131,12 @@ func GlobalContextWait(timeout time.Duration) (err error) {
 	}
 }
 
-func (t *task) trace(msg string) {
+func (t *Task) trace(msg string) {
 	logger.Trace().Str("name", t.name).Msg(msg)
 }
 
-func (t *task) Name() string {
+// Name returns the name of the task.
+func (t *Task) Name() string {
 	if !common.IsTrace {
 		return t.name
 	}
@@ -180,15 +144,19 @@ func (t *task) Name() string {
 	return parts[len(parts)-1]
 }
 
-func (t *task) String() string {
+// String returns the name of the task.
+func (t *Task) String() string {
 	return t.name
 }
 
-func (t *task) Context() context.Context {
+// Context returns the context associated with the task. This context is
+// canceled when Finish of the task is called, or parent task is canceled.
+func (t *Task) Context() context.Context {
 	return t.ctx
 }
 
-func (t *task) FinishCause() error {
+// FinishCause returns the reason / error that caused the task to be finished.
+func (t *Task) FinishCause() error {
 	cause := context.Cause(t.ctx)
 	if cause == nil {
 		return t.ctx.Err()
@@ -196,11 +164,12 @@ func (t *task) FinishCause() error {
 	return cause
 }
 
-func (t *task) Parent() Task {
+// Parent returns the parent task of the current task.
+func (t *Task) Parent() *Task {
 	return t.parent
 }
 
-func (t *task) runAllOnFinished(onCompTask Task) {
+func (t *Task) runAllOnFinished(onCompTask *Task) {
 	<-t.ctx.Done()
 	t.WaitSubTasks()
 	for _, OnFinishedFunc := range t.OnFinishedFuncs {
@@ -210,7 +179,10 @@ func (t *task) runAllOnFinished(onCompTask Task) {
 	onCompTask.Finish(fmt.Errorf("%w: %s, reason: %s", ErrTaskCanceled, t.name, "done"))
 }
 
-func (t *task) OnFinished(about string, fn func()) {
+// OnFinished calls fn when all subtasks are finished.
+//
+// It cannot be called after Finish or Wait is called.
+func (t *Task) OnFinished(about string, fn func()) {
 	if t.parent == globalTask {
 		t.OnCancel(about, fn)
 		return
@@ -239,7 +211,10 @@ func (t *task) OnFinished(about string, fn func()) {
 	t.OnFinishedFuncs = append(t.OnFinishedFuncs, wrapped)
 }
 
-func (t *task) OnCancel(about string, fn func()) {
+// OnCancel calls fn when the task is canceled.
+//
+// It cannot be called after Finish or Wait is called.
+func (t *Task) OnCancel(about string, fn func()) {
 	onCompTask := GlobalTask(t.name + " > OnFinished")
 	go func() {
 		<-t.ctx.Done()
@@ -249,7 +224,13 @@ func (t *task) OnCancel(about string, fn func()) {
 	}()
 }
 
-func (t *task) Finish(reason any) {
+// Finish marks the task as finished and cancel its context.
+//
+// Then call Wait to wait for all subtasks, OnFinished and OnSubtasksFinished
+// of the task to finish.
+//
+// Note that it will also cancel all subtasks.
+func (t *Task) Finish(reason any) {
 	var format string
 	switch reason.(type) {
 	case error:
@@ -265,22 +246,27 @@ func (t *task) Finish(reason any) {
 	t.Wait()
 }
 
-func (t *task) Subtask(name string) Task {
+// Subtask returns a new subtask with the given name, derived from the parent's context.
+//
+// If the parent's context is already canceled, the returned subtask will be canceled immediately.
+//
+// This should not be called after Finish, Wait, or WaitSubTasks is called.
+func (t *Task) Subtask(name string) *Task {
 	ctx, cancel := context.WithCancelCause(t.ctx)
 	return t.newSubTask(ctx, cancel, name)
 }
 
-func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, name string) *task {
+func (t *Task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, name string) *Task {
 	parent := t
 	if common.IsTrace {
 		name = parent.name + " > " + name
 	}
-	subtask := &task{
+	subtask := &Task{
 		ctx:      ctx,
 		cancel:   cancel,
 		name:     name,
 		parent:   parent,
-		subtasks: F.NewSet[*task](),
+		subtasks: F.NewSet[*Task](),
 	}
 	parent.subTasksWg.Add(1)
 	parent.subtasks.Add(subtask)
@@ -299,13 +285,21 @@ func (t *task) newSubTask(ctx context.Context, cancel context.CancelCauseFunc, n
 	return subtask
 }
 
-func (t *task) Wait() {
+// Wait waits for all subtasks, itself, OnFinished and OnSubtasksFinished to finish.
+//
+// It must be called only after Finish is called.
+func (t *Task) Wait() {
 	<-t.ctx.Done()
 	t.WaitSubTasks()
 	t.onFinishedWg.Wait()
 }
 
-func (t *task) WaitSubTasks() {
+// WaitSubTasks waits for all subtasks of the task to finish.
+//
+// No more subtasks can be added after this call.
+//
+// It can be called before Finish is called.
+func (t *Task) WaitSubTasks() {
 	t.subTasksWg.Wait()
 }
 
@@ -322,7 +316,7 @@ func (t *task) WaitSubTasks() {
 //
 // The returned string is not guaranteed to be stable, and may change between
 // runs of the program. It is intended for debugging purposes only.
-func (t *task) tree(prefix ...string) string {
+func (t *Task) tree(prefix ...string) string {
 	var sb strings.Builder
 	var pre string
 	if len(prefix) > 0 {
@@ -330,7 +324,7 @@ func (t *task) tree(prefix ...string) string {
 		sb.WriteString(pre + "- ")
 	}
 	sb.WriteString(t.Name() + "\n")
-	t.subtasks.RangeAll(func(subtask *task) {
+	t.subtasks.RangeAll(func(subtask *Task) {
 		sb.WriteString(subtask.tree(pre + "  "))
 	})
 	return sb.String()
@@ -350,13 +344,13 @@ func (t *task) tree(prefix ...string) string {
 // The returned map is not guaranteed to be stable, and may change
 // between runs of the program. It is intended for debugging purposes
 // only.
-func (t *task) serialize() map[string]any {
+func (t *Task) serialize() map[string]any {
 	m := make(map[string]any)
 	parts := strings.Split(t.name, " > ")
 	m["name"] = parts[len(parts)-1]
 	if t.subtasks.Size() > 0 {
 		m["subtasks"] = make([]map[string]any, 0, t.subtasks.Size())
-		t.subtasks.RangeAll(func(subtask *task) {
+		t.subtasks.RangeAll(func(subtask *Task) {
 			m["subtasks"] = append(m["subtasks"].([]map[string]any), subtask.serialize())
 		})
 	}

@@ -27,7 +27,7 @@ type (
 		impl
 		*Config
 
-		task task.Task
+		task *task.Task
 
 		pool   Pool
 		poolMu sync.Mutex
@@ -52,7 +52,7 @@ func New(cfg *Config) *LoadBalancer {
 }
 
 // Start implements task.TaskStarter.
-func (lb *LoadBalancer) Start(routeSubtask task.Task) E.Error {
+func (lb *LoadBalancer) Start(routeSubtask *task.Task) E.Error {
 	lb.startTime = time.Now()
 	lb.task = routeSubtask
 	lb.task.OnFinished("loadbalancer cleanup", func() {

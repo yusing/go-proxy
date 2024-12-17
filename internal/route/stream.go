@@ -24,7 +24,7 @@ type StreamRoute struct {
 
 	HealthMon health.HealthMonitor `json:"health"`
 
-	task task.Task
+	task *task.Task
 
 	l zerolog.Logger
 }
@@ -47,8 +47,8 @@ func (r *StreamRoute) String() string {
 	return fmt.Sprintf("stream %s", r.Alias)
 }
 
-// Start implements task.TaskStarter.
-func (r *StreamRoute) Start(providerSubtask task.Task) E.Error {
+// Start implements*task.TaskStarter.
+func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 	if entry.ShouldNotServe(r) {
 		providerSubtask.Finish("should not serve")
 		return nil
