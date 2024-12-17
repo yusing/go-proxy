@@ -16,6 +16,7 @@ import (
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
+// TODO: support stream load balance
 type StreamRoute struct {
 	*entry.StreamEntry
 

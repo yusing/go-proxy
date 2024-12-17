@@ -7,10 +7,8 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	route "github.com/yusing/go-proxy/internal/route/types"
-	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type ReverseProxyEntry struct { // real model after validation
@@ -31,14 +29,6 @@ func (rp *ReverseProxyEntry) TargetURL() net.URL {
 
 func (rp *ReverseProxyEntry) RawEntry() *route.RawEntry {
 	return rp.Raw
-}
-
-func (rp *ReverseProxyEntry) LoadBalanceConfig() *loadbalance.Config {
-	return rp.Raw.LoadBalance
-}
-
-func (rp *ReverseProxyEntry) HealthCheckConfig() *health.HealthCheckConfig {
-	return rp.Raw.HealthCheck
 }
 
 func (rp *ReverseProxyEntry) IdlewatcherConfig() *idlewatcher.Config {

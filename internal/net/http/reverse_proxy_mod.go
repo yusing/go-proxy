@@ -27,6 +27,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/metrics"
+	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"golang.org/x/net/http/httpguts"
@@ -88,6 +89,7 @@ type ReverseProxy struct {
 	// with its error value. If ErrorHandler is nil, its default
 	// implementation is used.
 	ModifyResponse func(*http.Response) error
+	AccessLogger   *accesslog.AccessLogger
 
 	HandlerFunc http.HandlerFunc
 
@@ -245,7 +247,10 @@ func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err
 		logger.Err(err).Str("url", r.URL.String()).Msg("http proxy error")
 	}
 	if writeHeader {
-		rw.WriteHeader(http.StatusBadGateway)
+		rw.WriteHeader(http.StatusInternalServerError)
+	}
+	if p.AccessLogger != nil {
+		p.AccessLogger.LogError(r, err)
 	}
 }
 
@@ -271,37 +276,19 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
+	visitorIP, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		visitorIP = req.RemoteAddr
+	}
+
 	if common.PrometheusEnabled {
 		t := time.Now()
-		var visitor string
-		if realIPs := req.Header.Values(HeaderXRealIP); len(realIPs) > 0 {
-			if len(realIPs) == 1 {
-				visitor = realIPs[0]
-			} else {
-				p.Warn().Strs("real_ips", realIPs).
-					Str("remote_addr", req.RemoteAddr).
-					Str("request_url", req.URL.String()).
-					Msg("client sent multiple 'X-Real-IP' values, ignoring.")
-			}
-		}
-		if visitor == "" {
-			if fwdIPs := req.Header.Values(HeaderXForwardedFor); len(fwdIPs) > 0 {
-				// right-most IP is the visitor
-				visitor = fwdIPs[len(fwdIPs)-1]
-			}
-		}
-		if visitor == "" {
-			var err error
-			visitor, _, err = net.SplitHostPort(req.RemoteAddr)
-			if err != nil {
-				visitor = req.RemoteAddr
-			}
-		}
+		// req.RemoteAddr had been modified by middleware (if any)
 		lbls := &metrics.HTTPRouteMetricLabels{
 			Service: p.TargetName,
 			Method:  req.Method,
 			Host:    req.Host,
-			Visitor: visitor,
+			Visitor: visitorIP,
 			Path:    req.URL.Path,
 		}
 		rw = &httpMetricLogger{
@@ -389,18 +376,17 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	if clientIP, _, err := net.SplitHostPort(req.RemoteAddr); err == nil {
-		// If we aren't the first proxy retain prior
-		// X-Forwarded-For information as a comma+space
-		// separated list and fold multiple headers into one.
-		prior, ok := outreq.Header[HeaderXForwardedFor]
-		omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
-		if len(prior) > 0 {
-			clientIP = strings.Join(prior, ", ") + ", " + clientIP
-		}
-		if !omit {
-			outreq.Header.Set(HeaderXForwardedFor, clientIP)
-		}
+	// If we aren't the first proxy retain prior
+	// X-Forwarded-For information as a comma+space
+	// separated list and fold multiple headers into one.
+	prior, ok := outreq.Header[HeaderXForwardedFor]
+	omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
+	xff := visitorIP
+	if len(prior) > 0 {
+		xff = strings.Join(prior, ", ") + ", " + xff
+	}
+	if !omit {
+		outreq.Header.Set(HeaderXForwardedFor, xff)
 	}
 
 	var reqScheme string
@@ -463,6 +449,12 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 			Request:    req,
 			TLS:        req.TLS,
 		}
+	}
+
+	if p.AccessLogger != nil {
+		defer func() {
+			p.AccessLogger.Log(req, res)
+		}()
 	}
 
 	// Deal with 101 Switching Protocols responses: (WebSocket, h2c, etc)

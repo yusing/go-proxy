@@ -1,5 +1,7 @@
 package types
 
+import "github.com/yusing/go-proxy/internal/net/http/accesslog"
+
 type (
 	Config struct {
 		AutoCert        AutoCertConfig `json:"autocert" yaml:",flow"`
@@ -15,7 +17,8 @@ type (
 		Notification []NotificationConfig `json:"notification" yaml:"notification"`
 	}
 	Entrypoint struct {
-		Middlewares []map[string]any `json:"middlewares" yaml:"middlewares"`
+		Middlewares []map[string]any  `json:"middlewares" yaml:"middlewares"`
+		AccessLog   *accesslog.Config `json:"access_log" yaml:"access_log"`
 	}
 	NotificationConfig map[string]any
 )

@@ -39,7 +39,7 @@ const (
 // TODO: support stream
 
 func newWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
-	hcCfg := entry.HealthCheckConfig()
+	hcCfg := entry.RawEntry().HealthCheck
 	hcCfg.Timeout = idleWakerCheckTimeout
 
 	waker := &waker{

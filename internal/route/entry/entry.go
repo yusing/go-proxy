@@ -43,7 +43,7 @@ func ShouldNotServe(entry Entry) bool {
 }
 
 func UseLoadBalance(entry Entry) bool {
-	lb := entry.LoadBalanceConfig()
+	lb := entry.RawEntry().LoadBalance
 	return lb != nil && lb.Link != ""
 }
 
@@ -53,6 +53,10 @@ func UseIdleWatcher(entry Entry) bool {
 }
 
 func UseHealthCheck(entry Entry) bool {
-	hc := entry.HealthCheckConfig()
+	hc := entry.RawEntry().HealthCheck
 	return hc != nil && !hc.Disable
+}
+
+func UseAccessLog(entry Entry) bool {
+	return entry.RawEntry().AccessLog != nil
 }

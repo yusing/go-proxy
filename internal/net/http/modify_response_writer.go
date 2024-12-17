@@ -18,6 +18,7 @@ type (
 
 		headerSent bool
 		code       int
+		size       int
 
 		modifier    ModifyResponseFunc
 		modified    bool
@@ -36,6 +37,14 @@ func NewModifyResponseWriter(w http.ResponseWriter, r *http.Request, f ModifyRes
 
 func (w *ModifyResponseWriter) Unwrap() http.ResponseWriter {
 	return w.w
+}
+
+func (w *ModifyResponseWriter) StatusCode() int {
+	return w.code
+}
+
+func (w *ModifyResponseWriter) Size() int {
+	return w.size
 }
 
 func (w *ModifyResponseWriter) WriteHeader(code int) {
@@ -58,12 +67,15 @@ func (w *ModifyResponseWriter) WriteHeader(code int) {
 	}
 
 	resp := http.Response{
-		Header:  w.w.Header(),
-		Request: w.r,
+		StatusCode:    code,
+		Header:        w.w.Header(),
+		Request:       w.r,
+		ContentLength: int64(w.size),
 	}
 
 	if err := w.modifier(&resp); err != nil {
 		w.modifierErr = fmt.Errorf("response modifier error: %w", err)
+		resp.Status = w.modifierErr.Error()
 		w.w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -81,7 +93,10 @@ func (w *ModifyResponseWriter) Write(b []byte) (int, error) {
 	if w.modifierErr != nil {
 		return 0, w.modifierErr
 	}
-	return w.w.Write(b)
+
+	n, err := w.w.Write(b)
+	w.size += n
+	return n, err
 }
 
 // Hijack hijacks the connection.

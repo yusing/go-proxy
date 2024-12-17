@@ -6,10 +6,8 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
-	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	route "github.com/yusing/go-proxy/internal/route/types"
-	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type StreamEntry struct {
@@ -34,15 +32,6 @@ func (s *StreamEntry) TargetURL() net.URL {
 
 func (s *StreamEntry) RawEntry() *route.RawEntry {
 	return s.Raw
-}
-
-func (s *StreamEntry) LoadBalanceConfig() *loadbalance.Config {
-	// TODO: support stream load balance
-	return nil
-}
-
-func (s *StreamEntry) HealthCheckConfig() *health.HealthCheckConfig {
-	return s.Raw.HealthCheck
 }
 
 func (s *StreamEntry) IdlewatcherConfig() *idlewatcher.Config {

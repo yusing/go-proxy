@@ -9,6 +9,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
@@ -102,6 +103,15 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 		}
 		if r.HealthMon == nil {
 			r.HealthMon = monitor.NewHTTPHealthMonitor(r.rp.TargetURL, r.Raw.HealthCheck)
+		}
+	}
+
+	if entry.UseAccessLog(r) {
+		var err error
+		r.rp.AccessLogger, err = accesslog.NewFileAccessLogger(r.task, r.Raw.AccessLog)
+		if err != nil {
+			r.task.Finish(err)
+			return E.From(err)
 		}
 	}
 

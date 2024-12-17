@@ -7,10 +7,13 @@ import (
 	"strings"
 	"sync"
 
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
+	"github.com/yusing/go-proxy/internal/task"
 )
 
 var findRouteFunc = findRouteAnyDomain
@@ -18,6 +21,9 @@ var findRouteFunc = findRouteAnyDomain
 var (
 	epMiddleware   *middleware.Middleware
 	epMiddlewareMu sync.Mutex
+
+	epAccessLogger   *accesslog.AccessLogger
+	epAccessLoggerMu sync.Mutex
 )
 
 func SetFindRouteDomains(domains []string) {
@@ -47,6 +53,23 @@ func SetMiddlewares(mws []map[string]any) error {
 	return nil
 }
 
+func SetAccessLogger(parent *task.Task, cfg *accesslog.Config) (err error) {
+	epAccessLoggerMu.Lock()
+	defer epAccessLoggerMu.Unlock()
+
+	if cfg == nil {
+		epAccessLogger = nil
+		return
+	}
+
+	epAccessLogger, err = accesslog.NewFileAccessLogger(parent, cfg)
+	if err != nil {
+		return
+	}
+	logger.Debug().Msg("entrypoint access logger created")
+	return
+}
+
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findRouteFunc(r.Host)
 	if err != nil {
@@ -58,6 +81,16 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err == nil {
+		if epAccessLogger != nil {
+			epMiddlewareMu.Lock()
+			if epAccessLogger != nil {
+				w = gphttp.NewModifyResponseWriter(w, r, func(resp *http.Response) error {
+					epAccessLogger.Log(r, resp)
+					return nil
+				})
+			}
+			epMiddlewareMu.Unlock()
+		}
 		if epMiddleware != nil {
 			epMiddlewareMu.Lock()
 			if epMiddleware != nil {
