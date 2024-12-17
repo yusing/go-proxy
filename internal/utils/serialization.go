@@ -244,8 +244,12 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 					if e.Param() != "" {
 						detail += ":" + e.Param()
 					}
+					fieldName, ok := fieldName[e.Field()]
+					if !ok {
+						fieldName = e.Field()
+					}
 					errs.Add(ErrValidationError.
-						Subject(fieldName[e.Field()]).
+						Subject(fieldName).
 						Withf("require %q", detail))
 				}
 			}
@@ -424,8 +428,19 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 	switch dst.Kind() {
 	case reflect.Slice:
 		// one liner is comma separated list
-		if len(lines) == 0 {
-			dst.Set(reflect.ValueOf(strutils.CommaSeperatedList(src)))
+		if len(lines) == 1 {
+			values := strutils.CommaSeperatedList(src)
+			dst.Set(reflect.MakeSlice(dst.Type(), len(values), len(values)))
+			errs := E.NewBuilder("invalid slice values")
+			for i, v := range values {
+				err := Convert(reflect.ValueOf(v), dst.Index(i))
+				if err != nil {
+					errs.Add(err.Subjectf("[%d]", i))
+				}
+			}
+			if errs.HasError() {
+				return true, errs.Error()
+			}
 			return
 		}
 		sl := make([]string, 0, len(lines))
