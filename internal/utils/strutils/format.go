@@ -63,6 +63,9 @@ func PortString(port uint16) string {
 }
 
 func DoYouMean(s string) string {
+	if s == "" {
+		return ""
+	}
 	return "Did you mean " + ansi.HighlightGreen + s + ansi.Reset + "?"
 }
 
