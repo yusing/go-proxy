@@ -277,6 +277,18 @@ func isIntFloat(t reflect.Kind) bool {
 // Returns:
 //   - error: the error occurred during conversion, or nil if no error occurred.
 func Convert(src reflect.Value, dst reflect.Value) E.Error {
+	if !dst.IsValid() {
+		return E.Errorf("convert: dst is %w", ErrNilValue)
+	}
+
+	if !src.IsValid() {
+		if dst.CanSet() {
+			dst.Set(reflect.Zero(dst.Type()))
+			return nil
+		}
+		return E.Errorf("convert: src is %w", ErrNilValue)
+	}
+
 	srcT := src.Type()
 	dstT := dst.Type()
 
@@ -339,7 +351,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 			return nil
 		}
 		if dstT.Kind() != reflect.Slice {
-			return ErrUnsupportedConversion.Subject(dstT.String() + " to slice")
+			return ErrUnsupportedConversion.Subject(dstT.String() + " to " + srcT.String())
 		}
 		newSlice := reflect.MakeSlice(dstT, 0, src.Len())
 		i := 0
@@ -469,11 +481,10 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			return true, errs.Error()
 		}
 		tmp = m
+	default:
+		return false, nil
 	}
-	if tmp != nil {
-		return true, Convert(reflect.ValueOf(tmp), dst)
-	}
-	return false, nil
+	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
 func DeserializeYAML[T any](data []byte, target T) E.Error {

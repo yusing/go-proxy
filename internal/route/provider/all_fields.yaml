@@ -1,0 +1,65 @@
+example: # matching `example.y.z`
+  scheme: http
+  host: 10.0.0.254
+  port: 80
+  path_patterns: # Check https://pkg.go.dev/net/http#hdr-Patterns-ServeMux for syntax
+    - GET / # accept any GET request
+    - POST /auth # for /auth and /auth/* accept only POST
+    - GET /home/{$} # for exactly /home
+  healthcheck:
+    disabled: false
+    path: /
+    interval: 5s
+  load_balance:
+    link: app
+    mode: ip_hash
+    options:
+      header: X-Forwarded-For
+  middlewares:
+    cidr_whitelist:
+      allow:
+        - 127.0.0.1
+        - 10.0.0.0/8
+      status_code: 403
+      message: IP not allowed
+    hideXForwarded:
+  homepage:
+    name: Example App
+    icon: png/example.png
+    description: An example app
+    category: example
+  access_log:
+    buffer_size: 100
+    path: /var/log/example.log
+    filters:
+      status_codes:
+        values:
+          - 200-299
+          - 101
+      method:
+        values:
+          - GET
+      host:
+        values:
+          - example.y.z
+      headers:
+        negative: true
+        values:
+          - foo=bar
+          - baz
+      cidr:
+        values:
+          - 192.168.10.0/24
+    fields:
+      headers:
+        default: keep
+        config:
+          foo: redact
+      query:
+        default: drop
+        config:
+          foo: keep
+      cookies:
+        default: redact
+        config:
+          foo: keep

@@ -23,7 +23,7 @@ func IgnoreError[Result any](r Result, _ error) Result {
 func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
 	if err != nil && !reflect.ValueOf(err).IsNil() {
-		t.Errorf("expected err=nil, got %v", err)
+		t.Errorf("expected err=nil, got %s", ansi.StripANSI(err.Error()))
 		t.FailNow()
 	}
 }
@@ -31,7 +31,7 @@ func ExpectNoError(t *testing.T, err error) {
 func ExpectError(t *testing.T, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("expected err %s, got %v", expected, err)
+		t.Errorf("expected err %s, got %s", expected, ansi.StripANSI(err.Error()))
 		t.FailNow()
 	}
 }
@@ -39,7 +39,7 @@ func ExpectError(t *testing.T, expected error, err error) {
 func ExpectError2(t *testing.T, input any, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("%v: expected err %s, got %v", input, expected, err)
+		t.Errorf("%v: expected err %s, got %s", input, expected, ansi.StripANSI(err.Error()))
 		t.FailNow()
 	}
 }
@@ -48,22 +48,17 @@ func ExpectErrorT[T error](t *testing.T, err error) {
 	t.Helper()
 	var errAs T
 	if !errors.As(err, &errAs) {
-		t.Errorf("expected err %T, got %v", errAs, err)
+		t.Errorf("expected err %T, got %s", errAs, ansi.StripANSI(err.Error()))
 		t.FailNow()
 	}
 }
 
 func ExpectEqual[T comparable](t *testing.T, got T, want T) {
 	t.Helper()
-	if got != want {
-		t.Errorf("expected:\n%v, got\n%v", want, got)
-		t.FailNow()
+	if gotStr, ok := any(got).(string); ok {
+		ExpectDeepEqual(t, ansi.StripANSI(gotStr), any(want).(string))
+		return
 	}
-}
-
-func ExpectStrEqual(t *testing.T, got string, want string) {
-	t.Helper()
-	got = ansi.StripANSI(got)
 	if got != want {
 		t.Errorf("expected:\n%v, got\n%v", want, got)
 		t.FailNow()
