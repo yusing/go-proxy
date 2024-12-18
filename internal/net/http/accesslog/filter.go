@@ -22,6 +22,7 @@ type (
 	HTTPHeader struct {
 		Key, Value string
 	}
+	Host string
 	CIDR struct{ types.CIDR }
 )
 
@@ -77,6 +78,10 @@ func (k *HTTPHeader) Fulfill(req *http.Request, res *http.Response) bool {
 		}
 	}
 	return false
+}
+
+func (h Host) Fulfill(req *http.Request, res *http.Response) bool {
+	return req.Host == string(h)
 }
 
 func (cidr CIDR) Fulfill(req *http.Request, res *http.Response) bool {

@@ -7,6 +7,7 @@ type (
 	Filters struct {
 		StatusCodes LogFilter[*StatusCodeRange] `json:"status_codes"`
 		Method      LogFilter[HTTPMethod]       `json:"method"`
+		Host        LogFilter[Host]             `json:"host"`
 		Headers     LogFilter[*HTTPHeader]      `json:"headers"` // header exists or header == value
 		CIDR        LogFilter[*CIDR]            `json:"cidr"`
 	}
