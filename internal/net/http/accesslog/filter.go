@@ -7,6 +7,7 @@ import (
 
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type (
@@ -48,8 +49,9 @@ func (method HTTPMethod) Fulfill(req *http.Request, res *http.Response) bool {
 	return req.Method == string(method)
 }
 
+// Parse implements strutils.Parser.
 func (k *HTTPHeader) Parse(v string) error {
-	split := strings.Split(v, "=")
+	split := strutils.SplitRune(v, '=')
 	switch len(split) {
 	case 1:
 		split = append(split, "")

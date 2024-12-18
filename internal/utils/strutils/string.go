@@ -8,8 +8,10 @@ import (
 	"golang.org/x/text/language"
 )
 
+// CommaSeperatedList returns a list of strings split by commas,
+// then trim spaces from each element.
 func CommaSeperatedList(s string) []string {
-	res := strings.Split(s, ",")
+	res := SplitComma(s)
 	for i, part := range res {
 		res[i] = strings.TrimSpace(part)
 	}

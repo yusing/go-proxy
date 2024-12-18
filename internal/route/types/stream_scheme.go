@@ -1,10 +1,8 @@
 package types
 
 import (
-	"fmt"
-	"strings"
-
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type StreamScheme struct {
@@ -14,7 +12,7 @@ type StreamScheme struct {
 
 func ValidateStreamScheme(s string) (*StreamScheme, error) {
 	ss := &StreamScheme{}
-	parts := strings.Split(s, ":")
+	parts := strutils.SplitRune(s, ':')
 	if len(parts) == 1 {
 		parts = []string{s, s}
 	} else if len(parts) != 2 {
@@ -33,7 +31,7 @@ func ValidateStreamScheme(s string) (*StreamScheme, error) {
 }
 
 func (s StreamScheme) String() string {
-	return fmt.Sprintf("%s -> %s", s.ListeningScheme, s.ProxyScheme)
+	return string(s.ListeningScheme) + " -> " + string(s.ProxyScheme)
 }
 
 // IsCoherent checks if the ListeningScheme and ProxyScheme of the StreamScheme are equal.

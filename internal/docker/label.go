@@ -1,9 +1,8 @@
 package docker
 
 import (
-	"strings"
-
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type LabelMap = map[string]any
@@ -13,7 +12,7 @@ func ParseLabels(labels map[string]string) (LabelMap, E.Error) {
 	errs := E.NewBuilder("labels error")
 
 	for lbl, value := range labels {
-		parts := strings.Split(lbl, ".")
+		parts := strutils.SplitRune(lbl, '.')
 		if parts[0] != NSProxy {
 			continue
 		}

@@ -193,7 +193,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		for _, field := range fields {
 			var key string
 			if jsonTag, ok := field.Tag.Lookup("json"); ok {
-				key = strings.Split(jsonTag, ",")[0]
+				key = strutils.CommaSeperatedList(jsonTag)[0]
 			} else {
 				key = field.Name
 			}
@@ -208,7 +208,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 
 			aliases, ok := field.Tag.Lookup("aliases")
 			if ok {
-				for _, alias := range strings.Split(aliases, ",") {
+				for _, alias := range strutils.CommaSeperatedList(aliases) {
 					mapping[alias] = dstV.FieldByName(field.Name)
 					fieldName[field.Name] = alias
 				}
@@ -425,7 +425,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 	lines := []string{}
 	src = strings.TrimSpace(src)
 	if src != "" {
-		lines = strings.Split(src, "\n")
+		lines = strutils.SplitLine(src)
 		for i := range lines {
 			lines[i] = strings.TrimSpace(lines[i])
 		}

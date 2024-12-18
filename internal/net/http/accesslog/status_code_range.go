@@ -2,9 +2,9 @@ package accesslog
 
 import (
 	"strconv"
-	"strings"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type StatusCodeRange struct {
@@ -18,8 +18,9 @@ func (r *StatusCodeRange) Includes(code int) bool {
 	return r.Start <= code && code <= r.End
 }
 
+// Parse implements strutils.Parser.
 func (r *StatusCodeRange) Parse(v string) error {
-	split := strings.Split(v, "-")
+	split := strutils.SplitRune(v, '-')
 	switch len(split) {
 	case 1:
 		start, err := strconv.Atoi(split[0])

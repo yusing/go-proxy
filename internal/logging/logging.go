@@ -7,6 +7,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 var logger zerolog.Logger
@@ -39,14 +40,14 @@ func init() {
 			FieldsExclude: exclude,
 			FormatMessage: func(msgI interface{}) string { // pad spaces for each line
 				msg := msgI.(string)
-				lines := strings.Split(msg, "\n")
+				lines := strutils.SplitRune(msg, '\n')
 				if len(lines) == 1 {
 					return msg
 				}
 				for i := 1; i < len(lines); i++ {
 					lines[i] = prefix + lines[i]
 				}
-				return strings.Join(lines, "\n")
+				return strutils.JoinRune(lines, '\n')
 			},
 		},
 	).Level(level).With().Timestamp().Logger()

@@ -173,14 +173,14 @@ func (e *RawEntry) Finalize() {
 }
 
 func (e *RawEntry) splitPorts() (lp string, pp string, extra string) {
-	portSplit := strings.Split(e.Port, ":")
+	portSplit := strutils.SplitRune(e.Port, ':')
 	if len(portSplit) == 1 {
 		pp = portSplit[0]
 	} else {
 		lp = portSplit[0]
 		pp = portSplit[1]
 		if len(portSplit) > 2 {
-			extra = strings.Join(portSplit[2:], ":")
+			extra = strutils.JoinRune(portSplit[2:], ':')
 		}
 	}
 	return
@@ -197,7 +197,7 @@ func joinPorts(lp string, pp string, extra string) string {
 	if extra != "" {
 		s = append(s, extra)
 	}
-	return strings.Join(s, ":")
+	return strutils.JoinRune(s, ':')
 }
 
 func lowestPort(ports map[string]types.Port) string {

@@ -2,8 +2,6 @@ package strutils
 
 import (
 	"reflect"
-
-	"github.com/yusing/go-proxy/internal/logging"
 )
 
 type Parser interface {
@@ -22,7 +20,7 @@ func Parse[T Parser](from string) (t T, err error) {
 func MustParse[T Parser](from string) T {
 	t, err := Parse[T](from)
 	if err != nil {
-		logging.Panic().Err(err).Msg("must failed")
+		panic("must failed: " + err.Error())
 	}
 	return t
 }

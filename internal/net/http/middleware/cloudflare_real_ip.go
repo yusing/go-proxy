@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -113,7 +112,7 @@ func fetchUpdateCFIPRange(endpoint string, cfCIDRs *[]*types.CIDR) error {
 		return err
 	}
 
-	for _, line := range strings.Split(string(body), "\n") {
+	for _, line := range strutils.SplitLine(string(body)) {
 		if line == "" {
 			continue
 		}

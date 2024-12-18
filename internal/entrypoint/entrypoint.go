@@ -14,6 +14,7 @@ import (
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 var findRouteFunc = findRouteAnyDomain
@@ -124,7 +125,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func findRouteAnyDomain(host string) (route.HTTPRoute, error) {
-	hostSplit := strings.Split(host, ".")
+	hostSplit := strutils.SplitRune(host, '.')
 	n := len(hostSplit)
 	switch {
 	case n == 3:

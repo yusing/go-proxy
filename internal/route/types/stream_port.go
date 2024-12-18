@@ -1,9 +1,8 @@
 package types
 
 import (
-	"strings"
-
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type StreamPort struct {
@@ -14,7 +13,7 @@ type StreamPort struct {
 var ErrStreamPortTooManyColons = E.New("too many colons")
 
 func ValidateStreamPort(p string) (StreamPort, error) {
-	split := strings.Split(p, ":")
+	split := strutils.SplitRune(p, ':')
 
 	switch len(split) {
 	case 1:

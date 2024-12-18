@@ -3,7 +3,8 @@ package err
 import (
 	"errors"
 	"fmt"
-	"strings"
+
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 //nolint:recvcheck
@@ -78,7 +79,7 @@ func (err *nestedError) Error() string {
 	if extras := makeLines(err.Extras, 1); len(extras) > 0 {
 		lines = append(lines, extras...)
 	}
-	return strings.Join(lines, "\n")
+	return strutils.JoinLines(lines)
 }
 
 //go:inline

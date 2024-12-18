@@ -33,8 +33,8 @@ func (c containerHelper) getName() string {
 }
 
 func (c containerHelper) getImageName() string {
-	colonSep := strings.Split(c.Image, ":")
-	slashSep := strings.Split(colonSep[0], "/")
+	colonSep := strutils.SplitRune(c.Image, ':')
+	slashSep := strutils.SplitRune(colonSep[0], '/')
 	return slashSep[len(slashSep)-1]
 }
 

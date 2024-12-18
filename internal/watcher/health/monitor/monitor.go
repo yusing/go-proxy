@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/common"
@@ -141,7 +140,7 @@ func (mon *monitor) Uptime() time.Duration {
 
 // Name implements HealthMonitor.
 func (mon *monitor) Name() string {
-	parts := strings.Split(mon.service, "/")
+	parts := strutils.SplitRune(mon.service, '/')
 	return parts[len(parts)-1]
 }
 
