@@ -6,7 +6,7 @@ import (
 
 type modifyResponse struct {
 	ModifyRequestOpts
-	*Tracer
+	Tracer
 }
 
 var ModifyResponse = NewMiddleware[modifyResponse]()

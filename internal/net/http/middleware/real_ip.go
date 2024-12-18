@@ -13,7 +13,7 @@ import (
 type (
 	realIP struct {
 		RealIPOpts
-		*Tracer
+		Tracer
 	}
 	RealIPOpts struct {
 		// Header is the name of the header to use for the real client IP

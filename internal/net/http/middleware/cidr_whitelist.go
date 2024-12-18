@@ -11,7 +11,7 @@ import (
 type (
 	cidrWhitelist struct {
 		CIDRWhitelistOpts
-		*Tracer
+		Tracer
 		cachedAddr F.Map[string, bool] // cache for trusted IPs
 	}
 	CIDRWhitelistOpts struct {

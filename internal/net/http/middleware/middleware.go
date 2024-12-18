@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/utils"
 )
@@ -32,7 +33,10 @@ type (
 	ResponseModifier     interface{ modifyResponse(r *http.Response) error }
 	MiddlewareWithSetup  interface{ setup() }
 	MiddlewareFinalizer  interface{ finalize() }
-	MiddlewareWithTracer *struct{ *Tracer }
+	MiddlewareWithTracer interface {
+		enableTrace()
+		getTracer() *Tracer
+	}
 )
 
 func NewMiddleware[ImplType any]() *Middleware {
@@ -51,20 +55,21 @@ func NewMiddleware[ImplType any]() *Middleware {
 
 func (m *Middleware) enableTrace() {
 	if tracer, ok := m.impl.(MiddlewareWithTracer); ok {
-		tracer.Tracer = &Tracer{name: m.name}
+		tracer.enableTrace()
+		logging.Debug().Msgf("middleware %s enabled trace", m.name)
 	}
 }
 
 func (m *Middleware) getTracer() *Tracer {
 	if tracer, ok := m.impl.(MiddlewareWithTracer); ok {
-		return tracer.Tracer
+		return tracer.getTracer()
 	}
 	return nil
 }
 
 func (m *Middleware) setParent(parent *Middleware) {
 	if tracer := m.getTracer(); tracer != nil {
-		tracer.parent = parent.getTracer()
+		tracer.SetParent(parent.getTracer())
 	}
 }
 

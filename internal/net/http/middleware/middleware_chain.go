@@ -28,6 +28,9 @@ func NewMiddlewareChain(name string, chain []*Middleware) *Middleware {
 	}
 
 	if common.IsDebug {
+		for _, child := range chain {
+			child.enableTrace()
+		}
 		m.enableTrace()
 	}
 	return m

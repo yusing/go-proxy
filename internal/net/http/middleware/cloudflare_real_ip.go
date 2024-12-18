@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -52,6 +53,14 @@ func (cri *cloudflareRealIP) before(w http.ResponseWriter, r *http.Request) bool
 	return cri.realIP.before(w, r)
 }
 
+func (cri *cloudflareRealIP) enableTrace() {
+	cri.realIP.enableTrace()
+}
+
+func (cri *cloudflareRealIP) getTracer() *Tracer {
+	return cri.realIP.getTracer()
+}
+
 func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 	if time.Since(cfCIDRsLastUpdate) < cfCIDRsUpdateInterval {
 		return
@@ -74,13 +83,16 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 	} else {
 		cfCIDRs = make([]*types.CIDR, 0, 30)
 		err := errors.Join(
-			fetchUpdateCFIPRange(cfIPv4CIDRsEndpoint, cfCIDRs),
-			fetchUpdateCFIPRange(cfIPv6CIDRsEndpoint, cfCIDRs),
+			fetchUpdateCFIPRange(cfIPv4CIDRsEndpoint, &cfCIDRs),
+			fetchUpdateCFIPRange(cfIPv6CIDRsEndpoint, &cfCIDRs),
 		)
 		if err != nil {
 			cfCIDRsLastUpdate = time.Now().Add(-cfCIDRsUpdateRetryInterval - cfCIDRsUpdateInterval)
 			cfCIDRsLogger.Err(err).Msg("failed to update cloudflare range, retry in " + strutils.FormatDuration(cfCIDRsUpdateRetryInterval))
 			return nil
+		}
+		if len(cfCIDRs) == 0 {
+			logging.Warn().Msg("cloudflare CIDR range is empty")
 		}
 	}
 
@@ -89,7 +101,7 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 	return
 }
 
-func fetchUpdateCFIPRange(endpoint string, cfCIDRs []*types.CIDR) error {
+func fetchUpdateCFIPRange(endpoint string, cfCIDRs *[]*types.CIDR) error {
 	resp, err := http.Get(endpoint)
 	if err != nil {
 		return err
@@ -110,7 +122,7 @@ func fetchUpdateCFIPRange(endpoint string, cfCIDRs []*types.CIDR) error {
 			return fmt.Errorf("cloudflare responeded an invalid CIDR: %s", line)
 		}
 
-		cfCIDRs = append(cfCIDRs, cidr)
+		*cfCIDRs = append(*cfCIDRs, cidr)
 	}
 
 	return nil

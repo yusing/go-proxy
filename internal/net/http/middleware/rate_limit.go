@@ -13,7 +13,7 @@ type (
 	requestMap  = map[string]*rate.Limiter
 	rateLimiter struct {
 		RateLimiterOpts
-		*Tracer
+		Tracer
 
 		requestMap requestMap
 		mu         sync.Mutex

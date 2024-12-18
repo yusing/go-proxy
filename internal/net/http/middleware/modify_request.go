@@ -8,7 +8,7 @@ import (
 type (
 	modifyRequest struct {
 		ModifyRequestOpts
-		*Tracer
+		Tracer
 	}
 	// order: set_headers -> add_headers -> hide_headers
 	ModifyRequestOpts struct {

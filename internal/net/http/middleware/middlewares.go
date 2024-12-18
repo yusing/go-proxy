@@ -1,10 +1,7 @@
 package middleware
 
 import (
-	"fmt"
-	"net/http"
 	"path"
-	"strings"
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -12,7 +9,31 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-var allMiddlewares map[string]*Middleware
+// snakes and cases will be stripped on `Get`
+// so keys are lowercase without snake.
+var allMiddlewares = map[string]*Middleware{
+	"redirecthttp": RedirectHTTP,
+
+	"request":        ModifyRequest,
+	"modifyrequest":  ModifyRequest,
+	"response":       ModifyResponse,
+	"modifyresponse": ModifyResponse,
+	"setxforwarded":  SetXForwarded,
+	"hidexforwarded": HideXForwarded,
+
+	"errorpage":       CustomErrorPage,
+	"customerrorpage": CustomErrorPage,
+
+	"realip":           RealIP,
+	"cloudflarerealip": CloudflareRealIP,
+
+	"cidrwhitelist": CIDRWhiteList,
+	"ratelimit":     RateLimiter,
+
+	// !experimental
+	"forwardauth": ForwardAuth,
+	// "oauth2":      OAuth2.m,
+}
 
 var (
 	ErrUnknownMiddleware    = E.New("unknown middleware")
@@ -31,46 +52,6 @@ func Get(name string) (*Middleware, Error) {
 
 func All() map[string]*Middleware {
 	return allMiddlewares
-}
-
-// initialize middleware names and label parsers.
-func init() {
-	// snakes and cases will be stripped on `Get`
-	// so keys are lowercase without snake.
-	allMiddlewares = map[string]*Middleware{
-		"redirecthttp": RedirectHTTP,
-
-		"request":        ModifyRequest,
-		"modifyrequest":  ModifyRequest,
-		"response":       ModifyResponse,
-		"modifyresponse": ModifyResponse,
-		"setxforwarded":  SetXForwarded,
-		"hidexforwarded": HideXForwarded,
-
-		"errorpage":       CustomErrorPage,
-		"customerrorpage": CustomErrorPage,
-
-		"realip":           RealIP,
-		"cloudflarerealip": CloudflareRealIP,
-
-		"cidrwhitelist": CIDRWhiteList,
-		"ratelimit":     RateLimiter,
-
-		// !experimental
-		"forwardauth": ForwardAuth,
-		// "oauth2":      OAuth2.m,
-	}
-	names := make(map[*Middleware][]string)
-	for name, m := range allMiddlewares {
-		names[m] = append(names[m], http.CanonicalHeaderKey(name))
-	}
-	for m, names := range names {
-		if len(names) > 1 {
-			m.name = fmt.Sprintf("%s (a.k.a. %s)", names[0], strings.Join(names[1:], ", "))
-		} else {
-			m.name = names[0]
-		}
-	}
 }
 
 func LoadComposeFiles() {

@@ -13,7 +13,6 @@ import (
 
 	"github.com/go-playground/validator/v10"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"gopkg.in/yaml.v3"
@@ -46,10 +45,8 @@ func RegisterDefaultValueFactory[T any](factory func() *T) {
 
 func New(t reflect.Type) reflect.Value {
 	if dv, ok := defaultValues.Load(t); ok {
-		logging.Debug().Str("type", t.String()).Msg("using default value")
 		return reflect.ValueOf(dv())
 	}
-	logging.Debug().Str("type", t.String()).Msg("using zero value")
 	return reflect.New(t)
 }
 

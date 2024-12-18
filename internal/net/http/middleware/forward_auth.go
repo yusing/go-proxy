@@ -19,7 +19,7 @@ import (
 type (
 	forwardAuth struct {
 		ForwardAuthOpts
-		*Tracer
+		Tracer
 		reqCookiesMap F.Map[*http.Request, []*http.Cookie]
 	}
 	ForwardAuthOpts struct {
