@@ -189,7 +189,7 @@ func (mon *monitor) checkUpdateHealth() error {
 	if result.Healthy != (mon.status.Swap(status) == health.StatusHealthy) {
 		extras := map[string]any{
 			"Service Name": mon.service,
-			"Last Seen":    strutils.FormatTime(mon.lastSeen),
+			"Last Seen":    strutils.FormatLastSeen(mon.lastSeen),
 		}
 		if !mon.url.Load().Nil() {
 			extras["Service URL"] = mon.url.Load().String()

@@ -28,10 +28,6 @@ func (jsonRepr *JSONRepresentation) MarshalJSON() ([]byte, error) {
 	if url == "http://:0" {
 		url = ""
 	}
-	lastSeen := "never"
-	if !jsonRepr.LastSeen.IsZero() {
-		lastSeen = strutils.FormatTime(jsonRepr.LastSeen)
-	}
 	return json.Marshal(map[string]any{
 		"name":        jsonRepr.Name,
 		"config":      jsonRepr.Config,
@@ -43,7 +39,7 @@ func (jsonRepr *JSONRepresentation) MarshalJSON() ([]byte, error) {
 		"latency":     jsonRepr.Latency.Seconds(),
 		"latencyStr":  strconv.Itoa(int(jsonRepr.Latency.Milliseconds())) + " ms",
 		"lastSeen":    jsonRepr.LastSeen.Unix(),
-		"lastSeenStr": lastSeen,
+		"lastSeenStr": strutils.FormatLastSeen(jsonRepr.LastSeen),
 		"detail":      jsonRepr.Detail,
 		"url":         url,
 		"extra":       jsonRepr.Extra,
