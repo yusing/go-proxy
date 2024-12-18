@@ -5,22 +5,22 @@ import "github.com/yusing/go-proxy/internal/utils"
 type (
 	Format  string
 	Filters struct {
-		StatusCodes LogFilter[*StatusCodeRange]
-		Method      LogFilter[HTTPMethod]
-		Headers     LogFilter[*HTTPHeader] // header exists or header == value
-		CIDR        LogFilter[*CIDR]
+		StatusCodes LogFilter[*StatusCodeRange] `json:"status_codes"`
+		Method      LogFilter[HTTPMethod]       `json:"method"`
+		Headers     LogFilter[*HTTPHeader]      `json:"headers"` // header exists or header == value
+		CIDR        LogFilter[*CIDR]            `json:"cidr"`
 	}
 	Fields struct {
-		Headers FieldConfig
-		Query   FieldConfig
-		Cookies FieldConfig
+		Headers FieldConfig `json:"headers"`
+		Query   FieldConfig `json:"query"`
+		Cookies FieldConfig `json:"cookies"`
 	}
 	Config struct {
-		BufferSize uint
-		Format     Format `validate:"oneof=common combined json"`
-		Path       string `validate:"required"`
-		Filters    Filters
-		Fields     Fields
+		BufferSize uint    `json:"buffer_size" validate:"gte=1"`
+		Format     Format  `json:"format" validate:"oneof=common combined json"`
+		Path       string  `json:"path" validate:"required"`
+		Filters    Filters `json:"filters"`
+		Fields     Fields  `json:"fields"`
 	}
 )
 
@@ -38,13 +38,13 @@ func DefaultConfig() *Config {
 		Format:     FormatCombined,
 		Fields: Fields{
 			Headers: FieldConfig{
-				DefaultMode: FieldModeDrop,
+				Default: FieldModeDrop,
 			},
 			Query: FieldConfig{
-				DefaultMode: FieldModeKeep,
+				Default: FieldModeKeep,
 			},
 			Cookies: FieldConfig{
-				DefaultMode: FieldModeDrop,
+				Default: FieldModeDrop,
 			},
 		},
 	}

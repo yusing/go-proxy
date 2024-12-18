@@ -19,11 +19,11 @@ func TestNewConfig(t *testing.T) {
 		"proxy.filters.headers.values":      "foo=bar, baz",
 		"proxy.filters.headers.negative":    "true",
 		"proxy.filters.cidr.values":         "192.168.10.0/24",
-		"proxy.fields.headers.default_mode": "keep",
+		"proxy.fields.headers.default":      "keep",
 		"proxy.fields.headers.config.foo":   "redact",
-		"proxy.fields.query.default_mode":   "drop",
+		"proxy.fields.query.default":        "drop",
 		"proxy.fields.query.config.foo":     "keep",
-		"proxy.fields.cookies.default_mode": "redact",
+		"proxy.fields.cookies.default":      "redact",
 		"proxy.fields.cookies.config.foo":   "keep",
 	}
 	parsed, err := docker.ParseLabels(labels)
@@ -44,10 +44,10 @@ func TestNewConfig(t *testing.T) {
 	ExpectTrue(t, config.Filters.Headers.Negative)
 	ExpectEqual(t, len(config.Filters.CIDR.Values), 1)
 	ExpectEqual(t, config.Filters.CIDR.Values[0].String(), "192.168.10.0/24")
-	ExpectEqual(t, config.Fields.Headers.DefaultMode, FieldModeKeep)
+	ExpectEqual(t, config.Fields.Headers.Default, FieldModeKeep)
 	ExpectEqual(t, config.Fields.Headers.Config["foo"], FieldModeRedact)
-	ExpectEqual(t, config.Fields.Query.DefaultMode, FieldModeDrop)
+	ExpectEqual(t, config.Fields.Query.Default, FieldModeDrop)
 	ExpectEqual(t, config.Fields.Query.Config["foo"], FieldModeKeep)
-	ExpectEqual(t, config.Fields.Cookies.DefaultMode, FieldModeRedact)
+	ExpectEqual(t, config.Fields.Cookies.Default, FieldModeRedact)
 	ExpectEqual(t, config.Fields.Cookies.Config["foo"], FieldModeKeep)
 }

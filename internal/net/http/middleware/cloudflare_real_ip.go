@@ -122,7 +122,7 @@ func fetchUpdateCFIPRange(endpoint string, cfCIDRs *[]*types.CIDR) error {
 			return fmt.Errorf("cloudflare responeded an invalid CIDR: %s", line)
 		}
 
-		*cfCIDRs = append(*cfCIDRs, cidr)
+		*cfCIDRs = append(*cfCIDRs, (*types.CIDR)(cidr))
 	}
 
 	return nil

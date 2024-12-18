@@ -123,7 +123,7 @@ func (f JSONFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.R
 		entry.Error = res.Status
 	}
 
-	if entry.ContentType != "" {
+	if entry.ContentType == "" {
 		// try to get content type from request
 		entry.ContentType = req.Header.Get("Content-Type")
 	}

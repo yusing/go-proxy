@@ -7,8 +7,8 @@ import (
 
 type (
 	FieldConfig struct {
-		DefaultMode FieldMode            `validate:"oneof=keep drop redact"`
-		Config      map[string]FieldMode `validate:"dive,oneof=keep drop redact"`
+		Default FieldMode            `json:"default" validate:"oneof=keep drop redact"`
+		Config  map[string]FieldMode `json:"config" validate:"dive,oneof=keep drop redact"`
 	}
 	FieldMode string
 )
@@ -23,7 +23,7 @@ const (
 
 func processMap[V any](cfg *FieldConfig, m map[string]V, redactedV V) map[string]V {
 	if len(cfg.Config) == 0 {
-		switch cfg.DefaultMode {
+		switch cfg.Default {
 		case FieldModeKeep:
 			return m
 		case FieldModeDrop:
@@ -46,7 +46,7 @@ func processMap[V any](cfg *FieldConfig, m map[string]V, redactedV V) map[string
 		var mode FieldMode
 		var ok bool
 		if mode, ok = cfg.Config[k]; !ok {
-			mode = cfg.DefaultMode
+			mode = cfg.Default
 		}
 		switch mode {
 		case FieldModeKeep:
@@ -60,7 +60,7 @@ func processMap[V any](cfg *FieldConfig, m map[string]V, redactedV V) map[string
 
 func processSlice[V any, VReturn any](cfg *FieldConfig, s []V, getKey func(V) string, convert func(V) VReturn, redact func(V) VReturn) map[string]VReturn {
 	if len(s) == 0 ||
-		len(cfg.Config) == 0 && cfg.DefaultMode == FieldModeDrop {
+		len(cfg.Config) == 0 && cfg.Default == FieldModeDrop {
 		return nil
 	}
 	newMap := make(map[string]VReturn, len(s))
@@ -69,7 +69,7 @@ func processSlice[V any, VReturn any](cfg *FieldConfig, s []V, getKey func(V) st
 		var ok bool
 		k := getKey(v)
 		if mode, ok = cfg.Config[k]; !ok {
-			mode = cfg.DefaultMode
+			mode = cfg.Default
 		}
 		switch mode {
 		case FieldModeKeep:

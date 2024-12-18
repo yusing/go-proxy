@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/types"
 )
 
 type (
@@ -21,9 +22,7 @@ type (
 	HTTPHeader struct {
 		Key, Value string
 	}
-	CIDR struct {
-		*net.IPNet
-	}
+	CIDR struct{ types.CIDR }
 )
 
 var ErrInvalidHTTPHeaderFilter = E.New("invalid http header filter")
@@ -80,16 +79,7 @@ func (k *HTTPHeader) Fulfill(req *http.Request, res *http.Response) bool {
 	return false
 }
 
-func (cidr *CIDR) Parse(v string) error {
-	_, ipnet, err := net.ParseCIDR(v)
-	if err != nil {
-		return err
-	}
-	cidr.IPNet = ipnet
-	return nil
-}
-
-func (cidr *CIDR) Fulfill(req *http.Request, res *http.Response) bool {
+func (cidr CIDR) Fulfill(req *http.Request, res *http.Response) bool {
 	ip, _, err := net.SplitHostPort(req.RemoteAddr)
 	if err != nil {
 		ip = req.RemoteAddr

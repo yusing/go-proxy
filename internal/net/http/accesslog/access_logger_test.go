@@ -81,7 +81,7 @@ func TestAccessLoggerCombined(t *testing.T) {
 func TestAccessLoggerRedactQuery(t *testing.T) {
 	config := DefaultConfig()
 	config.Format = FormatCommon
-	config.Fields.Query.DefaultMode = FieldModeRedact
+	config.Fields.Query.Default = FieldModeRedact
 	ExpectEqual(t, fmtLog(config),
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
 			host, remote, TestTimeNow, method, uriRedacted, proto, status, contentLength,

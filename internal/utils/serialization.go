@@ -3,7 +3,6 @@ package utils
 import (
 	"encoding/json"
 	"errors"
-	"net"
 	"os"
 	"reflect"
 	"strconv"
@@ -250,7 +249,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			tmp := New(mapVT).Elem()
 			err := Convert(reflect.ValueOf(src[k]), tmp)
 			if err == nil {
-				dstV.SetMapIndex(reflect.ValueOf(strutils.ToLowerNoSnake(k)), tmp)
+				dstV.SetMapIndex(reflect.ValueOf(k), tmp)
 			} else {
 				errs.Add(err.Subject(k))
 			}
@@ -367,6 +366,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			dst.Set(New(dstT.Elem()))
 		}
 		dst = dst.Elem()
+		dstT = dst.Type()
 	}
 	if dst.Kind() == reflect.String {
 		dst.SetString(src)
@@ -383,16 +383,6 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			return true, E.From(err)
 		}
 		dst.Set(reflect.ValueOf(d))
-		return
-	case reflect.TypeFor[net.IPNet]():
-		if !strings.Contains(src, "/") {
-			src += "/32" // single IP
-		}
-		_, ipnet, err := net.ParseCIDR(src)
-		if err != nil {
-			return true, E.From(err)
-		}
-		dst.Set(reflect.ValueOf(ipnet).Elem())
 		return
 	default:
 	}
