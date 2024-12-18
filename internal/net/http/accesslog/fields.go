@@ -41,7 +41,7 @@ func processMap[V any](cfg *FieldConfig, m map[string]V, redactedV V) map[string
 		return m
 	}
 
-	newMap := make(map[string]V)
+	newMap := make(map[string]V, len(m))
 	for k := range m {
 		var mode FieldMode
 		var ok bool
