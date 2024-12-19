@@ -14,12 +14,13 @@ type DockerHealthMonitor struct {
 	fallback    health.HealthChecker
 }
 
-func NewDockerHealthMonitor(client *docker.SharedClient, containerID string, config *health.HealthCheckConfig, fallback health.HealthChecker) *DockerHealthMonitor {
+func NewDockerHealthMonitor(client *docker.SharedClient, containerID, alias string, config *health.HealthCheckConfig, fallback health.HealthChecker) *DockerHealthMonitor {
 	mon := new(DockerHealthMonitor)
 	mon.client = client
 	mon.containerID = containerID
 	mon.monitor = newMonitor(fallback.URL(), config, mon.CheckHealth)
 	mon.fallback = fallback
+	mon.service = alias
 	return mon
 }
 

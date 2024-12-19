@@ -97,7 +97,7 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
 			if err == nil {
 				fallback := monitor.NewHTTPHealthChecker(r.rp.TargetURL, r.Raw.HealthCheck)
-				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.Raw.HealthCheck, fallback)
+				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.Raw.HealthCheck, fallback)
 				r.task.OnCancel("close docker client", client.Close)
 			}
 		}
