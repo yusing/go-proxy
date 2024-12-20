@@ -37,7 +37,7 @@ const dispatchErr = "notification dispatch error"
 
 func StartNotifDispatcher(parent *task.Task) *Dispatcher {
 	dispatcher = &Dispatcher{
-		task:      parent.Subtask("notification dispatcher"),
+		task:      parent.Subtask("notification"),
 		logCh:     make(chan *LogMessage),
 		providers: F.NewSet[Provider](),
 	}
@@ -79,23 +79,27 @@ func (disp *Dispatcher) RegisterProvider(cfg types.NotificationConfig) (Provider
 
 func (disp *Dispatcher) start() {
 	defer func() {
+		dispatcher = nil
 		disp.providers.Clear()
 		close(disp.logCh)
-		disp.task.Finish("dispatcher stopped")
+		disp.task.Finish(nil)
 	}()
 
 	for {
 		select {
 		case <-disp.task.Context().Done():
 			return
-		case msg := <-disp.logCh:
+		case msg, ok := <-disp.logCh:
+			if !ok {
+				return
+			}
 			go disp.dispatch(msg)
 		}
 	}
 }
 
 func (disp *Dispatcher) dispatch(msg *LogMessage) {
-	task := disp.task.Subtask("dispatch notif")
+	task := disp.task.Subtask("dispatcher")
 	defer task.Finish("notif dispatched")
 
 	errs := E.NewBuilder(dispatchErr)
