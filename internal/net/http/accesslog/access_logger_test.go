@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/net/http/accesslog"
-	taskPkg "github.com/yusing/go-proxy/internal/task"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -51,19 +51,25 @@ var (
 	}
 )
 
-func fmtLog(cfg *Config) string {
-	var line bytes.Buffer
-	logger := NewAccessLogger(taskPkg.GlobalTask("test logger"), nil, cfg)
-	logger.Format(&line, req, resp)
-	return line.String()
+func fmtLog(cfg *Config) (ts string, line string) {
+	var buf bytes.Buffer
+
+	t := time.Now()
+	logger := NewAccessLogger(nil, nil, cfg)
+	logger.Formatter.(*CommonFormatter).GetTimeNow = func() time.Time {
+		return t
+	}
+	logger.Format(&buf, req, resp)
+	return t.Format(LogTimeFormat), buf.String()
 }
 
 func TestAccessLoggerCommon(t *testing.T) {
 	config := DefaultConfig()
 	config.Format = FormatCommon
-	ExpectEqual(t, fmtLog(config),
+	ts, log := fmtLog(config)
+	ExpectEqual(t, log,
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
-			host, remote, TestTimeNow, method, uri, proto, status, contentLength,
+			host, remote, ts, method, uri, proto, status, contentLength,
 		),
 	)
 }
@@ -71,9 +77,10 @@ func TestAccessLoggerCommon(t *testing.T) {
 func TestAccessLoggerCombined(t *testing.T) {
 	config := DefaultConfig()
 	config.Format = FormatCombined
-	ExpectEqual(t, fmtLog(config),
+	ts, log := fmtLog(config)
+	ExpectEqual(t, log,
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d \"%s\" \"%s\"",
-			host, remote, TestTimeNow, method, uri, proto, status, contentLength, referer, ua,
+			host, remote, ts, method, uri, proto, status, contentLength, referer, ua,
 		),
 	)
 }
@@ -82,9 +89,10 @@ func TestAccessLoggerRedactQuery(t *testing.T) {
 	config := DefaultConfig()
 	config.Format = FormatCommon
 	config.Fields.Query.Default = FieldModeRedact
-	ExpectEqual(t, fmtLog(config),
+	ts, log := fmtLog(config)
+	ExpectEqual(t, log,
 		fmt.Sprintf("%s %s - - [%s] \"%s %s %s\" %d %d",
-			host, remote, TestTimeNow, method, uriRedacted, proto, status, contentLength,
+			host, remote, ts, method, uriRedacted, proto, status, contentLength,
 		),
 	)
 }
@@ -93,7 +101,8 @@ func getJSONEntry(t *testing.T, config *Config) JSONLogEntry {
 	t.Helper()
 	config.Format = FormatJSON
 	var entry JSONLogEntry
-	err := json.Unmarshal([]byte(fmtLog(config)), &entry)
+	_, log := fmtLog(config)
+	err := json.Unmarshal([]byte(log), &entry)
 	ExpectNoError(t, err)
 	return entry
 }
