@@ -35,7 +35,7 @@ var (
 
 const dispatchErr = "notification dispatch error"
 
-func StartNotifDispatcher(parent *task.Task) *Dispatcher {
+func StartNotifDispatcher(parent task.Parent) *Dispatcher {
 	dispatcher = &Dispatcher{
 		task:      parent.Subtask("notification"),
 		logCh:     make(chan *LogMessage),

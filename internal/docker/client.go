@@ -38,7 +38,7 @@ var (
 )
 
 func init() {
-	task.GlobalTask("close docker clients").OnFinished("", func() {
+	task.OnProgramExit("docker_clients_cleanup", func() {
 		clientMap.RangeAllParallel(func(_ string, c Client) {
 			if c.Connected() {
 				c.Client.Close()

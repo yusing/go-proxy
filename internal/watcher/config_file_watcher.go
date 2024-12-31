@@ -16,8 +16,10 @@ var (
 func NewConfigFileWatcher(filename string) Watcher {
 	configDirWatcherMu.Lock()
 	defer configDirWatcherMu.Unlock()
+
 	if configDirWatcher == nil {
-		configDirWatcher = NewDirectoryWatcher(task.GlobalTask("config watcher"), common.ConfigBasePath)
+		t := task.RootTask("config_dir_watcher", false)
+		configDirWatcher = NewDirectoryWatcher(t, common.ConfigBasePath)
 	}
 	return configDirWatcher.Add(filename)
 }

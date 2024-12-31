@@ -28,7 +28,7 @@ func (p *Provider) newEventHandler() *EventHandler {
 	}
 }
 
-func (handler *EventHandler) Handle(parent *task.Task, events []watcher.Event) {
+func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) {
 	oldRoutes := handler.provider.routes
 	newRoutes, err := handler.provider.loadRoutesImpl()
 	if err != nil {
@@ -97,7 +97,7 @@ func (handler *EventHandler) match(event watcher.Event, route *route.Route) bool
 	return false
 }
 
-func (handler *EventHandler) Add(parent *task.Task, route *route.Route) {
+func (handler *EventHandler) Add(parent task.Parent, route *route.Route) {
 	err := handler.provider.startRoute(parent, route)
 	if err != nil {
 		handler.errs.Add(err.Subject("add"))
@@ -112,7 +112,7 @@ func (handler *EventHandler) Remove(route *route.Route) {
 	handler.removed.Adds(route.Entry.Alias)
 }
 
-func (handler *EventHandler) Update(parent *task.Task, oldRoute *route.Route, newRoute *route.Route) {
+func (handler *EventHandler) Update(parent task.Parent, oldRoute *route.Route, newRoute *route.Route) {
 	oldRoute.Finish("route update")
 	err := handler.provider.startRoute(parent, newRoute)
 	if err != nil {

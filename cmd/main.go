@@ -159,8 +159,7 @@ func main() {
 
 	// grafully shutdown
 	logging.Info().Msg("shutting down")
-	task.CancelGlobalContext()
-	_ = task.GlobalContextWait(time.Second * time.Duration(config.Value().TimeoutShutdown))
+	_ = task.GracefulShutdown(time.Second * time.Duration(config.Value().TimeoutShutdown))
 }
 
 func prepareDirectory(dir string) {

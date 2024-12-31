@@ -51,7 +51,7 @@ var (
 
 const dockerReqTimeout = 3 * time.Second
 
-func registerWatcher(providerSubtask *task.Task, entry route.Entry, waker *waker) (*Watcher, error) {
+func registerWatcher(watcherTask *task.Task, entry route.Entry, waker *waker) (*Watcher, error) {
 	cfg := entry.IdlewatcherConfig()
 
 	if cfg.IdleTimeout == 0 {
@@ -67,7 +67,7 @@ func registerWatcher(providerSubtask *task.Task, entry route.Entry, waker *waker
 		w.Config = cfg
 		w.waker = waker
 		w.resetIdleTimer()
-		providerSubtask.Finish("used existing watcher")
+		watcherTask.Finish("used existing watcher")
 		return w, nil
 	}
 
@@ -81,7 +81,7 @@ func registerWatcher(providerSubtask *task.Task, entry route.Entry, waker *waker
 		Config: cfg,
 		waker:  waker,
 		client: client,
-		task:   providerSubtask,
+		task:   watcherTask,
 		ticker: time.NewTicker(cfg.IdleTimeout),
 	}
 	w.stopByMethod = w.getStopCallback()
@@ -210,8 +210,7 @@ func (w *Watcher) resetIdleTimer() {
 }
 
 func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask *task.Task, eventCh <-chan events.Event, errCh <-chan E.Error) {
-	eventTask = w.task.Subtask("docker event watcher")
-	eventCh, errCh = dockerWatcher.EventsWithOptions(eventTask.Context(), watcher.DockerListOptions{
+	eventCh, errCh = dockerWatcher.EventsWithOptions(w.Task().Context(), watcher.DockerListOptions{
 		Filters: watcher.NewDockerFilter(
 			watcher.DockerFilterContainer,
 			watcher.DockerFilterContainerNameID(w.ContainerID),

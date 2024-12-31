@@ -22,6 +22,7 @@ type (
 		Path       string  `json:"path" validate:"required"`
 		Filters    Filters `json:"filters"`
 		Fields     Fields  `json:"fields"`
+		// Retention  *Retention
 	}
 )
 
@@ -31,7 +32,7 @@ var (
 	FormatJSON     Format = "json"
 )
 
-const DefaultBufferSize = 100
+const DefaultBufferSize = 64 * 1024 // 64KB
 
 func DefaultConfig() *Config {
 	return &Config{

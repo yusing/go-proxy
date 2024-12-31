@@ -1,6 +1,7 @@
 package events
 
 import (
+	"runtime/debug"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/common"
@@ -17,7 +18,7 @@ type (
 		onFlush       OnFlushFunc
 		onError       OnErrorFunc
 	}
-	OnFlushFunc = func(flushTask *task.Task, events []Event)
+	OnFlushFunc = func(events []Event)
 	OnErrorFunc = func(err E.Error)
 )
 
@@ -38,9 +39,9 @@ const eventQueueCapacity = 10
 // but the onFlush function can return earlier (e.g. run in another goroutine).
 //
 // If task is canceled before the flushInterval is reached, the events in queue will be discarded.
-func NewEventQueue(parent *task.Task, flushInterval time.Duration, onFlush OnFlushFunc, onError OnErrorFunc) *EventQueue {
+func NewEventQueue(queueTask *task.Task, flushInterval time.Duration, onFlush OnFlushFunc, onError OnErrorFunc) *EventQueue {
 	return &EventQueue{
-		task:          parent.Subtask("event queue"),
+		task:          queueTask,
 		queue:         make([]Event, 0, eventQueueCapacity),
 		ticker:        time.NewTicker(flushInterval),
 		flushInterval: flushInterval,
@@ -50,19 +51,20 @@ func NewEventQueue(parent *task.Task, flushInterval time.Duration, onFlush OnFlu
 }
 
 func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
-	if common.IsProduction {
-		origOnFlush := e.onFlush
-		// recover panic in onFlush when in production mode
-		e.onFlush = func(flushTask *task.Task, events []Event) {
-			defer func() {
-				if err := recover(); err != nil {
-					e.onError(E.New("recovered panic in onFlush").
-						Withf("%v", err).
-						Subject(e.task.Parent().String()))
+	origOnFlush := e.onFlush
+	// recover panic in onFlush when in production mode
+	e.onFlush = func(events []Event) {
+		defer func() {
+			if err := recover(); err != nil {
+				e.onError(E.New("recovered panic in onFlush").
+					Withf("%v", err).
+					Subject(e.task.Name()))
+				if common.IsDebug {
+					panic(string(debug.Stack()))
 				}
-			}()
-			origOnFlush(flushTask, events)
-		}
+			}
+		}()
+		origOnFlush(events)
 	}
 
 	go func() {
@@ -75,30 +77,28 @@ func (e *EventQueue) Start(eventCh <-chan Event, errCh <-chan E.Error) {
 				return
 			case <-e.ticker.C:
 				if len(e.queue) > 0 {
-					flushTask := e.task.Subtask("flush events")
-					queue := e.queue
-					e.queue = make([]Event, 0, eventQueueCapacity)
-					go e.onFlush(flushTask, queue)
-					flushTask.Wait()
+					// clone -> clear -> flush
+					queue := make([]Event, len(e.queue))
+					copy(queue, e.queue)
+
+					e.queue = e.queue[:0]
+
+					e.onFlush(queue)
 				}
 				e.ticker.Reset(e.flushInterval)
 			case event, ok := <-eventCh:
-				e.queue = append(e.queue, event)
 				if !ok {
 					return
 				}
-			case err := <-errCh:
+				e.queue = append(e.queue, event)
+			case err, ok := <-errCh:
+				if !ok {
+					return
+				}
 				if err != nil {
 					e.onError(err)
 				}
 			}
 		}
 	}()
-}
-
-// Wait waits for all events to be flushed and the task to finish.
-//
-// It is safe to call this method multiple times.
-func (e *EventQueue) Wait() {
-	e.task.Wait()
 }

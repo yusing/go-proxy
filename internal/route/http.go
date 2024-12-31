@@ -73,19 +73,17 @@ func (r *HTTPRoute) String() string {
 	return r.TargetName()
 }
 
-// Start implements*task.TaskStarter.
-func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
+// Start implements task.TaskStarter.
+func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 	if entry.ShouldNotServe(r) {
-		providerSubtask.Finish("should not serve")
 		return nil
 	}
 
-	r.task = providerSubtask
+	r.task = parent.Subtask("http."+r.TargetName(), false)
 
 	switch {
 	case entry.UseIdleWatcher(r):
-		wakerTask := providerSubtask.Parent().Subtask("waker for " + r.TargetName())
-		waker, err := idlewatcher.NewHTTPWaker(wakerTask, r.ReverseProxyEntry, r.rp)
+		waker, err := idlewatcher.NewHTTPWaker(r.task, r.ReverseProxyEntry, r.rp)
 		if err != nil {
 			r.task.Finish(err)
 			return err
@@ -98,7 +96,7 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 			if err == nil {
 				fallback := monitor.NewHTTPHealthChecker(r.rp.TargetURL, r.Raw.HealthCheck)
 				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.Raw.HealthCheck, fallback)
-				r.task.OnCancel("close docker client", client.Close)
+				r.task.OnCancel("close_docker_client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
@@ -137,29 +135,32 @@ func (r *HTTPRoute) Start(providerSubtask *task.Task) E.Error {
 	}
 
 	if r.HealthMon != nil {
-		healthMonTask := r.task.Subtask("health monitor")
-		if err := r.HealthMon.Start(healthMonTask); err != nil {
+		if err := r.HealthMon.Start(r.task); err != nil {
 			E.LogWarn("health monitor error", err, &r.l)
-			healthMonTask.Finish(err)
 		}
 	}
 
 	if entry.UseLoadBalance(r) {
-		r.addToLoadBalancer()
+		r.addToLoadBalancer(parent)
 	} else {
 		routes.SetHTTPRoute(r.TargetName(), r)
-		r.task.OnFinished("remove from route table", func() {
+		r.task.OnFinished("entrypoint_remove_route", func() {
 			routes.DeleteHTTPRoute(r.TargetName())
 		})
 	}
 
 	if common.PrometheusEnabled {
-		r.task.OnFinished("unreg metrics", r.rp.UnregisterMetrics)
+		r.task.OnFinished("metrics_cleanup", r.rp.UnregisterMetrics)
 	}
 	return nil
 }
 
-// Finish implements*task.TaskFinisher.
+// Task implements task.TaskStarter.
+func (r *HTTPRoute) Task() *task.Task {
+	return r.task
+}
+
+// Finish implements task.TaskFinisher.
 func (r *HTTPRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }
@@ -168,7 +169,7 @@ func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
-func (r *HTTPRoute) addToLoadBalancer() {
+func (r *HTTPRoute) addToLoadBalancer(parent task.Parent) {
 	var lb *loadbalancer.LoadBalancer
 	cfg := r.Raw.LoadBalance
 	l, ok := routes.GetHTTPRoute(cfg.Link)
@@ -182,11 +183,7 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		}
 	} else {
 		lb = loadbalancer.New(cfg)
-		lbTask := r.task.Parent().Subtask("loadbalancer " + cfg.Link)
-		lbTask.OnCancel("remove lb from routes", func() {
-			routes.DeleteHTTPRoute(cfg.Link)
-		})
-		if err := lb.Start(lbTask); err != nil {
+		if err := lb.Start(parent); err != nil {
 			panic(err) // should always return nil
 		}
 		linked = &HTTPRoute{
@@ -203,9 +200,9 @@ func (r *HTTPRoute) addToLoadBalancer() {
 		routes.SetHTTPRoute(cfg.Link, linked)
 	}
 	r.loadBalancer = lb
-	r.server = loadbalance.NewServer(r.task.String(), r.rp.TargetURL, r.Raw.LoadBalance.Weight, r.handler, r.HealthMon)
+	r.server = loadbalance.NewServer(r.task.Name(), r.rp.TargetURL, r.Raw.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(r.server)
-	r.task.OnCancel("remove server from lb", func() {
+	r.task.OnCancel("lb_remove_server", func() {
 		lb.RemoveServer(r.server)
 	})
 }

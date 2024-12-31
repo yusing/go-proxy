@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -60,7 +61,7 @@ func NewFileProvider(filename string) (p *Provider, err error) {
 	if name == "" {
 		return nil, ErrEmptyProviderName
 	}
-	p = newProvider(name, ProviderTypeFile)
+	p = newProvider(strings.ReplaceAll(name, ".", "_"), ProviderTypeFile)
 	p.ProviderImpl, err = FileProviderImpl(filename)
 	if err != nil {
 		return nil, err
@@ -100,46 +101,43 @@ func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Provider) startRoute(parent *task.Task, r *R.Route) E.Error {
-	subtask := parent.Subtask(p.String() + "/" + r.Entry.Alias)
-	err := r.Start(subtask)
+func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
+	err := r.Start(parent)
 	if err != nil {
-		p.routes.Delete(r.Entry.Alias)
-		subtask.Finish(err) // just to ensure
 		return err.Subject(r.Entry.Alias)
 	}
+
 	p.routes.Store(r.Entry.Alias, r)
-	subtask.OnFinished("del from provider", func() {
+	r.Task().OnFinished("provider_remove_route", func() {
 		p.routes.Delete(r.Entry.Alias)
 	})
 	return nil
 }
 
 // Start implements*task.TaskStarter.
-func (p *Provider) Start(configSubtask *task.Task) E.Error {
-	// routes and event queue will stop on parent cancel
-	providerTask := configSubtask
+func (p *Provider) Start(parent task.Parent) E.Error {
+	t := parent.Subtask("provider."+p.name, false)
 
+	// routes and event queue will stop on config reload
 	errs := p.routes.CollectErrorsParallel(
 		func(alias string, r *R.Route) error {
-			return p.startRoute(providerTask, r)
+			return p.startRoute(t, r)
 		})
 
 	eventQueue := events.NewEventQueue(
-		providerTask,
+		t.Subtask("event_queue", false),
 		providerEventFlushInterval,
-		func(flushTask *task.Task, events []events.Event) {
+		func(events []events.Event) {
 			handler := p.newEventHandler()
 			// routes' lifetime should follow the provider's lifetime
-			handler.Handle(providerTask, events)
+			handler.Handle(t, events)
 			handler.Log()
-			flushTask.Finish("events flushed")
 		},
 		func(err E.Error) {
 			E.LogError("event error", err, p.Logger())
 		},
 	)
-	eventQueue.Start(p.watcher.Events(providerTask.Context()))
+	eventQueue.Start(p.watcher.Events(t.Context()))
 
 	if err := E.Join(errs...); err != nil {
 		return err.Subject(p.String())

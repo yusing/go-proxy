@@ -152,9 +152,10 @@ func (m Map[KT, VT]) CollectErrorsParallel(do func(k KT, v VT) error) []error {
 		return m.CollectErrors(do)
 	}
 
-	errs := make([]error, 0)
-	mu := sync.Mutex{}
-	wg := sync.WaitGroup{}
+	var errs []error
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
 	m.Range(func(k KT, v VT) bool {
 		wg.Add(1)
 		go func() {
@@ -169,24 +170,6 @@ func (m Map[KT, VT]) CollectErrorsParallel(do func(k KT, v VT) error) []error {
 	})
 	wg.Wait()
 	return errs
-}
-
-// RemoveAll removes all key-value pairs from the map where the value matches the given criteria.
-//
-// Parameters:
-//
-//	criteria: function to determine whether a value should be removed
-//
-// Returns:
-//
-//	nothing
-func (m Map[KT, VT]) RemoveAll(criteria func(VT) bool) {
-	m.Range(func(k KT, v VT) bool {
-		if criteria(v) {
-			m.Delete(k)
-		}
-		return true
-	})
 }
 
 func (m Map[KT, VT]) Has(k KT) bool {

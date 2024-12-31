@@ -7,18 +7,17 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 type (
 	CommonFormatter struct {
-		cfg *Fields
+		cfg        *Fields
+		GetTimeNow func() time.Time // for testing purposes only
 	}
-	CombinedFormatter struct {
-		CommonFormatter
-	}
-	JSONFormatter struct {
-		CommonFormatter
-	}
+	CombinedFormatter CommonFormatter
+	JSONFormatter     CommonFormatter
+
 	JSONLogEntry struct {
 		Time        string              `json:"time"`
 		IP          string              `json:"ip"`
@@ -38,6 +37,8 @@ type (
 		Cookies     map[string]string   `json:"cookies,omitempty"`
 	}
 )
+
+const LogTimeFormat = "02/Jan/2006:15:04:05 -0700"
 
 func scheme(req *http.Request) string {
 	if req.TLS != nil {
@@ -62,7 +63,7 @@ func clientIP(req *http.Request) string {
 	return req.RemoteAddr
 }
 
-func (f CommonFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
+func (f *CommonFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
 	query := f.cfg.Query.ProcessQuery(req.URL.Query())
 
 	line.WriteString(req.Host)
@@ -71,7 +72,7 @@ func (f CommonFormatter) Format(line *bytes.Buffer, req *http.Request, res *http
 	line.WriteString(clientIP(req))
 	line.WriteString(" - - [")
 
-	line.WriteString(timeNow())
+	line.WriteString(f.GetTimeNow().Format(LogTimeFormat))
 	line.WriteString("] \"")
 
 	line.WriteString(req.Method)
@@ -86,8 +87,8 @@ func (f CommonFormatter) Format(line *bytes.Buffer, req *http.Request, res *http
 	line.WriteString(strconv.FormatInt(res.ContentLength, 10))
 }
 
-func (f CombinedFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
-	f.CommonFormatter.Format(line, req, res)
+func (f *CombinedFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
+	(*CommonFormatter)(f).Format(line, req, res)
 	line.WriteString(" \"")
 	line.WriteString(req.Referer())
 	line.WriteString("\" \"")
@@ -95,14 +96,14 @@ func (f CombinedFormatter) Format(line *bytes.Buffer, req *http.Request, res *ht
 	line.WriteRune('"')
 }
 
-func (f JSONFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
+func (f *JSONFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
 	query := f.cfg.Query.ProcessQuery(req.URL.Query())
 	headers := f.cfg.Headers.ProcessHeaders(req.Header)
 	headers.Del("Cookie")
 	cookies := f.cfg.Cookies.ProcessCookies(req.Cookies())
 
 	entry := JSONLogEntry{
-		Time:        timeNow(),
+		Time:        f.GetTimeNow().Format(LogTimeFormat),
 		IP:          clientIP(req),
 		Method:      req.Method,
 		Scheme:      scheme(req),

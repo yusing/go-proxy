@@ -61,3 +61,7 @@ func (set Set[T]) RangeAllParallel(f func(T)) {
 func (set Set[T]) Size() int {
 	return set.m.Size()
 }
+
+func (set Set[T]) IsEmpty() bool {
+	return set.m == nil || set.m.Size() == 0
+}

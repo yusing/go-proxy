@@ -13,7 +13,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/task"
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/atomic"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
@@ -23,9 +23,9 @@ type (
 	monitor         struct {
 		service string
 		config  *health.HealthCheckConfig
-		url     U.AtomicValue[types.URL]
+		url     atomic.Value[types.URL]
 
-		status     U.AtomicValue[health.Status]
+		status     atomic.Value[health.Status]
 		lastResult *health.HealthCheckResult
 		lastSeen   time.Time
 
@@ -59,10 +59,7 @@ func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cance
 }
 
 // Start implements task.TaskStarter.
-func (mon *monitor) Start(routeSubtask *task.Task) E.Error {
-	mon.service = routeSubtask.Parent().Name()
-	mon.task = routeSubtask
-
+func (mon *monitor) Start(parent task.Parent) E.Error {
 	if mon.config.Interval <= 0 {
 		return E.From(ErrNegativeInterval)
 	}
@@ -71,6 +68,9 @@ func (mon *monitor) Start(routeSubtask *task.Task) E.Error {
 		mon.metric = metrics.GetServiceMetrics().HealthStatus.With(metrics.HealthMetricLabels(mon.service))
 	}
 
+	mon.service = parent.Name()
+	mon.task = parent.Subtask("health_monitor")
+
 	go func() {
 		logger := logging.With().Str("name", mon.service).Logger()
 
@@ -78,10 +78,10 @@ func (mon *monitor) Start(routeSubtask *task.Task) E.Error {
 			if mon.status.Load() != health.StatusError {
 				mon.status.Store(health.StatusUnknown)
 			}
-			mon.task.Finish(nil)
 			if mon.metric != nil {
 				mon.metric.Reset()
 			}
+			mon.task.Finish(nil)
 		}()
 
 		if err := mon.checkUpdateHealth(); err != nil {
@@ -106,6 +106,11 @@ func (mon *monitor) Start(routeSubtask *task.Task) E.Error {
 		}
 	}()
 	return nil
+}
+
+// Task implements task.TaskStarter.
+func (mon *monitor) Task() *task.Task {
+	return mon.task
 }
 
 // Finish implements task.TaskFinisher.

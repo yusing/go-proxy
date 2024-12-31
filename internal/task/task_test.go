@@ -2,132 +2,112 @@ package task
 
 import (
 	"context"
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-const (
-	rootTaskName = "root-task"
-	subTaskName  = "subtask"
-)
-
-func TestTaskCreation(t *testing.T) {
-	rootTask := GlobalTask(rootTaskName)
-	subTask := rootTask.Subtask(subTaskName)
-
-	ExpectEqual(t, rootTaskName, rootTask.Name())
-	ExpectEqual(t, subTaskName, subTask.Name())
+func testTask() *Task {
+	return RootTask("test", false)
 }
 
-func TestTaskCancellation(t *testing.T) {
-	subTaskDone := make(chan struct{})
+func TestChildTaskCancellation(t *testing.T) {
+	t.Cleanup(testCleanup)
 
-	rootTask := GlobalTask(rootTaskName)
-	subTask := rootTask.Subtask(subTaskName)
+	parent := testTask()
+	child := parent.Subtask("")
 
 	go func() {
-		subTask.Wait()
-		close(subTaskDone)
+		defer child.Finish(nil)
+		for {
+			select {
+			case <-child.Context().Done():
+				return
+			default:
+				continue
+			}
+		}
 	}()
 
-	go rootTask.Finish(nil)
+	parent.cancel(nil) // should also cancel child
 
 	select {
-	case <-subTaskDone:
-		err := subTask.Context().Err()
-		ExpectError(t, context.Canceled, err)
-		cause := context.Cause(subTask.Context())
-		ExpectError(t, ErrTaskCanceled, cause)
-	case <-time.After(1 * time.Second):
+	case <-child.Finished():
+		ExpectError(t, context.Canceled, child.Context().Err())
+	default:
 		t.Fatal("subTask context was not canceled as expected")
 	}
 }
 
-func TestOnComplete(t *testing.T) {
-	rootTask := GlobalTask(rootTaskName)
-	task := rootTask.Subtask(subTaskName)
+func TestTaskOnCancelOnFinished(t *testing.T) {
+	t.Cleanup(testCleanup)
+	task := testTask()
 
-	var value atomic.Int32
-	task.OnFinished("set value", func() {
-		value.Store(1234)
+	var shouldTrueOnCancel bool
+	var shouldTrueOnFinish bool
+
+	task.OnCancel("", func() {
+		shouldTrueOnCancel = true
 	})
+	task.OnFinished("", func() {
+		shouldTrueOnFinish = true
+	})
+
+	ExpectFalse(t, shouldTrueOnFinish)
 	task.Finish(nil)
-	ExpectEqual(t, value.Load(), 1234)
+	ExpectTrue(t, shouldTrueOnCancel)
+	ExpectTrue(t, shouldTrueOnFinish)
 }
 
-func TestGlobalContextWait(t *testing.T) {
-	testResetGlobalTask()
-	defer CancelGlobalContext()
+func TestCommonFlowWithGracefulShutdown(t *testing.T) {
+	t.Cleanup(testCleanup)
+	task := testTask()
 
-	rootTask := GlobalTask(rootTaskName)
+	finished := false
 
-	finished1, finished2 := false, false
-
-	subTask1 := rootTask.Subtask(subTaskName)
-	subTask2 := rootTask.Subtask(subTaskName)
-	subTask1.OnFinished("", func() {
-		finished1 = true
-	})
-	subTask2.OnFinished("", func() {
-		finished2 = true
+	task.OnFinished("", func() {
+		finished = true
 	})
 
 	go func() {
-		time.Sleep(500 * time.Millisecond)
-		subTask1.Finish(nil)
+		defer task.Finish(nil)
+		for {
+			select {
+			case <-task.Context().Done():
+				return
+			default:
+				continue
+			}
+		}
 	}()
 
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		subTask2.Finish(nil)
-	}()
+	ExpectNoError(t, GracefulShutdown(1*time.Second))
+	ExpectTrue(t, finished)
 
-	go func() {
-		subTask1.Wait()
-		subTask2.Wait()
-		rootTask.Finish(nil)
-	}()
-
-	_ = GlobalContextWait(1 * time.Second)
-	ExpectTrue(t, finished1)
-	ExpectTrue(t, finished2)
-	ExpectError(t, context.Canceled, rootTask.Context().Err())
-	ExpectError(t, ErrTaskCanceled, context.Cause(subTask1.Context()))
-	ExpectError(t, ErrTaskCanceled, context.Cause(subTask2.Context()))
+	<-root.finished
+	ExpectError(t, context.Canceled, task.Context().Err())
+	ExpectError(t, ErrProgramExiting, task.FinishCause())
 }
 
-func TestTimeoutOnGlobalContextWait(t *testing.T) {
-	testResetGlobalTask()
+func TestTimeoutOnGracefulShutdown(t *testing.T) {
+	t.Cleanup(testCleanup)
+	_ = testTask()
 
-	rootTask := GlobalTask(rootTaskName)
-	rootTask.Subtask(subTaskName)
-
-	ExpectError(t, context.DeadlineExceeded, GlobalContextWait(200*time.Millisecond))
+	ExpectError(t, context.DeadlineExceeded, GracefulShutdown(time.Millisecond))
 }
 
-func TestGlobalContextCancellation(t *testing.T) {
-	testResetGlobalTask()
-
-	taskDone := make(chan struct{})
-	rootTask := GlobalTask(rootTaskName)
-
-	go func() {
-		rootTask.Wait()
-		close(taskDone)
-	}()
-
-	CancelGlobalContext()
-
-	select {
-	case <-taskDone:
-		err := rootTask.Context().Err()
-		ExpectError(t, context.Canceled, err)
-		cause := context.Cause(rootTask.Context())
-		ExpectError(t, ErrProgramExiting, cause)
-	case <-time.After(1 * time.Second):
-		t.Fatal("subTask context was not canceled as expected")
+func TestFinishMultipleCalls(t *testing.T) {
+	t.Cleanup(testCleanup)
+	task := testTask()
+	var wg sync.WaitGroup
+	wg.Add(5)
+	for range 5 {
+		go func() {
+			defer wg.Done()
+			task.Finish(nil)
+		}()
 	}
+	wg.Wait()
 }

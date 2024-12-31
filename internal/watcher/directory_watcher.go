@@ -37,7 +37,7 @@ type DirWatcher struct {
 //
 // Note that the returned DirWatcher is not ready to use until the goroutine
 // started by NewDirectoryWatcher has finished.
-func NewDirectoryWatcher(callerSubtask *task.Task, dirPath string) *DirWatcher {
+func NewDirectoryWatcher(parent task.Parent, dirPath string) *DirWatcher {
 	//! subdirectories are not watched
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -56,7 +56,7 @@ func NewDirectoryWatcher(callerSubtask *task.Task, dirPath string) *DirWatcher {
 		fwMap:   F.NewMapOf[string, *fileWatcher](),
 		eventCh: make(chan Event),
 		errCh:   make(chan E.Error),
-		task:    callerSubtask,
+		task:    parent.Subtask("dir_watcher(" + dirPath + ")"),
 	}
 	go helper.start()
 	return helper
@@ -80,17 +80,19 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 		eventCh: make(chan Event),
 		errCh:   make(chan E.Error),
 	}
-	h.task.OnFinished("close file watcher for "+relPath, func() {
-		close(s.eventCh)
-		close(s.errCh)
-	})
 	h.fwMap.Store(relPath, s)
 	return s
 }
 
+func (h *DirWatcher) cleanup() {
+	h.w.Close()
+	close(h.eventCh)
+	close(h.errCh)
+	h.task.Finish(nil)
+}
+
 func (h *DirWatcher) start() {
-	defer close(h.eventCh)
-	defer h.w.Close()
+	defer h.cleanup()
 
 	for {
 		select {

@@ -54,7 +54,7 @@ func SetMiddlewares(mws []map[string]any) error {
 	return nil
 }
 
-func SetAccessLogger(parent *task.Task, cfg *accesslog.Config) (err error) {
+func SetAccessLogger(parent task.Parent, cfg *accesslog.Config) (err error) {
 	epAccessLoggerMu.Lock()
 	defer epAccessLoggerMu.Unlock()
 

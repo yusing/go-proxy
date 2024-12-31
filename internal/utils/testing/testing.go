@@ -20,10 +20,17 @@ func IgnoreError[Result any](r Result, _ error) Result {
 	return r
 }
 
+func fmtError(err error) string {
+	if err == nil {
+		return "<nil>"
+	}
+	return ansi.StripANSI(err.Error())
+}
+
 func ExpectNoError(t *testing.T, err error) {
 	t.Helper()
-	if err != nil && !reflect.ValueOf(err).IsNil() {
-		t.Errorf("expected err=nil, got %s", ansi.StripANSI(err.Error()))
+	if err != nil {
+		t.Errorf("expected err=nil, got %s", fmtError(err))
 		t.FailNow()
 	}
 }
@@ -31,7 +38,7 @@ func ExpectNoError(t *testing.T, err error) {
 func ExpectError(t *testing.T, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("expected err %s, got %s", expected, ansi.StripANSI(err.Error()))
+		t.Errorf("expected err %s, got %s", expected, fmtError(err))
 		t.FailNow()
 	}
 }
@@ -39,7 +46,7 @@ func ExpectError(t *testing.T, expected error, err error) {
 func ExpectError2(t *testing.T, input any, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {
-		t.Errorf("%v: expected err %s, got %s", input, expected, ansi.StripANSI(err.Error()))
+		t.Errorf("%v: expected err %s, got %s", input, expected, fmtError(err))
 		t.FailNow()
 	}
 }
@@ -48,7 +55,7 @@ func ExpectErrorT[T error](t *testing.T, err error) {
 	t.Helper()
 	var errAs T
 	if !errors.As(err, &errAs) {
-		t.Errorf("expected err %T, got %s", errAs, ansi.StripANSI(err.Error()))
+		t.Errorf("expected err %T, got %s", errAs, fmtError(err))
 		t.FailNow()
 	}
 }

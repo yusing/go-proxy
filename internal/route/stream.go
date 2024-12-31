@@ -47,20 +47,22 @@ func (r *StreamRoute) String() string {
 	return "stream " + r.TargetName()
 }
 
-// Start implements*task.TaskStarter.
-func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
+// Start implements task.TaskStarter.
+func (r *StreamRoute) Start(parent task.Parent) E.Error {
 	if entry.ShouldNotServe(r) {
-		providerSubtask.Finish("should not serve")
 		return nil
 	}
 
-	r.task = providerSubtask
+	r.task = parent.Subtask("stream." + r.TargetName())
 	r.Stream = NewStream(r)
+
+	parent.OnCancel("finish", func() {
+		r.task.Finish(nil)
+	})
 
 	switch {
 	case entry.UseIdleWatcher(r):
-		wakerTask := providerSubtask.Parent().Subtask("waker for " + r.TargetName())
-		waker, err := idlewatcher.NewStreamWaker(wakerTask, r.StreamEntry, r.Stream)
+		waker, err := idlewatcher.NewStreamWaker(r.task, r.StreamEntry, r.Stream)
 		if err != nil {
 			r.task.Finish(err)
 			return err
@@ -73,7 +75,7 @@ func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 			if err == nil {
 				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.Raw.HealthCheck)
 				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.Raw.HealthCheck, fallback)
-				r.task.OnCancel("close docker client", client.Close)
+				r.task.OnCancel("close_docker_client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
@@ -86,7 +88,7 @@ func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 		return E.From(err)
 	}
 
-	r.task.OnFinished("close stream", func() {
+	r.task.OnFinished("close_stream", func() {
 		if err := r.Stream.Close(); err != nil {
 			E.LogError("close stream failed", err, &r.l)
 		}
@@ -97,22 +99,26 @@ func (r *StreamRoute) Start(providerSubtask *task.Task) E.Error {
 		Msg("listening")
 
 	if r.HealthMon != nil {
-		healthMonTask := r.task.Subtask("health monitor")
-		if err := r.HealthMon.Start(healthMonTask); err != nil {
+		if err := r.HealthMon.Start(r.task); err != nil {
 			E.LogWarn("health monitor error", err, &r.l)
-			healthMonTask.Finish(err)
 		}
 	}
 
 	go r.acceptConnections()
 
 	routes.SetStreamRoute(r.TargetName(), r)
-	r.task.OnFinished("remove from route table", func() {
+	r.task.OnFinished("entrypoint_remove_route", func() {
 		routes.DeleteStreamRoute(r.TargetName())
 	})
 	return nil
 }
 
+// Task implements task.TaskStarter.
+func (r *StreamRoute) Task() *task.Task {
+	return r.task
+}
+
+// Finish implements task.TaskFinisher.
 func (r *StreamRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }

@@ -153,8 +153,8 @@ func (p *Provider) ScheduleRenewal() {
 		return
 	}
 	go func() {
-		task := task.GlobalTask("cert renew scheduler")
-		defer task.Finish("cert renew scheduler stopped")
+		task := task.RootTask("cert-renew-scheduler", true)
+		defer task.Finish(nil)
 
 		for {
 			renewalTime := p.ShouldRenewOn()

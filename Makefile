@@ -28,10 +28,10 @@ get:
 	go get -u ./cmd && go mod tidy
 
 debug:
-	GODOXY_DEBUG=1 make run
+	GODOXY_DEBUG=1 BUILD_FLAGS="" make run
 
 debug-trace:
-	GODOXY_DEBUG=1 GODOXY_TRACE=1 run
+	GODOXY_TRACE=1 make debug
 
 profile:
 	GODEBUG=gctrace=1 make debug

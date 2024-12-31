@@ -53,7 +53,7 @@ func newConfig() *Config {
 	return &Config{
 		value:     types.DefaultConfig(),
 		providers: F.NewMapOf[string, *proxy.Provider](),
-		task:      task.GlobalTask("config"),
+		task:      task.RootTask("config", false),
 	}
 }
 
@@ -76,21 +76,19 @@ func MatchDomains() []string {
 }
 
 func WatchChanges() {
-	task := task.GlobalTask("config watcher")
+	t := task.RootTask("config_watcher", true)
 	eventQueue := events.NewEventQueue(
-		task,
+		t,
 		configEventFlushInterval,
 		OnConfigChange,
 		func(err E.Error) {
 			E.LogError("config reload error", err, &logger)
 		},
 	)
-	eventQueue.Start(cfgWatcher.Events(task.Context()))
+	eventQueue.Start(cfgWatcher.Events(t.Context()))
 }
 
-func OnConfigChange(flushTask *task.Task, ev []events.Event) {
-	defer flushTask.Finish("config reload complete")
-
+func OnConfigChange(ev []events.Event) {
 	// no matter how many events during the interval
 	// just reload once and check the last event
 	switch ev[len(ev)-1].Action {
@@ -116,14 +114,14 @@ func Reload() E.Error {
 	newCfg := newConfig()
 	err := newCfg.load()
 	if err != nil {
+		newCfg.task.Finish(err)
 		return err
 	}
 
 	// cancel all current subtasks -> wait
 	// -> replace config -> start new subtasks
 	instance.task.Finish("config changed")
-	instance.task.Wait()
-	*instance = *newCfg
+	instance = newCfg
 	instance.StartProxyProviders()
 	return nil
 }
@@ -143,8 +141,7 @@ func (cfg *Config) Task() *task.Task {
 func (cfg *Config) StartProxyProviders() {
 	errs := cfg.providers.CollectErrorsParallel(
 		func(_ string, p *proxy.Provider) error {
-			subtask := cfg.task.Subtask(p.String())
-			return p.Start(subtask)
+			return p.Start(cfg.task)
 		})
 
 	if err := E.Join(errs...); err != nil {
@@ -209,9 +206,6 @@ func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error)
 }
 
 func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
-	subtask := cfg.task.Subtask("load route providers")
-	defer subtask.Finish("done")
-
 	errs := E.NewBuilder("route provider errors")
 	results := E.NewBuilder("loaded route providers")
 

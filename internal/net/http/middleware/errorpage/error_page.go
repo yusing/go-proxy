@@ -32,10 +32,10 @@ func setup() {
 		return
 	}
 
-	task := task.GlobalTask("error page")
-	dirWatcher = W.NewDirectoryWatcher(task.Subtask("dir watcher"), errPagesBasePath)
+	t := task.RootTask("error_page", true)
+	dirWatcher = W.NewDirectoryWatcher(t, errPagesBasePath)
 	loadContent()
-	go watchDir(task)
+	go watchDir()
 }
 
 func GetStaticFile(filename string) ([]byte, bool) {
@@ -73,11 +73,11 @@ func loadContent() {
 	}
 }
 
-func watchDir(task *task.Task) {
-	eventCh, errCh := dirWatcher.Events(task.Context())
+func watchDir() {
+	eventCh, errCh := dirWatcher.Events(task.RootContext())
 	for {
 		select {
-		case <-task.Context().Done():
+		case <-task.RootContextCanceled():
 			return
 		case event, ok := <-eventCh:
 			if !ok {

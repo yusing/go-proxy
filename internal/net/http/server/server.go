@@ -24,8 +24,6 @@ type Server struct {
 	httpsStarted bool
 	startTime    time.Time
 
-	task *task.Task
-
 	l zerolog.Logger
 }
 
@@ -76,7 +74,6 @@ func NewServer(opt Options) (s *Server) {
 		CertProvider: opt.CertProvider,
 		http:         httpSer,
 		https:        httpsSer,
-		task:         task.GlobalTask(opt.Name + " server"),
 		l:            logger,
 	}
 }
@@ -108,7 +105,7 @@ func (s *Server) Start() {
 		s.l.Info().Str("addr", s.https.Addr).Msgf("server started")
 	}
 
-	s.task.OnFinished("stop server", s.stop)
+	task.OnProgramExit("server."+s.Name+".stop", s.stop)
 }
 
 func (s *Server) stop() {
@@ -117,12 +114,12 @@ func (s *Server) stop() {
 	}
 
 	if s.http != nil && s.httpStarted {
-		s.handleErr("http", s.http.Shutdown(s.task.Context()))
+		s.handleErr("http", s.http.Shutdown(task.RootContext()))
 		s.httpStarted = false
 	}
 
 	if s.https != nil && s.httpsStarted {
-		s.handleErr("https", s.https.Shutdown(s.task.Context()))
+		s.handleErr("https", s.https.Shutdown(task.RootContext()))
 		s.httpsStarted = false
 	}
 }

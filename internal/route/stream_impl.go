@@ -95,7 +95,7 @@ func (stream *Stream) Handle(conn types.StreamConn) error {
 			return fmt.Errorf("unexpected listener type: %T", stream)
 		}
 	case io.ReadWriteCloser:
-		stream.task.OnCancel("close conn", func() { conn.Close() })
+		stream.task.OnCancel("close_conn", func() { conn.Close() })
 
 		dialer := &net.Dialer{Timeout: streamDialTimeout}
 		dstConn, err := dialer.DialContext(stream.task.Context(), stream.targetAddr.Network(), stream.targetAddr.String())

@@ -9,6 +9,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
+	"github.com/yusing/go-proxy/internal/route/routes"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
@@ -52,10 +53,13 @@ func New(cfg *Config) *LoadBalancer {
 }
 
 // Start implements task.TaskStarter.
-func (lb *LoadBalancer) Start(routeSubtask *task.Task) E.Error {
+func (lb *LoadBalancer) Start(parent task.Parent) E.Error {
 	lb.startTime = time.Now()
-	lb.task = routeSubtask
-	lb.task.OnFinished("loadbalancer cleanup", func() {
+	lb.task = parent.Subtask("loadbalancer."+lb.Link, false)
+	parent.OnCancel("lb_remove_route", func() {
+		routes.DeleteHTTPRoute(lb.Link)
+	})
+	lb.task.OnFinished("cleanup", func() {
 		if lb.impl != nil {
 			lb.pool.RangeAll(func(k string, v *Server) {
 				lb.impl.OnRemoveServer(v)
@@ -64,6 +68,11 @@ func (lb *LoadBalancer) Start(routeSubtask *task.Task) E.Error {
 		lb.pool.Clear()
 	})
 	return nil
+}
+
+// Task implements task.TaskStarter.
+func (lb *LoadBalancer) Task() *task.Task {
+	return lb.task
 }
 
 // Finish implements task.TaskFinisher.

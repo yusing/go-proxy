@@ -50,10 +50,12 @@ func Join(errors ...error) Error {
 	if n == 0 {
 		return nil
 	}
-	errs := make([]error, 0, n)
+	errs := make([]error, n)
+	i := 0
 	for _, err := range errors {
 		if err != nil {
-			errs = append(errs, err)
+			errs[i] = err
+			i++
 		}
 	}
 	return &nestedError{Extras: errs}

@@ -38,7 +38,7 @@ const (
 
 // TODO: support stream
 
-func newWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
+func newWaker(parent task.Parent, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
 	hcCfg := entry.RawEntry().HealthCheck
 	hcCfg.Timeout = idleWakerCheckTimeout
 
@@ -46,8 +46,8 @@ func newWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseP
 		rp:     rp,
 		stream: stream,
 	}
-
-	watcher, err := registerWatcher(providerSubTask, entry, waker)
+	task := parent.Subtask("idlewatcher")
+	watcher, err := registerWatcher(task, entry, waker)
 	if err != nil {
 		return nil, E.Errorf("register watcher: %w", err)
 	}
@@ -63,7 +63,7 @@ func newWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseP
 
 	if common.PrometheusEnabled {
 		m := metrics.GetServiceMetrics()
-		fqn := providerSubTask.Parent().Name() + "/" + entry.TargetName()
+		fqn := parent.Name() + "/" + entry.TargetName()
 		waker.metric = m.HealthStatus.With(metrics.HealthMetricLabels(fqn))
 		waker.metric.Set(float64(watcher.Status()))
 	}
@@ -71,24 +71,28 @@ func newWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseP
 }
 
 // lifetime should follow route provider.
-func NewHTTPWaker(providerSubTask *task.Task, entry route.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
-	return newWaker(providerSubTask, entry, rp, nil)
+func NewHTTPWaker(parent task.Parent, entry route.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
+	return newWaker(parent, entry, rp, nil)
 }
 
-func NewStreamWaker(providerSubTask *task.Task, entry route.Entry, stream net.Stream) (Waker, E.Error) {
-	return newWaker(providerSubTask, entry, nil, stream)
+func NewStreamWaker(parent task.Parent, entry route.Entry, stream net.Stream) (Waker, E.Error) {
+	return newWaker(parent, entry, nil, stream)
 }
 
 // Start implements health.HealthMonitor.
-func (w *Watcher) Start(routeSubTask *task.Task) E.Error {
-	routeSubTask.Finish("ignored")
-	w.task.OnCancel("stop route and cleanup", func() {
-		routeSubTask.Parent().Finish(w.task.FinishCause())
+func (w *Watcher) Start(parent task.Parent) E.Error {
+	w.task.OnCancel("route_cleanup", func() {
+		parent.Finish(w.task.FinishCause())
 		if w.metric != nil {
 			w.metric.Reset()
 		}
 	})
 	return nil
+}
+
+// Task implements health.HealthMonitor.
+func (w *Watcher) Task() *task.Task {
+	return w.task
 }
 
 // Finish implements health.HealthMonitor.

@@ -52,7 +52,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 	case ListHomepageConfig:
 		U.RespondJSON(w, r, config.HomepageConfig())
 	case ListTasks:
-		U.RespondJSON(w, r, task.DebugTaskMap())
+		U.RespondJSON(w, r, task.DebugTaskList())
 	default:
 		U.HandleErr(w, r, U.ErrInvalidKey("what"), http.StatusBadRequest)
 	}
