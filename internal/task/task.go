@@ -93,14 +93,9 @@ func (t *Task) onCancel(about string, fn func(), waitSubTasks bool) {
 // Finish cancel all subtasks and wait for them to finish,
 // then marks the task as finished, with the given reason (if any).
 func (t *Task) Finish(reason any) {
-	select {
-	case <-t.finished:
-		return
-	default:
-		t.once.Do(func() {
-			t.finish(reason)
-		})
-	}
+	t.once.Do(func() {
+		t.finish(reason)
+	})
 }
 
 func (t *Task) finish(reason any) {
