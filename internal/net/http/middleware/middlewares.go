@@ -73,7 +73,6 @@ func LoadComposeFiles() {
 			}
 			allMiddlewares[strutils.ToLowerNoSnake(name)] = m
 			logger.Info().
-				Str("name", name).
 				Str("src", path.Base(defFile)).
 				Msg("middleware loaded")
 		}
