@@ -27,6 +27,8 @@ var (
 	epAccessLoggerMu sync.Mutex
 )
 
+var ErrNoSuchRoute = errors.New("no such route")
+
 func SetFindRouteDomains(domains []string) {
 	if len(domains) == 0 {
 		findRouteFunc = findRouteAnyDomain
@@ -73,14 +75,6 @@ func SetAccessLogger(parent task.Parent, cfg *accesslog.Config) (err error) {
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	mux, err := findRouteFunc(r.Host)
-	if err != nil {
-		// try find with exact match
-		r, ok := routes.GetHTTPRoute(r.Host)
-		if ok {
-			mux = r
-			err = nil
-		}
-	}
 	if err == nil {
 		if epAccessLogger != nil {
 			epMiddlewareMu.Lock()
@@ -126,45 +120,29 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 func findRouteAnyDomain(host string) (route.HTTPRoute, error) {
 	hostSplit := strutils.SplitRune(host, '.')
-	n := len(hostSplit)
-	switch {
-	case n == 3:
-		host = hostSplit[0]
-	case n > 3:
-		var builder strings.Builder
-		builder.Grow(2*n - 3)
-		builder.WriteString(hostSplit[0])
-		for _, part := range hostSplit[:n-2] {
-			builder.WriteRune('.')
-			builder.WriteString(part)
-		}
-		host = builder.String()
-	default:
-		return nil, errors.New("missing subdomain in url")
-	}
-	if r, ok := routes.GetHTTPRoute(host); ok {
+	target := hostSplit[0]
+
+	if r, ok := routes.GetHTTPRouteOrExact(target, host); ok {
 		return r, nil
 	}
-	return nil, fmt.Errorf("no such route: %s", host)
+	return nil, fmt.Errorf("%w: %s", ErrNoSuchRoute, target)
 }
 
 func findRouteByDomains(domains []string) func(host string) (route.HTTPRoute, error) {
 	return func(host string) (route.HTTPRoute, error) {
-		var subdomain string
-
 		for _, domain := range domains {
 			if strings.HasSuffix(host, domain) {
-				subdomain = strings.TrimSuffix(host, domain)
-				break
+				target := strings.TrimSuffix(host, domain)
+				if r, ok := routes.GetHTTPRoute(target); ok {
+					return r, nil
+				}
 			}
 		}
 
-		if subdomain != "" { // matched
-			if r, ok := routes.GetHTTPRoute(subdomain); ok {
-				return r, nil
-			}
-			return nil, fmt.Errorf("no such route: %s", subdomain)
+		// fallback to exact match
+		if r, ok := routes.GetHTTPRoute(host); ok {
+			return r, nil
 		}
-		return nil, fmt.Errorf("%s does not match any base domain", host)
+		return nil, fmt.Errorf("%w: %s", ErrNoSuchRoute, host)
 	}
 }
