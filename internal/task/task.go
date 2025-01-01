@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"runtime/debug"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -51,6 +53,8 @@ type (
 	}
 )
 
+const taskTimeout = 3 * time.Second
+
 func (t *Task) Context() context.Context {
 	return t.ctx
 }
@@ -83,7 +87,7 @@ func (t *Task) onCancel(about string, fn func(), waitSubTasks bool) {
 	go func() {
 		<-t.ctx.Done()
 		if waitSubTasks {
-			t.children.Wait()
+			waitWithTimeout(&t.children)
 		}
 		t.invokeWithRecover(fn, about)
 		t.onFinished.Done()
@@ -100,12 +104,49 @@ func (t *Task) Finish(reason any) {
 
 func (t *Task) finish(reason any) {
 	t.cancel(fmtCause(reason))
-	t.children.Wait()
-	t.onFinished.Wait()
+	if !waitWithTimeout(&t.children) {
+		logger.Debug().
+			Strs("subtasks", t.listChildren()).
+			Msg("Timeout waiting for these subtasks to finish")
+	}
+	if !waitWithTimeout(&t.onFinished) {
+		logger.Debug().
+			Str("task", t.name).
+			Msg("Timeout waiting for callbacks to finish")
+	}
 	if t.finished != nil {
 		close(t.finished)
 	}
 	logger.Trace().Msg("task " + t.name + " finished")
+}
+
+// debug only.
+func (t *Task) listChildren() []string {
+	var children []string
+	allTasks.Range(func(child *Task) bool {
+		if strings.HasPrefix(child.name, t.name+".") {
+			children = append(children, child.name)
+		}
+		return true
+	})
+	return children
+}
+
+func waitWithTimeout(wg *sync.WaitGroup) bool {
+	done := make(chan struct{})
+	timeout := time.After(taskTimeout)
+
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		return true
+	case <-timeout:
+		return false
+	}
 }
 
 func fmtCause(cause any) error {
