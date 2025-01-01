@@ -16,9 +16,11 @@ var ErrProgramExiting = errors.New("program exiting")
 
 var logger = logging.With().Str("module", "task").Logger()
 
-var root = newRoot()
-var allTasks = F.NewSet[*Task]()
-var allTasksWg sync.WaitGroup
+var (
+	root       = newRoot()
+	allTasks   = F.NewSet[*Task]()
+	allTasksWg sync.WaitGroup
+)
 
 func testCleanup() {
 	root = newRoot()

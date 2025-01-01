@@ -209,7 +209,7 @@ func (w *Watcher) resetIdleTimer() {
 	w.ticker.Reset(w.IdleTimeout)
 }
 
-func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask *task.Task, eventCh <-chan events.Event, errCh <-chan E.Error) {
+func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventCh <-chan events.Event, errCh <-chan E.Error) {
 	eventCh, errCh = dockerWatcher.EventsWithOptions(w.Task().Context(), watcher.DockerListOptions{
 		Filters: watcher.NewDockerFilter(
 			watcher.DockerFilterContainer,
@@ -239,8 +239,7 @@ func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventTask *ta
 // errors occurred on docker client, or route provider died (mainly caused by config reload).
 func (w *Watcher) watchUntilDestroy() (returnCause error) {
 	dockerWatcher := watcher.NewDockerWatcherWithClient(w.client)
-	eventTask, dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
-	defer eventTask.Finish("stopped")
+	dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
 
 	for {
 		select {
@@ -279,8 +278,7 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 				w.Debug().Msgf("id changed %s -> %s", w.ContainerID, e.ActorID)
 				w.ContainerID = e.ActorID
 				// recreate event stream
-				eventTask.Finish("recreate event stream")
-				eventTask, dockerEventCh, dockerEventErrCh = w.getEventCh(dockerWatcher)
+				dockerEventCh, dockerEventErrCh = w.getEventCh(dockerWatcher)
 			}
 		case <-w.ticker.C:
 			w.ticker.Stop()
