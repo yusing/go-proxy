@@ -1,42 +1,41 @@
 package utils
 
+import (
+	"sync"
+	"sync/atomic"
+)
+
 type RefCount struct {
 	_ NoCopy
 
-	refCh      chan bool
-	notifyZero chan struct{}
+	mu       sync.Mutex
+	cond     *sync.Cond
+	refCount uint32
+	zeroCh   chan struct{}
 }
 
 func NewRefCounter() *RefCount {
 	rc := &RefCount{
-		refCh:      make(chan bool, 1),
-		notifyZero: make(chan struct{}),
+		refCount: 1,
+		zeroCh:   make(chan struct{}),
 	}
-	go func() {
-		refCount := uint32(1)
-		for isAdd := range rc.refCh {
-			if isAdd {
-				refCount++
-			} else {
-				refCount--
-			}
-			if refCount <= 0 {
-				close(rc.notifyZero)
-				return
-			}
-		}
-	}()
+	rc.cond = sync.NewCond(&rc.mu)
 	return rc
 }
 
 func (rc *RefCount) Zero() <-chan struct{} {
-	return rc.notifyZero
+	return rc.zeroCh
 }
 
 func (rc *RefCount) Add() {
-	rc.refCh <- true
+	atomic.AddUint32(&rc.refCount, 1)
 }
 
 func (rc *RefCount) Sub() {
-	rc.refCh <- false
+	if atomic.AddUint32(&rc.refCount, ^uint32(0)) == 0 {
+		rc.mu.Lock()
+		close(rc.zeroCh)
+		rc.cond.Broadcast()
+		rc.mu.Unlock()
+	}
 }
