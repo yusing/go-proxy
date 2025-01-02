@@ -22,8 +22,8 @@ lint:
     - yamllint
   enabled:
     - hadolint@2.12.1-beta
-    - actionlint@1.7.4
-    - checkov@3.2.344
+    - actionlint@1.7.5
+    - checkov@3.2.346
     - git-diff-check
     - gofmt@1.20.4
     - golangci-lint@1.62.2
