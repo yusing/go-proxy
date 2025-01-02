@@ -2,10 +2,7 @@ package task
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"runtime/debug"
-	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +23,11 @@ type (
 	TaskFinisher interface {
 		Finish(reason any)
 	}
+	Callback struct {
+		fn           func()
+		about        string
+		waitChildren bool
+	}
 	// Task controls objects' lifetime.
 	//
 	// Objects that uses a Task should implement the TaskStarter and the TaskFinisher interface.
@@ -34,15 +36,19 @@ type (
 	Task struct {
 		name string
 
-		children sync.WaitGroup
+		parent       *Task
+		children     uint32
+		childrenDone chan struct{}
 
-		onFinished sync.WaitGroup
-		finished   chan struct{}
+		callbacks     map[*Callback]struct{}
+		callbacksDone chan struct{}
+
+		finished       chan struct{}
+		finishedCalled bool
+		mu             sync.Mutex
 
 		ctx    context.Context
 		cancel context.CancelCauseFunc
-
-		once sync.Once
 	}
 	Parent interface {
 		Context() context.Context
@@ -72,94 +78,53 @@ func (t *Task) FinishCause() error {
 //
 // It should not be called after Finish is called.
 func (t *Task) OnFinished(about string, fn func()) {
-	t.onCancel(about, fn, true)
+	t.addCallback(about, fn, true)
 }
 
 // OnCancel calls fn when the task is canceled.
 //
 // It should not be called after Finish is called.
 func (t *Task) OnCancel(about string, fn func()) {
-	t.onCancel(about, fn, false)
-}
-
-func (t *Task) onCancel(about string, fn func(), waitSubTasks bool) {
-	t.onFinished.Add(1)
-	go func() {
-		<-t.ctx.Done()
-		if waitSubTasks {
-			waitWithTimeout(&t.children)
-		}
-		t.invokeWithRecover(fn, about)
-		t.onFinished.Done()
-	}()
+	t.addCallback(about, fn, false)
 }
 
 // Finish cancel all subtasks and wait for them to finish,
 // then marks the task as finished, with the given reason (if any).
 func (t *Task) Finish(reason any) {
-	t.once.Do(func() {
-		t.finish(reason)
-	})
+	t.mu.Lock()
+	if t.finishedCalled {
+		t.mu.Unlock()
+		return
+	}
+	t.finishedCalled = true
+	t.mu.Unlock()
+	t.finish(reason)
 }
 
 func (t *Task) finish(reason any) {
 	t.cancel(fmtCause(reason))
-	if !waitWithTimeout(&t.children) {
-		logger.Debug().
-			Strs("subtasks", t.listChildren()).
-			Msg("Timeout waiting for these subtasks to finish")
-	}
-	if !waitWithTimeout(&t.onFinished) {
+	if !waitWithTimeout(t.childrenDone) {
 		logger.Debug().
 			Str("task", t.name).
+			Strs("subtasks", t.listChildren()).
+			Msg("Timeout waiting for subtasks to finish")
+	}
+	go t.runCallbacks()
+	if !waitWithTimeout(t.callbacksDone) {
+		logger.Debug().
+			Str("task", t.name).
+			Strs("callbacks", t.listCallbacks()).
 			Msg("Timeout waiting for callbacks to finish")
 	}
 	if t.finished != nil {
 		close(t.finished)
 	}
+	if t == root {
+		return
+	}
+	t.parent.subChildCount()
+	allTasks.Remove(t)
 	logger.Trace().Msg("task " + t.name + " finished")
-}
-
-// debug only.
-func (t *Task) listChildren() []string {
-	var children []string
-	allTasks.Range(func(child *Task) bool {
-		if strings.HasPrefix(child.name, t.name+".") {
-			children = append(children, child.name)
-		}
-		return true
-	})
-	return children
-}
-
-func waitWithTimeout(wg *sync.WaitGroup) bool {
-	done := make(chan struct{})
-	timeout := time.After(taskTimeout)
-
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	select {
-	case <-done:
-		return true
-	case <-timeout:
-		return false
-	}
-}
-
-func fmtCause(cause any) error {
-	switch cause := cause.(type) {
-	case nil:
-		return nil
-	case error:
-		return cause
-	case string:
-		return errors.New(cause)
-	default:
-		return fmt.Errorf("%v", cause)
-	}
 }
 
 // Subtask returns a new subtask with the given name, derived from the parent's context.
@@ -170,19 +135,19 @@ func (t *Task) Subtask(name string, needFinish ...bool) *Task {
 
 	ctx, cancel := context.WithCancelCause(t.ctx)
 	child := &Task{
-		finished: make(chan struct{}, 1),
+		parent:   t,
+		finished: make(chan struct{}),
 		ctx:      ctx,
 		cancel:   cancel,
 	}
 	if t != root {
 		child.name = t.name + "." + name
-		allTasks.Add(child)
 	} else {
 		child.name = name
 	}
 
-	allTasksWg.Add(1)
-	t.children.Add(1)
+	allTasks.Add(child)
+	t.addChildCount()
 
 	if !nf {
 		go func() {
@@ -190,13 +155,6 @@ func (t *Task) Subtask(name string, needFinish ...bool) *Task {
 			child.Finish(nil)
 		}()
 	}
-
-	go func() {
-		<-child.finished
-		allTasksWg.Done()
-		t.children.Done()
-		allTasks.Remove(child)
-	}()
 
 	logger.Trace().Msg("task " + child.name + " started")
 	return child

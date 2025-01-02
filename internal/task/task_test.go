@@ -10,7 +10,7 @@ import (
 )
 
 func testTask() *Task {
-	return RootTask("test", false)
+	return RootTask("test", true)
 }
 
 func TestChildTaskCancellation(t *testing.T) {
@@ -34,7 +34,7 @@ func TestChildTaskCancellation(t *testing.T) {
 	parent.cancel(nil) // should also cancel child
 
 	select {
-	case <-child.Finished():
+	case <-child.Context().Done():
 		ExpectError(t, context.Canceled, child.Context().Err())
 	default:
 		t.Fatal("subTask context was not canceled as expected")

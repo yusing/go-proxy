@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
-	"sync"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/logging"
@@ -17,25 +16,24 @@ var ErrProgramExiting = errors.New("program exiting")
 var logger = logging.With().Str("module", "task").Logger()
 
 var (
-	root       = newRoot()
-	allTasks   = F.NewSet[*Task]()
-	allTasksWg sync.WaitGroup
+	root     = newRoot()
+	allTasks = F.NewSet[*Task]()
 )
 
 func testCleanup() {
 	root = newRoot()
 	allTasks.Clear()
-	allTasksWg = sync.WaitGroup{}
 }
 
 // RootTask returns a new Task with the given name, derived from the root context.
-func RootTask(name string, needFinish bool) *Task {
-	return root.Subtask(name, needFinish)
+func RootTask(name string, needFinish ...bool) *Task {
+	return root.Subtask(name, needFinish...)
 }
 
 func newRoot() *Task {
 	t := &Task{name: "root"}
 	t.ctx, t.cancel = context.WithCancelCause(context.Background())
+	t.callbacks = make(map[*Callback]struct{})
 	return t
 }
 
@@ -57,19 +55,12 @@ func OnProgramExit(about string, fn func()) {
 // still running when the timeout was reached, and their current tree
 // of subtasks.
 func GracefulShutdown(timeout time.Duration) (err error) {
-	root.cancel(ErrProgramExiting)
+	go root.Finish(ErrProgramExiting)
 
-	done := make(chan struct{})
 	after := time.After(timeout)
-
-	go func() {
-		allTasksWg.Wait()
-		close(done)
-	}()
-
 	for {
 		select {
-		case <-done:
+		case <-root.finished:
 			return
 		case <-after:
 			b, err := json.Marshal(DebugTaskList())
