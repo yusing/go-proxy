@@ -106,23 +106,23 @@ func (l *AccessLogger) Config() *Config {
 	return l.cfg
 }
 
-// func (l *AccessLogger) Rotate() error {
-// 	if l.cfg.Retention == nil {
-// 		return nil
-// 	}
-// 	l.io.Lock()
-// 	defer l.io.Unlock()
+func (l *AccessLogger) Rotate() error {
+	if l.cfg.Retention == nil {
+		return nil
+	}
+	l.io.Lock()
+	defer l.io.Unlock()
 
-// 	return l.cfg.Retention.rotateLogFile(l.io)
-// }
+	return l.cfg.Retention.rotateLogFile(l.io)
+}
 
-func (l *AccessLogger) Flush(force bool) {
-	l.flushMu.Lock()
-	if force || l.buf.Len() >= l.flushThreshold {
+func (l *AccessLogger) Flush() {
+	if l.buf.Len() >= l.flushThreshold {
+		l.flushMu.Lock()
 		l.writeLine(l.buf.Bytes())
 		l.buf.Reset()
+		l.flushMu.Unlock()
 	}
-	l.flushMu.Unlock()
 }
 
 func (l *AccessLogger) handleErr(err error) {
@@ -138,17 +138,15 @@ func (l *AccessLogger) start() {
 		l.task.Finish(nil)
 	}()
 
-	// periodic + threshold flush
-	flushTicker := time.NewTicker(5 * time.Second)
+	// threshold flush with periodic check
+	flushTicker := time.NewTicker(3 * time.Second)
 
 	for {
 		select {
 		case <-l.task.Context().Done():
 			return
 		case <-flushTicker.C:
-			l.Flush(true)
-		default:
-			l.Flush(false)
+			l.Flush()
 		}
 	}
 }
