@@ -108,9 +108,6 @@ func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
 	}
 
 	p.routes.Store(r.Entry.Alias, r)
-	r.Task().OnFinished("provider_remove_route", func() {
-		p.routes.Delete(r.Entry.Alias)
-	})
 	return nil
 }
 

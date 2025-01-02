@@ -83,7 +83,7 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 
 	switch {
 	case entry.UseIdleWatcher(r):
-		waker, err := idlewatcher.NewHTTPWaker(r.task, r.ReverseProxyEntry, r.rp)
+		waker, err := idlewatcher.NewHTTPWaker(parent, r.ReverseProxyEntry, r.rp)
 		if err != nil {
 			r.task.Finish(err)
 			return err
@@ -144,13 +144,13 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 		r.addToLoadBalancer(parent)
 	} else {
 		routes.SetHTTPRoute(r.TargetName(), r)
-		r.task.OnFinished("entrypoint_remove_route", func() {
+		r.task.OnCancel("entrypoint_remove_route", func() {
 			routes.DeleteHTTPRoute(r.TargetName())
 		})
 	}
 
 	if common.PrometheusEnabled {
-		r.task.OnFinished("metrics_cleanup", r.rp.UnregisterMetrics)
+		r.task.OnCancel("metrics_cleanup", r.rp.UnregisterMetrics)
 	}
 	return nil
 }

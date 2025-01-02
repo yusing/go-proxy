@@ -55,14 +55,13 @@ func (r *StreamRoute) Start(parent task.Parent) E.Error {
 
 	r.task = parent.Subtask("stream." + r.TargetName())
 	r.Stream = NewStream(r)
-
 	parent.OnCancel("finish", func() {
 		r.task.Finish(nil)
 	})
 
 	switch {
 	case entry.UseIdleWatcher(r):
-		waker, err := idlewatcher.NewStreamWaker(r.task, r.StreamEntry, r.Stream)
+		waker, err := idlewatcher.NewStreamWaker(parent, r.StreamEntry, r.Stream)
 		if err != nil {
 			r.task.Finish(err)
 			return err
@@ -88,7 +87,7 @@ func (r *StreamRoute) Start(parent task.Parent) E.Error {
 		return E.From(err)
 	}
 
-	r.task.OnFinished("close_stream", func() {
+	r.task.OnCancel("close_stream", func() {
 		if err := r.Stream.Close(); err != nil {
 			E.LogError("close stream failed", err, &r.l)
 		}
@@ -107,7 +106,7 @@ func (r *StreamRoute) Start(parent task.Parent) E.Error {
 	go r.acceptConnections()
 
 	routes.SetStreamRoute(r.TargetName(), r)
-	r.task.OnFinished("entrypoint_remove_route", func() {
+	r.task.OnCancel("entrypoint_remove_route", func() {
 		routes.DeleteStreamRoute(r.TargetName())
 	})
 	return nil
@@ -144,14 +143,10 @@ func (r *StreamRoute) acceptConnections() {
 			if conn == nil {
 				panic("connection is nil")
 			}
-			connTask := r.task.Subtask("connection")
 			go func() {
 				err := r.Stream.Handle(conn)
 				if err != nil && !errors.Is(err, context.Canceled) {
 					E.LogError("handle connection error", err, &r.l)
-					connTask.Finish(err)
-				} else {
-					connTask.Finish("closed")
 				}
 			}()
 		}

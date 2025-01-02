@@ -18,6 +18,15 @@ func GetStreamRoutes() F.Map[string, types.StreamRoute] {
 	return streamRoutes
 }
 
+func GetHTTPRouteOrExact(alias, host string) (types.HTTPRoute, bool) {
+	r, ok := httpRoutes.Load(alias)
+	if ok {
+		return r, true
+	}
+	// try find with exact match
+	return httpRoutes.Load(host)
+}
+
 func GetHTTPRoute(alias string) (types.HTTPRoute, bool) {
 	return httpRoutes.Load(alias)
 }
@@ -40,4 +49,9 @@ func DeleteHTTPRoute(alias string) {
 
 func DeleteStreamRoute(alias string) {
 	streamRoutes.Delete(alias)
+}
+
+func TestClear() {
+	httpRoutes = F.NewMapOf[string, types.HTTPRoute]()
+	streamRoutes = F.NewMapOf[string, types.StreamRoute]()
 }

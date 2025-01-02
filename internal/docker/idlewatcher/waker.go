@@ -46,7 +46,7 @@ func newWaker(parent task.Parent, entry route.Entry, rp *gphttp.ReverseProxy, st
 		rp:     rp,
 		stream: stream,
 	}
-	task := parent.Subtask("idlewatcher")
+	task := parent.Subtask("idlewatcher." + entry.TargetName())
 	watcher, err := registerWatcher(task, entry, waker)
 	if err != nil {
 		return nil, E.Errorf("register watcher: %w", err)
@@ -117,6 +117,7 @@ func (w *Watcher) Uptime() time.Duration {
 	return 0
 }
 
+// Status implements health.HealthMonitor.
 func (w *Watcher) Status() health.Status {
 	status := w.getStatusUpdateReady()
 	if w.metric != nil {
@@ -125,7 +126,6 @@ func (w *Watcher) Status() health.Status {
 	return status
 }
 
-// Status implements health.HealthMonitor.
 func (w *Watcher) getStatusUpdateReady() health.Status {
 	if !w.ContainerRunning {
 		return health.StatusNapping

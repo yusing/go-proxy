@@ -32,7 +32,7 @@ func setup() {
 		return
 	}
 
-	t := task.RootTask("error_page", true)
+	t := task.RootTask("error_page", false)
 	dirWatcher = W.NewDirectoryWatcher(t, errPagesBasePath)
 	loadContent()
 	go watchDir()
