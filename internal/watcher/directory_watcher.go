@@ -88,6 +88,10 @@ func (h *DirWatcher) cleanup() {
 	h.w.Close()
 	close(h.eventCh)
 	close(h.errCh)
+	h.fwMap.RangeAll(func(key string, fw *fileWatcher) {
+		close(fw.eventCh)
+		close(fw.errCh)
+	})
 	h.task.Finish(nil)
 }
 
