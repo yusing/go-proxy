@@ -65,7 +65,6 @@ func (lb *LoadBalancer) Start(parent task.Parent) E.Error {
 				lb.impl.OnRemoveServer(v)
 			})
 		}
-		lb.pool.Clear()
 	})
 	return nil
 }
@@ -171,12 +170,14 @@ func (lb *LoadBalancer) rebalance() {
 	if lb.sumWeight == maxWeight {
 		return
 	}
-	if lb.pool.Size() == 0 {
+
+	poolSize := lb.pool.Size()
+	if poolSize == 0 {
 		return
 	}
 	if lb.sumWeight == 0 { // distribute evenly
-		weightEach := maxWeight / Weight(lb.pool.Size())
-		remainder := maxWeight % Weight(lb.pool.Size())
+		weightEach := maxWeight / Weight(poolSize)
+		remainder := maxWeight % Weight(poolSize)
 		lb.pool.RangeAll(func(_ string, s *Server) {
 			s.Weight = weightEach
 			lb.sumWeight += weightEach
