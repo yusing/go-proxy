@@ -1,111 +1,129 @@
-GoDoxy v0.8 changes:
+# GoDoxy v0.8 changes:
 
-- **Breaking** notification config format changed, support webhook notification, support multiple notification providers
+## Breaking changes
+
+- **Removed** `redirect_to_https` in `config.yml`, superseded by `redirectHTTP` as an entrypoint middleware
+
+- **New** notification config format, support webhook notification, support multiple notification providers
+
   old
 
-```yaml
-providers:
-  notification:
-    gotify:
-      url: ...
-      token: ...
-```
+  ```yaml
+  providers:
+    notification:
+      gotify:
+        url: ...
+        token: ...
+  ```
 
-new
+  new
 
-```yaml
-providers:
-  notification:
-    - name: gotify
-      provider: gotify
-      url: ...
-      token: ...
-    - name: discord
-      provider: webhook
-      url: https://discord.com/api/webhooks/...
-      template: discord
-```
+  ```yaml
+  providers:
+    notification:
+      - name: gotify
+        provider: gotify
+        url: ...
+        token: ...
+      - name: discord
+        provider: webhook
+        url: https://discord.com/api/webhooks/...
+        template: discord
+  ```
 
-Webhook notification fields:
+  Webhook notification fields:
 
-| Field      | Description            | Required                       | Allowed values   |
-| ---------- | ---------------------- | ------------------------------ | ---------------- |
-| name       | name of the provider   | Yes                            |                  |
-| provider   |                        | Yes                            | `webhook`        |
-| url        | webhook URL            | Yes                            | Full URL         |
-| template   | webhook template       | No                             | empty, `discord` |
-| token      | webhook token          | No                             |                  |
-| payload    | webhook payload        | No **(if `template` is used)** | valid json       |
-| method     | webhook request method | No                             | `GET POST PUT`   |
-| mime_type  | mime type              | No                             |                  |
-| color_mode | color mode             | No                             | `hex` `dec`      |
+  | Field      | Description            | Required                       | Allowed values   |
+  | ---------- | ---------------------- | ------------------------------ | ---------------- |
+  | name       | name of the provider   | Yes                            |                  |
+  | provider   |                        | Yes                            | `webhook`        |
+  | url        | webhook URL            | Yes                            | Full URL         |
+  | template   | webhook template       | No                             | empty, `discord` |
+  | token      | webhook token          | No                             |                  |
+  | payload    | webhook payload        | No **(if `template` is used)** | valid json       |
+  | method     | webhook request method | No                             | `GET POST PUT`   |
+  | mime_type  | mime type              | No                             |                  |
+  | color_mode | color mode             | No                             | `hex` `dec`      |
 
-Available payload variables:
+  Available payload variables:
 
-| Variable | Description                 | Format                               |
-| -------- | --------------------------- | ------------------------------------ |
-| $title   | message title               | json string                          |
-| $message | message in markdown format  | json string                          |
-| $fields  | extra fields in json format | json object                          |
-| $color   | embed color by `color_mode` | `0xff0000` (hex) or `16711680` (dec) |
+  | Variable | Description                 | Format                               |
+  | -------- | --------------------------- | ------------------------------------ |
+  | $title   | message title               | json string                          |
+  | $message | message in markdown format  | json string                          |
+  | $fields  | extra fields in json format | json object                          |
+  | $color   | embed color by `color_mode` | `0xff0000` (hex) or `16711680` (dec) |
 
-- **Breaking** removed `redirect_to_https` in `config.yml`, superseded by `redirectHTTP` as an entrypoint middleware
+## Non-breaking changes
 
 - services health notification now in markdown format like `Uptime Kuma` for both webhook and Gotify
 
-- docker services use docker now health check if possible, fallback to GoDoxy health check on failure / no docker health check
+- docker services now use docker health check if possible, fallback to GoDoxy health check on failure / no docker health check
 
-- support entrypoint middlewares (applied to routes, before route middlewares)
+- `proxy.<alias>.path_patterns` fully support http.ServeMux patterns `[METHOD ][HOST]/[PATH]` (See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)
 
-```yaml
-entrypoint:
-  middlewares:
-    - use: CIDRWhitelist
-      allow:
-        - "127.0.0.1"
-        - "10.0.0.0/8"
-        - "192.168.0.0/16"
-      status: 403
-      message: "Forbidden"
-```
+- caching ACME private key in order to reuse ACME account, to prevent from ACME rate limit
 
-- support exact host matching, i.e.
+- **New:** support entrypoint middlewares (applied to routes, before route middlewares)
 
-```yaml
-app1.domain.tld:
-  host: 10.0.0.1
-```
+  ```yaml
+  entrypoint:
+    middlewares:
+      - use: CIDRWhitelist
+        allow:
+          - "127.0.0.1"
+          - "10.0.0.0/8"
+          - "192.168.0.0/16"
+        status: 403
+        message: "Forbidden"
+  ```
 
-will only match exactly `app1.domain.tld`
-**If `match_domains` are used in config, `domain.tld` must be one of it**
+- **New:** support exact host matching, i.e.
 
-- support `x-properties` (like in docker compose), example usage
+  ```yaml
+  app1.domain.tld:
+    host: 10.0.0.1
+  ```
 
-```yaml
-x-proxy: &proxy
-  scheme: https
-  healthcheck:
-    disable: true
-  middlewares:
-    hideXForwarded:
-    modifyRequest:
-      setHeaders:
-        Host: $req_host
+  will only match exactly `app1.domain.tld`
+  **`match_domains` in config will be ignored for this route**
 
-api.openai.com:
-  <<: *proxy
-  host: api.openai.com
-api.groq.com:
-  <<: *proxy
-  host: api.groq.com
-```
+- **New:** support host matching without a subdomain, i.e.
+
+  ```yaml
+  app1:
+    host: 10.0.0.1
+  ```
+
+  will now also match `app1.tld`
+
+- **New:** support `x-properties` (like in docker compose), example usage
+
+  ```yaml
+  x-proxy: &proxy
+    scheme: https
+    healthcheck:
+      disable: true
+    middlewares:
+      hideXForwarded:
+      modifyRequest:
+        setHeaders:
+          Host: $req_host
+
+  api.openai.com:
+    <<: *proxy
+    host: api.openai.com
+  api.groq.com:
+    <<: *proxy
+    host: api.groq.com
+  ```
 
 - new middleware name aliases:
 
   - `modifyRequest` = `request`
   - `modifyResponse` = `response`
 
-- support `$` variables in `request` and `response` middlewares (like nginx config)
+- **New:** support `$` variables in `request` and `response` middlewares (like nginx config)
 
   - `$req_method`: request http method
   - `$req_scheme`: request URL scheme (http/https)
@@ -134,12 +152,38 @@ api.groq.com:
   - `$resp_header(name)`: get response header by name
   - `$arg(name)`: get URL query parameter by name
 
-- `proxy.<alias>.path_patterns` fully support http.ServeMux patterns `[METHOD ][HOST]/[PATH]` (See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)
+- **New:** Access Logging (entrypoint and per route), i.e.
 
-- caching ACME private key in order to reuse ACME account, to prevent from ACME rate limit
+  ```yaml
+  # config.yml
+  entrypoint:
+    access_log:
+      format: json # common, combined, json
+      path: /app/logs/access.json.log
+      filters:
+        cidr:
+          negative: true # no log for local requests
+          values:
+            - 127.0.0.1/32
+            - 172.0.0.0/8
+            - 192.168.0.0/16
+            - 10.0.0.0/16
+      fields:
+        headers:
+          default: drop # drop app headers in log
+          config: # keep only these
+            X-Real-Ip: keep
+            CF-Connecting-Ip: keep
+            X-Forwarded-For: keep
+  ```
 
-- fixed
-  - duplicated notification after config reload
-  - `timeout` was defaulted to `0` in some cases causing health check to fail
-  - `redirectHTTP` middleware may not work on non standard http port
-  - various other small bugs
+  **mount logs directory before setting this**
+
+## Fixes
+
+- duplicated notification after config reload
+- `timeout` was defaulted to `0` in some cases causing health check to fail
+- `redirectHTTP` middleware may not work on non standard http port
+- various other small bugs
+- `realIP` and `cloudflareRealIP` middlewares
+- prometheus metrics gone after a single route reload

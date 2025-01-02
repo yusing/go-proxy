@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"slices"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/logging"
@@ -72,18 +71,4 @@ func GracefulShutdown(timeout time.Duration) (err error) {
 			return context.DeadlineExceeded
 		}
 	}
-}
-
-// DebugTaskList returns list of all tasks.
-//
-// The returned string is suitable for printing to the console.
-func DebugTaskList() []string {
-	l := make([]string, 0, allTasks.Size())
-
-	allTasks.RangeAll(func(t *Task) {
-		l = append(l, t.name)
-	})
-
-	slices.Sort(l)
-	return l
 }

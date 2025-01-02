@@ -45,7 +45,8 @@ type (
 
 		finished       chan struct{}
 		finishedCalled bool
-		mu             sync.Mutex
+
+		mu sync.Mutex
 
 		ctx    context.Context
 		cancel context.CancelCauseFunc
