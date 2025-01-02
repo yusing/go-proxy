@@ -30,9 +30,12 @@ func RootTask(name string, needFinish ...bool) *Task {
 }
 
 func newRoot() *Task {
-	t := &Task{name: "root"}
+	t := &Task{
+		name:         "root",
+		childrenDone: make(chan struct{}),
+		finished:     make(chan struct{}),
+	}
 	t.ctx, t.cancel = context.WithCancelCause(context.Background())
-	t.callbacks = make(map[*Callback]struct{})
 	return t
 }
 

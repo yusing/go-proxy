@@ -12,6 +12,8 @@ func (t *Task) addCallback(about string, fn func(), waitSubTasks bool) {
 	defer t.mu.Unlock()
 	if t.callbacks == nil {
 		t.callbacks = make(map[*Callback]struct{})
+	}
+	if t.callbacksDone == nil {
 		t.callbacksDone = make(chan struct{})
 	}
 	t.callbacks[&Callback{fn, about, waitSubTasks}] = struct{}{}
@@ -28,14 +30,15 @@ func (t *Task) addChildCount() {
 }
 
 func (t *Task) subChildCount() {
-	if atomic.AddUint32(&t.children, ^uint32(0)) == 0 {
+	switch atomic.AddUint32(&t.children, ^uint32(0)) {
+	case 0:
 		close(t.childrenDone)
+	case ^uint32(0):
+		panic("negative child count")
 	}
 }
 
 func (t *Task) runCallbacks() {
-	t.mu.Lock()
-	defer t.mu.Unlock()
 	if len(t.callbacks) == 0 {
 		return
 	}

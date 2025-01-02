@@ -117,9 +117,7 @@ func (t *Task) finish(reason any) {
 			Strs("callbacks", t.listCallbacks()).
 			Msg("Timeout waiting for callbacks to finish")
 	}
-	if t.finished != nil {
-		close(t.finished)
-	}
+	close(t.finished)
 	if t == root {
 		return
 	}
