@@ -3,7 +3,6 @@ package task
 import (
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"time"
 )
 
@@ -20,17 +19,19 @@ func (t *Task) addCallback(about string, fn func(), waitSubTasks bool) {
 }
 
 func (t *Task) addChildCount() {
-	if atomic.AddUint32(&t.children, 1) == 1 {
-		t.mu.Lock()
-		if t.childrenDone == nil {
-			t.childrenDone = make(chan struct{})
-		}
-		t.mu.Unlock()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.children++
+	if t.children == 1 {
+		t.childrenDone = make(chan struct{})
 	}
 }
 
 func (t *Task) subChildCount() {
-	switch atomic.AddUint32(&t.children, ^uint32(0)) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.children--
+	switch t.children {
 	case 0:
 		close(t.childrenDone)
 	case ^uint32(0):
