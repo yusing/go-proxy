@@ -1,10 +1,8 @@
 package config
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/homepage"
 	route "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/entry"
@@ -33,17 +31,6 @@ func DumpProviders() map[string]*proxy.Provider {
 }
 
 func HomepageConfig() homepage.Config {
-	var proto, port string
-	domains := instance.value.MatchDomains
-	cert, _ := instance.autocertProvider.GetCert(nil)
-	if cert != nil {
-		proto = "https"
-		port = common.ProxyHTTPSPort
-	} else {
-		proto = "http"
-		port = common.ProxyHTTPPort
-	}
-
 	hpCfg := homepage.NewHomePageConfig()
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r types.HTTPRoute) {
 		en := r.RawEntry()
@@ -60,6 +47,8 @@ func HomepageConfig() homepage.Config {
 		if !item.Show {
 			return
 		}
+
+		item.Alias = alias
 
 		if item.Name == "" {
 			item.Name = strutils.Title(
@@ -102,13 +91,7 @@ func HomepageConfig() homepage.Config {
 			item.SourceType = string(proxy.ProviderTypeFile)
 		}
 
-		if item.URL == "" {
-			if len(domains) > 0 {
-				item.URL = fmt.Sprintf("%s://%s%s:%s", proto, strings.ToLower(alias), domains[0], port)
-			}
-		}
 		item.AltURL = r.TargetURL().String()
-
 		hpCfg.Add(item)
 	})
 	return hpCfg

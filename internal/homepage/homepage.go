@@ -7,13 +7,14 @@ type (
 
 	Item struct {
 		Show         bool           `json:"show"`
-		Name         string         `json:"name"`
+		Name         string         `json:"name"` // display name
 		Icon         string         `json:"icon"`
 		URL          string         `json:"url"` // alias + domain
 		Category     string         `json:"category"`
 		Description  string         `json:"description" aliases:"desc"`
 		WidgetConfig map[string]any `json:"widget_config" aliases:"widget"`
 
+		Alias      string `json:"alias"` // proxy alias
 		SourceType string `json:"source_type"`
 		AltURL     string `json:"alt_url"` // original proxy target
 	}
