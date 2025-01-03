@@ -58,13 +58,52 @@
 
 - services health notification now in markdown format like `Uptime Kuma` for both webhook and Gotify
 
-- docker services now use docker health check if possible, fallback to GoDoxy health check on failure / no docker health check
+- docker services now use docker container health status if possible, fallback to GoDoxy health check on failure / no docker health check, e.g.
+
+  ```yaml
+  # docker compose
+  services:
+    app:
+      ...
+      container_name: app
+      healthcheck:
+        test: ["CMD-SHELL", "curl --fail http://localhost:8080 || exit 1"]
+        interval: 5s
+  ```
+
+  Health check result will be equivalent to `docker inspect --format='{{json .State.Health}}' app`
 
 - `proxy.<alias>.path_patterns` fully support http.ServeMux patterns `[METHOD ][HOST]/[PATH]` (See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)
 
 - caching ACME private key in order to reuse ACME account, to prevent from ACME rate limit
 
-- **New:** support entrypoint middlewares (applied to routes, before route middlewares)
+- **New:** fully support string as inline YAML for docker labels
+
+  ```yaml
+  services:
+    app:
+      ...
+      # add '|' after colon ':' to treat it as string
+      proxy.app: |
+        scheme: http
+        host: 10.0.0.254
+        port: 80
+        path_patterns:
+          - GET /
+          - POST /auth
+        healthcheck:
+          disabled: false
+          path: /
+          interval: 5s
+      proxy.app1.healthcheck: |
+        path: /ping
+        use_get: true
+      proxy.app1.load_balance: |
+        link: app
+        mode: ip_hash
+  ```
+
+- **New:** support entrypoint middlewares (applied to all routes, before route middlewares)
 
   ```yaml
   entrypoint:
@@ -81,8 +120,15 @@
 - **New:** support exact host matching, i.e.
 
   ```yaml
+  # include file
   app1.domain.tld:
     host: 10.0.0.1
+
+  # docker compose
+  services:
+    app1:
+      ...
+      proxy.aliases: app1.domain.tld
   ```
 
   will only match exactly `app1.domain.tld`
@@ -97,10 +143,10 @@
 
   will now also match `app1.tld`
 
-- **New:** support `x-properties` (like in docker compose), example usage
+- **New:** support `x-properties` (will be ignored, like in docker compose), useful with YAML anchor e.g.
 
   ```yaml
-  x-proxy: &proxy
+  x-proxy: &proxy # this will be ignored in GoDoxy
     scheme: https
     healthcheck:
       disable: true
@@ -111,10 +157,10 @@
           Host: $req_host
 
   api.openai.com:
-    <<: *proxy
+    <<: *proxy # extends from x-proxy
     host: api.openai.com
   api.groq.com:
-    <<: *proxy
+    <<: *proxy # extends from x-proxy
     host: api.groq.com
   ```
 
@@ -175,6 +221,27 @@
             X-Real-Ip: keep
             CF-Connecting-Ip: keep
             X-Forwarded-For: keep
+
+  # include file
+  # same as above but under route config
+  app:
+    access_log:
+      format: json # common, combined, json
+      ...
+
+  # docker labels
+  labels:
+    proxy.app.access_log: |
+      format: json
+      path: /app/logs/access.json.log
+      filters:
+        cidr:
+          negative: true
+          values:
+            - 127.0.0.1/32
+            - 172.0.0.0/8
+            - 192.168.0.0/16
+            - 10.0.0.0/16
   ```
 
   **mount logs directory before setting this**
@@ -187,3 +254,4 @@
 - various other small bugs
 - `realIP` and `cloudflareRealIP` middlewares
 - prometheus metrics gone after a single route reload
+- upgraded dependencies to the latest
