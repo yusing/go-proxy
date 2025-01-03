@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,7 @@ import (
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher"
+	"gopkg.in/yaml.v3"
 )
 
 type DockerProvider struct {
@@ -125,11 +127,19 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 			continue
 		}
 
-		var ok bool
 		entryMap, ok := entryMapAny.(docker.LabelMap)
 		if !ok {
-			errs.Add(E.Errorf("expect mapping, got %T", entryMap).Subject(alias))
-			continue
+			// try to deserialize to map
+			entryMap = make(docker.LabelMap)
+			yamlStr, ok := entryMapAny.(string)
+			if !ok {
+				// should not happen
+				panic(fmt.Errorf("invalid entry map type %T", entryMapAny))
+			}
+			if err := yaml.Unmarshal([]byte(yamlStr), &entryMap); err != nil {
+				errs.Add(E.From(err).Subject(alias))
+				continue
+			}
 		}
 
 		if alias == docker.WildcardAlias {
@@ -153,8 +163,8 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 		}
 
 		// init entry if not exist
-		var en *route.RawEntry
-		if en, ok = entries.Load(alias); !ok {
+		en, ok := entries.Load(alias)
+		if !ok {
 			en = &route.RawEntry{
 				Alias:     alias,
 				Container: container,
@@ -171,10 +181,12 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 		}
 	}
 	if wildcardProps != nil {
-		entries.RangeAll(func(alias string, re *route.RawEntry) {
+		entries.Range(func(alias string, re *route.RawEntry) bool {
 			if err := U.Deserialize(wildcardProps, re); err != nil {
-				errs.Add(err.Subject(alias))
+				errs.Add(err.Subject(docker.WildcardAlias))
+				return false
 			}
+			return true
 		})
 	}
 

@@ -163,3 +163,53 @@ func TestConvertor(t *testing.T) {
 		ExpectError(t, ErrUnsupportedConversion, Deserialize(map[string]any{"Test": struct{}{}}, m))
 	})
 }
+
+func TestStringToSlice(t *testing.T) {
+	t.Run("comma_separated", func(t *testing.T) {
+		dst := make([]string, 0)
+		convertible, err := ConvertString("a,b,c", reflect.ValueOf(&dst))
+		ExpectTrue(t, convertible)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, dst, []string{"a", "b", "c"})
+	})
+	t.Run("multiline", func(t *testing.T) {
+		dst := make([]string, 0)
+		convertible, err := ConvertString("  a\n  b\n  c", reflect.ValueOf(&dst))
+		ExpectTrue(t, convertible)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, dst, []string{"a", "b", "c"})
+	})
+	t.Run("yaml-like", func(t *testing.T) {
+		dst := make([]string, 0)
+		convertible, err := ConvertString("  - a\n  - b\n  - c", reflect.ValueOf(&dst))
+		ExpectTrue(t, convertible)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, dst, []string{"a", "b", "c"})
+	})
+}
+
+func TestStringToMap(t *testing.T) {
+	t.Run("yaml-like", func(t *testing.T) {
+		dst := make(map[string]string)
+		convertible, err := ConvertString("  a: b\n  c: d", reflect.ValueOf(&dst))
+		ExpectTrue(t, convertible)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, dst, map[string]string{"a": "b", "c": "d"})
+	})
+}
+
+func TestStringToStruct(t *testing.T) {
+	t.Run("yaml-like", func(t *testing.T) {
+		dst := struct {
+			A string
+			B int
+		}{}
+		convertible, err := ConvertString("  A: a\n  B: 123", reflect.ValueOf(&dst))
+		ExpectTrue(t, convertible)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, dst, struct {
+			A string
+			B int
+		}{"a", 123})
+	})
+}

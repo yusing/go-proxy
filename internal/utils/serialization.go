@@ -24,8 +24,6 @@ var (
 	ErrNilValue              = E.New("nil")
 	ErrUnsettable            = E.New("unsettable")
 	ErrUnsupportedConversion = E.New("unsupported conversion")
-	ErrMapMissingColon       = E.New("map missing colon")
-	ErrMapTooManyColons      = E.New("map too many colons")
 	ErrUnknownField          = E.New("unknown field")
 )
 
@@ -422,19 +420,12 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		return true, E.From(parser.Parse(src))
 	}
 	// yaml like
-	lines := []string{}
-	src = strings.TrimSpace(src)
-	if src != "" {
-		lines = strutils.SplitLine(src)
-		for i := range lines {
-			lines[i] = strings.TrimSpace(lines[i])
-		}
-	}
+	isMultiline := strings.ContainsRune(src, '\n')
 	var tmp any
 	switch dst.Kind() {
 	case reflect.Slice:
 		// one liner is comma separated list
-		if len(lines) == 1 {
+		if !isMultiline {
 			values := strutils.CommaSeperatedList(src)
 			dst.Set(reflect.MakeSlice(dst.Type(), len(values), len(values)))
 			errs := E.NewBuilder("invalid slice values")
@@ -449,38 +440,25 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			}
 			return
 		}
+		lines := strutils.SplitLine(src)
 		sl := make([]string, 0, len(lines))
 		for _, line := range lines {
 			line = strings.TrimLeftFunc(line, func(r rune) bool {
 				return r == '-' || unicode.IsSpace(r)
 			})
-			if line == "" {
+			if line == "" || line[0] == '#' {
 				continue
 			}
 			sl = append(sl, line)
 		}
 		tmp = sl
-	case reflect.Map:
-		m := make(map[string]string, len(lines))
-		errs := E.NewBuilder("invalid map")
-		for i, line := range lines {
-			parts := strings.Split(line, ":")
-			if len(parts) < 2 {
-				errs.Add(ErrMapMissingColon.Subjectf("line %d", i+1))
-				continue
-			}
-			if len(parts) > 2 {
-				errs.Add(ErrMapTooManyColons.Subjectf("line %d", i+1))
-				continue
-			}
-			k := strings.TrimSpace(parts[0])
-			v := strings.TrimSpace(parts[1])
-			m[k] = v
+	case reflect.Map, reflect.Struct:
+		rawMap := make(SerializedObject)
+		err := yaml.Unmarshal([]byte(src), &rawMap)
+		if err != nil {
+			return true, E.From(err)
 		}
-		if errs.HasError() {
-			return true, errs.Error()
-		}
-		tmp = m
+		tmp = rawMap
 	default:
 		return false, nil
 	}

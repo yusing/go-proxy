@@ -7,6 +7,8 @@ import (
 
 type LabelMap = map[string]any
 
+var ErrInvalidLabel = E.New("invalid label")
+
 func ParseLabels(labels map[string]string) (LabelMap, E.Error) {
 	nestedMap := make(LabelMap)
 	errs := E.NewBuilder("labels error")
@@ -17,7 +19,7 @@ func ParseLabels(labels map[string]string) (LabelMap, E.Error) {
 			continue
 		}
 		if len(parts) == 1 {
-			errs.Add(E.Errorf("invalid label %s", lbl).Subject(lbl))
+			errs.Add(ErrInvalidLabel.Subject(lbl))
 			continue
 		}
 		parts = parts[1:]

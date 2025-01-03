@@ -1,0 +1,128 @@
+proxy.aliases: app,app1
+# style 1 - inline yaml
+proxy.app: |
+  scheme: http
+  host: 10.0.0.254
+  port: 80
+  path_patterns: # Check https://pkg.go.dev/net/http#hdr-Patterns-ServeMux for syntax
+    - GET / # accept any GET request
+    - POST /auth # for /auth and /auth/* accept only POST
+    - GET /home/{$} # for exactly /home
+  healthcheck:
+    disabled: false
+    path: /
+    interval: 5s
+  load_balance:
+    link: app
+    mode: ip_hash
+    options:
+      header: X-Forwarded-For
+  middlewares:
+    cidr_whitelist:
+      allow:
+        - 127.0.0.1
+        - 10.0.0.0/8
+      status_code: 403
+      message: IP not allowed
+    hideXForwarded:
+  homepage:
+    name: Example App
+    icon: png/example.png
+    description: An example app
+    category: example
+  access_log:
+    buffer_size: 100
+    path: /var/log/example.log
+    filters:
+      status_codes:
+        values:
+          - 200-299
+          - 101
+      method:
+        values:
+          - GET
+      host:
+        values:
+          - example.y.z
+      headers:
+        negative: true
+        values:
+          - foo=bar
+          - baz
+      cidr:
+        values:
+          - 192.168.10.0/24
+    fields:
+      headers:
+        default: keep
+        config:
+          foo: redact
+      query:
+        default: drop
+        config:
+          foo: keep
+      cookies:
+        default: redact
+        config:
+          foo: keep
+
+# style 2 - full labels and mixed
+proxy.app1.scheme: http
+proxy.app1.host: 10.0.0.254
+proxy.app1.port: 80
+proxy.app1.path_patterns:
+  | # Check https://pkg.go.dev/net/http#hdr-Patterns-ServeMux for syntax
+  GET / # accept any GET request
+  POST /auth # for /auth and /auth/* accept only POST
+  GET /home/{$} # for exactly /home
+proxy.app1.healthcheck.disabled: false
+proxy.app1.healthcheck.path: /
+proxy.app1.healthcheck.interval: 5s
+proxy.app1.load_balance.link: app
+proxy.app1.load_balance.mode: ip_hash
+proxy.app1.load_balance.options.header: X-Forwarded-For
+proxy.app1.middlewares.cidr_whitelist: |
+  allow:
+    - 127.0.0.1
+    - 10.0.0.0/8
+  status_code: 403
+  message: IP not allowed
+proxy.app1.middlewares.hideXForwarded:
+proxy.app1.homepage.name: Example App
+proxy.app1.homepage.icon: png/example.png
+proxy.app1.homepage.description: An example app
+proxy.app1.homepage.category: example
+proxy.app1.access_log.buffer_size: 100
+proxy.app1.access_log.path: /var/log/example.log
+proxy.app1.access_log.filters: |
+  status_codes:
+    values:
+      - 200-299
+      - 101
+  method:
+    values:
+      - GET
+  host:
+    values:
+      - example.y.z
+  headers:
+    negative: true
+    values:
+      - foo=bar
+      - baz
+  cidr:
+    values:
+      - 192.168.10.0/24
+proxy.app1.access_log.fields: |
+  headers:
+    default: keep
+    config:
+      foo: redact
+  query:
+    default: drop
+    config:
+      foo: keep
+  cookies:
+    default: redact
+    config:
+      foo: keep

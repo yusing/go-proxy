@@ -9,9 +9,9 @@ import (
 )
 
 //go:embed all_fields.yaml
-var yaml []byte
+var testAllFieldsYAML []byte
 
 func TestFile(t *testing.T) {
-	_, err := validate(yaml)
+	_, err := validate(testAllFieldsYAML)
 	ExpectNoError(t, err)
 }
