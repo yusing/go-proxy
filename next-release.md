@@ -83,24 +83,25 @@
   services:
     app:
       ...
-      # add '|' after colon ':' to treat it as string
-      proxy.app: |
-        scheme: http
-        host: 10.0.0.254
-        port: 80
-        path_patterns:
-          - GET /
-          - POST /auth
-        healthcheck:
-          disabled: false
-          path: /
-          interval: 5s
-      proxy.app1.healthcheck: |
-        path: /ping
-        use_get: true
-      proxy.app1.load_balance: |
-        link: app
-        mode: ip_hash
+      labels:
+        # add '|' after colon ':' to treat it as string
+        proxy.app: |
+          scheme: http
+          host: 10.0.0.254
+          port: 80
+          path_patterns:
+            - GET /
+            - POST /auth
+          healthcheck:
+            disabled: false
+            path: /
+            interval: 5s
+        proxy.app1.healthcheck: |
+          path: /ping
+          use_get: true
+        proxy.app1.load_balance: |
+          link: app
+          mode: ip_hash
   ```
 
 - **New:** support entrypoint middlewares (applied to all routes, before route middlewares)
