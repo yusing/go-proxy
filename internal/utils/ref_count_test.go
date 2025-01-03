@@ -6,8 +6,8 @@ import (
 	"time"
 )
 
-func TestRefCounter_AddSub(t *testing.T) {
-	rc := NewRefCounter()
+func TestRefCounterAddSub(t *testing.T) {
+	rc := NewRefCounter() // Count starts at 1
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -19,6 +19,7 @@ func TestRefCounter_AddSub(t *testing.T) {
 
 	go func() {
 		defer wg.Done()
+		rc.Sub()
 		rc.Sub()
 	}()
 
@@ -32,7 +33,7 @@ func TestRefCounter_AddSub(t *testing.T) {
 	}
 }
 
-func TestRefCounter_MultipleAddSub(t *testing.T) {
+func TestRefCounterMultipleAddSub(t *testing.T) {
 	rc := NewRefCounter()
 
 	var wg sync.WaitGroup
@@ -51,6 +52,7 @@ func TestRefCounter_MultipleAddSub(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			rc.Sub()
+			rc.Sub()
 		}()
 	}
 
@@ -64,7 +66,7 @@ func TestRefCounter_MultipleAddSub(t *testing.T) {
 	}
 }
 
-func TestRefCounter_ZeroInitially(t *testing.T) {
+func TestRefCounterOneInitially(t *testing.T) {
 	rc := NewRefCounter()
 	rc.Sub() // Bring count to zero
 

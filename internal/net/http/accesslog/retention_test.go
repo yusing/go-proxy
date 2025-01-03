@@ -70,6 +70,7 @@ func TestRetentionCommonFormat(t *testing.T) {
 	}
 	logger.Flush(true)
 
+	// FIXME: keep days does not work
 	t.Run("keep days", func(t *testing.T) {
 		logger.Config().Retention = strutils.MustParse[*Retention]("3 days")
 		ExpectEqual(t, logger.Config().Retention.Days, 3)

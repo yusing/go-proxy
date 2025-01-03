@@ -15,8 +15,8 @@ type (
 		cfg        *Fields
 		GetTimeNow func() time.Time // for testing purposes only
 	}
-	CombinedFormatter CommonFormatter
-	JSONFormatter     CommonFormatter
+	CombinedFormatter struct{ CommonFormatter }
+	JSONFormatter     struct{ CommonFormatter }
 
 	JSONLogEntry struct {
 		Time        string              `json:"time"`
@@ -63,6 +63,11 @@ func clientIP(req *http.Request) string {
 	return req.RemoteAddr
 }
 
+// debug only.
+func (f *CommonFormatter) SetGetTimeNow(getTimeNow func() time.Time) {
+	f.GetTimeNow = getTimeNow
+}
+
 func (f *CommonFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
 	query := f.cfg.Query.ProcessQuery(req.URL.Query())
 
@@ -88,7 +93,7 @@ func (f *CommonFormatter) Format(line *bytes.Buffer, req *http.Request, res *htt
 }
 
 func (f *CombinedFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.Response) {
-	(*CommonFormatter)(f).Format(line, req, res)
+	f.CommonFormatter.Format(line, req, res)
 	line.WriteString(" \"")
 	line.WriteString(req.Referer())
 	line.WriteString("\" \"")

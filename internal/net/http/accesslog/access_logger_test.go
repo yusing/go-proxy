@@ -11,6 +11,7 @@ import (
 
 	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/net/http/accesslog"
+	"github.com/yusing/go-proxy/internal/task"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -28,8 +29,9 @@ const (
 )
 
 var (
-	testURL = E.Must(url.Parse("http://" + host + uri))
-	req     = &http.Request{
+	testTask = task.RootTask("test", false)
+	testURL  = E.Must(url.Parse("http://" + host + uri))
+	req      = &http.Request{
 		RemoteAddr: remote,
 		Method:     method,
 		Proto:      proto,
@@ -55,10 +57,10 @@ func fmtLog(cfg *Config) (ts string, line string) {
 	var buf bytes.Buffer
 
 	t := time.Now()
-	logger := NewAccessLogger(nil, nil, cfg)
-	logger.Formatter.(*CommonFormatter).GetTimeNow = func() time.Time {
+	logger := NewAccessLogger(testTask, nil, cfg)
+	logger.Formatter.SetGetTimeNow(func() time.Time {
 		return t
-	}
+	})
 	logger.Format(&buf, req, resp)
 	return t.Format(LogTimeFormat), buf.String()
 }

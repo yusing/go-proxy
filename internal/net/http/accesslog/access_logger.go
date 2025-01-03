@@ -39,6 +39,7 @@ type (
 	Formatter interface {
 		// Format writes a log line to line without a trailing newline
 		Format(line *bytes.Buffer, req *http.Request, res *http.Response)
+		SetGetTimeNow(getTimeNow func() time.Time)
 	}
 )
 
@@ -54,14 +55,14 @@ func NewAccessLogger(parent task.Parent, io AccessLogIO, cfg *Config) *AccessLog
 		cfg.BufferSize = DefaultBufferSize
 	}
 
-	fmt := &CommonFormatter{cfg: &l.cfg.Fields, GetTimeNow: time.Now}
+	fmt := CommonFormatter{cfg: &l.cfg.Fields, GetTimeNow: time.Now}
 	switch l.cfg.Format {
 	case FormatCommon:
-		l.Formatter = fmt
+		l.Formatter = &fmt
 	case FormatCombined:
-		l.Formatter = (*CombinedFormatter)(fmt)
+		l.Formatter = &CombinedFormatter{fmt}
 	case FormatJSON:
-		l.Formatter = (*JSONFormatter)(fmt)
+		l.Formatter = &JSONFormatter{fmt}
 	default: // should not happen, validation has done by validate tags
 		panic("invalid access log format")
 	}
