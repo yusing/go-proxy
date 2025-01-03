@@ -27,7 +27,6 @@ type (
 
 		status     atomic.Value[health.Status]
 		lastResult *health.HealthCheckResult
-		lastSeen   time.Time
 
 		checkHealth HealthCheckFunc
 		startTime   time.Time
@@ -164,7 +163,7 @@ func (mon *monitor) MarshalJSON() ([]byte, error) {
 		Started:  mon.startTime,
 		Uptime:   mon.Uptime(),
 		Latency:  res.Latency,
-		LastSeen: mon.lastSeen,
+		LastSeen: GetLastSeen(mon.service),
 		Detail:   res.Detail,
 		URL:      mon.url.Load(),
 	}).MarshalJSON()
@@ -186,14 +185,17 @@ func (mon *monitor) checkUpdateHealth() error {
 	var status health.Status
 	if result.Healthy {
 		status = health.StatusHealthy
-		mon.lastSeen = time.Now()
+		UpdateLastSeen(mon.service)
 	} else {
 		status = health.StatusUnhealthy
 	}
 	if result.Healthy != (mon.status.Swap(status) == health.StatusHealthy) {
 		extras := map[string]any{
 			"Service Name": mon.service,
-			"Last Seen":    strutils.FormatLastSeen(mon.lastSeen),
+			"Time":         strutils.FormatTime(time.Now()),
+		}
+		if !result.Healthy {
+			extras["Last Seen"] = strutils.FormatLastSeen(GetLastSeen(mon.service))
 		}
 		if !mon.url.Load().Nil() {
 			extras["Service URL"] = mon.url.Load().String()
