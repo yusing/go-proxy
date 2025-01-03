@@ -29,7 +29,7 @@ type (
 		*idlewatcher.Config
 		*waker
 
-		client       D.Client
+		client       *D.SharedClient
 		stopByMethod StopCallback // send a docker command w.r.t. `stop_method`
 		ticker       *time.Ticker
 		task         *task.Task

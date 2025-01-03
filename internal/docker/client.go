@@ -16,7 +16,6 @@ import (
 )
 
 type (
-	Client       = *SharedClient
 	SharedClient struct {
 		*client.Client
 
@@ -28,7 +27,7 @@ type (
 )
 
 var (
-	clientMap   F.Map[string, Client] = F.NewMapOf[string, Client]()
+	clientMap   F.Map[string, *SharedClient] = F.NewMapOf[string, *SharedClient]()
 	clientMapMu sync.Mutex
 
 	clientOptEnvHost = []client.Opt{
@@ -39,7 +38,7 @@ var (
 
 func init() {
 	task.OnProgramExit("docker_clients_cleanup", func() {
-		clientMap.RangeAllParallel(func(_ string, c Client) {
+		clientMap.RangeAllParallel(func(_ string, c *SharedClient) {
 			if c.Connected() {
 				c.Client.Close()
 			}
@@ -68,7 +67,7 @@ func (c *SharedClient) Close() {
 // Returns:
 //   - Client: the Docker client connection.
 //   - error: an error if the connection failed.
-func ConnectClient(host string) (Client, error) {
+func ConnectClient(host string) (*SharedClient, error) {
 	clientMapMu.Lock()
 	defer clientMapMu.Unlock()
 

@@ -17,7 +17,7 @@ type (
 		zerolog.Logger
 
 		host        string
-		client      D.Client
+		client      *D.SharedClient
 		clientOwned bool
 	}
 	DockerListOptions = docker_events.ListOptions
@@ -62,7 +62,7 @@ func NewDockerWatcher(host string) DockerWatcher {
 	}
 }
 
-func NewDockerWatcherWithClient(client D.Client) DockerWatcher {
+func NewDockerWatcherWithClient(client *D.SharedClient) DockerWatcher {
 	return DockerWatcher{
 		client: client,
 		Logger: logger.With().

@@ -16,7 +16,7 @@ func Inspect(dockerHost string, containerID string) (*Container, error) {
 	return client.Inspect(containerID)
 }
 
-func (c Client) Inspect(containerID string) (*Container, error) {
+func (c *SharedClient) Inspect(containerID string) (*Container, error) {
 	ctx, cancel := context.WithTimeoutCause(context.Background(), 3*time.Second, errors.New("docker container inspect timeout"))
 	defer cancel()
 

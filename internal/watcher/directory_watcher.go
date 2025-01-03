@@ -10,7 +10,6 @@ import (
 	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/task"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
@@ -20,7 +19,7 @@ type DirWatcher struct {
 	dir string
 	w   *fsnotify.Watcher
 
-	fwMap F.Map[string, *fileWatcher]
+	fwMap map[string]*fileWatcher
 	mu    sync.Mutex
 
 	eventCh chan Event
@@ -53,7 +52,7 @@ func NewDirectoryWatcher(parent task.Parent, dirPath string) *DirWatcher {
 			Logger(),
 		dir:     dirPath,
 		w:       w,
-		fwMap:   F.NewMapOf[string, *fileWatcher](),
+		fwMap:   make(map[string]*fileWatcher),
 		eventCh: make(chan Event),
 		errCh:   make(chan E.Error),
 		task:    parent.Subtask("dir_watcher(" + dirPath + ")"),
@@ -71,7 +70,7 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 	defer h.mu.Unlock()
 
 	// check if the watcher already exists
-	s, ok := h.fwMap.Load(relPath)
+	s, ok := h.fwMap[relPath]
 	if ok {
 		return s
 	}
@@ -80,18 +79,21 @@ func (h *DirWatcher) Add(relPath string) Watcher {
 		eventCh: make(chan Event),
 		errCh:   make(chan E.Error),
 	}
-	h.fwMap.Store(relPath, s)
+	h.fwMap[relPath] = s
 	return s
 }
 
 func (h *DirWatcher) cleanup() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
 	h.w.Close()
 	close(h.eventCh)
 	close(h.errCh)
-	h.fwMap.RangeAll(func(key string, fw *fileWatcher) {
+	for _, fw := range h.fwMap {
 		close(fw.eventCh)
 		close(fw.errCh)
-	})
+	}
 	h.task.Finish(nil)
 }
 
@@ -136,7 +138,9 @@ func (h *DirWatcher) start() {
 			}
 
 			// send event to file watcher too
-			w, ok := h.fwMap.Load(relPath)
+			h.mu.Lock()
+			w, ok := h.fwMap[relPath]
+			h.mu.Unlock()
 			if ok {
 				select {
 				case w.eventCh <- msg:
