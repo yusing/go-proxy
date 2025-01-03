@@ -1,12 +1,11 @@
 package accesslog_test
 
 import (
-	"bytes"
-	"io"
 	"testing"
 	"time"
 
 	. "github.com/yusing/go-proxy/internal/net/http/accesslog"
+	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
@@ -36,76 +35,9 @@ func TestParseRetention(t *testing.T) {
 	}
 }
 
-type mockFile struct {
-	data     []byte
-	position int64
-}
-
-func (m *mockFile) Seek(offset int64, whence int) (int64, error) {
-	switch whence {
-	case io.SeekStart:
-		m.position = offset
-	case io.SeekCurrent:
-		m.position += offset
-	case io.SeekEnd:
-		m.position = int64(len(m.data)) + offset
-	}
-	return m.position, nil
-}
-
-func (m *mockFile) Write(p []byte) (n int, err error) {
-	m.data = append(m.data, p...)
-	n = len(p)
-	m.position += int64(n)
-	return
-}
-
-func (m *mockFile) Name() string {
-	return "mock"
-}
-
-func (m *mockFile) Read(p []byte) (n int, err error) {
-	if m.position >= int64(len(m.data)) {
-		return 0, io.EOF
-	}
-	n = copy(p, m.data[m.position:])
-	m.position += int64(n)
-	return n, nil
-}
-
-func (m *mockFile) ReadAt(p []byte, off int64) (n int, err error) {
-	if off >= int64(len(m.data)) {
-		return 0, io.EOF
-	}
-	n = copy(p, m.data[off:])
-	m.position += int64(n)
-	return n, nil
-}
-
-func (m *mockFile) Close() error {
-	return nil
-}
-
-func (m *mockFile) Truncate(size int64) error {
-	m.data = m.data[:size]
-	m.position = size
-	return nil
-}
-
-func (m *mockFile) Lock()   {}
-func (m *mockFile) Unlock() {}
-
-func (m *mockFile) Count() int {
-	return bytes.Count(m.data[:m.position], []byte("\n"))
-}
-
-func (m *mockFile) Len() int64 {
-	return m.position
-}
-
 func TestRetentionCommonFormat(t *testing.T) {
-	file := mockFile{}
-	logger := NewAccessLogger(nil, &file, &Config{
+	var file MockFile
+	logger := NewAccessLogger(task.RootTask("test", false), &file, &Config{
 		Format:     FormatCommon,
 		BufferSize: 1024,
 	})

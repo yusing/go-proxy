@@ -18,10 +18,11 @@ type (
 		cfg  *Config
 		io   AccessLogIO
 
-		buf            bytes.Buffer
-		bufPool        sync.Pool
+		buf     bytes.Buffer // buffer for non-flushed log
+		bufMu   sync.Mutex   // protect buf
+		bufPool sync.Pool    // buffer pool for formatting a single log line
+
 		flushThreshold int
-		flushMu        sync.Mutex
 
 		Formatter
 	}
@@ -61,6 +62,8 @@ func NewAccessLogger(parent task.Parent, io AccessLogIO, cfg *Config) *AccessLog
 		l.Formatter = (*CombinedFormatter)(fmt)
 	case FormatJSON:
 		l.Formatter = (*JSONFormatter)(fmt)
+	default: // should not happen, validation has done by validate tags
+		panic("invalid access log format")
 	}
 
 	l.flushThreshold = int(cfg.BufferSize * 4 / 5) // 80%
@@ -91,11 +94,11 @@ func (l *AccessLogger) Log(req *http.Request, res *http.Response) {
 	l.Format(line, req, res)
 	line.WriteRune('\n')
 
-	l.flushMu.Lock()
+	l.bufMu.Lock()
 	l.buf.Write(line.Bytes())
 	line.Reset()
 	l.bufPool.Put(line)
-	l.flushMu.Unlock()
+	l.bufMu.Unlock()
 }
 
 func (l *AccessLogger) LogError(req *http.Request, err error) {
@@ -116,12 +119,12 @@ func (l *AccessLogger) Rotate() error {
 	return l.cfg.Retention.rotateLogFile(l.io)
 }
 
-func (l *AccessLogger) Flush() {
-	if l.buf.Len() >= l.flushThreshold {
-		l.flushMu.Lock()
-		l.writeLine(l.buf.Bytes())
+func (l *AccessLogger) Flush(force bool) {
+	if force || l.buf.Len() >= l.flushThreshold {
+		l.bufMu.Lock()
+		l.write(l.buf.Bytes())
 		l.buf.Reset()
-		l.flushMu.Unlock()
+		l.bufMu.Unlock()
 	}
 }
 
@@ -132,28 +135,28 @@ func (l *AccessLogger) handleErr(err error) {
 func (l *AccessLogger) start() {
 	defer func() {
 		if l.buf.Len() > 0 { // flush last
-			l.writeLine(l.buf.Bytes())
+			l.write(l.buf.Bytes())
 		}
 		l.io.Close()
 		l.task.Finish(nil)
 	}()
 
 	// threshold flush with periodic check
-	flushTicker := time.NewTicker(3 * time.Second)
+	flushTicker := time.NewTicker(time.Second)
 
 	for {
 		select {
 		case <-l.task.Context().Done():
 			return
 		case <-flushTicker.C:
-			l.Flush()
+			l.Flush(false)
 		}
 	}
 }
 
-func (l *AccessLogger) writeLine(line []byte) {
-	l.io.Lock() // prevent write on log rotation
-	_, err := l.io.Write(line)
+func (l *AccessLogger) write(data []byte) {
+	l.io.Lock() // prevent concurrent write, i.e. log rotation, other access loggers
+	_, err := l.io.Write(data)
 	l.io.Unlock()
 	if err != nil {
 		l.handleErr(err)
