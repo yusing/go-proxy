@@ -121,11 +121,15 @@ func (l *AccessLogger) Rotate() error {
 }
 
 func (l *AccessLogger) Flush(force bool) {
+	if l.buf.Len() == 0 {
+		return
+	}
 	if force || l.buf.Len() >= l.flushThreshold {
 		l.bufMu.Lock()
 		l.write(l.buf.Bytes())
 		l.buf.Reset()
 		l.bufMu.Unlock()
+		logger.Debug().Msg("access log flushed to " + l.io.Name())
 	}
 }
 
@@ -142,14 +146,19 @@ func (l *AccessLogger) start() {
 		l.task.Finish(nil)
 	}()
 
-	// threshold flush with periodic check
-	flushTicker := time.NewTicker(time.Second)
+	// periodic flush + threshold flush
+	periodic := time.NewTicker(5 * time.Second)
+	threshold := time.NewTicker(time.Second)
+	defer periodic.Stop()
+	defer threshold.Stop()
 
 	for {
 		select {
 		case <-l.task.Context().Done():
 			return
-		case <-flushTicker.C:
+		case <-periodic.C:
+			l.Flush(true)
+		case <-threshold.C:
 			l.Flush(false)
 		}
 	}
