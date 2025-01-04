@@ -46,13 +46,15 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 - [HTTP middleware support](https://github.com/yusing/go-proxy/wiki/Middlewares)
 - [Custom error pages support](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
 - TCP and UDP port forwarding
-- **Web UI with App dashboard**
+- **Web UI with App dashboard and config editor**
 - Supports linux/amd64, linux/arm64
 - Written in **[Go](https://go.dev)**
 
 [🔼Back to top](#table-of-content)
 
 ## Getting Started
+
+For full documentation, **[See Wiki](https://github.com/yusing/go-proxy/wiki)**
 
 ### Prerequisites
 
@@ -95,8 +97,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 6.  You may now do some extra configuration
     - With text editor (e.g. Visual Studio Code)
-    - With Web UI via `http://localhost:3000` or `https://gp.y.z`
-    - For more info, [See Wiki](<[wiki](https://github.com/yusing/go-proxy/wiki)>)
+    - With Web UI via `https://gp.y.z`
 
 [🔼Back to top](#table-of-content)
 
@@ -104,15 +105,15 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
 
-   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/config.example.yml -O config/config.yml`
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/config.example.yml -O config/config.yml`
 
 2. Grab `.env.example` into `.env`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/.env.example -O .env`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/.env.example -O .env`
 
 3. Grab `compose.example.yml` into `compose.yml`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.7/compose.example.yml -O compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/compose.example.yml -O compose.yml`
 
 ### Folder structrue
 

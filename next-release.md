@@ -76,6 +76,7 @@
 - `proxy.<alias>.path_patterns` fully support http.ServeMux patterns `[METHOD ][HOST]/[PATH]` (See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)
 
 - caching ACME private key in order to reuse ACME account, to prevent from ACME rate limit
+- WebUI config editor now validates for middleware compose files
 
 - **New:** fully support string as inline YAML for docker labels
 

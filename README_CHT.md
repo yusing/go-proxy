@@ -1,4 +1,4 @@
-# go-proxy
+# GoDoxy
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
@@ -7,124 +7,155 @@
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![](https://dcbadge.limes.pink/api/server/umReR62nRd)](https://discord.gg/umReR62nRd)
 
-一個輕量化、易用且[高效]([docs/benchmark_result.md](https://github.com/yusing/go-proxy/wiki/Benchmarks)))的反向代理和端口轉發工具
+[English Documentation](README.md)
+
+一個輕量級、易於使用且[高效能](https://github.com/yusing/go-proxy/wiki/Benchmarks)的反向代理，具有網頁介面和儀表板。
+
+![截圖](screenshots/webui.png)
+
+_加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
 
 ## 目錄
 
 <!-- TOC -->
 
-- [go-proxy](#go-proxy)
+- [GoDoxy](#godoxy)
   - [目錄](#目錄)
-  - [重點](#重點)
+  - [主要特點](#主要特點)
   - [入門指南](#入門指南)
+    - [前置需求](#前置需求)
     - [安裝](#安裝)
-    - [命令行參數](#命令行參數)
-    - [環境變量](#環境變量)
-    - [VSCode 中使用 JSON Schema](#vscode-中使用-json-schema)
-  - [展示](#展示)
-    - [idlesleeper](#idlesleeper)
-  - [源碼編譯](#源碼編譯)
+    - [手動安裝](#手動安裝)
+    - [資料夾結構](#資料夾結構)
+    - [在 VSCode 中使用 JSON Schema](#在-vscode-中使用-json-schema)
+  - [截圖](#截圖)
+    - [閒置休眠](#閒置休眠)
+  - [自行編譯](#自行編譯)
 
-## 重點
+## 主要特點
 
--   易用
-    -   不需花費太多時間就能輕鬆配置
-    -   支持多個docker節點
-    -   除錯簡單
--   自動配置 SSL 證書（參見[可用的 DNS 供應商](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers)）
--   透過 Docker 容器自動配置
--   容器狀態變更時自動熱重載
--   **idlesleeper** 容器閒置時自動暫停/停止，入站時自動喚醒 (可選, 參見 [展示](#idlesleeper))
--   HTTP(s) 反向代理
--   [HTTP middleware](https://github.com/yusing/go-proxy/wiki/Middlewares)
--   [自訂 error pages](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
--   TCP/UDP 端口轉發
--   Web 面板 (內置App dashboard)
--   支持 linux/amd64、linux/arm64 平台
--   使用 **[Go](https://go.dev)** 編寫
+- 容易使用
+  - 輕鬆配置
+  - 簡單的多節點設置
+  - 錯誤訊息清晰詳細，易於排除故障
+- 自動 SSL 憑證管理（參見 [支援的 DNS-01 驗證提供商](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers)）
+- 自動配置 Docker 容器
+- 容器狀態/配置文件變更時自動熱重載
+- **閒置休眠**：在閒置時停止容器，有流量時喚醒（_可選，參見[截圖](#閒置休眠)_）
+- HTTP(s) 反向代理
+- [HTTP 中介軟體支援](https://github.com/yusing/go-proxy/wiki/Middlewares)
+- [自訂錯誤頁面支援](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
+- TCP 和 UDP 埠轉發
+- **網頁介面，具有應用儀表板和配置編輯器**
+- 支援 linux/amd64、linux/arm64
+- 使用 **[Go](https://go.dev)** 編寫
 
-[🔼 返回頂部](#目錄)
+[🔼回到頂部](#目錄)
 
 ## 入門指南
 
+完整文檔請參見 **[Wiki](https://github.com/yusing/go-proxy/wiki)**
+
+### 前置需求
+
+設置 DNS 記錄指向運行 `GoDoxy` 的機器，例如：
+
+- A 記錄：`*.y.z` -> `10.0.10.1`
+- AAAA 記錄：`*.y.z` -> `::ffff:a00:a01`
+
 ### 安裝
 
-1. 抓取Docker鏡像
+1.  拉取最新的 Docker 映像
 
     ```shell
     docker pull ghcr.io/yusing/go-proxy:latest
     ```
 
-2. 建立新的目錄，並切換到該目錄，並執行
-   
-   ```shell
-    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/go-proxy setup
+2.  建立新目錄，`cd` 進入後運行安裝，或[手動安裝](#手動安裝)
+
+    ```shell
+    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
     ```
 
-3. 設置 DNS 記錄，例如：
+3.  _（可選）_ 設置網頁介面登入
 
-    - A 記錄: `*.y.z` -> `10.0.10.1`
-    - AAAA 記錄: `*.y.z` -> `::ffff:a00:a01`
+    - 設置隨機 JWT 密鑰
 
-4. 配置 `docker-socket-proxy` 其他 Docker 節點（如有） (參見 [範例](docs/docker_socket_proxy.md)) 然後加到 `config.yml` 中
+      ```shell
+      sed -i "s|API_JWT_SECRET=.*|API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
+      ```
 
-5. 大功告成，你可以做一些額外的配置
-    - 使用文本編輯器 (推薦 Visual Studio Code [參見 VSCode 使用 schema](#vscode-中使用-json-schema))
-    - 或通過 `http://localhost:3000` 使用網頁配置編輯器
-    - 詳情請參閱 [docker.md](docs/docker.md)
+    - 更改網頁介面認證的使用者名稱和密碼
+      ```shell
+      sed -i "s|API_USERNAME=.*|API_USERNAME=admin|g" .env
+      sed -i "s|API_PASSWORD=.*|API_PASSWORD=some-strong-password|g" .env
+      ```
 
-[🔼 返回頂部](#目錄)
+4.  _（可選）_ 設置其他 Docker 節點的 `docker-socket-proxy`（參見 [多 Docker 節點設置](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)），然後在 `config.yml` 中添加它們
 
-### 命令行參數
+5.  啟動容器 `docker compose up -d`
 
-| 參數                      | 描述                                                                                  | 示例                                |
-| ------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------- |
-| 空                        | 啟動代理服務器                                                                        |                                     |
-| `validate`                | 驗證配置並退出                                                                        |                                     |
-| `reload`                  | 強制刷新配置                                                                          |                                     |
-| `ls-config`               | 列出配置並退出                                                                        | `go-proxy ls-config \| jq`          |
-| `ls-route`                | 列出路由並退出                                                                        | `go-proxy ls-route \| jq`           |
-| `go-proxy ls-route \| jq` |
-| `ls-icons`                | 列出 [dashboard-icons](https://github.com/walkxcode/dashboard-icons/tree/main) 並退出 | `go-proxy ls-icons \| grep adguard` |
-| `debug-ls-mtrace`         | 列出middleware追蹤 **(僅限於 debug 模式)**                                            | `go-proxy debug-ls-mtrace \| jq`    |
+6.  現在您可以進行額外的配置
+    - 使用文字編輯器（如 Visual Studio Code）
+    - 通過網頁介面 `https://gp.y.z`
 
-**使用 `docker exec go-proxy /app/go-proxy <參數>` 運行**
+[🔼回到頂部](#目錄)
 
-### 環境變量
+### 手動安裝
 
-| 環境變量                       | 描述             | 默認             | 格式          |
-| ------------------------------ | ---------------- | ---------------- | ------------- |
-| `GOPROXY_NO_SCHEMA_VALIDATION` | 禁用 schema 驗證 | `false`          | boolean       |
-| `GOPROXY_DEBUG`                | 啟用調試輸出     | `false`          | boolean       |
-| `GOPROXY_HTTP_ADDR`            | http 收聽地址    | `:80`            | `[host]:port` |
-| `GOPROXY_HTTPS_ADDR`           | https 收聽地址   | `:443`           | `[host]:port` |
-| `GOPROXY_API_ADDR`             | api 收聽地址     | `127.0.0.1:8888` | `[host]:port` |
+1. 建立 `config` 目錄，然後將 `config.example.yml` 下載到 `config/config.yml`
 
-### VSCode 中使用 JSON Schema
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/config.example.yml -O config/config.yml`
 
-複製 [`.vscode/settings.example.json`](.vscode/settings.example.json) 到 `.vscode/settings.json` 並根據需求修改
+2. 將 `.env.example` 下載到 `.env`
 
-[🔼 返回頂部](#目錄)
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/.env.example -O .env`
 
+3. 將 `compose.example.yml` 下載到 `compose.yml`
 
-## 展示
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/compose.example.yml -O compose.yml`
 
-### idlesleeper
+### 資料夾結構
 
-![idlesleeper](screenshots/idlesleeper.webp)
+```shell
+├── certs
+│   ├── cert.crt
+│   └── priv.key
+├── compose.yml
+├── config
+│   ├── config.yml
+│   ├── middlewares
+│   │   ├── middleware1.yml
+│   │   ├── middleware2.yml
+│   ├── provider1.yml
+│   └── provider2.yml
+└── .env
+```
 
-[🔼 返回頂部](#目錄)
+### 在 VSCode 中使用 JSON Schema
 
-## 源碼編譯
+複製 [`.vscode/settings.example.json`](.vscode/settings.example.json) 到 `.vscode/settings.json` 並根據需要修改
 
-1. 獲取源碼 `git clone https://github.com/yusing/go-proxy --depth=1`
+[🔼回到頂部](#目錄)
 
-2. 安裝/升級 [go 版本 (>=1.22)](https://go.dev/doc/install) 和 `make`（如果尚未安裝）
+## 截圖
 
-3. 如果之前編譯過（go 版本 < 1.22），請使用 `go clean -cache` 清除緩存
+### 閒置休眠
 
-4. 使用 `make get` 獲取依賴項
+![閒置休眠](screenshots/idlesleeper.webp)
 
-5. 使用 `make build` 編譯
+[🔼回到頂部](#目錄)
 
-[🔼 返回頂部](#目錄)
+## 自行編譯
+
+1. 克隆儲存庫 `git clone https://github.com/yusing/go-proxy --depth=1`
+
+2. 如果尚未安裝，請安裝/升級 [go (>=1.22)](https://go.dev/doc/install) 和 `make`
+
+3. 如果之前編譯過（go < 1.22），請使用 `go clean -cache` 清除快取
+
+4. 使用 `make get` 獲取依賴
+
+5. 使用 `make build` 編譯二進制檔案
+
+[🔼回到頂部](#目錄)

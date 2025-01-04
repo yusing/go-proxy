@@ -62,8 +62,9 @@ cloc:
 push-docker-io:
 	BUILDER=build docker buildx build \
 		--platform linux/arm64,linux/amd64 \
-		-f Dockerfile.dev \
+		-f Dockerfile \
 		-t docker.io/yusing/godoxy-nightly \
+		-t docker.io/yusing/godoxy-nightly:${VERSION}-${BUILD_DATE} \
 		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" \
 		--push .
 
