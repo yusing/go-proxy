@@ -24,7 +24,7 @@ type (
 
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string                     `json:"-"`
+		Alias        string                     `json:"alias"`
 		Scheme       string                     `json:"scheme,omitempty"`
 		Host         string                     `json:"host,omitempty"`
 		Port         string                     `json:"port,omitempty"`
