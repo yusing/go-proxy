@@ -67,8 +67,8 @@ func Load() (*Config, E.Error) {
 }
 
 func Validate(data []byte) E.Error {
-	var model *types.Config
-	return utils.DeserializeYAML(data, model)
+	var model types.Config
+	return utils.DeserializeYAML(data, &model)
 }
 
 func MatchDomains() []string {

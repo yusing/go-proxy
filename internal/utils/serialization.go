@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -158,7 +159,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		return E.Errorf("deserialize: src is %w", ErrNilValue)
 	}
 	if dst == nil {
-		return E.Errorf("deserialize: dst is %w", ErrNilValue)
+		return E.Errorf("deserialize: dst is %w\n%s", ErrNilValue, debug.Stack())
 	}
 
 	dstV := reflect.ValueOf(dst)
@@ -169,7 +170,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			if dstV.CanSet() {
 				dstV.Set(New(dstT.Elem()))
 			} else {
-				return E.Errorf("deserialize: dst is %w", ErrNilValue)
+				return E.Errorf("deserialize: dst is %w\n%s", ErrNilValue, debug.Stack())
 			}
 		}
 		dstV = dstV.Elem()
@@ -191,6 +192,9 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		for _, field := range fields {
 			var key string
 			if jsonTag, ok := field.Tag.Lookup("json"); ok {
+				if jsonTag == "-" {
+					continue
+				}
 				key = strutils.CommaSeperatedList(jsonTag)[0]
 			} else {
 				key = field.Name

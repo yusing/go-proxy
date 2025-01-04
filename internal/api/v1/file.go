@@ -48,7 +48,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	// no validation for include files
 
 	if valErr != nil {
-		U.RespondJSON(w, r, valErr, http.StatusBadRequest)
+		U.RespondError(w, valErr, http.StatusBadRequest)
 		return
 	}
 

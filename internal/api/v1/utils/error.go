@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
 // HandleErr logs the error and returns an HTTP error response to the client.
@@ -21,6 +22,13 @@ func HandleErr(w http.ResponseWriter, r *http.Request, origErr error, code ...in
 		statusCode = code[0]
 	}
 	http.Error(w, http.StatusText(statusCode), statusCode)
+}
+
+func RespondError(w http.ResponseWriter, err error, code ...int) {
+	if len(code) > 0 {
+		w.WriteHeader(code[0])
+	}
+	WriteBody(w, []byte(ansi.StripANSI(err.Error())))
 }
 
 func ErrMissingKey(k string) error {
