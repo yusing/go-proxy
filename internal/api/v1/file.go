@@ -11,6 +11,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route/provider"
 )
 
@@ -40,12 +41,16 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var valErr E.Error
-	if filename == common.ConfigFileName {
+	switch {
+	case filename == common.ConfigFileName:
 		valErr = config.Validate(content)
-	} else if !strings.HasPrefix(filename, path.Base(common.MiddlewareComposeBasePath)) {
+	case strings.HasPrefix(filename, path.Base(common.MiddlewareComposeBasePath)):
+		errs := E.NewBuilder("middleware errors")
+		middleware.BuildMiddlewaresFromYAML(filename, content, errs)
+		valErr = errs.Error()
+	default:
 		valErr = provider.Validate(content)
 	}
-	// no validation for include files
 
 	if valErr != nil {
 		U.RespondError(w, valErr, http.StatusBadRequest)
