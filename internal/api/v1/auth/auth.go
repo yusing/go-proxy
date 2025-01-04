@@ -104,7 +104,7 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 func checkToken(w http.ResponseWriter, r *http.Request) (ok bool) {
 	tokenCookie, err := r.Cookie("token")
 	if err != nil {
-		U.HandleErr(w, r, E.PrependSubject("token", err), http.StatusUnauthorized)
+		U.RespondError(w, E.New("missing token"), http.StatusUnauthorized)
 		return false
 	}
 	var claims Claims
@@ -127,7 +127,7 @@ func checkToken(w http.ResponseWriter, r *http.Request) (ok bool) {
 	}
 
 	if err != nil {
-		U.HandleErr(w, r, err, http.StatusForbidden)
+		U.RespondError(w, err, http.StatusForbidden)
 		return false
 	}
 

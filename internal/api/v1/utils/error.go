@@ -12,23 +12,22 @@ import (
 // http.StatusInternalServerError is used.
 //
 // The error is only logged but not returned to the client.
-func HandleErr(w http.ResponseWriter, r *http.Request, origErr error, code ...int) {
-	if origErr == nil {
+func HandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
+	if err == nil {
 		return
 	}
-	LogError(r).Msg(origErr.Error())
-	statusCode := http.StatusInternalServerError
-	if len(code) > 0 {
-		statusCode = code[0]
+	LogError(r).Msg(err.Error())
+	if len(code) == 0 {
+		code = []int{http.StatusInternalServerError}
 	}
-	http.Error(w, http.StatusText(statusCode), statusCode)
+	http.Error(w, http.StatusText(code[0]), code[0])
 }
 
 func RespondError(w http.ResponseWriter, err error, code ...int) {
-	if len(code) > 0 {
-		w.WriteHeader(code[0])
+	if len(code) == 0 {
+		code = []int{http.StatusBadRequest}
 	}
-	WriteBody(w, []byte(ansi.StripANSI(err.Error())))
+	http.Error(w, ansi.StripANSI(err.Error()), code[0])
 }
 
 func ErrMissingKey(k string) error {

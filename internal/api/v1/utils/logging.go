@@ -8,9 +8,10 @@ import (
 )
 
 func reqLogger(r *http.Request, level zerolog.Level) *zerolog.Event {
-	return logging.WithLevel(level).Str("module", "api").
-		Str("method", r.Method).
-		Str("path", r.RequestURI)
+	return logging.WithLevel(level).
+		Str("module", "api").
+		Str("remote", r.RemoteAddr).
+		Str("uri", r.Method+" "+r.RequestURI)
 }
 
 func LogError(r *http.Request) *zerolog.Event { return reqLogger(r, zerolog.ErrorLevel) }

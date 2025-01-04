@@ -34,7 +34,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 	switch what {
 	case ListRoute:
 		if route := listRoute(which); route == nil {
-			http.Error(w, "not found", http.StatusNotFound)
+			http.NotFound(w, r)
 			return
 		} else {
 			U.RespondJSON(w, r, route)
@@ -59,10 +59,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 }
 
 func listRoute(which string) any {
-	if which == "" {
-		which = "all"
-	}
-	if which == "all" {
+	if which == "" || which == "all" {
 		return config.RoutesByAlias()
 	}
 	routes := config.RoutesByAlias()
