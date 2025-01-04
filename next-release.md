@@ -201,6 +201,8 @@
 
 - **New:** Access Logging (entrypoint and per route), i.e.
 
+  **mount logs directory before setting this**
+
   ```yaml
   # config.yml
   entrypoint:
@@ -245,7 +247,64 @@
             - 10.0.0.0/16
   ```
 
-  **mount logs directory before setting this**
+  To integrate with **goaccess**, currently need to use **caddy** as a file web server. Below should work with `combined` log format.
+
+  ```yaml
+  # compose.yml
+  services:
+  app:
+    image: reg.6uo.me/yusing/goproxy
+    ...
+    volumes:
+      ...
+      - ./logs:/app/logs
+  caddy:
+    image: caddy
+    restart: always
+    labels:
+      proxy.goaccess.port: 80
+      proxy.goaccess.middlewares.request.set_headers.host: goaccess
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./logs:/var/www/goaccess:ro
+    depends_on:
+      - goaccess
+  goaccess:
+    image: hectorm/goaccess:latest
+    restart: always
+    volumes:
+      - ./logs:/srv/logs
+    command: > # for combined format
+      /srv/logs/access.log
+      -o /srv/logs/report.html
+      -j 4 # 4 threads
+      --real-time-html
+      --ws-url=<your goaccess url>:443 # i.e. goaccess.my.app:443/ws
+      --log-format='%v %h %^[%d:%t %^] "%r" %s %b "%R" "%u"'
+  ```
+
+  Caddyfile
+
+  ```caddyfile
+  {
+      auto_https off
+  }
+
+  goaccess:80 {
+      @websockets {
+          header Connection *Upgrade
+          header Upgrade websocket
+      }
+
+      handle @websockets {
+          reverse_proxy goaccess:7890
+      }
+
+      root * /var/www/goaccess
+      file_server
+      rewrite / /report.html
+  }
+  ```
 
 ## Fixes
 
@@ -255,4 +314,6 @@
 - various other small bugs
 - `realIP` and `cloudflareRealIP` middlewares
 - prometheus metrics gone after a single route reload
+- WebUI app links now works when `match_domains` is not set
+- WebUI config editor now display validation errors properly
 - upgraded dependencies to the latest

@@ -445,6 +445,158 @@
               }
             }
           }
+        },
+        "access_log": {
+          "title": "Access log configuration",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "title": "Access log path",
+              "type": "string"
+            },
+            "format": {
+              "title": "Access log format",
+              "type": "string",
+              "enum": [
+                "common",
+                "combined",
+                "json"
+              ]
+            },
+            "buffer_size": {
+              "title": "Access log buffer size in bytes",
+              "type": "integer",
+              "minimum": 1
+            },
+            "filters": {
+              "title": "Access log filters",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cidr": {
+                  "title": "CIDR filter",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "negative": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array"
+                    }
+                  }
+                },
+                "status_codes": {
+                  "title": "Status code filter",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "negative": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array"
+                    }
+                  }
+                },
+                "method": {
+                  "title": "Method filter",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "negative": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array"
+                    }
+                  }
+                },
+                "headers": {
+                  "title": "Header filter",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "negative": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array"
+                    }
+                  }
+                },
+                "host": {
+                  "title": "Host filter",
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "negative": {
+                      "type": "boolean"
+                    },
+                    "values": {
+                      "type": "array"
+                    }
+                  }
+                }
+              }
+            },
+            "fields": {
+              "title": "Access log fields",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "headers": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "default": {
+                      "enum": [
+                        "keep",
+                        "redact",
+                        "drop"
+                      ]
+                    },
+                    "config": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "query": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "default": {
+                      "enum": [
+                        "keep",
+                        "redact",
+                        "drop"
+                      ]
+                    },
+                    "config": {
+                      "type": "object"
+                    }
+                  }
+                },
+                "cookies": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "default": {
+                      "enum": [
+                        "keep",
+                        "redact",
+                        "drop"
+                      ]
+                    },
+                    "config": {
+                      "type": "object"
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       }
     },

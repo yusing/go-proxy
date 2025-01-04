@@ -30,6 +30,41 @@ entrypoint:
       status: 403
       message: "Forbidden"
     - use: RedirectHTTP
+  # access_log:
+  #   buffer_size: 1024
+  #   path: /var/log/example.log
+  #   filters:
+  #     status_codes:
+  #       values:
+  #         - 200-299
+  #         - 101
+  #     method:
+  #       values:
+  #         - GET
+  #     host:
+  #       values:
+  #         - example.y.z
+  #     headers:
+  #       negative: true
+  #       values:
+  #         - foo=bar
+  #         - baz
+  #     cidr:
+  #       values:
+  #         - 192.168.10.0/24
+  #   fields:
+  #     headers:
+  #       default: keep
+  #       config:
+  #         foo: redact
+  #     query:
+  #       default: drop
+  #       config:
+  #         foo: keep
+  #     cookies:
+  #       default: redact
+  #       config:
+  #         foo: keep
 
 providers:
   # include files are standalone yaml files under `config/` directory
