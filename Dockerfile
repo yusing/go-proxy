@@ -22,12 +22,12 @@ ENV VERSION=${VERSION}
 
 COPY scripts /src/scripts
 COPY Makefile /src/
+COPY cmd /src/cmd
+COPY internal /src/internal
+COPY pkg /src/pkg
 
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
-    --mount=type=bind,src=cmd,dst=/src/cmd \
-    --mount=type=bind,src=internal,dst=/src/internal \
-    --mount=type=bind,src=pkg,dst=/src/pkg \
     make build && \
     mkdir -p /app/error_pages /app/certs && \
     mv bin/godoxy /app/godoxy

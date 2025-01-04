@@ -1,5 +1,6 @@
 VERSION ?= $(shell git describe --tags --abbrev=0)
-BUILD_FLAGS ?= -s -w -X github.com/yusing/go-proxy/pkg.version=${VERSION}
+BUILD_FLAGS ?= -s -w
+BUILD_DATE ?= $(shell date -u +'%Y%m%d-%H%M')
 export VERSION
 export BUILD_FLAGS
 export CGO_ENABLED = 0
@@ -43,15 +44,6 @@ run: build
 mtrace:
 	bin/godoxy debug-ls-mtrace > mtrace.json
 
-archive:
-	git archive HEAD -o ../go-proxy-$$(date +"%Y%m%d%H%M").zip
-
-repush:
-	git reset --soft HEAD^
-	git add -A
-	git commit -m "repush"
-	git push gitlab dev --force
-
 rapid-crash:
 	sudo docker run --restart=always --name test_crash -p 80 debian:bookworm-slim /bin/cat &&\
 	sleep 3 &&\
@@ -68,4 +60,13 @@ cloc:
 	cloc --not-match-f '_test.go$$' cmd internal pkg
 
 push-docker-io:
-	BUILDER=build docker buildx build --platform linux/arm64,linux/amd64 -t docker.io/yusing/godoxy-nightly --push .
+	BUILDER=build docker buildx build \
+		--platform linux/arm64,linux/amd64 \
+		-f Dockerfile.dev \
+		-t docker.io/yusing/godoxy-nightly \
+		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" \
+		--push .
+
+build-docker:
+	docker build -t godoxy-nightly \
+		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" .
