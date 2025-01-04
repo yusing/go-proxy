@@ -87,12 +87,6 @@ func (r *StreamRoute) Start(parent task.Parent) E.Error {
 		return E.From(err)
 	}
 
-	r.task.OnCancel("close_stream", func() {
-		if err := r.Stream.Close(); err != nil {
-			E.LogError("close stream failed", err, &r.l)
-		}
-	})
-
 	r.l.Info().
 		Int("port", int(r.Port.ListeningPort)).
 		Msg("listening")

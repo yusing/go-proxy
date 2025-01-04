@@ -48,10 +48,6 @@ func newUDPBuf() *UDPBuf {
 	}
 }
 
-func (conn *UDPConn) SrcAddrString() string {
-	return conn.srcAddr.Network() + "://" + conn.srcAddr.String()
-}
-
 func (conn *UDPConn) DstAddrString() string {
 	return conn.conn.RemoteAddr().Network() + "://" + conn.conn.RemoteAddr().String()
 }
@@ -135,25 +131,21 @@ func (conn *UDPConn) write() (err error) {
 	return nil
 }
 
-func (w *UDPForwarder) Handle(streamConn types.StreamConn) error {
-	conn, ok := streamConn.(*UDPConn)
-	if !ok {
-		panic("unexpected conn type")
-	}
-	key := conn.srcAddr.String()
-
+func (w *UDPForwarder) getInitConn(conn *UDPConn, key string) (*UDPConn, error) {
 	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	dst, ok := w.connMap.Load(key)
 	if !ok {
 		var err error
 		dst = conn
 		dst.conn, err = w.dialDst()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if err := dst.write(); err != nil {
 			dst.conn.Close()
-			return err
+			return nil, err
 		}
 		w.connMap.Store(key, dst)
 	} else {
@@ -161,10 +153,24 @@ func (w *UDPForwarder) Handle(streamConn types.StreamConn) error {
 		if err := conn.write(); err != nil {
 			w.connMap.Delete(key)
 			dst.conn.Close()
-			return err
+			return nil, err
 		}
 	}
-	w.mu.Unlock()
+
+	return dst, nil
+}
+
+func (w *UDPForwarder) Handle(streamConn types.StreamConn) error {
+	conn, ok := streamConn.(*UDPConn)
+	if !ok {
+		panic("unexpected conn type")
+	}
+
+	key := conn.srcAddr.String()
+	dst, err := w.getInitConn(conn, key)
+	if err != nil {
+		return err
+	}
 
 	for {
 		select {
