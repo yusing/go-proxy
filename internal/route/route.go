@@ -87,6 +87,9 @@ func FromEntries(entries RawEntries) (Routes, E.Error) {
 
 	routes := NewRoutes()
 	entries.RangeAllParallel(func(alias string, en *RawEntry) {
+		if en == nil {
+			en = new(RawEntry)
+		}
 		en.Alias = alias
 		if strings.HasPrefix(alias, "x-") { // x properties
 			return
