@@ -22,14 +22,22 @@
 
 entrypoint:
   middlewares:
+    # this part blocks all non-LAN HTTP traffic
+    # remove if you don't want this
     - use: CIDRWhitelist
       allow:
         - "127.0.0.1"
         - "10.0.0.0/8"
+        - "172.16.0.0/12"
         - "192.168.0.0/16"
       status: 403
       message: "Forbidden"
+    # end of CIDRWhitelist
+
+    # this part redirects HTTP to HTTPS
+    # remove if you don't want this
     - use: RedirectHTTP
+
   # access_log:
   #   buffer_size: 1024
   #   path: /var/log/example.log
