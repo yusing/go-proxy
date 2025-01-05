@@ -55,19 +55,18 @@ func (mon *HTTPHealthMonitor) CheckHealth() (result *health.HealthCheckResult, e
 		err = reqErr
 		return
 	}
-
+	req.Close = true
 	req.Header.Set("Connection", "close")
 	req.Header.Set("User-Agent", "GoDoxy/"+pkg.GetVersion())
 
 	start := time.Now()
 	resp, respErr := pinger.Do(req)
 	if respErr == nil {
-		resp.Body.Close()
+		defer resp.Body.Close()
 	}
 
-	result = &health.HealthCheckResult{
-		Latency: time.Since(start),
-	}
+	lat := time.Since(start)
+	result = &health.HealthCheckResult{}
 
 	switch {
 	case respErr != nil:
@@ -82,6 +81,7 @@ func (mon *HTTPHealthMonitor) CheckHealth() (result *health.HealthCheckResult, e
 		return
 	}
 
+	result.Latency = lat
 	result.Healthy = true
 	return
 }
