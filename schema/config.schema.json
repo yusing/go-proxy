@@ -1,4 +1,5 @@
 {
+  "$id": "https://github.com/yusing/go-proxy/raw/v0.8/schema/config.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "type": "object",
   "title": "GoDoxy config file",
@@ -10,8 +11,7 @@
         "email": {
           "title": "ACME Email",
           "type": "string",
-          "pattern": "^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$",
-          "patternErrorMessage": "Invalid email"
+          "format": "email"
         },
         "domains": {
           "title": "Cert Domains",
@@ -24,7 +24,7 @@
         "cert_path": {
           "title": "path of cert file to load/store",
           "default": "certs/cert.crt",
-          "markdownDescription": "default: `certs/cert.crt`",
+          "markdownDescription": "default: `certs/cert.crt`,",
           "type": "string"
         },
         "key_path": {
@@ -447,156 +447,7 @@
           }
         },
         "access_log": {
-          "title": "Access log configuration",
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "path": {
-              "title": "Access log path",
-              "type": "string"
-            },
-            "format": {
-              "title": "Access log format",
-              "type": "string",
-              "enum": [
-                "common",
-                "combined",
-                "json"
-              ]
-            },
-            "buffer_size": {
-              "title": "Access log buffer size in bytes",
-              "type": "integer",
-              "minimum": 1
-            },
-            "filters": {
-              "title": "Access log filters",
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "cidr": {
-                  "title": "CIDR filter",
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "negative": {
-                      "type": "boolean"
-                    },
-                    "values": {
-                      "type": "array"
-                    }
-                  }
-                },
-                "status_codes": {
-                  "title": "Status code filter",
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "negative": {
-                      "type": "boolean"
-                    },
-                    "values": {
-                      "type": "array"
-                    }
-                  }
-                },
-                "method": {
-                  "title": "Method filter",
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "negative": {
-                      "type": "boolean"
-                    },
-                    "values": {
-                      "type": "array"
-                    }
-                  }
-                },
-                "headers": {
-                  "title": "Header filter",
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "negative": {
-                      "type": "boolean"
-                    },
-                    "values": {
-                      "type": "array"
-                    }
-                  }
-                },
-                "host": {
-                  "title": "Host filter",
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "negative": {
-                      "type": "boolean"
-                    },
-                    "values": {
-                      "type": "array"
-                    }
-                  }
-                }
-              }
-            },
-            "fields": {
-              "title": "Access log fields",
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "headers": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "default": {
-                      "enum": [
-                        "keep",
-                        "redact",
-                        "drop"
-                      ]
-                    },
-                    "config": {
-                      "type": "object"
-                    }
-                  }
-                },
-                "query": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "default": {
-                      "enum": [
-                        "keep",
-                        "redact",
-                        "drop"
-                      ]
-                    },
-                    "config": {
-                      "type": "object"
-                    }
-                  }
-                },
-                "cookies": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "properties": {
-                    "default": {
-                      "enum": [
-                        "keep",
-                        "redact",
-                        "drop"
-                      ]
-                    },
-                    "config": {
-                      "type": "object"
-                    }
-                  }
-                }
-              }
-            }
-          }
+          "$ref": "https://github.com/yusing/go-proxy/raw/v0.8/schema/access_log.json"
         }
       }
     },

@@ -1,10 +1,10 @@
 {
   "yaml.schemas": {
-    "https://github.com/yusing/go-proxy/raw/main/schema/config.schema.json": [
+    "https://github.com/yusing/go-proxy/raw/v0.8/schema/config.schema.json": [
       "config.example.yml",
       "config.yml"
     ],
-    "https://github.com/yusing/go-proxy/raw/main/schema/providers.schema.json": [
+    "https://github.com/yusing/go-proxy/raw/v0.8/schema/providers.schema.json": [
       "providers.example.yml"
     ]
   }

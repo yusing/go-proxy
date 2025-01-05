@@ -1,4 +1,5 @@
 {
+  "$id": "https://github.com/yusing/go-proxy/raw/v0.8/schema/providers.schema.json",
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "GoDoxy standalone include file",
   "oneOf": [
@@ -15,7 +16,7 @@
       "type": "object",
       "properties": {
         "scheme": {
-          "title": "Proxy scheme (http, https, tcp, udp)",
+          "title": "Proxy scheme",
           "oneOf": [
             {
               "type": "string",
@@ -38,28 +39,28 @@
         },
         "host": {
           "default": "localhost",
-          "oneOf": [
+          "anyOf": [
             {
               "type": "null",
-              "description": "localhost (default)"
+              "title": "localhost (default)"
             },
             {
               "type": "string",
               "format": "ipv4",
-              "description": "Proxy to ipv4 address"
+              "title": "ipv4 address"
             },
             {
               "type": "string",
               "format": "ipv6",
-              "description": "Proxy to ipv6 address"
+              "title": "ipv6 address"
             },
             {
               "type": "string",
               "format": "hostname",
-              "description": "Proxy to hostname"
+              "title": "hostname"
             }
           ],
-          "title": "Proxy host (ipv4 / ipv6 / hostname)"
+          "title": "Proxy host (ipv4/6 / hostname)"
         },
         "port": {},
         "no_tls_verify": {},
@@ -71,48 +72,49 @@
           "additionalProperties": false,
           "properties": {
             "show": {
-              "description": "Show on dashboard",
+              "title": "Show on dashboard",
               "type": "boolean",
               "default": true
             },
             "name": {
-              "description": "Display name",
+              "title": "Display name",
               "type": "string"
             },
             "icon": {
-              "description": "Display icon",
+              "title": "Display icon",
               "type": "string",
               "oneOf": [
                 {
-                  "pattern": "^(png|svg)\\/[\\w\\d-_]+\\.(png|svg)$",
-                  "description": "Icon from walkxcode/dashboard-icons",
-                  "errorMessage": "must be png/filename.png or svg/filename.svg"
+                  "pattern": "^(png|svg)\\/[\\w\\d\\-_]+\\.\\1$",
+                  "title": "Icon from walkxcode/dashboard-icons"
                 },
                 {
                   "pattern": "^https?://",
-                  "description": "Absolute URI"
+                  "title": "Absolute URI",
+                  "format": "uri"
                 },
                 {
                   "pattern": "^@target/",
-                  "description": "Relative URI to target"
+                  "title": "Relative URI to target"
                 }
               ]
             },
             "url": {
-              "description": "App URL override",
+              "title": "App URL override",
               "type": "string",
-              "format": "uri"
+              "format": "uri",
+              "pattern": "^https?://"
             },
             "category": {
-              "description": "Category",
+              "title": "Category",
               "type": "string"
             },
             "description": {
-              "description": "Description",
+              "title": "Description",
               "type": "string"
             },
             "widget_config": {
-              "description": "Widget config",
+              "title": "Widget config",
               "type": "object"
             }
           }
@@ -122,7 +124,7 @@
           "properties": {
             "link": {
               "type": "string",
-              "description": "Name and subdomain of load-balancer"
+              "title": "Name and subdomain of load-balancer"
             },
             "mode": {
               "enum": [
@@ -130,18 +132,18 @@
                 "least_conn",
                 "ip_hash"
               ],
-              "description": "Load-balance mode",
+              "title": "Load-balance mode",
               "default": "roundrobin"
             },
             "weight": {
               "type": "integer",
-              "description": "Reserved for future use",
+              "title": "Reserved for future use",
               "minimum": 0,
               "maximum": 100
             },
             "options": {
               "type": "object",
-              "description": "load-balance mode specific options"
+              "title": "load-balance mode specific options"
             }
           }
         },
@@ -150,26 +152,32 @@
           "properties": {
             "disable": {
               "type": "boolean",
-              "default": false
+              "default": false,
+              "title": "Disable healthcheck"
             },
             "path": {
               "type": "string",
-              "description": "Healthcheck path",
+              "title": "Healthcheck path",
               "default": "/",
-              "format": "uri"
+              "format": "uri-reference",
+              "description": "should start with `/`"
             },
             "use_get": {
               "type": "boolean",
-              "description": "Use GET instead of HEAD",
+              "title": "Use GET instead of HEAD",
               "default": false
             },
             "interval": {
               "type": "string",
-              "description": "Interval for healthcheck (e.g. 5s, 1h25m30s)",
+              "title": "healthcheck Interval",
               "pattern": "^([0-9]+(ms|s|m|h))+$",
-              "default": "5s"
+              "default": "5s",
+              "description": "e.g. 5s, 1m, 2h, 3m30s"
             }
           }
+        },
+        "access_log": {
+          "$ref": "https://github.com/yusing/go-proxy/raw/v0.8/schema/access_log.json"
         }
       },
       "additionalProperties": false,
@@ -216,7 +224,7 @@
                     "markdownDescription": "A list of [path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)",
                     "items": {
                       "type": "string",
-                      "pattern": "^((GET|POST|DELETE|PUT|PATCH|HEAD|OPTIONS|CONNECT)\\s)?(/(\\w*|{\\w*}|{\\$}))+/?$",
+                      "pattern": "^(?:([A-Z]+) )?(?:([a-zA-Z0-9.-]+)\\/)?(\\/[^\\s]*)$",
                       "patternErrorMessage": "invalid path pattern"
                     }
                   },
@@ -236,7 +244,7 @@
               "port": {
                 "markdownDescription": "`listening port:proxy port` or `listening port:service name`",
                 "type": "string",
-                "pattern": "^[0-9]+\\:[0-9a-z]+$",
+                "pattern": "^[0-9]+:[0-9a-z]+$",
                 "patternErrorMessage": "invalid syntax"
               },
               "no_tls_verify": {
@@ -265,7 +273,7 @@
           "then": {
             "properties": {
               "no_tls_verify": {
-                "description": "Disable TLS verification for https proxy",
+                "title": "Disable TLS verification for https proxy",
                 "type": "boolean",
                 "default": false
               }
