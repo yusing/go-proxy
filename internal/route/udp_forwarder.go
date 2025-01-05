@@ -128,7 +128,7 @@ func (conn *UDPConn) write() (err error) {
 		}
 	}
 
-	return nil
+	return
 }
 
 func (w *UDPForwarder) getInitConn(conn *UDPConn, key string) (*UDPConn, error) {
