@@ -54,10 +54,10 @@ func (mr *ModifyRequestOpts) modifyHeaders(req *http.Request, resp *http.Respons
 					req.Host = v
 				}()
 			}
-			headers.Set(k, v)
+			headers[k] = []string{v}
 		}
 		for k, v := range mr.AddHeaders {
-			headers.Add(k, v)
+			headers[k] = append(headers[k], v)
 		}
 	} else {
 		for k, v := range mr.SetHeaders {
@@ -66,14 +66,14 @@ func (mr *ModifyRequestOpts) modifyHeaders(req *http.Request, resp *http.Respons
 					req.Host = varReplace(req, resp, v)
 				}()
 			}
-			headers.Set(k, varReplace(req, resp, v))
+			headers[k] = []string{varReplace(req, resp, v)}
 		}
 		for k, v := range mr.AddHeaders {
-			headers.Add(k, varReplace(req, resp, v))
+			headers[k] = append(headers[k], varReplace(req, resp, v))
 		}
 	}
 
 	for _, k := range mr.HideHeaders {
-		headers.Del(k)
+		delete(headers, k)
 	}
 }
