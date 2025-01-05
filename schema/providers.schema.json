@@ -121,6 +121,7 @@
         },
         "load_balance": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "link": {
               "type": "string",
@@ -149,6 +150,7 @@
         },
         "healthcheck": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "disable": {
               "type": "boolean",
@@ -203,7 +205,8 @@
           "then": {
             "properties": {
               "port": {
-                "markdownDescription": "Proxy port from **0** to **65535**",
+                "title": "Proxy port",
+                "markdownDescription": "From **0** to **65535**",
                 "oneOf": [
                   {
                     "type": "string",
@@ -218,21 +221,14 @@
                 ]
               },
               "path_patterns": {
-                "oneOf": [
-                  {
-                    "type": "array",
-                    "markdownDescription": "A list of [path patterns](https://pkg.go.dev/net/http#hdr-Patterns-ServeMux)",
-                    "items": {
-                      "type": "string",
-                      "pattern": "^(?:([A-Z]+) )?(?:([a-zA-Z0-9.-]+)\\/)?(\\/[^\\s]*)$",
-                      "patternErrorMessage": "invalid path pattern"
-                    }
-                  },
-                  {
-                    "type": "null",
-                    "description": "No proxy path"
-                  }
-                ]
+                "title": "Path patterns",
+                "type": "array",
+                "markdownDescription": "See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux",
+                "items": {
+                  "type": "string",
+                  "pattern": "^(?:([A-Z]+) )?(?:([a-zA-Z0-9.-]+)\\/)?(\\/[^\\s]*)$",
+                  "patternErrorMessage": "invalid path pattern"
+                }
               },
               "middlewares": {
                 "type": "object"

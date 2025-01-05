@@ -37,6 +37,7 @@ func NewHandler() http.Handler {
 	mux.HandleFunc("PUT", "/v1/file/{filename...}", auth.RequireAuth(v1.SetFileContent))
 	mux.HandleFunc("GET", "/v1/stats", v1.Stats)
 	mux.HandleFunc("GET", "/v1/stats/ws", v1.StatsWS)
+	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	return mux
 }
 

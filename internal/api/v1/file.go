@@ -64,3 +64,16 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func GetSchemaFile(w http.ResponseWriter, r *http.Request) {
+	filename := r.PathValue("filename")
+	if filename == "" {
+		U.RespondError(w, U.ErrMissingKey("filename"), http.StatusBadRequest)
+	}
+	content, err := os.ReadFile(path.Join(common.SchemaBasePath, filename))
+	if err != nil {
+		U.HandleErr(w, r, err)
+		return
+	}
+	U.WriteBody(w, content)
+}

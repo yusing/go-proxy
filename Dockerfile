@@ -50,6 +50,9 @@ COPY config.example.yml /app/config/config.yml
 # copy certs
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
+# copy schema
+COPY schema /app/schema
+
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 ENV GODOXY_DEBUG=0
 
