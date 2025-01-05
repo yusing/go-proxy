@@ -1,0 +1,103 @@
+{
+  "$id": "https://github.com/yusing/go-proxy/raw/v0.8/schema/access_log.json",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Access log configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "path": {
+      "title": "Access log path",
+      "type": "string"
+    },
+    "format": {
+      "title": "Access log format",
+      "type": "string",
+      "enum": [
+        "common",
+        "combined",
+        "json"
+      ]
+    },
+    "buffer_size": {
+      "title": "Access log buffer size in bytes",
+      "type": "integer",
+      "minimum": 1
+    },
+    "filters": {
+      "title": "Access log filters",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "cidr": {
+          "title": "CIDR filter",
+          "$ref": "#/$defs/access_log_filters"
+        },
+        "status_codes": {
+          "title": "Status code filter",
+          "$ref": "#/$defs/access_log_filters"
+        },
+        "method": {
+          "title": "Method filter",
+          "$ref": "#/$defs/access_log_filters"
+        },
+        "headers": {
+          "title": "Header filter",
+          "$ref": "#/$defs/access_log_filters"
+        },
+        "host": {
+          "title": "Host filter",
+          "$ref": "#/$defs/access_log_filters"
+        }
+      }
+    },
+    "fields": {
+      "title": "Access log fields",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "headers": {
+          "title": "Headers field",
+          "$ref": "#/$defs/access_log_fields"
+        },
+        "query": {
+          "title": "Query field",
+          "$ref": "#/$defs/access_log_fields"
+        },
+        "cookies": {
+          "title": "Cookies field",
+          "$ref": "#/$defs/access_log_fields"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "access_log_filters": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "negative": {
+          "type": "boolean"
+        },
+        "values": {
+          "type": "array"
+        }
+      }
+    },
+    "access_log_fields": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "default": {
+          "enum": [
+            "keep",
+            "redact",
+            "drop"
+          ]
+        },
+        "config": {
+          "type": "object"
+        }
+      }
+    }
+  }
+}
