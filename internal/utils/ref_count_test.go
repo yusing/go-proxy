@@ -4,6 +4,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 func TestRefCounterAddSub(t *testing.T) {
@@ -12,18 +14,16 @@ func TestRefCounterAddSub(t *testing.T) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	go func() {
-		defer wg.Done()
-		rc.Add()
-	}()
-
-	go func() {
-		defer wg.Done()
-		rc.Sub()
-		rc.Sub()
-	}()
+	rc.Add()
+	for range 2 {
+		go func() {
+			defer wg.Done()
+			rc.Sub()
+		}()
+	}
 
 	wg.Wait()
+	ExpectEqual(t, int(rc.refCount), 0)
 
 	select {
 	case <-rc.Zero():
@@ -39,7 +39,7 @@ func TestRefCounterMultipleAddSub(t *testing.T) {
 	var wg sync.WaitGroup
 	numAdds := 5
 	numSubs := 5
-	wg.Add(numAdds + numSubs)
+	wg.Add(numAdds)
 
 	for range numAdds {
 		go func() {
@@ -47,17 +47,20 @@ func TestRefCounterMultipleAddSub(t *testing.T) {
 			rc.Add()
 		}()
 	}
+	wg.Wait()
+	ExpectEqual(t, int(rc.refCount), numAdds+1)
 
+	wg.Add(numSubs)
 	for range numSubs {
 		go func() {
 			defer wg.Done()
 			rc.Sub()
-			rc.Sub()
 		}()
 	}
-
 	wg.Wait()
+	ExpectEqual(t, int(rc.refCount), numAdds+1-numSubs)
 
+	rc.Sub()
 	select {
 	case <-rc.Zero():
 		// Expected behavior
