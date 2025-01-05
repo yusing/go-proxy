@@ -8,8 +8,6 @@ import (
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/net/http/middleware"
 )
 
 type ServeMux struct{ *http.ServeMux }
@@ -19,7 +17,7 @@ func NewServeMux() ServeMux {
 }
 
 func (mux ServeMux) HandleFunc(method, endpoint string, handler http.HandlerFunc) {
-	mux.ServeMux.HandleFunc(method+" "+endpoint, checkHost(rateLimited(handler)))
+	mux.ServeMux.HandleFunc(method+" "+endpoint, checkHost(handler))
 }
 
 func NewHandler() http.Handler {
@@ -56,18 +54,5 @@ func checkHost(f http.HandlerFunc) http.HandlerFunc {
 		}
 		LogDebug(r).Interface("headers", r.Header).Msg("API request")
 		f(w, r)
-	}
-}
-
-func rateLimited(f http.HandlerFunc) http.HandlerFunc {
-	m, err := middleware.RateLimiter.New(middleware.OptionsRaw{
-		"average": 10,
-		"burst":   10,
-	})
-	if err != nil {
-		logging.Fatal().Err(err).Msg("unable to create API rate limiter")
-	}
-	return func(w http.ResponseWriter, r *http.Request) {
-		m.ModifyRequest(f, w, r)
 	}
 }
