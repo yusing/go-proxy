@@ -121,6 +121,9 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 		case len(pathPatterns) == 1 && pathPatterns[0] == "/":
 			r.handler = r.rp
 		default:
+			logger.Warn().
+				Str("route", r.TargetName()).
+				Msg("`path_patterns` is deprecated. Use `rules` instead.")
 			mux := gphttp.NewServeMux()
 			patErrs := E.NewBuilder("invalid path pattern(s)")
 			for _, p := range pathPatterns {
@@ -132,6 +135,10 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 			}
 			r.handler = mux
 		}
+	}
+
+	if len(r.Raw.Rules) > 0 {
+		r.handler = r.Raw.Rules.BuildHandler(r.rp)
 	}
 
 	if r.HealthMon != nil {
