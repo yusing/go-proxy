@@ -15,12 +15,59 @@ import (
 	"github.com/yusing/go-proxy/internal/route/provider"
 )
 
-func GetFileContent(w http.ResponseWriter, r *http.Request) {
-	filename := r.PathValue("filename")
-	if filename == "" {
-		filename = common.ConfigFileName
+type FileType string
+
+const (
+	FileTypeConfig     FileType = "config"
+	FileTypeProvider   FileType = "provider"
+	FileTypeMiddleware FileType = "middleware"
+)
+
+func fileType(file string) FileType {
+	switch {
+	case strings.HasPrefix(path.Base(file), "config."):
+		return FileTypeConfig
+	case strings.HasPrefix(file, common.MiddlewareComposeBasePath):
+		return FileTypeMiddleware
 	}
-	content, err := os.ReadFile(path.Join(common.ConfigBasePath, filename))
+	return FileTypeProvider
+}
+
+func (t FileType) IsValid() bool {
+	switch t {
+	case FileTypeConfig, FileTypeProvider, FileTypeMiddleware:
+		return true
+	}
+	return false
+}
+
+func (t FileType) GetPath(filename string) string {
+	if t == FileTypeMiddleware {
+		return path.Join(common.MiddlewareComposeBasePath, filename)
+	}
+	return path.Join(common.ConfigBasePath, filename)
+}
+
+func getArgs(r *http.Request) (fileType FileType, filename string, err error) {
+	fileType = FileType(r.PathValue("type"))
+	if !fileType.IsValid() {
+		err = U.ErrInvalidKey("type")
+		return
+	}
+	filename = r.PathValue("filename")
+	if filename == "" {
+		err = U.ErrMissingKey("filename")
+	}
+	return
+}
+
+func GetFileContent(w http.ResponseWriter, r *http.Request) {
+	fileType, filename, err := getArgs(r)
+	if err != nil {
+		U.RespondError(w, err, http.StatusBadRequest)
+		return
+	}
+	content, err := os.ReadFile(fileType.GetPath(filename))
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return
@@ -29,9 +76,9 @@ func GetFileContent(w http.ResponseWriter, r *http.Request) {
 }
 
 func SetFileContent(w http.ResponseWriter, r *http.Request) {
-	filename := r.PathValue("filename")
-	if filename == "" {
-		U.HandleErr(w, r, U.ErrMissingKey("filename"), http.StatusBadRequest)
+	fileType, filename, err := getArgs(r)
+	if err != nil {
+		U.RespondError(w, err, http.StatusBadRequest)
 		return
 	}
 	content, err := io.ReadAll(r.Body)
@@ -41,10 +88,10 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var valErr E.Error
-	switch {
-	case filename == common.ConfigFileName:
+	switch fileType {
+	case FileTypeConfig:
 		valErr = config.Validate(content)
-	case strings.HasPrefix(filename, path.Base(common.MiddlewareComposeBasePath)):
+	case FileTypeMiddleware:
 		errs := E.NewBuilder("middleware errors")
 		middleware.BuildMiddlewaresFromYAML(filename, content, errs)
 		valErr = errs.Error()
@@ -57,23 +104,10 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = os.WriteFile(path.Join(common.ConfigBasePath, filename), content, 0o644)
+	err = os.WriteFile(fileType.GetPath(filename), content, 0o644)
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-}
-
-func GetSchemaFile(w http.ResponseWriter, r *http.Request) {
-	filename := r.PathValue("filename")
-	if filename == "" {
-		U.RespondError(w, U.ErrMissingKey("filename"), http.StatusBadRequest)
-	}
-	content, err := os.ReadFile(path.Join(common.SchemaBasePath, filename))
-	if err != nil {
-		U.HandleErr(w, r, err)
-		return
-	}
-	U.WriteBody(w, content)
 }

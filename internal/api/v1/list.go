@@ -16,7 +16,7 @@ import (
 const (
 	ListRoute            = "route"
 	ListRoutes           = "routes"
-	ListConfigFiles      = "config_files"
+	ListFiles            = "files"
 	ListMiddlewares      = "middlewares"
 	ListMiddlewareTraces = "middleware_trace"
 	ListMatchDomains     = "match_domains"
@@ -41,8 +41,8 @@ func List(w http.ResponseWriter, r *http.Request) {
 		}
 	case ListRoutes:
 		U.RespondJSON(w, r, config.RoutesByAlias(route.RouteType(r.FormValue("type"))))
-	case ListConfigFiles:
-		listConfigFiles(w, r)
+	case ListFiles:
+		listFiles(w, r)
 	case ListMiddlewares:
 		U.RespondJSON(w, r, middleware.All())
 	case ListMiddlewareTraces:
@@ -70,14 +70,32 @@ func listRoute(which string) any {
 	return route
 }
 
-func listConfigFiles(w http.ResponseWriter, r *http.Request) {
-	files, err := utils.ListFiles(common.ConfigBasePath, 1)
+func listFiles(w http.ResponseWriter, r *http.Request) {
+	files, err := utils.ListFiles(common.ConfigBasePath, 0)
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return
 	}
-	for i := range files {
-		files[i] = strings.TrimPrefix(files[i], common.ConfigBasePath+"/")
+	resp := map[FileType][]string{
+		FileTypeConfig:     make([]string, 0),
+		FileTypeProvider:   make([]string, 0),
+		FileTypeMiddleware: make([]string, 0),
 	}
-	U.RespondJSON(w, r, files)
+
+	for _, file := range files {
+		t := fileType(file)
+		file = strings.TrimPrefix(file, common.ConfigBasePath+"/")
+		resp[t] = append(resp[t], file)
+	}
+
+	mids, err := utils.ListFiles(common.MiddlewareComposeBasePath, 0)
+	if err != nil {
+		U.HandleErr(w, r, err)
+		return
+	}
+	for _, mid := range mids {
+		mid = strings.TrimPrefix(mid, common.MiddlewareComposeBasePath+"/")
+		resp[FileTypeMiddleware] = append(resp[FileTypeMiddleware], mid)
+	}
+	U.RespondJSON(w, r, resp)
 }

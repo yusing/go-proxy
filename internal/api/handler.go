@@ -31,13 +31,12 @@ func NewHandler() http.Handler {
 	mux.HandleFunc("GET", "/v1/list", auth.RequireAuth(v1.List))
 	mux.HandleFunc("GET", "/v1/list/{what}", auth.RequireAuth(v1.List))
 	mux.HandleFunc("GET", "/v1/list/{what}/{which}", auth.RequireAuth(v1.List))
-	mux.HandleFunc("GET", "/v1/file", auth.RequireAuth(v1.GetFileContent))
-	mux.HandleFunc("GET", "/v1/file/{filename...}", auth.RequireAuth(v1.GetFileContent))
-	mux.HandleFunc("POST", "/v1/file/{filename...}", auth.RequireAuth(v1.SetFileContent))
-	mux.HandleFunc("PUT", "/v1/file/{filename...}", auth.RequireAuth(v1.SetFileContent))
+	mux.HandleFunc("GET", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.GetFileContent))
+	mux.HandleFunc("POST", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.SetFileContent))
+	mux.HandleFunc("PUT", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.SetFileContent))
+	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	mux.HandleFunc("GET", "/v1/stats", v1.Stats)
 	mux.HandleFunc("GET", "/v1/stats/ws", v1.StatsWS)
-	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	return mux
 }
 
