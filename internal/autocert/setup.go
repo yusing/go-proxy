@@ -18,8 +18,6 @@ func (p *Provider) Setup() (err E.Error) {
 		}
 	}
 
-	p.ScheduleRenewal()
-
 	for _, expiry := range p.GetExpiries() {
 		logger.Info().Msg("certificate expire on " + strutils.FormatTime(expiry))
 		break

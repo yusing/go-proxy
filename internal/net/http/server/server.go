@@ -35,9 +35,9 @@ type Options struct {
 	Handler      http.Handler
 }
 
-func StartServer(opt Options) (s *Server) {
+func StartServer(parent task.Parent, opt Options) (s *Server) {
 	s = NewServer(opt)
-	s.Start()
+	s.Start(parent)
 	return s
 }
 
@@ -83,10 +83,12 @@ func NewServer(opt Options) (s *Server) {
 // If both are not set, this does nothing.
 //
 // Start() is non-blocking.
-func (s *Server) Start() {
+func (s *Server) Start(parent task.Parent) {
 	if s.http == nil && s.https == nil {
 		return
 	}
+
+	task := parent.Subtask("server."+s.Name, false)
 
 	s.startTime = time.Now()
 	if s.http != nil {
@@ -105,7 +107,7 @@ func (s *Server) Start() {
 		s.l.Info().Str("addr", s.https.Addr).Msgf("server started")
 	}
 
-	task.OnProgramExit("server."+s.Name+".stop", s.stop)
+	task.OnCancel("stop", s.stop)
 }
 
 func (s *Server) stop() {
@@ -113,14 +115,19 @@ func (s *Server) stop() {
 		return
 	}
 
+	ctx, cancel := context.WithTimeout(task.RootContext(), 3*time.Second)
+	defer cancel()
+
 	if s.http != nil && s.httpStarted {
-		s.handleErr("http", s.http.Shutdown(task.RootContext()))
+		s.handleErr("http", s.http.Shutdown(ctx))
 		s.httpStarted = false
+		s.l.Info().Str("addr", s.http.Addr).Msgf("server stopped")
 	}
 
 	if s.https != nil && s.httpsStarted {
-		s.handleErr("https", s.https.Shutdown(task.RootContext()))
+		s.handleErr("https", s.https.Shutdown(ctx))
 		s.httpsStarted = false
+		s.l.Info().Str("addr", s.https.Addr).Msgf("server stopped")
 	}
 }
 

@@ -4,7 +4,10 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/go-playground/validator/v10"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -16,7 +19,7 @@ type (
 	}
 	CIDRWhitelistOpts struct {
 		Allow      []*types.CIDR `validate:"min=1"`
-		StatusCode int           `json:"status_code" aliases:"status" validate:"omitempty,gte=400,lte=599"`
+		StatusCode int           `json:"status_code" aliases:"status" validate:"omitempty,status_code"`
 		Message    string
 	}
 )
@@ -29,6 +32,13 @@ var (
 		Message:    "IP not allowed",
 	}
 )
+
+func init() {
+	utils.Validator().RegisterValidation("status_code", func(fl validator.FieldLevel) bool {
+		statusCode := fl.Field().Int()
+		return gphttp.IsStatusCodeValid(int(statusCode))
+	})
+}
 
 // setup implements MiddlewareWithSetup.
 func (wl *cidrWhitelist) setup() {

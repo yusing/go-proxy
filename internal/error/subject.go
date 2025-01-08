@@ -8,8 +8,8 @@ import (
 
 //nolint:errname
 type withSubject struct {
-	Subject string `json:"subject"`
-	Err     error  `json:"err"`
+	Subjects []string `json:"subjects"`
+	Err      error    `json:"err"`
 }
 
 const subjectSep = " > "
@@ -30,13 +30,18 @@ func PrependSubject(subject string, err error) error {
 	case Error:
 		return err.Subject(subject)
 	}
-	return &withSubject{subject, err}
+	return &withSubject{[]string{subject}, err}
 }
 
 func (err *withSubject) Prepend(subject string) *withSubject {
 	clone := *err
 	if subject != "" {
-		clone.Subject = subject + subjectSep + clone.Subject
+		switch subject[0] {
+		case '[', '(', '{':
+			clone.Subjects[len(clone.Subjects)-1] += subject
+		default:
+			clone.Subjects = append(clone.Subjects, subject)
+		}
 	}
 	return &clone
 }
@@ -50,7 +55,22 @@ func (err *withSubject) Unwrap() error {
 }
 
 func (err *withSubject) Error() string {
-	subjects := strings.Split(err.Subject, subjectSep)
-	subjects[len(subjects)-1] = highlight(subjects[len(subjects)-1])
-	return strings.Join(subjects, subjectSep) + ": " + err.Err.Error()
+	// subject is in reversed order
+	n := len(err.Subjects)
+	size := 0
+	errStr := err.Err.Error()
+	var sb strings.Builder
+	for _, s := range err.Subjects {
+		size += len(s)
+	}
+	sb.Grow(size + 2 + n*len(subjectSep) + len(errStr))
+
+	for i := n - 1; i > 0; i-- {
+		sb.WriteString(err.Subjects[i])
+		sb.WriteString(subjectSep)
+	}
+	sb.WriteString(highlight(err.Subjects[0]))
+	sb.WriteString(": ")
+	sb.WriteString(errStr)
+	return sb.String()
 }

@@ -24,6 +24,18 @@ func TestCIDRWhitelistValidation(t *testing.T) {
 			"message": testMessage,
 		})
 		ExpectNoError(t, err)
+		_, err = CIDRWhiteList.New(OptionsRaw{
+			"allow":   []string{"192.168.2.100/32"},
+			"message": testMessage,
+			"status":  403,
+		})
+		ExpectNoError(t, err)
+		_, err = CIDRWhiteList.New(OptionsRaw{
+			"allow":       []string{"192.168.2.100/32"},
+			"message":     testMessage,
+			"status_code": 403,
+		})
+		ExpectNoError(t, err)
 	})
 	t.Run("missing allow", func(t *testing.T) {
 		_, err := CIDRWhiteList.New(OptionsRaw{

@@ -6,9 +6,10 @@ import (
 
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/config"
+	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	"github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/route/routes"
+	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils"
 )
@@ -24,7 +25,7 @@ const (
 	ListTasks            = "tasks"
 )
 
-func List(w http.ResponseWriter, r *http.Request) {
+func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	what := r.PathValue("what")
 	if what == "" {
 		what = ListRoutes
@@ -40,7 +41,7 @@ func List(w http.ResponseWriter, r *http.Request) {
 			U.RespondJSON(w, r, route)
 		}
 	case ListRoutes:
-		U.RespondJSON(w, r, config.RoutesByAlias(route.RouteType(r.FormValue("type"))))
+		U.RespondJSON(w, r, routes.RoutesByAlias(route.RouteType(r.FormValue("type"))))
 	case ListFiles:
 		listFiles(w, r)
 	case ListMiddlewares:
@@ -48,9 +49,9 @@ func List(w http.ResponseWriter, r *http.Request) {
 	case ListMiddlewareTraces:
 		U.RespondJSON(w, r, middleware.GetAllTrace())
 	case ListMatchDomains:
-		U.RespondJSON(w, r, config.Value().MatchDomains)
+		U.RespondJSON(w, r, cfg.Value().MatchDomains)
 	case ListHomepageConfig:
-		U.RespondJSON(w, r, config.HomepageConfig())
+		U.RespondJSON(w, r, routes.HomepageConfig(cfg.Value().Homepage.UseDefaultCategories))
 	case ListTasks:
 		U.RespondJSON(w, r, task.DebugTaskList())
 	default:
@@ -60,9 +61,9 @@ func List(w http.ResponseWriter, r *http.Request) {
 
 func listRoute(which string) any {
 	if which == "" || which == "all" {
-		return config.RoutesByAlias()
+		return routes.RoutesByAlias()
 	}
-	routes := config.RoutesByAlias()
+	routes := routes.RoutesByAlias()
 	route, ok := routes[which]
 	if !ok {
 		return nil

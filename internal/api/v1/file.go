@@ -9,7 +9,7 @@ import (
 
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/config"
+	config "github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route/provider"

@@ -168,24 +168,6 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 // URLs to the scheme, host, and base path provided in target. If the
 // target's path is "/base" and the incoming request was for "/dir",
 // the target request will be for /base/dir.
-//
-// NewReverseProxy does not rewrite the Host header.
-//
-// To customize the ReverseProxy behavior beyond what
-// NewReverseProxy provides, use ReverseProxy directly
-// with a Rewrite function. The ProxyRequest SetURL method
-// may be used to route the outbound request. (Note that SetURL,
-// unlike NewReverseProxy, rewrites the Host header
-// of the outbound request by default.)
-//
-//	proxy := &ReverseProxy{
-//		Rewrite: func(r *ProxyRequest) {
-//			r.SetURL(target)
-//			r.Out.Host = r.In.Host // if desired
-//		},
-//	}
-//
-
 func NewReverseProxy(name string, target types.URL, transport http.RoundTripper) *ReverseProxy {
 	if transport == nil {
 		panic("nil transport")
