@@ -87,8 +87,10 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
     - change username and password for WebUI authentication
       ```shell
-      sed -i "s|API_USERNAME=.*|API_USERNAME=admin|g" .env
-      sed -i "s|API_PASSWORD=.*|API_PASSWORD=some-strong-password|g" .env
+      USERNAME=admin
+      PASSWORD=some-password
+      sed -i "s|API_USERNAME=.*|API_USERNAME=${USERNAME}|g" .env
+      sed -i "s|API_PASSWORD=.*|API_PASSWORD=${PASSWORD}|g" .env
       ```
 
 4.  _(Optional)_ setup `docker-socket-proxy` other docker nodes (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) then add them inside `config.yml`
