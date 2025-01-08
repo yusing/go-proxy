@@ -31,7 +31,7 @@ type (
 		Port         string                     `json:"port,omitempty"`
 		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
 		PathPatterns []string                   `json:"path_patterns,omitempty"`
-		Rules        rules.Rules                `json:"rules,omitempty"`
+		Rules        rules.Rules                `json:"rules,omitempty" validate:"omitempty,unique=Name"`
 		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
 		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty"`
 		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`
