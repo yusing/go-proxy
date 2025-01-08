@@ -9,14 +9,15 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
 	Error = E.Error
 
-	ReverseProxy = gphttp.ReverseProxy
-	ProxyRequest = gphttp.ProxyRequest
+	ReverseProxy = reverseproxy.ReverseProxy
+	ProxyRequest = reverseproxy.ProxyRequest
 
 	ImplNewFunc = func() any
 	OptionsRaw  = map[string]any

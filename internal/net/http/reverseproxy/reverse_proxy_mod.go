@@ -2,7 +2,7 @@
 // Modified from the Go project under the a BSD-style License (https://cs.opensource.google/go/go/+/refs/tags/go1.23.1:src/net/http/httputil/reverseproxy.go)
 // https://cs.opensource.google/go/go/+/master:LICENSE
 
-package http
+package reverseproxy
 
 // This is a small mod on net/http/httputil/reverseproxy.go
 // that boosts performance in some cases
@@ -26,11 +26,12 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"golang.org/x/net/http/httpguts"
 )
 
@@ -77,7 +78,6 @@ type ReverseProxy struct {
 	zerolog.Logger
 
 	// The transport used to perform proxy requests.
-	// If nil, http.DefaultTransport is used.
 	Transport http.RoundTripper
 
 	// ModifyResponse is an optional function that modifies the
@@ -103,6 +103,8 @@ type httpMetricLogger struct {
 	timestamp time.Time
 	labels    *metrics.HTTPRouteMetricLabels
 }
+
+var logger = logging.With().Str("module", "reverse_proxy").Logger()
 
 // WriteHeader implements http.ResponseWriter.
 func (l *httpMetricLogger) WriteHeader(status int) {
@@ -222,23 +224,6 @@ func copyHeader(dst, src http.Header) {
 	}
 }
 
-// Hop-by-hop headers. These are removed when sent to the backend.
-// As of RFC 7230, hop-by-hop headers are required to appear in the
-// Connection header field. These are the headers defined by the
-// obsoleted RFC 2616 (section 13.5.1) and are used for backward
-// compatibility.
-var hopHeaders = []string{
-	"Connection",
-	"Proxy-Connection", // non-standard but still sent by libcurl and rejected by e.g. google
-	"Keep-Alive",
-	"Proxy-Authenticate",
-	"Proxy-Authorization",
-	"Te",      // canonicalized version of "TE"
-	"Trailer", // not Trailers per URL above; https://www.rfc-editor.org/errata_search.php?eid=4522
-	"Transfer-Encoding",
-	"Upgrade",
-}
-
 func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err error, writeHeader bool) {
 	switch {
 	case errors.Is(err, context.Canceled),
@@ -348,14 +333,14 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	p.rewriteRequestURL(outreq)
 	outreq.Close = false
 
-	reqUpType := UpgradeType(outreq.Header)
+	reqUpType := gphttp.UpgradeType(outreq.Header)
 	if !IsPrint(reqUpType) {
 		p.errorHandler(rw, req, fmt.Errorf("client tried to switch to invalid protocol %q", reqUpType), true)
 		return
 	}
 
 	req.Header.Del("Forwarded")
-	RemoveHopByHopHeaders(outreq.Header)
+	gphttp.RemoveHopByHopHeaders(outreq.Header)
 
 	// Issue 21096: tell backend applications that care about trailer support
 	// that we support trailers. (We do, but we don't go out of our way to
@@ -380,14 +365,14 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	// If we aren't the first proxy retain prior
 	// X-Forwarded-For information as a comma+space
 	// separated list and fold multiple headers into one.
-	prior, ok := outreq.Header[HeaderXForwardedFor]
+	prior, ok := outreq.Header[gphttp.HeaderXForwardedFor]
 	omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
 	xff := visitorIP
 	if len(prior) > 0 {
 		xff = strings.Join(prior, ", ") + ", " + xff
 	}
 	if !omit {
-		outreq.Header.Set(HeaderXForwardedFor, xff)
+		outreq.Header.Set(gphttp.HeaderXForwardedFor, xff)
 	}
 
 	var reqScheme string
@@ -397,10 +382,10 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		reqScheme = "http"
 	}
 
-	outreq.Header.Set(HeaderXForwardedMethod, req.Method)
-	outreq.Header.Set(HeaderXForwardedProto, reqScheme)
-	outreq.Header.Set(HeaderXForwardedHost, req.Host)
-	outreq.Header.Set(HeaderXForwardedURI, req.RequestURI)
+	outreq.Header.Set(gphttp.HeaderXForwardedMethod, req.Method)
+	outreq.Header.Set(gphttp.HeaderXForwardedProto, reqScheme)
+	outreq.Header.Set(gphttp.HeaderXForwardedHost, req.Host)
+	outreq.Header.Set(gphttp.HeaderXForwardedURI, req.RequestURI)
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
 		// If the outbound request doesn't have a User-Agent header set,
@@ -467,7 +452,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	RemoveHopByHopHeaders(res.Header)
+	gphttp.RemoveHopByHopHeaders(res.Header)
 
 	if !p.modifyResponse(rw, res, req, outreq) {
 		return
@@ -518,31 +503,6 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func UpgradeType(h http.Header) string {
-	if !httpguts.HeaderValuesContainsToken(h["Connection"], "Upgrade") {
-		return ""
-	}
-	return h.Get("Upgrade")
-}
-
-// RemoveHopByHopHeaders removes hop-by-hop headers.
-func RemoveHopByHopHeaders(h http.Header) {
-	// RFC 7230, section 6.1: Remove headers listed in the "Connection" header.
-	for _, f := range h["Connection"] {
-		for _, sf := range strutils.SplitComma(f) {
-			if sf = textproto.TrimString(sf); sf != "" {
-				h.Del(sf)
-			}
-		}
-	}
-	// RFC 2616, section 13.5.1: Remove a set of known hop-by-hop headers.
-	// This behavior is superseded by the RFC 7230 Connection header, but
-	// preserve it for backwards compatibility.
-	for _, f := range hopHeaders {
-		h.Del(f)
-	}
-}
-
 // reference: https://github.com/traefik/traefik/blob/master/pkg/proxy/httputil/proxy.go
 // https://tools.ietf.org/html/rfc6455#page-20
 func cleanWebsocketHeaders(req *http.Request) {
@@ -563,8 +523,8 @@ func cleanWebsocketHeaders(req *http.Request) {
 }
 
 func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.Request, res *http.Response) {
-	reqUpType := UpgradeType(req.Header)
-	resUpType := UpgradeType(res.Header)
+	reqUpType := gphttp.UpgradeType(req.Header)
+	resUpType := gphttp.UpgradeType(res.Header)
 	if !IsPrint(resUpType) { // We know reqUpType is ASCII, it's checked by the caller.
 		p.errorHandler(rw, req, fmt.Errorf("backend tried to switch to invalid protocol %q", resUpType), true)
 		return

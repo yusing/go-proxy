@@ -13,6 +13,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	"github.com/yusing/go-proxy/internal/route/entry"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
@@ -30,7 +31,7 @@ type (
 		loadBalancer *loadbalancer.LoadBalancer
 		server       *loadbalancer.Server
 		handler      http.Handler
-		rp           *gphttp.ReverseProxy
+		rp           *reverseproxy.ReverseProxy
 
 		task *task.Task
 
@@ -49,7 +50,7 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	}
 
 	service := entry.TargetName()
-	rp := gphttp.NewReverseProxy(service, entry.URL, trans)
+	rp := reverseproxy.NewReverseProxy(service, entry.URL, trans)
 
 	if len(entry.Raw.Middlewares) > 0 {
 		err := middleware.PatchReverseProxy(rp, entry.Raw.Middlewares)
