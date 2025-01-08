@@ -3,7 +3,7 @@ package rules
 import (
 	"net/http"
 
-	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
+	"github.com/yusing/go-proxy/internal/logging"
 )
 
 type (
@@ -56,7 +56,7 @@ type (
 //	if no rule matches, the default rule is executed
 //	if no rule matches and default rule is not set,
 //	the request is passed to the upstream.
-func (rules Rules) BuildHandler(up *reverseproxy.ReverseProxy) http.HandlerFunc {
+func (rules Rules) BuildHandler(up http.Handler) http.HandlerFunc {
 	// move bypass rules to the front.
 	bypassRules := make(Rules, 0, len(rules))
 	otherRules := make(Rules, 0, len(rules))
@@ -80,12 +80,15 @@ func (rules Rules) BuildHandler(up *reverseproxy.ReverseProxy) http.HandlerFunc 
 		bypassRules = []Rule{}
 	}
 	if len(otherRules) == 0 {
-		otherRules = []Rule{defaultRule}
+		otherRules = []Rule{}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		for _, rule := range bypassRules {
 			if rule.On.check(r) {
+				logging.Debug().
+					Str("rule", rule.Name).
+					Msg("matched: bypass")
 				up.ServeHTTP(w, r)
 				return
 			}
@@ -93,18 +96,28 @@ func (rules Rules) BuildHandler(up *reverseproxy.ReverseProxy) http.HandlerFunc 
 		hasMatch := false
 		for _, rule := range otherRules {
 			if rule.On.check(r) {
+				logging.Debug().
+					Str("rule", rule.Name).
+					Msgf("matched proceed=%t", rule.Do.exec.proceed)
 				hasMatch = true
-				rule.Do.HandlerFunc(w, r)
-				if !rule.Do.proceed {
+				rule.Do.exec.HandlerFunc(w, r)
+				if !rule.Do.exec.proceed {
 					return
 				}
 			}
 		}
 		if hasMatch || defaultRule.Do.isBypass() {
+			logging.Debug().
+				Str("rule", defaultRule.Name).
+				Msg("matched: bypass")
 			up.ServeHTTP(w, r)
 			return
 		}
 
-		defaultRule.Do.HandlerFunc(w, r)
+		logging.Debug().
+			Str("rule", defaultRule.Name).
+			Msg("matched: default")
+
+		defaultRule.Do.exec.HandlerFunc(w, r)
 	}
 }

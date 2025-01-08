@@ -139,7 +139,7 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 	}
 
 	if len(r.Raw.Rules) > 0 {
-		r.handler = r.Raw.Rules.BuildHandler(r.rp)
+		r.handler = r.Raw.Rules.BuildHandler(r.handler)
 	}
 
 	if r.HealthMon != nil {

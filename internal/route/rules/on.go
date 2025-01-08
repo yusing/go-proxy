@@ -73,6 +73,7 @@ var checkers = map[string]struct {
 	},
 }
 
+// Parse implements strutils.Parser.
 func (on *RuleOn) Parse(v string) error {
 	on.raw = v
 
@@ -81,6 +82,9 @@ func (on *RuleOn) Parse(v string) error {
 
 	errs := E.NewBuilder("rule.on syntax errors")
 	for i, line := range lines {
+		if line == "" {
+			continue
+		}
 		parsed, err := parseOn(line)
 		if err != nil {
 			errs.Add(err.Subjectf("line %d", i+1))
