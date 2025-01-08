@@ -28,16 +28,17 @@ type (
 		PrivateIP          string      `json:"private_ip"`
 		NetworkMode        string      `json:"network_mode"`
 
-		Aliases     []string `json:"aliases"`
-		IsExcluded  bool     `json:"is_excluded"`
-		IsExplicit  bool     `json:"is_explicit"`
-		IsDatabase  bool     `json:"is_database"`
-		IdleTimeout string   `json:"idle_timeout,omitempty"`
-		WakeTimeout string   `json:"wake_timeout,omitempty"`
-		StopMethod  string   `json:"stop_method,omitempty"`
-		StopTimeout string   `json:"stop_timeout,omitempty"` // stop_method = "stop" only
-		StopSignal  string   `json:"stop_signal,omitempty"`  // stop_method = "stop" | "kill" only
-		Running     bool     `json:"running"`
+		Aliases       []string `json:"aliases"`
+		IsExcluded    bool     `json:"is_excluded"`
+		IsExplicit    bool     `json:"is_explicit"`
+		IsDatabase    bool     `json:"is_database"`
+		IdleTimeout   string   `json:"idle_timeout,omitempty"`
+		WakeTimeout   string   `json:"wake_timeout,omitempty"`
+		StopMethod    string   `json:"stop_method,omitempty"`
+		StopTimeout   string   `json:"stop_timeout,omitempty"` // stop_method = "stop" only
+		StopSignal    string   `json:"stop_signal,omitempty"`  // stop_method = "stop" | "kill" only
+		StartEndpoint string   `json:"start_endpoint,omitempty"`
+		Running       bool     `json:"running"`
 	}
 )
 
@@ -58,16 +59,17 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 		PrivatePortMapping: helper.getPrivatePortMapping(),
 		NetworkMode:        c.HostConfig.NetworkMode,
 
-		Aliases:     helper.getAliases(),
-		IsExcluded:  strutils.ParseBool(helper.getDeleteLabel(LabelExclude)),
-		IsExplicit:  isExplicit,
-		IsDatabase:  helper.isDatabase(),
-		IdleTimeout: helper.getDeleteLabel(LabelIdleTimeout),
-		WakeTimeout: helper.getDeleteLabel(LabelWakeTimeout),
-		StopMethod:  helper.getDeleteLabel(LabelStopMethod),
-		StopTimeout: helper.getDeleteLabel(LabelStopTimeout),
-		StopSignal:  helper.getDeleteLabel(LabelStopSignal),
-		Running:     c.Status == "running" || c.State == "running",
+		Aliases:       helper.getAliases(),
+		IsExcluded:    strutils.ParseBool(helper.getDeleteLabel(LabelExclude)),
+		IsExplicit:    isExplicit,
+		IsDatabase:    helper.isDatabase(),
+		IdleTimeout:   helper.getDeleteLabel(LabelIdleTimeout),
+		WakeTimeout:   helper.getDeleteLabel(LabelWakeTimeout),
+		StopMethod:    helper.getDeleteLabel(LabelStopMethod),
+		StopTimeout:   helper.getDeleteLabel(LabelStopTimeout),
+		StopSignal:    helper.getDeleteLabel(LabelStopSignal),
+		StartEndpoint: helper.getDeleteLabel(LabelStartEndpoint),
+		Running:       c.Status == "running" || c.State == "running",
 	}
 	res.setPrivateIP(helper)
 	res.setPublicIP()
