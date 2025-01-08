@@ -48,82 +48,6 @@ func New(t reflect.Type) reflect.Value {
 	return reflect.New(t)
 }
 
-// Serialize converts the given data into a map[string]any representation.
-//
-// It uses reflection to inspect the data type and handle different kinds of data.
-// For a struct, it extracts the fields using the json tag if present, or the field name if not.
-// For an embedded struct, it recursively converts its fields into the result map.
-// For any other type, it returns an error.
-//
-// Parameters:
-// - data: The data to be converted into a map.
-//
-// Returns:
-// - result: The resulting map[string]any representation of the data.
-// - error: An error if the data type is unsupported or if there is an error during conversion.
-func Serialize(data any) (SerializedObject, error) {
-	result := make(map[string]any)
-
-	// Use reflection to inspect the data type
-	value := reflect.ValueOf(data)
-
-	// Check if the value is valid
-	if !value.IsValid() {
-		return nil, ErrInvalidType.Subjectf("%T", data)
-	}
-
-	// Dereference pointers if necessary
-	if value.Kind() == reflect.Ptr {
-		value = value.Elem()
-	}
-
-	// Handle different kinds of data
-	switch value.Kind() {
-	case reflect.Map:
-		for _, key := range value.MapKeys() {
-			result[key.String()] = value.MapIndex(key).Interface()
-		}
-	case reflect.Struct:
-		for i := range value.NumField() {
-			field := value.Type().Field(i)
-			if !field.IsExported() {
-				continue
-			}
-			jsonTag := field.Tag.Get("json") // Get the json tag
-			if jsonTag == "-" {
-				continue // Ignore this field if the tag is "-"
-			}
-			if strings.Contains(jsonTag, ",omitempty") {
-				if value.Field(i).IsZero() {
-					continue
-				}
-				jsonTag = strings.Replace(jsonTag, ",omitempty", "", 1)
-			}
-
-			// If the json tag is not empty, use it as the key
-			switch {
-			case jsonTag != "":
-				result[jsonTag] = value.Field(i).Interface()
-			case field.Anonymous:
-				// If the field is an embedded struct, add its fields to the result
-				fieldMap, err := Serialize(value.Field(i).Interface())
-				if err != nil {
-					return nil, err
-				}
-				for k, v := range fieldMap {
-					result[k] = v
-				}
-			default:
-				result[field.Name] = value.Field(i).Interface()
-			}
-		}
-	default:
-		return nil, errors.New("serialize: unsupported data type " + value.Kind().String())
-	}
-
-	return result, nil
-}
-
 func extractFields(t reflect.Type) []reflect.StructField {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
@@ -203,10 +127,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			mapping[key] = dstV.FieldByName(field.Name)
 			fieldName[field.Name] = key
 
-			_, ok := field.Tag.Lookup("validate")
-			if ok {
-				needValidate = true
-			}
+			_, needValidate = field.Tag.Lookup("validate")
 
 			aliases, ok := field.Tag.Lookup("aliases")
 			if ok {

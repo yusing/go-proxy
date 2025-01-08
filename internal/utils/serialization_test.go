@@ -8,7 +8,7 @@ import (
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
-func TestSerializeDeserialize(t *testing.T) {
+func TestDeserialize(t *testing.T) {
 	type S struct {
 		I   int
 		S   string
@@ -36,12 +36,6 @@ func TestSerializeDeserialize(t *testing.T) {
 			"MIS": map[int]string{1: "a", 2: "b", 3: "c"},
 		}
 	)
-
-	t.Run("serialize", func(t *testing.T) {
-		s, err := Serialize(testStruct)
-		ExpectNoError(t, err)
-		ExpectDeepEqual(t, s, testStructSerialized)
-	})
 
 	t.Run("deserialize", func(t *testing.T) {
 		var s2 S
