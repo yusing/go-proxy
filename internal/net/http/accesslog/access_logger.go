@@ -129,7 +129,6 @@ func (l *AccessLogger) Flush(force bool) {
 		l.write(l.buf.Bytes())
 		l.buf.Reset()
 		l.bufMu.Unlock()
-		logger.Debug().Msg("access log flushed to " + l.io.Name())
 	}
 }
 
@@ -170,5 +169,7 @@ func (l *AccessLogger) write(data []byte) {
 	l.io.Unlock()
 	if err != nil {
 		l.handleErr(err)
+	} else {
+		logger.Debug().Msg("access log flushed to " + l.io.Name())
 	}
 }
