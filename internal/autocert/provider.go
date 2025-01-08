@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"reflect"
+	"runtime"
 	"sort"
 	"time"
 
@@ -148,28 +149,40 @@ func (p *Provider) ShouldRenewOn() time.Time {
 	panic("no certificate available")
 }
 
-func (p *Provider) ScheduleRenewal() {
+func (p *Provider) ScheduleRenewal(parent task.Parent) {
 	if p.GetName() == ProviderLocal {
 		return
 	}
 	go func() {
-		task := task.RootTask("cert-renew-scheduler", true)
+		lastErrOn := time.Time{}
+		renewalTime := p.ShouldRenewOn()
+		timer := time.NewTimer(time.Until(renewalTime))
+		defer timer.Stop()
+
+		task := parent.Subtask("cert-renew-scheduler")
 		defer task.Finish(nil)
 
 		for {
-			renewalTime := p.ShouldRenewOn()
-			timer := time.NewTimer(time.Until(renewalTime))
-
 			select {
 			case <-task.Context().Done():
-				timer.Stop()
 				return
 			case <-timer.C:
+				// Retry after 1 hour on failure
+				if time.Now().Before(lastErrOn.Add(time.Hour)) {
+					continue
+				}
 				if err := p.renewIfNeeded(); err != nil {
 					E.LogWarn("cert renew failed", err, &logger)
-					// Retry after 1 hour on failure
-					time.Sleep(time.Hour)
+					lastErrOn = time.Now()
+					continue
 				}
+				// Reset on success
+				lastErrOn = time.Time{}
+				renewalTime = p.ShouldRenewOn()
+				timer.Reset(time.Until(renewalTime))
+			default:
+				// Allow other tasks to run
+				runtime.Gosched()
 			}
 		}
 	}()
