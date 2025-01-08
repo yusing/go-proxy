@@ -34,6 +34,12 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 		return true
 	}
 
+	// Check if start endpoint is configured and request path matches
+	if w.StartEndpoint != "" && r.URL.Path != w.StartEndpoint {
+		http.Error(rw, "Forbidden: Container can only be started via configured start endpoint", http.StatusForbidden)
+		return false
+	}
+
 	if r.Body != nil {
 		defer r.Body.Close()
 	}

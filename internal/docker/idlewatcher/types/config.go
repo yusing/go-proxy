@@ -2,6 +2,8 @@ package types
 
 import (
 	"errors"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/docker"
@@ -10,11 +12,12 @@ import (
 
 type (
 	Config struct {
-		IdleTimeout time.Duration `json:"idle_timeout,omitempty"`
-		WakeTimeout time.Duration `json:"wake_timeout,omitempty"`
-		StopTimeout int           `json:"stop_timeout,omitempty"` // docker api takes integer seconds for timeout argument
-		StopMethod  StopMethod    `json:"stop_method,omitempty"`
-		StopSignal  Signal        `json:"stop_signal,omitempty"`
+		IdleTimeout   time.Duration `json:"idle_timeout,omitempty"`
+		WakeTimeout   time.Duration `json:"wake_timeout,omitempty"`
+		StopTimeout   int           `json:"stop_timeout,omitempty"` // docker api takes integer seconds for timeout argument
+		StopMethod    StopMethod    `json:"stop_method,omitempty"`
+		StopSignal    Signal        `json:"stop_signal,omitempty"`
+		StartEndpoint string        `json:"start_endpoint,omitempty"` // Optional path that must be hit to start container
 
 		DockerHost       string `json:"docker_host,omitempty"`
 		ContainerName    string `json:"container_name,omitempty"`
@@ -58,17 +61,19 @@ func ValidateConfig(cont *docker.Container) (*Config, E.Error) {
 	stopTimeout := E.Collect(errs, validateDurationPostitive, cont.StopTimeout)
 	stopMethod := E.Collect(errs, validateStopMethod, cont.StopMethod)
 	signal := E.Collect(errs, validateSignal, cont.StopSignal)
+	startEndpoint := E.Collect(errs, validateStartEndpoint, cont.StartEndpoint)
 
 	if errs.HasError() {
 		return nil, errs.Error()
 	}
 
 	return &Config{
-		IdleTimeout: idleTimeout,
-		WakeTimeout: wakeTimeout,
-		StopTimeout: int(stopTimeout.Seconds()),
-		StopMethod:  stopMethod,
-		StopSignal:  signal,
+		IdleTimeout:   idleTimeout,
+		WakeTimeout:   wakeTimeout,
+		StopTimeout:   int(stopTimeout.Seconds()),
+		StopMethod:    stopMethod,
+		StopSignal:    signal,
+		StartEndpoint: startEndpoint,
 
 		DockerHost:       cont.DockerHost,
 		ContainerName:    cont.ContainerName,
@@ -103,4 +108,22 @@ func validateStopMethod(s string) (StopMethod, error) {
 	default:
 		return "", errors.New("invalid stop method " + s)
 	}
+}
+
+func validateStartEndpoint(s string) (string, error) {
+	if s == "" {
+		return "", nil
+	}
+	// checks needed as of Go 1.6 because of change https://github.com/golang/go/commit/617c93ce740c3c3cc28cdd1a0d712be183d0b328#diff-6c2d018290e298803c0c9419d8739885L195
+	// emulate browser and strip the '#' suffix prior to validation. see issue-#237
+	if i := strings.Index(s, "#"); i > -1 {
+		s = s[:i]
+	}
+	if len(s) == 0 {
+		return "", errors.New("start endpoint must not be empty if defined")
+	}
+	if _, err := url.ParseRequestURI(s); err != nil {
+		return "", err
+	}
+	return s, nil
 }
