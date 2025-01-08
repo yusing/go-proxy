@@ -168,7 +168,7 @@ func TestStringToSlice(t *testing.T) {
 	})
 	t.Run("multiline", func(t *testing.T) {
 		dst := make([]string, 0)
-		convertible, err := ConvertString("  a\n  b\n  c", reflect.ValueOf(&dst))
+		convertible, err := ConvertString("- a\n- b\n- c", reflect.ValueOf(&dst))
 		ExpectTrue(t, convertible)
 		ExpectNoError(t, err)
 		ExpectDeepEqual(t, dst, []string{"a", "b", "c"})

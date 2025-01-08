@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/go-playground/validator/v10"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -127,7 +126,9 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			mapping[key] = dstV.FieldByName(field.Name)
 			fieldName[field.Name] = key
 
-			_, needValidate = field.Tag.Lookup("validate")
+			if !needValidate {
+				_, needValidate = field.Tag.Lookup("validate")
+			}
 
 			aliases, ok := field.Tag.Lookup("aliases")
 			if ok {
@@ -276,7 +277,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 		if dstT.Kind() != reflect.Slice {
 			return ErrUnsupportedConversion.Subject(dstT.String() + " to " + srcT.String())
 		}
-		newSlice := reflect.MakeSlice(dstT, 0, src.Len())
+		newSlice := reflect.MakeSlice(dstT, src.Len(), src.Len())
 		i := 0
 		for _, v := range src.Seq2() {
 			tmp := New(dstT.Elem()).Elem()
@@ -284,7 +285,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 			if err != nil {
 				return err.Subjectf("[%d]", i)
 			}
-			newSlice = reflect.Append(newSlice, tmp)
+			newSlice.Index(i).Set(tmp)
 			i++
 		}
 		dst.Set(newSlice)
@@ -365,16 +366,10 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			}
 			return
 		}
-		lines := strutils.SplitLine(src)
-		sl := make([]string, 0, len(lines))
-		for _, line := range lines {
-			line = strings.TrimLeftFunc(line, func(r rune) bool {
-				return r == '-' || unicode.IsSpace(r)
-			})
-			if line == "" || line[0] == '#' {
-				continue
-			}
-			sl = append(sl, line)
+		sl := make([]any, 0)
+		err := yaml.Unmarshal([]byte(src), &sl)
+		if err != nil {
+			return true, E.From(err)
 		}
 		tmp = sl
 	case reflect.Map, reflect.Struct:
