@@ -98,15 +98,20 @@ GoDoxy v0.8.2 expected changes
 ````
 
 - config reload will now cause all servers to fully restart (i.e. proxy, api, prometheus, etc)
-
 - multiline-string as list now treated as YAML list, which requires hyphen prefix `-`, i.e.
   ```yaml
   proxy.app.middlewares.request.hide_headers:
     - X-Header1
     - X-Header2
 ````
-
 - autocert now supports hot-reload
+- middleware compose now supports cross-referencing, e.g.
+  ```yaml
+  foo:
+    - use: RedirectHTTP
+  bar: # in the same file or different file
+    - use: foo@file
+  ```
 
 - Fixes
   - bug: cert renewal failure no longer causes renew schdueler to stuck forever

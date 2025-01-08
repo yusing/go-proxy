@@ -94,9 +94,9 @@ func (m *Middleware) finalize() {
 }
 
 func (m *Middleware) New(optsRaw OptionsRaw) (*Middleware, E.Error) {
-	if m.construct == nil {
-		if optsRaw != nil {
-			panic("bug: middleware already constructed")
+	if m.construct == nil { // likely a middleware from compose
+		if len(optsRaw) != 0 {
+			return nil, E.New("additional options not allowed for middleware ").Subject(m.name)
 		}
 		return m, nil
 	}
