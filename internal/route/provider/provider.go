@@ -109,7 +109,7 @@ func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
 	return nil
 }
 
-// Start implements*task.TaskStarter.
+// Start implements task.TaskStarter.
 func (p *Provider) Start(parent task.Parent) E.Error {
 	t := parent.Subtask("provider."+p.name, false)
 

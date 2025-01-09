@@ -54,10 +54,14 @@ func validateURLPath(args []string) (any, E.Error) {
 		return nil, ErrExpectOneArg
 	}
 	p := args[0]
+	trailingSlash := len(p) > 1 && p[len(p)-1] == '/'
 	p, _, _ = strings.Cut(p, "#")
 	p = path.Clean(p)
 	if len(p) == 0 {
-		return "/", nil
+		return nil, ErrInvalidArguments.Withf("empty path")
+	}
+	if trailingSlash {
+		p += "/"
 	}
 	if p[0] != '/' {
 		return nil, ErrInvalidArguments.Withf("must start with /")

@@ -180,7 +180,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		}
 		return errs.Error()
 	default:
-		return ErrUnsupportedConversion.Subject("deserialize to " + dstT.String())
+		return ErrUnsupportedConversion.Subject("mapping to " + dstT.String())
 	}
 }
 
@@ -346,10 +346,11 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		return true, E.From(parser.Parse(src))
 	}
 	// yaml like
-	isMultiline := strings.ContainsRune(src, '\n')
 	var tmp any
 	switch dst.Kind() {
 	case reflect.Slice:
+		src = strings.TrimSpace(src)
+		isMultiline := strings.ContainsRune(src, '\n')
 		// one liner is comma separated list
 		if !isMultiline {
 			values := strutils.CommaSeperatedList(src)
