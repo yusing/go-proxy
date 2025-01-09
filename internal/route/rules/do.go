@@ -36,10 +36,18 @@ const (
 )
 
 var commands = map[string]struct {
+	help     Help
 	validate ValidateFunc
 	build    func(args any) *CommandExecutor
 }{
 	CommandRewrite: {
+		help: Help{
+			command: CommandRewrite,
+			args: map[string]string{
+				"from": "the path to rewrite, must start with /",
+				"to":   "the path to rewrite to, must start with /",
+			},
+		},
 		validate: func(args []string) (any, E.Error) {
 			if len(args) != 2 {
 				return nil, ErrExpectTwoArgs
@@ -68,6 +76,12 @@ var commands = map[string]struct {
 		},
 	},
 	CommandServe: {
+		help: Help{
+			command: CommandServe,
+			args: map[string]string{
+				"root": "the file system path to serve, must be an existing directory",
+			},
+		},
 		validate: validateFSPath,
 		build: func(args any) *CommandExecutor {
 			root := args.(string)
@@ -80,6 +94,12 @@ var commands = map[string]struct {
 		},
 	},
 	CommandRedirect: {
+		help: Help{
+			command: CommandRedirect,
+			args: map[string]string{
+				"to": "the url to redirect to, can be relative or absolute URL",
+			},
+		},
 		validate: validateURL,
 		build: func(args any) *CommandExecutor {
 			target := args.(types.URL).String()
@@ -92,6 +112,13 @@ var commands = map[string]struct {
 		},
 	},
 	CommandError: {
+		help: Help{
+			command: CommandError,
+			args: map[string]string{
+				"code": "the http status code to return",
+				"text": "the error message to return",
+			},
+		},
 		validate: func(args []string) (any, E.Error) {
 			if len(args) != 2 {
 				return nil, ErrExpectTwoArgs
@@ -118,7 +145,13 @@ var commands = map[string]struct {
 		},
 	},
 	CommandProxy: {
-		validate: validateURL,
+		help: Help{
+			command: CommandProxy,
+			args: map[string]string{
+				"to": "the url to proxy to, must be an absolute URL",
+			},
+		},
+		validate: validateAbsoluteURL,
 		build: func(args any) *CommandExecutor {
 			target := args.(types.URL)
 			if target.Scheme == "" {
@@ -166,7 +199,7 @@ func (cmd *Command) Parse(v string) error {
 		}
 		validArgs, err := builder.validate(args)
 		if err != nil {
-			return err.Subject(directive)
+			return err.Subject(directive).Withf("%s", builder.help.String())
 		}
 
 		exec := builder.build(validArgs)

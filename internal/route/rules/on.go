@@ -26,28 +26,55 @@ const (
 )
 
 var checkers = map[string]struct {
+	help     Help
 	validate ValidateFunc
 	check    func(r *http.Request, args any) bool
 }{
-	OnHeader: { // header <key> <value>
+	OnHeader: {
+		help: Help{
+			command: OnHeader,
+			args: map[string]string{
+				"key":   "the header key",
+				"value": "the header value",
+			},
+		},
 		validate: toStrTuple,
 		check: func(r *http.Request, args any) bool {
 			return r.Header.Get(args.(StrTuple).First) == args.(StrTuple).Second
 		},
 	},
-	OnQuery: { // query <key> <value>
+	OnQuery: {
+		help: Help{
+			command: OnQuery,
+			args: map[string]string{
+				"key":   "the query key",
+				"value": "the query value",
+			},
+		},
 		validate: toStrTuple,
 		check: func(r *http.Request, args any) bool {
 			return r.URL.Query().Get(args.(StrTuple).First) == args.(StrTuple).Second
 		},
 	},
-	OnMethod: { // method <method>
+	OnMethod: {
+		help: Help{
+			command: OnMethod,
+			args: map[string]string{
+				"method": "the http method",
+			},
+		},
 		validate: validateMethod,
 		check: func(r *http.Request, method any) bool {
 			return r.Method == method.(string)
 		},
 	},
-	OnPath: { // path <path>
+	OnPath: {
+		help: Help{
+			command: OnPath,
+			args: map[string]string{
+				"path": "the request path, must start with /",
+			},
+		},
 		validate: validateURLPath,
 		check: func(r *http.Request, globPath any) bool {
 			reqPath := r.URL.Path
@@ -57,7 +84,13 @@ var checkers = map[string]struct {
 			return strutils.GlobMatch(globPath.(string), reqPath)
 		},
 	},
-	OnRemote: { // remote <ip|cidr>
+	OnRemote: {
+		help: Help{
+			command: OnRemote,
+			args: map[string]string{
+				"ip|cidr": "the remote ip or cidr",
+			},
+		},
 		validate: validateCIDR,
 		check: func(r *http.Request, cidr any) bool {
 			host, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -137,7 +170,7 @@ func parseOn(line string) (Checkers, E.Error) {
 
 	validArgs, err := checker.validate(args)
 	if err != nil {
-		return nil, err.Subject(subject)
+		return nil, err.Subject(subject).Withf("%s", checker.help.String())
 	}
 
 	return Checkers{

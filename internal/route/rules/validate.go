@@ -35,6 +35,23 @@ func validateURL(args []string) (any, E.Error) {
 	return u, nil
 }
 
+func validateAbsoluteURL(args []string) (any, E.Error) {
+	if len(args) != 1 {
+		return nil, ErrExpectOneArg
+	}
+	u, err := types.ParseURL(args[0])
+	if err != nil {
+		return nil, ErrInvalidArguments.With(err)
+	}
+	if u.Scheme == "" {
+		u.Scheme = "http"
+	}
+	if u.Host == "" {
+		return nil, ErrInvalidArguments.Withf("missing host")
+	}
+	return u, nil
+}
+
 func validateCIDR(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
