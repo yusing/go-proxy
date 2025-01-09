@@ -58,14 +58,11 @@ func (f *File) closeOnZero() {
 	defer logger.Debug().
 		Str("path", f.path).
 		Msg("access log closed")
-	for {
-		select {
-		case <-f.refCount.Zero():
-			openedFilesMu.Lock()
-			delete(openedFiles, f.path)
-			openedFilesMu.Unlock()
-			f.File.Close()
-			return
-		}
-	}
+
+	<-f.refCount.Zero()
+
+	openedFilesMu.Lock()
+	delete(openedFiles, f.path)
+	openedFilesMu.Unlock()
+	f.File.Close()
 }
