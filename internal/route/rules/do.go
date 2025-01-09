@@ -189,7 +189,8 @@ func (cmd *Command) Parse(v string) error {
 			if len(args) != 0 {
 				return ErrInvalidArguments.Subject(directive)
 			}
-			return nil
+			executors = append(executors, nil)
+			continue
 		}
 
 		builder, ok := commands[directive]
