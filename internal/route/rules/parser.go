@@ -12,6 +12,7 @@ var escapedChars = map[rune]rune{
 	'r':  '\r',
 	'\'': '\'',
 	'"':  '"',
+	'\\': '\\',
 	' ':  ' ',
 }
 
