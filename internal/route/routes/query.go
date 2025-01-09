@@ -6,14 +6,13 @@ import (
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/route/entry"
 	provider "github.com/yusing/go-proxy/internal/route/provider/types"
-	"github.com/yusing/go-proxy/internal/route/types"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 func HomepageConfig(useDefaultCategories bool) homepage.Config {
 	hpCfg := homepage.NewHomePageConfig()
-	GetHTTPRoutes().RangeAll(func(alias string, r types.HTTPRoute) {
+	GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		en := r.RawEntry()
 		item := en.Homepage
 		if item == nil {
@@ -86,11 +85,11 @@ func RoutesByAlias(typeFilter ...route.RouteType) map[string]any {
 	for _, t := range typeFilter {
 		switch t {
 		case route.RouteTypeReverseProxy:
-			GetHTTPRoutes().RangeAll(func(alias string, r types.HTTPRoute) {
+			GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 				rts[alias] = r
 			})
 		case route.RouteTypeStream:
-			GetStreamRoutes().RangeAll(func(alias string, r types.StreamRoute) {
+			GetStreamRoutes().RangeAll(func(alias string, r route.StreamRoute) {
 				rts[alias] = r
 			})
 		}
