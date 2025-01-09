@@ -1,7 +1,6 @@
 package strutils
 
 import (
-	"net/url"
 	"strings"
 
 	"golang.org/x/text/cases"
@@ -20,14 +19,6 @@ func CommaSeperatedList(s string) []string {
 
 func Title(s string) string {
 	return cases.Title(language.AmericanEnglish).String(s)
-}
-
-func ExtractPort(fullURL string) (int, error) {
-	url, err := url.Parse(fullURL)
-	if err != nil {
-		return 0, err
-	}
-	return Atoi(url.Port())
 }
 
 func ToLowerNoSnake(s string) string {
