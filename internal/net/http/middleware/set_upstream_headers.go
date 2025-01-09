@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 )
 
 // internal use only.
@@ -13,7 +14,7 @@ type setUpstreamHeaders struct {
 
 var suh = NewMiddleware[setUpstreamHeaders]()
 
-func newSetUpstreamHeaders(rp *gphttp.ReverseProxy) *Middleware {
+func newSetUpstreamHeaders(rp *reverseproxy.ReverseProxy) *Middleware {
 	m, err := suh.New(OptionsRaw{
 		"name":   rp.TargetName,
 		"scheme": rp.TargetURL.Scheme,

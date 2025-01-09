@@ -5,6 +5,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/entry"
+	"github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher"
 )
@@ -87,10 +88,10 @@ func (handler *EventHandler) matchAny(events []watcher.Event, route *route.Route
 
 func (handler *EventHandler) match(event watcher.Event, route *route.Route) bool {
 	switch handler.provider.GetType() {
-	case ProviderTypeDocker:
+	case types.ProviderTypeDocker:
 		return route.Entry.Container.ContainerID == event.ActorID ||
 			route.Entry.Container.ContainerName == event.ActorName
-	case ProviderTypeFile:
+	case types.ProviderTypeFile:
 		return true
 	}
 	// should never happen

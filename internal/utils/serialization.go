@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/go-playground/validator/v10"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -46,82 +45,6 @@ func New(t reflect.Type) reflect.Value {
 		return reflect.ValueOf(dv())
 	}
 	return reflect.New(t)
-}
-
-// Serialize converts the given data into a map[string]any representation.
-//
-// It uses reflection to inspect the data type and handle different kinds of data.
-// For a struct, it extracts the fields using the json tag if present, or the field name if not.
-// For an embedded struct, it recursively converts its fields into the result map.
-// For any other type, it returns an error.
-//
-// Parameters:
-// - data: The data to be converted into a map.
-//
-// Returns:
-// - result: The resulting map[string]any representation of the data.
-// - error: An error if the data type is unsupported or if there is an error during conversion.
-func Serialize(data any) (SerializedObject, error) {
-	result := make(map[string]any)
-
-	// Use reflection to inspect the data type
-	value := reflect.ValueOf(data)
-
-	// Check if the value is valid
-	if !value.IsValid() {
-		return nil, ErrInvalidType.Subjectf("%T", data)
-	}
-
-	// Dereference pointers if necessary
-	if value.Kind() == reflect.Ptr {
-		value = value.Elem()
-	}
-
-	// Handle different kinds of data
-	switch value.Kind() {
-	case reflect.Map:
-		for _, key := range value.MapKeys() {
-			result[key.String()] = value.MapIndex(key).Interface()
-		}
-	case reflect.Struct:
-		for i := range value.NumField() {
-			field := value.Type().Field(i)
-			if !field.IsExported() {
-				continue
-			}
-			jsonTag := field.Tag.Get("json") // Get the json tag
-			if jsonTag == "-" {
-				continue // Ignore this field if the tag is "-"
-			}
-			if strings.Contains(jsonTag, ",omitempty") {
-				if value.Field(i).IsZero() {
-					continue
-				}
-				jsonTag = strings.Replace(jsonTag, ",omitempty", "", 1)
-			}
-
-			// If the json tag is not empty, use it as the key
-			switch {
-			case jsonTag != "":
-				result[jsonTag] = value.Field(i).Interface()
-			case field.Anonymous:
-				// If the field is an embedded struct, add its fields to the result
-				fieldMap, err := Serialize(value.Field(i).Interface())
-				if err != nil {
-					return nil, err
-				}
-				for k, v := range fieldMap {
-					result[k] = v
-				}
-			default:
-				result[field.Name] = value.Field(i).Interface()
-			}
-		}
-	default:
-		return nil, errors.New("serialize: unsupported data type " + value.Kind().String())
-	}
-
-	return result, nil
 }
 
 func extractFields(t reflect.Type) []reflect.StructField {
@@ -203,9 +126,8 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			mapping[key] = dstV.FieldByName(field.Name)
 			fieldName[field.Name] = key
 
-			_, ok := field.Tag.Lookup("validate")
-			if ok {
-				needValidate = true
+			if !needValidate {
+				_, needValidate = field.Tag.Lookup("validate")
 			}
 
 			aliases, ok := field.Tag.Lookup("aliases")
@@ -258,7 +180,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		}
 		return errs.Error()
 	default:
-		return ErrUnsupportedConversion.Subject("deserialize to " + dstT.String())
+		return ErrUnsupportedConversion.Subject("mapping to " + dstT.String())
 	}
 }
 
@@ -355,7 +277,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 		if dstT.Kind() != reflect.Slice {
 			return ErrUnsupportedConversion.Subject(dstT.String() + " to " + srcT.String())
 		}
-		newSlice := reflect.MakeSlice(dstT, 0, src.Len())
+		newSlice := reflect.MakeSlice(dstT, src.Len(), src.Len())
 		i := 0
 		for _, v := range src.Seq2() {
 			tmp := New(dstT.Elem()).Elem()
@@ -363,7 +285,7 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 			if err != nil {
 				return err.Subjectf("[%d]", i)
 			}
-			newSlice = reflect.Append(newSlice, tmp)
+			newSlice.Index(i).Set(tmp)
 			i++
 		}
 		dst.Set(newSlice)
@@ -424,10 +346,11 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		return true, E.From(parser.Parse(src))
 	}
 	// yaml like
-	isMultiline := strings.ContainsRune(src, '\n')
 	var tmp any
 	switch dst.Kind() {
 	case reflect.Slice:
+		src = strings.TrimSpace(src)
+		isMultiline := strings.ContainsRune(src, '\n')
 		// one liner is comma separated list
 		if !isMultiline {
 			values := strutils.CommaSeperatedList(src)
@@ -444,16 +367,10 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 			}
 			return
 		}
-		lines := strutils.SplitLine(src)
-		sl := make([]string, 0, len(lines))
-		for _, line := range lines {
-			line = strings.TrimLeftFunc(line, func(r rune) bool {
-				return r == '-' || unicode.IsSpace(r)
-			})
-			if line == "" || line[0] == '#' {
-				continue
-			}
-			sl = append(sl, line)
+		sl := make([]any, 0)
+		err := yaml.Unmarshal([]byte(src), &sl)
+		if err != nil {
+			return true, E.From(err)
 		}
 		tmp = sl
 	case reflect.Map, reflect.Struct:

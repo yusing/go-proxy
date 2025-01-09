@@ -3,24 +3,19 @@ package main
 import (
 	"encoding/json"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/yusing/go-proxy/internal"
-	"github.com/yusing/go-proxy/internal/api"
-	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
-	"github.com/yusing/go-proxy/internal/entrypoint"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	"github.com/yusing/go-proxy/internal/net/http/server"
+	"github.com/yusing/go-proxy/internal/route/routes"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
 )
@@ -98,16 +93,16 @@ func main() {
 	switch args.Command {
 	case common.CommandListRoutes:
 		cfg.StartProxyProviders()
-		printJSON(config.RoutesByAlias())
+		printJSON(routes.RoutesByAlias())
 		return
 	case common.CommandListConfigs:
-		printJSON(config.Value())
+		printJSON(cfg.Value())
 		return
 	case common.CommandDebugListEntries:
-		printJSON(config.DumpEntries())
+		printJSON(cfg.DumpEntries())
 		return
 	case common.CommandDebugListProviders:
-		printJSON(config.DumpProviders())
+		printJSON(cfg.DumpProviders())
 		return
 	}
 
@@ -115,58 +110,25 @@ func main() {
 		logging.Warn().Msg("API JWT secret is empty, authentication is disabled")
 	}
 
-	cfg.StartProxyProviders()
+	cfg.Start()
 	config.WatchChanges()
-
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT)
-	signal.Notify(sig, syscall.SIGTERM)
-	signal.Notify(sig, syscall.SIGHUP)
-
-	autocert := config.GetAutoCertProvider()
-	if autocert != nil {
-		if err := autocert.Setup(); err != nil {
-			E.LogFatal("autocert setup error", err)
-		}
-	} else {
-		logging.Info().Msg("autocert not configured")
-	}
-
-	server.StartServer(server.Options{
-		Name:         "proxy",
-		CertProvider: autocert,
-		HTTPAddr:     common.ProxyHTTPAddr,
-		HTTPSAddr:    common.ProxyHTTPSAddr,
-		Handler:      http.HandlerFunc(entrypoint.Handler),
-	})
 
 	// Initialize authentication providers
 	if err := auth.Initialize(); err != nil {
 		logging.Warn().Err(err).Msg("Failed to initialize authentication providers")
 	}
 
-	server.StartServer(server.Options{
-		Name:         "api",
-		CertProvider: autocert,
-		HTTPAddr:     common.APIHTTPAddr,
-		Handler:      api.NewHandler(),
-	})
-
-	if common.PrometheusEnabled {
-		server.StartServer(server.Options{
-			Name:         "metrics",
-			CertProvider: autocert,
-			HTTPAddr:     common.MetricsHTTPAddr,
-			Handler:      metrics.NewHandler(),
-		})
-	}
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, syscall.SIGINT)
+	signal.Notify(sig, syscall.SIGTERM)
+	signal.Notify(sig, syscall.SIGHUP)
 
 	// wait for signal
 	<-sig
 
-	// gracefully shutdown
+	// grafully shutdown
 	logging.Info().Msg("shutting down")
-	_ = task.GracefulShutdown(time.Second * time.Duration(config.Value().TimeoutShutdown))
+	_ = task.GracefulShutdown(time.Second * time.Duration(cfg.Value().TimeoutShutdown))
 }
 
 func prepareDirectory(dir string) {

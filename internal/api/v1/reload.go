@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
-	"github.com/yusing/go-proxy/internal/config"
+	config "github.com/yusing/go-proxy/internal/config/types"
 )
 
-func Reload(w http.ResponseWriter, r *http.Request) {
-	if err := config.Reload(); err != nil {
+func Reload(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
+	if err := cfg.Reload(); err != nil {
 		U.HandleErr(w, r, err)
 		return
 	}

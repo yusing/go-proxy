@@ -12,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
+	"github.com/yusing/go-proxy/internal/route/rules"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -30,7 +31,7 @@ type (
 		Port         string                     `json:"port,omitempty"`
 		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
 		PathPatterns []string                   `json:"path_patterns,omitempty"`
-		Rules        Rules                      `json:"rules,omitempty"`
+		Rules        rules.Rules                `json:"rules,omitempty" validate:"omitempty,unique=Name"`
 		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
 		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty"`
 		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`

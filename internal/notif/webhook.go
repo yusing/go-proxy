@@ -49,10 +49,7 @@ func jsonIfTemplateNotUsed(fl validator.FieldLevel) bool {
 
 func init() {
 	utils.RegisterDefaultValueFactory(DefaultValue)
-	err := utils.Validator().RegisterValidation("jsonIfTemplateNotUsed", jsonIfTemplateNotUsed)
-	if err != nil {
-		panic(err)
-	}
+	utils.MustRegisterValidation("jsonIfTemplateNotUsed", jsonIfTemplateNotUsed)
 }
 
 // Name implements Provider.

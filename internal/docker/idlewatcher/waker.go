@@ -8,7 +8,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/metrics"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
@@ -22,7 +22,7 @@ type (
 	waker struct {
 		_ U.NoCopy
 
-		rp     *gphttp.ReverseProxy
+		rp     *reverseproxy.ReverseProxy
 		stream net.Stream
 		hc     health.HealthChecker
 		metric *metrics.Gauge
@@ -38,7 +38,7 @@ const (
 
 // TODO: support stream
 
-func newWaker(parent task.Parent, entry route.Entry, rp *gphttp.ReverseProxy, stream net.Stream) (Waker, E.Error) {
+func newWaker(parent task.Parent, entry route.Entry, rp *reverseproxy.ReverseProxy, stream net.Stream) (Waker, E.Error) {
 	hcCfg := entry.RawEntry().HealthCheck
 	hcCfg.Timeout = idleWakerCheckTimeout
 
@@ -71,7 +71,7 @@ func newWaker(parent task.Parent, entry route.Entry, rp *gphttp.ReverseProxy, st
 }
 
 // lifetime should follow route provider.
-func NewHTTPWaker(parent task.Parent, entry route.Entry, rp *gphttp.ReverseProxy) (Waker, E.Error) {
+func NewHTTPWaker(parent task.Parent, entry route.Entry, rp *reverseproxy.ReverseProxy) (Waker, E.Error) {
 	return newWaker(parent, entry, rp, nil)
 }
 

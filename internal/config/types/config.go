@@ -3,6 +3,8 @@ package types
 import (
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/utils"
+
+	E "github.com/yusing/go-proxy/internal/error"
 )
 
 type (
@@ -24,6 +26,12 @@ type (
 		AccessLog   *accesslog.Config `json:"access_log" validate:"omitempty"`
 	}
 	NotificationConfig map[string]any
+
+	ConfigInstance interface {
+		Value() *Config
+		Reload() E.Error
+		Statistics() map[string]any
+	}
 )
 
 func DefaultConfig() *Config {
@@ -33,6 +41,11 @@ func DefaultConfig() *Config {
 			UseDefaultCategories: true,
 		},
 	}
+}
+
+func Validate(data []byte) E.Error {
+	var model Config
+	return utils.DeserializeYAML(data, &model)
 }
 
 func init() {

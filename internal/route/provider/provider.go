@@ -10,6 +10,8 @@ import (
 	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
 	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/route/provider/types"
+	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	W "github.com/yusing/go-proxy/internal/watcher"
 	"github.com/yusing/go-proxy/internal/watcher/events"
@@ -20,7 +22,7 @@ type (
 		ProviderImpl `json:"-"`
 
 		name   string
-		t      ProviderType
+		t      types.ProviderType
 		routes R.Routes
 
 		watcher W.Watcher
@@ -31,24 +33,20 @@ type (
 		NewWatcher() W.Watcher
 		Logger() *zerolog.Logger
 	}
-	ProviderType  string
 	ProviderStats struct {
-		NumRPs     int          `json:"num_reverse_proxies"`
-		NumStreams int          `json:"num_streams"`
-		Type       ProviderType `json:"type"`
+		NumRPs     int                `json:"num_reverse_proxies"`
+		NumStreams int                `json:"num_streams"`
+		Type       types.ProviderType `json:"type"`
 	}
 )
 
 const (
-	ProviderTypeDocker ProviderType = "docker"
-	ProviderTypeFile   ProviderType = "file"
-
 	providerEventFlushInterval = 300 * time.Millisecond
 )
 
 var ErrEmptyProviderName = errors.New("empty provider name")
 
-func newProvider(name string, t ProviderType) *Provider {
+func newProvider(name string, t types.ProviderType) *Provider {
 	return &Provider{
 		name:   name,
 		t:      t,
@@ -61,7 +59,7 @@ func NewFileProvider(filename string) (p *Provider, err error) {
 	if name == "" {
 		return nil, ErrEmptyProviderName
 	}
-	p = newProvider(strings.ReplaceAll(name, ".", "_"), ProviderTypeFile)
+	p = newProvider(strings.ReplaceAll(name, ".", "_"), types.ProviderTypeFile)
 	p.ProviderImpl, err = FileProviderImpl(filename)
 	if err != nil {
 		return nil, err
@@ -75,7 +73,7 @@ func NewDockerProvider(name string, dockerHost string) (p *Provider, err error) 
 		return nil, ErrEmptyProviderName
 	}
 
-	p = newProvider(name, ProviderTypeDocker)
+	p = newProvider(name, types.ProviderTypeDocker)
 	p.ProviderImpl, err = DockerProviderImpl(name, dockerHost, p.IsExplicitOnly())
 	if err != nil {
 		return nil, err
@@ -92,7 +90,7 @@ func (p *Provider) GetName() string {
 	return p.name
 }
 
-func (p *Provider) GetType() ProviderType {
+func (p *Provider) GetType() types.ProviderType {
 	return p.t
 }
 
@@ -111,7 +109,7 @@ func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
 	return nil
 }
 
-// Start implements*task.TaskStarter.
+// Start implements task.TaskStarter.
 func (p *Provider) Start(parent task.Parent) E.Error {
 	t := parent.Subtask("provider."+p.name, false)
 
@@ -171,9 +169,9 @@ func (p *Provider) Statistics() ProviderStats {
 	numStreams := 0
 	p.routes.RangeAll(func(_ string, r *R.Route) {
 		switch r.Type {
-		case R.RouteTypeReverseProxy:
+		case route.RouteTypeReverseProxy:
 			numRPs++
-		case R.RouteTypeStream:
+		case route.RouteTypeStream:
 			numStreams++
 		}
 	})

@@ -62,16 +62,37 @@ func LoadComposeFiles() {
 		return
 	}
 	for _, defFile := range middlewareDefs {
+		voidErrs := E.NewBuilder("") // ignore these errors, will be added in next step
+		mws := BuildMiddlewaresFromComposeFile(defFile, voidErrs)
+		if len(mws) == 0 {
+			continue
+		}
+		for name, m := range mws {
+			name = strutils.ToLowerNoSnake(name)
+			if _, ok := allMiddlewares[name]; ok {
+				errs.Add(ErrDuplicatedMiddleware.Subject(name))
+				continue
+			}
+			allMiddlewares[name] = m
+			logger.Info().
+				Str("src", path.Base(defFile)).
+				Str("name", name).
+				Msg("middleware loaded")
+		}
+	}
+	// build again to resolve cross references
+	for _, defFile := range middlewareDefs {
 		mws := BuildMiddlewaresFromComposeFile(defFile, errs)
 		if len(mws) == 0 {
 			continue
 		}
 		for name, m := range mws {
+			name = strutils.ToLowerNoSnake(name)
 			if _, ok := allMiddlewares[name]; ok {
-				errs.Add(ErrDuplicatedMiddleware.Subject(name))
+				// already loaded above
 				continue
 			}
-			allMiddlewares[strutils.ToLowerNoSnake(name)] = m
+			allMiddlewares[name] = m
 			logger.Info().
 				Str("src", path.Base(defFile)).
 				Str("name", name).

@@ -14,11 +14,10 @@ import (
 )
 
 type (
-	RouteType string
-	Route     struct {
+	Route struct {
 		_ U.NoCopy
 		impl
-		Type  RouteType
+		Type  types.RouteType
 		Entry *RawEntry
 	}
 	Routes = F.Map[string, *Route]
@@ -32,11 +31,6 @@ type (
 	}
 	RawEntry   = types.RawEntry
 	RawEntries = types.RawEntries
-)
-
-const (
-	RouteTypeStream       RouteType = "stream"
-	RouteTypeReverseProxy RouteType = "reverse_proxy"
 )
 
 // function alias.
@@ -59,15 +53,15 @@ func NewRoute(raw *RawEntry) (*Route, E.Error) {
 		return nil, err
 	}
 
-	var t RouteType
+	var t types.RouteType
 	var rt impl
 
 	switch e := en.(type) {
 	case *entry.StreamEntry:
-		t = RouteTypeStream
+		t = types.RouteTypeStream
 		rt, err = NewStreamRoute(e)
 	case *entry.ReverseProxyEntry:
-		t = RouteTypeReverseProxy
+		t = types.RouteTypeReverseProxy
 		rt, err = NewHTTPRoute(e)
 	default:
 		panic("bug: should not reach here")

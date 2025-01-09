@@ -10,7 +10,7 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
@@ -139,7 +139,7 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.E
 		rr.parent = http.DefaultTransport
 	}
 
-	rp := gphttp.NewReverseProxy(middleware.name, args.upstreamURL, rr)
+	rp := reverseproxy.NewReverseProxy(middleware.name, args.upstreamURL, rr)
 
 	mid, setOptErr := middleware.New(args.middlewareOpt)
 	if setOptErr != nil {

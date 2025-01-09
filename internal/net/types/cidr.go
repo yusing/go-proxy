@@ -8,6 +8,11 @@ import (
 //nolint:recvcheck
 type CIDR net.IPNet
 
+func ParseCIDR(v string) (cidr CIDR, err error) {
+	err = cidr.Parse(v)
+	return
+}
+
 func (cidr *CIDR) Parse(v string) error {
 	if !strings.Contains(v, "/") {
 		v += "/32" // single IP

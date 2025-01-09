@@ -7,12 +7,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/yusing/go-proxy/internal/api"
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/entrypoint"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/metrics"
+	"github.com/yusing/go-proxy/internal/net/http/server"
 	"github.com/yusing/go-proxy/internal/notif"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
 	"github.com/yusing/go-proxy/internal/task"
@@ -26,7 +29,9 @@ type Config struct {
 	value            *types.Config
 	providers        F.Map[string, *proxy.Provider]
 	autocertProvider *autocert.Provider
-	task             *task.Task
+	entrypoint       *entrypoint.Entrypoint
+
+	task *task.Task
 }
 
 var (
@@ -45,15 +50,18 @@ Make sure you rename it back before next time you start.`
 You may run "ls-config" to show or dump the current config.`
 )
 
+var Validate = types.Validate
+
 func GetInstance() *Config {
 	return instance
 }
 
 func newConfig() *Config {
 	return &Config{
-		value:     types.DefaultConfig(),
-		providers: F.NewMapOf[string, *proxy.Provider](),
-		task:      task.RootTask("config", false),
+		value:      types.DefaultConfig(),
+		providers:  F.NewMapOf[string, *proxy.Provider](),
+		entrypoint: entrypoint.NewEntrypoint(),
+		task:       task.RootTask("config", false),
 	}
 }
 
@@ -64,11 +72,6 @@ func Load() (*Config, E.Error) {
 	instance = newConfig()
 	cfgWatcher = watcher.NewConfigFileWatcher(common.ConfigFileName)
 	return instance, instance.load()
-}
-
-func Validate(data []byte) E.Error {
-	var model types.Config
-	return utils.DeserializeYAML(data, &model)
 }
 
 func MatchDomains() []string {
@@ -101,6 +104,7 @@ func OnConfigChange(ev []events.Event) {
 	}
 
 	if err := Reload(); err != nil {
+		logger.Warn().Msg("using last config")
 		// recovered in event queue
 		panic(err)
 	}
@@ -122,20 +126,44 @@ func Reload() E.Error {
 	// -> replace config -> start new subtasks
 	instance.task.Finish("config changed")
 	instance = newCfg
-	instance.StartProxyProviders()
+	instance.Start()
 	return nil
 }
 
-func Value() types.Config {
-	return *instance.value
+func (cfg *Config) Value() *types.Config {
+	return instance.value
 }
 
-func GetAutoCertProvider() *autocert.Provider {
+func (cfg *Config) Reload() E.Error {
+	return Reload()
+}
+
+func (cfg *Config) AutoCertProvider() *autocert.Provider {
 	return instance.autocertProvider
 }
 
 func (cfg *Config) Task() *task.Task {
 	return cfg.task
+}
+
+func (cfg *Config) Start() {
+	cfg.StartAutoCert()
+	cfg.StartProxyProviders()
+	cfg.StartServers()
+}
+
+func (cfg *Config) StartAutoCert() {
+	autocert := cfg.autocertProvider
+	if autocert == nil {
+		logging.Info().Msg("autocert not configured")
+		return
+	}
+
+	if err := autocert.Setup(); err != nil {
+		E.LogFatal("autocert setup error", err)
+	} else {
+		autocert.ScheduleRenewal(cfg.task)
+	}
 }
 
 func (cfg *Config) StartProxyProviders() {
@@ -146,6 +174,30 @@ func (cfg *Config) StartProxyProviders() {
 
 	if err := E.Join(errs...); err != nil {
 		E.LogError("route provider errors", err, &logger)
+	}
+}
+
+func (cfg *Config) StartServers() {
+	server.StartServer(cfg.task, server.Options{
+		Name:         "proxy",
+		CertProvider: cfg.AutoCertProvider(),
+		HTTPAddr:     common.ProxyHTTPAddr,
+		HTTPSAddr:    common.ProxyHTTPSAddr,
+		Handler:      cfg.entrypoint,
+	})
+	server.StartServer(cfg.task, server.Options{
+		Name:         "api",
+		CertProvider: cfg.AutoCertProvider(),
+		HTTPAddr:     common.APIHTTPAddr,
+		Handler:      api.NewHandler(cfg),
+	})
+	if common.PrometheusEnabled {
+		server.StartServer(cfg.task, server.Options{
+			Name:         "metrics",
+			CertProvider: cfg.AutoCertProvider(),
+			HTTPAddr:     common.MetricsHTTPAddr,
+			Handler:      metrics.NewHandler(),
+		})
 	}
 }
 
@@ -164,8 +216,8 @@ func (cfg *Config) load() E.Error {
 
 	// errors are non fatal below
 	errs := E.NewBuilder(errMsg)
-	errs.Add(entrypoint.SetMiddlewares(model.Entrypoint.Middlewares))
-	errs.Add(entrypoint.SetAccessLogger(cfg.task, model.Entrypoint.AccessLog))
+	errs.Add(cfg.entrypoint.SetMiddlewares(model.Entrypoint.Middlewares))
+	errs.Add(cfg.entrypoint.SetAccessLogger(cfg.task, model.Entrypoint.AccessLog))
 	errs.Add(cfg.initNotification(model.Providers.Notification))
 	errs.Add(cfg.initAutoCert(model.AutoCert))
 	errs.Add(cfg.loadRouteProviders(&model.Providers))
@@ -176,7 +228,8 @@ func (cfg *Config) load() E.Error {
 			model.MatchDomains[i] = "." + domain
 		}
 	}
-	entrypoint.SetFindRouteDomains(model.MatchDomains)
+	cfg.entrypoint.SetFindRouteDomains(model.MatchDomains)
+
 	return errs.Error()
 }
 

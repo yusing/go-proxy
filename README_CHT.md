@@ -87,8 +87,10 @@ _加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
 
     - 更改網頁介面認證的使用者名稱和密碼
       ```shell
-      sed -i "s|API_USERNAME=.*|API_USERNAME=admin|g" .env
-      sed -i "s|API_PASSWORD=.*|API_PASSWORD=some-strong-password|g" .env
+      USERNAME=admin
+      PASSWORD=some-password
+      sed -i "s|API_USERNAME=.*|API_USERNAME=${USERNAME}|g" .env
+      sed -i "s|API_PASSWORD=.*|API_PASSWORD=${PASSWORD}|g" .env
       ```
 
 4.  _（可選）_ 設置其他 Docker 節點的 `docker-socket-proxy`（參見 [多 Docker 節點設置](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)），然後在 `config.yml` 中添加它們

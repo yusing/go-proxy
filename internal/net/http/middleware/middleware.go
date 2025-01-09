@@ -9,14 +9,15 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
 	Error = E.Error
 
-	ReverseProxy = gphttp.ReverseProxy
-	ProxyRequest = gphttp.ProxyRequest
+	ReverseProxy = reverseproxy.ReverseProxy
+	ProxyRequest = reverseproxy.ProxyRequest
 
 	ImplNewFunc = func() any
 	OptionsRaw  = map[string]any
@@ -93,9 +94,9 @@ func (m *Middleware) finalize() {
 }
 
 func (m *Middleware) New(optsRaw OptionsRaw) (*Middleware, E.Error) {
-	if m.construct == nil {
-		if optsRaw != nil {
-			panic("bug: middleware already constructed")
+	if m.construct == nil { // likely a middleware from compose
+		if len(optsRaw) != 0 {
+			return nil, E.New("additional options not allowed for middleware ").Subject(m.name)
 		}
 		return m, nil
 	}
