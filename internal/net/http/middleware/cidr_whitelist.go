@@ -34,7 +34,7 @@ var (
 )
 
 func init() {
-	utils.Validator().RegisterValidation("status_code", func(fl validator.FieldLevel) bool {
+	utils.MustRegisterValidation("status_code", func(fl validator.FieldLevel) bool {
 		statusCode := fl.Field().Int()
 		return gphttp.IsStatusCodeValid(int(statusCode))
 	})
