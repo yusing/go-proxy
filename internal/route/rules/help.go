@@ -3,8 +3,9 @@ package rules
 import "strings"
 
 type Help struct {
-	command string
-	args    map[string]string // args[arg] -> description
+	command     string
+	description string
+	args        map[string]string // args[arg] -> description
 }
 
 /*
@@ -22,6 +23,11 @@ func (h *Help) String() string {
 		sb.WriteRune('<')
 		sb.WriteString(arg)
 		sb.WriteString("> ")
+	}
+	if h.description != "" {
+		sb.WriteString("\n\t")
+		sb.WriteString(h.description)
+		sb.WriteRune('\n')
 	}
 	sb.WriteRune('\n')
 	for arg, desc := range h.args {

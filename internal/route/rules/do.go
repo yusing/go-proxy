@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	"github.com/yusing/go-proxy/internal/net/types"
@@ -225,9 +224,6 @@ func buildCmd(executors []*CommandExecutor) (*CommandExecutor, error) {
 	return &CommandExecutor{
 		HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
 			for _, exec := range executors {
-				logging.Debug().
-					Str("directive", exec.directive).
-					Msg("executing command")
 				exec.HandlerFunc(w, r)
 			}
 		},

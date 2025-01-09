@@ -18,11 +18,14 @@ type (
 )
 
 const (
-	OnHeader = "header"
-	OnQuery  = "query"
-	OnMethod = "method"
-	OnPath   = "path"
-	OnRemote = "remote"
+	OnHeader   = "header"
+	OnQuery    = "query"
+	OnCookie   = "cookie"
+	OnForm     = "form"
+	OnPostForm = "postform"
+	OnMethod   = "method"
+	OnPath     = "path"
+	OnRemote   = "remote"
 )
 
 var checkers = map[string]struct {
@@ -56,6 +59,51 @@ var checkers = map[string]struct {
 			return r.URL.Query().Get(args.(StrTuple).First) == args.(StrTuple).Second
 		},
 	},
+	OnCookie: {
+		help: Help{
+			command: OnCookie,
+			args: map[string]string{
+				"key":   "the cookie key",
+				"value": "the cookie value",
+			},
+		},
+		validate: toStrTuple,
+		check: func(r *http.Request, args any) bool {
+			cookies := r.CookiesNamed(args.(StrTuple).First)
+			for _, cookie := range cookies {
+				if cookie.Value == args.(StrTuple).Second {
+					return true
+				}
+			}
+			return false
+		},
+	},
+	OnForm: {
+		help: Help{
+			command: OnForm,
+			args: map[string]string{
+				"key":   "the form key",
+				"value": "the form value",
+			},
+		},
+		validate: toStrTuple,
+		check: func(r *http.Request, args any) bool {
+			return r.FormValue(args.(StrTuple).First) == args.(StrTuple).Second
+		},
+	},
+	OnPostForm: {
+		help: Help{
+			command: OnPostForm,
+			args: map[string]string{
+				"key":   "the form key",
+				"value": "the form value",
+			},
+		},
+		validate: toStrTuple,
+		check: func(r *http.Request, args any) bool {
+			return r.PostFormValue(args.(StrTuple).First) == args.(StrTuple).Second
+		},
+	},
 	OnMethod: {
 		help: Help{
 			command: OnMethod,
@@ -71,6 +119,9 @@ var checkers = map[string]struct {
 	OnPath: {
 		help: Help{
 			command: OnPath,
+			description: `The path can be a glob pattern, e.g.:
+				/path/to
+				/path/to/*`,
 			args: map[string]string{
 				"path": "the request path, must start with /",
 			},
