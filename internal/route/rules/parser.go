@@ -1,7 +1,8 @@
 package rules
 
 import (
-	"strings"
+	"bytes"
+	"unicode"
 
 	E "github.com/yusing/go-proxy/internal/error"
 )
@@ -22,15 +23,30 @@ var escapedChars = map[rune]rune{
 //	error 403 "Forbidden 'foo' 'bar'"
 //	error 403 Forbidden\ \"foo\"\ \"bar\".
 func parse(v string) (subject string, args []string, err E.Error) {
-	v = strings.TrimSpace(v)
-	var buf strings.Builder
+	buf := bytes.NewBuffer(make([]byte, 0, len(v)))
+
 	escaped := false
-	quotes := make([]rune, 0, 4)
-	flush := func() {
+	quote := rune(0)
+	flush := func(quoted bool) {
+		part := buf.String()
+		if !quoted {
+			beg := 0
+			for i, r := range part {
+				if unicode.IsSpace(r) {
+					beg = i + 1
+				} else {
+					break
+				}
+			}
+			if beg == len(part) { // all spaces
+				return
+			}
+			part = part[beg:] // trim leading spaces
+		}
 		if subject == "" {
-			subject = buf.String()
+			subject = part
 		} else {
-			args = append(args, buf.String())
+			args = append(args, part)
 		}
 		buf.Reset()
 	}
@@ -51,29 +67,30 @@ func parse(v string) (subject string, args []string, err E.Error) {
 			continue
 		case '"', '\'':
 			switch {
-			case len(quotes) > 0 && quotes[len(quotes)-1] == r:
-				quotes = quotes[:len(quotes)-1]
-				if len(quotes) == 0 {
-					flush()
-				} else {
-					buf.WriteRune(r)
-				}
-			case len(quotes) == 0:
-				quotes = append(quotes, r)
+			case quote == 0:
+				quote = r
+				flush(false)
+			case r == quote:
+				quote = 0
+				flush(true)
 			default:
 				buf.WriteRune(r)
 			}
 		case ' ':
-			flush()
+			if quote == 0 {
+				flush(false)
+				continue
+			}
+			fallthrough
 		default:
 			buf.WriteRune(r)
 		}
 	}
 
-	if len(quotes) > 0 {
+	if quote != 0 {
 		err = ErrUnterminatedQuotes
 	} else {
-		flush()
+		flush(false)
 	}
 	return
 }
