@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal"
+	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -115,6 +116,11 @@ func main() {
 	cfg.Start()
 	config.WatchChanges()
 
+	// Initialize authentication providers
+	if err := auth.Initialize(); err != nil {
+		logging.Warn().Err(err).Msg("Failed to initialize authentication providers")
+	}
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
 	signal.Notify(sig, syscall.SIGTERM)
@@ -123,7 +129,7 @@ func main() {
 	// wait for signal
 	<-sig
 
-	// grafully shutdown
+	// gracefully shutdown
 	logging.Info().Msg("shutting down")
 	_ = task.GracefulShutdown(time.Second * time.Duration(cfg.Value().TimeoutShutdown))
 }
