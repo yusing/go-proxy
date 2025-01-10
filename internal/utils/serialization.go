@@ -1,5 +1,7 @@
 package utils
 
+// FIXME: some times [%d] is not in correct order
+
 import (
 	"encoding/json"
 	"errors"
@@ -277,16 +279,21 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 		if dstT.Kind() != reflect.Slice {
 			return ErrUnsupportedConversion.Subject(dstT.String() + " to " + srcT.String())
 		}
+		sliceErrs := E.NewBuilder("slice conversion errors")
 		newSlice := reflect.MakeSlice(dstT, src.Len(), src.Len())
 		i := 0
 		for _, v := range src.Seq2() {
 			tmp := New(dstT.Elem()).Elem()
 			err := Convert(v, tmp)
 			if err != nil {
-				return err.Subjectf("[%d]", i)
+				sliceErrs.Add(err.Subjectf("[%d]", i))
+				continue
 			}
 			newSlice.Index(i).Set(tmp)
 			i++
+		}
+		if err := sliceErrs.Error(); err != nil {
+			return err
 		}
 		dst.Set(newSlice)
 		return nil
