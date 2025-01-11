@@ -9,7 +9,9 @@ var (
 	ErrInvalidArguments       = E.New("invalid arguments")
 	ErrInvalidOnTarget        = E.New("invalid `rule.on` target")
 	ErrInvalidCommandSequence = E.New("invalid command sequence")
+	ErrInvalidSetTarget       = E.New("invalid `rule.set` target")
 
+	ErrExpectNoArg   = ErrInvalidArguments.Withf("expect no arg")
 	ErrExpectOneArg  = ErrInvalidArguments.Withf("expect 1 arg")
 	ErrExpectTwoArgs = ErrInvalidArguments.Withf("expect 2 args")
 )

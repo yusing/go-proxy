@@ -16,28 +16,27 @@ import (
 type (
 	Command struct {
 		raw  string
-		exec *CommandExecutor
-	}
-	CommandExecutor struct {
-		directive string
-		http.HandlerFunc
-		proceed bool
+		exec CommandHandler
 	}
 )
 
 const (
-	CommandRewrite  = "rewrite"
-	CommandServe    = "serve"
-	CommandProxy    = "proxy"
-	CommandRedirect = "redirect"
-	CommandError    = "error"
-	CommandBypass   = "bypass"
+	CommandRewrite          = "rewrite"
+	CommandServe            = "serve"
+	CommandProxy            = "proxy"
+	CommandRedirect         = "redirect"
+	CommandError            = "error"
+	CommandRequireBasicAuth = "require_basic_auth"
+	CommandSet              = "set"
+	CommandAdd              = "add"
+	CommandRemove           = "remove"
+	CommandBypass           = "bypass"
 )
 
 var commands = map[string]struct {
 	help     Help
 	validate ValidateFunc
-	build    func(args any) *CommandExecutor
+	build    func(args any) CommandHandler
 }{
 	CommandRewrite: {
 		help: Help{
@@ -53,25 +52,22 @@ var commands = map[string]struct {
 			}
 			return validateURLPaths(args)
 		},
-		build: func(args any) *CommandExecutor {
+		build: func(args any) CommandHandler {
 			a := args.([]string)
 			orig, repl := a[0], a[1]
-			return &CommandExecutor{
-				HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-					path := r.URL.Path
-					if len(path) > 0 && path[0] != '/' {
-						path = "/" + path
-					}
-					if !strings.HasPrefix(path, orig) {
-						return
-					}
-					path = repl + path[len(orig):]
-					r.URL.Path = path
-					r.URL.RawPath = r.URL.EscapedPath()
-					r.RequestURI = r.URL.RequestURI()
-				},
-				proceed: true,
-			}
+			return StaticCommand(func(w http.ResponseWriter, r *http.Request) {
+				path := r.URL.Path
+				if len(path) > 0 && path[0] != '/' {
+					path = "/" + path
+				}
+				if !strings.HasPrefix(path, orig) {
+					return
+				}
+				path = repl + path[len(orig):]
+				r.URL.Path = path
+				r.URL.RawPath = r.URL.EscapedPath()
+				r.RequestURI = r.URL.RequestURI()
+			})
 		},
 	},
 	CommandServe: {
@@ -82,14 +78,11 @@ var commands = map[string]struct {
 			},
 		},
 		validate: validateFSPath,
-		build: func(args any) *CommandExecutor {
+		build: func(args any) CommandHandler {
 			root := args.(string)
-			return &CommandExecutor{
-				HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-					http.ServeFile(w, r, path.Join(root, path.Clean(r.URL.Path)))
-				},
-				proceed: false,
-			}
+			return ReturningCommand(func(w http.ResponseWriter, r *http.Request) {
+				http.ServeFile(w, r, path.Join(root, path.Clean(r.URL.Path)))
+			})
 		},
 	},
 	CommandRedirect: {
@@ -100,14 +93,11 @@ var commands = map[string]struct {
 			},
 		},
 		validate: validateURL,
-		build: func(args any) *CommandExecutor {
+		build: func(args any) CommandHandler {
 			target := args.(types.URL).String()
-			return &CommandExecutor{
-				HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-					http.Redirect(w, r, target, http.StatusTemporaryRedirect)
-				},
-				proceed: false,
-			}
+			return ReturningCommand(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, target, http.StatusTemporaryRedirect)
+			})
 		},
 	},
 	CommandError: {
@@ -130,17 +120,34 @@ var commands = map[string]struct {
 			if !gphttp.IsStatusCodeValid(code) {
 				return nil, ErrInvalidArguments.Subject(codeStr)
 			}
-			return []any{code, text}, nil
+			return &Tuple[int, string]{code, text}, nil
 		},
-		build: func(args any) *CommandExecutor {
-			a := args.([]any)
-			code, text := a[0].(int), a[1].(string)
-			return &CommandExecutor{
-				HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-					http.Error(w, text, code)
-				},
-				proceed: false,
+		build: func(args any) CommandHandler {
+			code, text := args.(*Tuple[int, string]).Unpack()
+			return ReturningCommand(func(w http.ResponseWriter, r *http.Request) {
+				http.Error(w, text, code)
+			})
+		},
+	},
+	CommandRequireBasicAuth: {
+		help: Help{
+			command: CommandRequireBasicAuth,
+			args: map[string]string{
+				"realm": "the authentication realm",
+			},
+		},
+		validate: func(args []string) (any, E.Error) {
+			if len(args) == 1 {
+				return args[0], nil
 			}
+			return nil, ErrExpectOneArg
+		},
+		build: func(args any) CommandHandler {
+			realm := args.(string)
+			return ReturningCommand(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("WWW-Authenticate", `Basic realm="`+realm+`"`)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			})
 		},
 	},
 	CommandProxy: {
@@ -151,30 +158,69 @@ var commands = map[string]struct {
 			},
 		},
 		validate: validateAbsoluteURL,
-		build: func(args any) *CommandExecutor {
+		build: func(args any) CommandHandler {
 			target := args.(types.URL)
 			if target.Scheme == "" {
 				target.Scheme = "http"
 			}
 			rp := reverseproxy.NewReverseProxy("", target, gphttp.DefaultTransport)
-			return &CommandExecutor{
-				HandlerFunc: rp.ServeHTTP,
-				proceed:     false,
-			}
+			return ReturningCommand(rp.ServeHTTP)
+		},
+	},
+	CommandSet: {
+		help: Help{
+			command: CommandSet,
+			args: map[string]string{
+				"field": "the field to set",
+				"value": "the value to set",
+			},
+		},
+		validate: func(args []string) (any, E.Error) {
+			return validateModField(ModFieldSet, args)
+		},
+		build: func(args any) CommandHandler {
+			return args.(CommandHandler)
+		},
+	},
+	CommandAdd: {
+		help: Help{
+			command: CommandAdd,
+			args: map[string]string{
+				"field": "the field to add",
+				"value": "the value to add",
+			},
+		},
+		validate: func(args []string) (any, E.Error) {
+			return validateModField(ModFieldAdd, args)
+		},
+		build: func(args any) CommandHandler {
+			return args.(CommandHandler)
+		},
+	},
+	CommandRemove: {
+		help: Help{
+			command: CommandRemove,
+			args: map[string]string{
+				"field": "the field to remove",
+			},
+		},
+		validate: func(args []string) (any, E.Error) {
+			return validateModField(ModFieldRemove, args)
+		},
+		build: func(args any) CommandHandler {
+			return args.(CommandHandler)
 		},
 	},
 }
 
 // Parse implements strutils.Parser.
 func (cmd *Command) Parse(v string) error {
-	cmd.raw = v
-
 	lines := strutils.SplitLine(v)
 	if len(lines) == 0 {
 		return nil
 	}
 
-	executors := make([]*CommandExecutor, 0, len(lines))
+	executors := make([]CommandHandler, 0, len(lines))
 	for _, line := range lines {
 		if line == "" {
 			continue
@@ -189,7 +235,7 @@ func (cmd *Command) Parse(v string) error {
 			if len(args) != 0 {
 				return ErrInvalidArguments.Subject(directive)
 			}
-			executors = append(executors, nil)
+			executors = append(executors, BypassCommand{})
 			continue
 		}
 
@@ -202,48 +248,58 @@ func (cmd *Command) Parse(v string) error {
 			return err.Subject(directive).Withf("%s", builder.help.String())
 		}
 
-		exec := builder.build(validArgs)
-		exec.directive = directive
-		executors = append(executors, exec)
+		executors = append(executors, builder.build(validArgs))
+	}
+
+	if len(executors) == 0 {
+		return nil
 	}
 
 	exec, err := buildCmd(executors)
 	if err != nil {
 		return err
 	}
+
+	cmd.raw = v
 	cmd.exec = exec
 	return nil
 }
 
-func buildCmd(executors []*CommandExecutor) (*CommandExecutor, error) {
+func buildCmd(executors []CommandHandler) (CommandHandler, error) {
 	for i, exec := range executors {
-		if !exec.proceed && i != len(executors)-1 {
-			return nil, ErrInvalidCommandSequence.
-				Withf("%s cannot follow %s", exec, executors[i+1])
+		switch exec.(type) {
+		case ReturningCommand, BypassCommand:
+			if i != len(executors)-1 {
+				return nil, ErrInvalidCommandSequence.
+					Withf("a returning / bypass command must be the last command")
+			}
 		}
 	}
-	return &CommandExecutor{
-		HandlerFunc: func(w http.ResponseWriter, r *http.Request) {
-			for _, exec := range executors {
-				exec.HandlerFunc(w, r)
-			}
-		},
-		proceed: executors[len(executors)-1].proceed,
-	}, nil
+
+	return Commands(executors), nil
 }
 
+// Command is purely "bypass" or empty.
 func (cmd *Command) isBypass() bool {
-	return cmd.exec == nil
+	if cmd == nil {
+		return true
+	}
+	switch cmd := cmd.exec.(type) {
+	case BypassCommand:
+		return true
+	case Commands:
+		// bypass command is always the last one
+		_, ok := cmd[len(cmd)-1].(BypassCommand)
+		return ok
+	default:
+		return false
+	}
 }
 
 func (cmd *Command) String() string {
 	return cmd.raw
 }
 
-func (cmd *Command) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + cmd.String() + "\""), nil
-}
-
-func (exec *CommandExecutor) String() string {
-	return exec.directive
+func (cmd *Command) MarshalText() ([]byte, error) {
+	return []byte(cmd.String()), nil
 }

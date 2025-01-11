@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"encoding/json"
 	"net/http"
 )
 
@@ -26,7 +27,7 @@ type (
 					on: method POST | method PUT
 					do: error 403 Forbidden
 	*/
-	Rules []Rule
+	Rules []*Rule
 	/*
 		Rule is a rule for a reverse proxy.
 		It do `Do` when `On` matches.
@@ -52,52 +53,72 @@ type (
 //	if no rule matches, the default rule is executed
 //	if no rule matches and default rule is not set,
 //	the request is passed to the upstream.
-func (rules Rules) BuildHandler(up http.Handler) http.HandlerFunc {
-	var (
-		defaultRule      Rule
-		defaultRuleIndex int
-	)
+func (rules Rules) BuildHandler(caller string, up http.Handler) http.HandlerFunc {
+	var defaultRule *Rule
 
+	nonDefaultRules := make(Rules, 0, len(rules))
 	for i, rule := range rules {
 		if rule.Name == "default" {
 			defaultRule = rule
-			defaultRuleIndex = i
+			nonDefaultRules = append(nonDefaultRules, rules[:i]...)
+			nonDefaultRules = append(nonDefaultRules, rules[i+1:]...)
 			break
 		}
 	}
 
-	rules = append(rules[:defaultRuleIndex], rules[defaultRuleIndex+1:]...)
-
-	// free allocated empty slices
-	// before encapsulating them into the handlerFunc.
 	if len(rules) == 0 {
 		if defaultRule.Do.isBypass() {
 			return up.ServeHTTP
 		}
-		rules = []Rule{}
+		return func(w http.ResponseWriter, r *http.Request) {
+			cache := NewCache()
+			defer cache.Release()
+			if defaultRule.Do.exec.Handle(cache, w, r) {
+				up.ServeHTTP(w, r)
+			}
+		}
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		hasMatch := false
-		for _, rule := range rules {
-			if rule.On.check(r) {
+		cache := NewCache()
+		defer cache.Release()
+
+		for _, rule := range nonDefaultRules {
+			if rule.Check(cache, r) {
 				if rule.Do.isBypass() {
 					up.ServeHTTP(w, r)
 					return
 				}
-				rule.Do.exec.HandlerFunc(w, r)
-				if !rule.Do.exec.proceed {
+				if !rule.Handle(cache, w, r) {
 					return
 				}
-				hasMatch = true
 			}
 		}
 
-		if hasMatch || defaultRule.Do.isBypass() {
+		// bypass or proceed
+		if defaultRule.Do.isBypass() || defaultRule.Handle(cache, w, r) {
 			up.ServeHTTP(w, r)
-			return
 		}
-
-		defaultRule.Do.exec.HandlerFunc(w, r)
 	}
+}
+
+func (rules Rules) MarshalJSON() ([]byte, error) {
+	names := make([]string, len(rules))
+	for i, rule := range rules {
+		names[i] = rule.Name
+	}
+	return json.Marshal(names)
+}
+
+func (rule *Rule) String() string {
+	return rule.Name
+}
+
+func (rule *Rule) Check(cached Cache, r *http.Request) bool {
+	return rule.On.checker.Check(cached, r)
+}
+
+func (rule *Rule) Handle(cached Cache, w http.ResponseWriter, r *http.Request) (proceed bool) {
+	proceed = rule.Do.exec.Handle(cached, w, r)
+	return
 }

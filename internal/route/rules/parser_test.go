@@ -94,3 +94,13 @@ func TestParser(t *testing.T) {
 		}
 	})
 }
+
+func BenchmarkParser(b *testing.B) {
+	const input = `error 403 "Forbidden "foo" "bar""\ baz`
+	for range b.N {
+		_, _, err := parse(input)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
