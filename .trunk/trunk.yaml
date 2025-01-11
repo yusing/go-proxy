@@ -23,7 +23,7 @@ lint:
   enabled:
     - hadolint@2.12.1-beta
     - actionlint@1.7.6
-    - checkov@3.2.350
+    - checkov@3.2.352
     - git-diff-check
     - gofmt@1.20.4
     - golangci-lint@1.63.4
@@ -32,7 +32,7 @@ lint:
     - prettier@3.4.2
     - shellcheck@0.10.0
     - shfmt@3.6.0
-    - trufflehog@3.88.1
+    - trufflehog@3.88.2
 actions:
   disabled:
     - trunk-announce

@@ -20,6 +20,8 @@ import (
 	"github.com/yusing/go-proxy/pkg"
 )
 
+var rawLogger = log.New(os.Stdout, "", 0)
+
 func main() {
 	args := common.GetArgs()
 
@@ -31,12 +33,12 @@ func main() {
 		if err := query.ReloadServer(); err != nil {
 			E.LogFatal("server reload error", err)
 		}
-		logging.Info().Msg("ok")
+		rawLogger.Println("ok")
 		return
 	case common.CommandListIcons:
 		icons, err := internal.ListAvailableIcons()
 		if err != nil {
-			log.Fatal(err)
+			rawLogger.Fatal(err)
 		}
 		printJSON(icons)
 		return
@@ -139,6 +141,5 @@ func printJSON(obj any) {
 	if err != nil {
 		logging.Fatal().Err(err).Send()
 	}
-	rawLogger := log.New(os.Stdout, "", 0)
 	rawLogger.Print(string(j)) // raw output for convenience using "jq"
 }

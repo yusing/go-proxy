@@ -1,6 +1,7 @@
 package rules
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"strings"
@@ -11,19 +12,31 @@ import (
 )
 
 type (
-	ValidateFunc func(args []string) (any, E.Error)
-	StrTuple     struct {
-		First, Second string
+	ValidateFunc      func(args []string) (any, E.Error)
+	Tuple[T1, T2 any] struct {
+		First  T1
+		Second T2
 	}
+	StrTuple = Tuple[string, string]
 )
 
+func (t *Tuple[T1, T2]) Unpack() (T1, T2) {
+	return t.First, t.Second
+}
+
+func (t *Tuple[T1, T2]) String() string {
+	return fmt.Sprintf("%v:%v", t.First, t.Second)
+}
+
+// toStrTuple returns *StrTuple.
 func toStrTuple(args []string) (any, E.Error) {
 	if len(args) != 2 {
 		return nil, ErrExpectTwoArgs
 	}
-	return StrTuple{args[0], args[1]}, nil
+	return &StrTuple{args[0], args[1]}, nil
 }
 
+// validateURL returns types.URL with the URL validated.
 func validateURL(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
@@ -35,6 +48,7 @@ func validateURL(args []string) (any, E.Error) {
 	return u, nil
 }
 
+// validateAbsoluteURL returns types.URL with the URL validated.
 func validateAbsoluteURL(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
@@ -52,6 +66,7 @@ func validateAbsoluteURL(args []string) (any, E.Error) {
 	return u, nil
 }
 
+// validateCIDR returns types.CIDR with the CIDR validated.
 func validateCIDR(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
@@ -66,6 +81,7 @@ func validateCIDR(args []string) (any, E.Error) {
 	return cidr, nil
 }
 
+// validateURLPath returns string with the path validated.
 func validateURLPath(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
@@ -86,6 +102,7 @@ func validateURLPath(args []string) (any, E.Error) {
 	return p, nil
 }
 
+// validateURLPaths returns []string with each element validated.
 func validateURLPaths(paths []string) (any, E.Error) {
 	errs := E.NewBuilder("invalid url paths")
 	for i, p := range paths {
@@ -102,6 +119,7 @@ func validateURLPaths(paths []string) (any, E.Error) {
 	return paths, nil
 }
 
+// validateFSPath returns string with the path validated.
 func validateFSPath(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
@@ -113,6 +131,7 @@ func validateFSPath(args []string) (any, E.Error) {
 	return p, nil
 }
 
+// validateMethod returns string with the method validated.
 func validateMethod(args []string) (any, E.Error) {
 	if len(args) != 1 {
 		return nil, ErrExpectOneArg
@@ -122,4 +141,32 @@ func validateMethod(args []string) (any, E.Error) {
 		return nil, ErrInvalidArguments.Subject(method)
 	}
 	return method, nil
+}
+
+// validateUserBCryptPassword returns *HashedCrendential with the password validated.
+func validateUserBCryptPassword(args []string) (any, E.Error) {
+	if len(args) != 2 {
+		return nil, ErrExpectTwoArgs
+	}
+	return BCryptCrendentials(args[0], []byte(args[1])), nil
+}
+
+// validateModField returns CommandHandler with the field validated.
+func validateModField(mod FieldModifier, args []string) (CommandHandler, E.Error) {
+	setField, ok := modFields[args[0]]
+	if !ok {
+		return nil, ErrInvalidSetTarget.Subject(args[0])
+	}
+	validArgs, err := setField.validate(args[1:])
+	if err != nil {
+		return nil, err.Withf(setField.help.String())
+	}
+	modder := setField.builder(validArgs)
+	switch mod {
+	case ModFieldAdd:
+		return modder.add, nil
+	case ModFieldRemove:
+		return modder.remove, nil
+	}
+	return modder.set, nil
 }

@@ -1,37 +1,34 @@
 package rules
 
 import (
-	"net"
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-type (
-	RuleOn struct {
-		raw   string
-		check CheckFulfill
-	}
-	CheckFulfill func(r *http.Request) bool
-	Checkers     []CheckFulfill
-)
+type RuleOn struct {
+	raw     string
+	checker Checker
+}
 
 const (
-	OnHeader   = "header"
-	OnQuery    = "query"
-	OnCookie   = "cookie"
-	OnForm     = "form"
-	OnPostForm = "postform"
-	OnMethod   = "method"
-	OnPath     = "path"
-	OnRemote   = "remote"
+	OnHeader    = "header"
+	OnQuery     = "query"
+	OnCookie    = "cookie"
+	OnForm      = "form"
+	OnPostForm  = "postform"
+	OnMethod    = "method"
+	OnPath      = "path"
+	OnRemote    = "remote"
+	OnBasicAuth = "basic_auth"
 )
 
 var checkers = map[string]struct {
 	help     Help
 	validate ValidateFunc
-	check    func(r *http.Request, args any) bool
+	builder  func(args any) CheckFunc
 }{
 	OnHeader: {
 		help: Help{
@@ -42,8 +39,11 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: toStrTuple,
-		check: func(r *http.Request, args any) bool {
-			return r.Header.Get(args.(StrTuple).First) == args.(StrTuple).Second
+		builder: func(args any) CheckFunc {
+			k, v := args.(*StrTuple).Unpack()
+			return func(cached Cache, r *http.Request) bool {
+				return r.Header.Get(k) == v
+			}
 		},
 	},
 	OnQuery: {
@@ -55,8 +55,17 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: toStrTuple,
-		check: func(r *http.Request, args any) bool {
-			return r.URL.Query().Get(args.(StrTuple).First) == args.(StrTuple).Second
+		builder: func(args any) CheckFunc {
+			k, v := args.(*StrTuple).Unpack()
+			return func(cached Cache, r *http.Request) bool {
+				queries := cached.GetQueries(r)[k]
+				for _, query := range queries {
+					if query == v {
+						return true
+					}
+				}
+				return false
+			}
 		},
 	},
 	OnCookie: {
@@ -68,14 +77,18 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: toStrTuple,
-		check: func(r *http.Request, args any) bool {
-			cookies := r.CookiesNamed(args.(StrTuple).First)
-			for _, cookie := range cookies {
-				if cookie.Value == args.(StrTuple).Second {
-					return true
+		builder: func(args any) CheckFunc {
+			k, v := args.(*StrTuple).Unpack()
+			return func(cached Cache, r *http.Request) bool {
+				cookies := cached.GetCookies(r)
+				for _, cookie := range cookies {
+					if cookie.Name == k &&
+						cookie.Value == v {
+						return true
+					}
 				}
+				return false
 			}
-			return false
 		},
 	},
 	OnForm: {
@@ -87,8 +100,11 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: toStrTuple,
-		check: func(r *http.Request, args any) bool {
-			return r.FormValue(args.(StrTuple).First) == args.(StrTuple).Second
+		builder: func(args any) CheckFunc {
+			k, v := args.(*StrTuple).Unpack()
+			return func(cached Cache, r *http.Request) bool {
+				return r.FormValue(k) == v
+			}
 		},
 	},
 	OnPostForm: {
@@ -100,8 +116,11 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: toStrTuple,
-		check: func(r *http.Request, args any) bool {
-			return r.PostFormValue(args.(StrTuple).First) == args.(StrTuple).Second
+		builder: func(args any) CheckFunc {
+			k, v := args.(*StrTuple).Unpack()
+			return func(cached Cache, r *http.Request) bool {
+				return r.PostFormValue(k) == v
+			}
 		},
 	},
 	OnMethod: {
@@ -112,8 +131,11 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: validateMethod,
-		check: func(r *http.Request, method any) bool {
-			return r.Method == method.(string)
+		builder: func(args any) CheckFunc {
+			method := args.(string)
+			return func(cached Cache, r *http.Request) bool {
+				return r.Method == method
+			}
 		},
 	},
 	OnPath: {
@@ -127,12 +149,15 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: validateURLPath,
-		check: func(r *http.Request, globPath any) bool {
-			reqPath := r.URL.Path
-			if len(reqPath) > 0 && reqPath[0] != '/' {
-				reqPath = "/" + reqPath
+		builder: func(args any) CheckFunc {
+			pat := args.(string)
+			return func(cached Cache, r *http.Request) bool {
+				reqPath := r.URL.Path
+				if len(reqPath) > 0 && reqPath[0] != '/' {
+					reqPath = "/" + reqPath
+				}
+				return strutils.GlobMatch(pat, reqPath)
 			}
-			return strutils.GlobMatch(globPath.(string), reqPath)
 		},
 	},
 	OnRemote: {
@@ -143,16 +168,31 @@ var checkers = map[string]struct {
 			},
 		},
 		validate: validateCIDR,
-		check: func(r *http.Request, cidr any) bool {
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err != nil {
-				host = r.RemoteAddr
+		builder: func(args any) CheckFunc {
+			cidr := args.(types.CIDR)
+			return func(cached Cache, r *http.Request) bool {
+				ip := cached.GetRemoteIP(r)
+				if ip == nil {
+					return false
+				}
+				return cidr.Contains(ip)
 			}
-			ip := net.ParseIP(host)
-			if ip == nil {
-				return false
+		},
+	},
+	OnBasicAuth: {
+		help: Help{
+			command: OnBasicAuth,
+			args: map[string]string{
+				"username": "the username",
+				"password": "the password encrypted with bcrypt",
+			},
+		},
+		validate: validateUserBCryptPassword,
+		builder: func(args any) CheckFunc {
+			cred := args.(*HashedCrendentials)
+			return func(cached Cache, r *http.Request) bool {
+				return cred.Match(cached.GetBasicAuth(r))
 			}
-			return cidr.(*net.IPNet).Contains(ip)
 		},
 	},
 }
@@ -162,7 +202,7 @@ func (on *RuleOn) Parse(v string) error {
 	on.raw = v
 
 	lines := strutils.SplitLine(v)
-	checks := make(Checkers, 0, len(lines))
+	checkAnd := make(CheckMatchAll, 0, len(lines))
 
 	errs := E.NewBuilder("rule.on syntax errors")
 	for i, line := range lines {
@@ -174,10 +214,10 @@ func (on *RuleOn) Parse(v string) error {
 			errs.Add(err.Subjectf("line %d", i+1))
 			continue
 		}
-		checks = append(checks, parsed.matchOne())
+		checkAnd = append(checkAnd, parsed)
 	}
 
-	on.check = checks.matchAll()
+	on.checker = checkAnd
 	return errs.Error()
 }
 
@@ -185,28 +225,28 @@ func (on *RuleOn) String() string {
 	return on.raw
 }
 
-func (on *RuleOn) MarshalJSON() ([]byte, error) {
-	return []byte("\"" + on.String() + "\""), nil
+func (on *RuleOn) MarshalText() ([]byte, error) {
+	return []byte(on.String()), nil
 }
 
-func parseOn(line string) (Checkers, E.Error) {
+func parseOn(line string) (Checker, E.Error) {
 	ors := strutils.SplitRune(line, '|')
 
 	if len(ors) > 1 {
 		errs := E.NewBuilder("rule.on syntax errors")
-		checks := make([]CheckFulfill, len(ors))
+		checkOr := make(CheckMatchSingle, len(ors))
 		for i, or := range ors {
 			curCheckers, err := parseOn(or)
 			if err != nil {
 				errs.Add(err)
 				continue
 			}
-			checks[i] = curCheckers[0]
+			checkOr[i] = curCheckers.(CheckFunc)
 		}
 		if err := errs.Error(); err != nil {
 			return nil, err
 		}
-		return checks, nil
+		return checkOr, nil
 	}
 
 	subject, args, err := parse(line)
@@ -224,31 +264,5 @@ func parseOn(line string) (Checkers, E.Error) {
 		return nil, err.Subject(subject).Withf("%s", checker.help.String())
 	}
 
-	return Checkers{
-		func(r *http.Request) bool {
-			return checker.check(r, validArgs)
-		},
-	}, nil
-}
-
-func (checkers Checkers) matchOne() CheckFulfill {
-	return func(r *http.Request) bool {
-		for _, checker := range checkers {
-			if checker(r) {
-				return true
-			}
-		}
-		return false
-	}
-}
-
-func (checkers Checkers) matchAll() CheckFulfill {
-	return func(r *http.Request) bool {
-		for _, checker := range checkers {
-			if !checker(r) {
-				return false
-			}
-		}
-		return true
-	}
+	return checker.builder(validArgs), nil
 }
