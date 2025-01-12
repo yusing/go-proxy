@@ -16,6 +16,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/vincent-petithory/dataurl"
+	"github.com/yusing/go-proxy/internal"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -78,12 +79,15 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 		var status int
 		var errMsg string
 
-		homepage := r.RawEntry().Homepage
-		if homepage != nil && homepage.Icon != nil {
-			if homepage.Icon.IsRelative {
-				icon, status, errMsg = findIcon(r, req, homepage.Icon.Value)
-			} else {
-				icon, status, errMsg = getIconAbsolute(homepage.Icon.Value)
+		hp := r.RawEntry().Homepage
+		if hp != nil && hp.Icon != nil {
+			switch hp.Icon.IconSource {
+			case homepage.IconSourceAbsolute:
+				icon, status, errMsg = fetchIconAbsolute(hp.Icon.Value)
+			case homepage.IconSourceRelative:
+				icon, status, errMsg = findIcon(r, req, hp.Icon.Value)
+			case homepage.IconSourceWalkXCode:
+				icon, status, errMsg = fetchWalkxcodeIcon(hp.Icon.Extra.FileType, hp.Icon.Extra.Name)
 			}
 		} else {
 			// try extract from "link[rel=icon]"
@@ -124,7 +128,7 @@ func storeIconCache(key string, icon []byte) {
 	iconCache[key] = icon
 }
 
-func getIconAbsolute(url string) ([]byte, int, string) {
+func fetchIconAbsolute(url string) ([]byte, int, string) {
 	icon, ok := loadIconCache(url)
 	if ok {
 		return icon, http.StatusOK, ""
@@ -165,6 +169,25 @@ func sanitizeName(name string) string {
 	return strings.ToLower(nameSanitizer.Replace(name))
 }
 
+func fetchWalkxcodeIcon(filetype string, name string) ([]byte, int, string) {
+	// if icon isn't in the list, no need to fetch
+	if !internal.HasIcon(name, filetype) {
+		logging.Debug().
+			Str("filetype", filetype).
+			Str("name", name).
+			Msg("icon not found")
+		return nil, http.StatusNotFound, "icon not found"
+	}
+
+	icon, ok := loadIconCache("walkxcode/" + filetype + "/" + name)
+	if ok {
+		return icon, http.StatusOK, ""
+	}
+
+	url := homepage.DashboardIconBaseURL + filetype + "/" + name + "." + filetype
+	return fetchIconAbsolute(url)
+}
+
 func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
 	key := r.TargetName()
 	icon, ok := loadIconCache(key)
@@ -175,10 +198,10 @@ func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, st
 		return icon, http.StatusOK, ""
 	}
 
-	icon, status, errMsg = getIconAbsolute(homepage.DashboardIconBaseURL + "png/" + sanitizeName(r.TargetName()) + ".png")
+	icon, status, errMsg = fetchWalkxcodeIcon("png", sanitizeName(r.TargetName()))
 	cont := r.RawEntry().Container
 	if icon == nil && cont != nil {
-		icon, status, errMsg = getIconAbsolute(homepage.DashboardIconBaseURL + "png/" + sanitizeName(cont.ImageName) + ".png")
+		icon, status, errMsg = fetchWalkxcodeIcon("png", sanitizeName(cont.ImageName))
 	}
 	if icon == nil {
 		// fallback to parse html
@@ -224,10 +247,6 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 				if loc == newReq.URL.Path {
 					return nil, http.StatusBadGateway, "circular redirect"
 				}
-				logging.Debug().Str("route", r.TargetName()).
-					Str("from", uri).
-					Str("to", loc).
-					Msg("favicon redirect")
 				return findIconSlow(r, req, loc)
 			}
 		}
@@ -264,8 +283,10 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 		}
 		return dataURI.Data, http.StatusOK, ""
 	}
-	if href[0] != '/' {
-		return getIconAbsolute(href)
+	switch {
+	case strings.HasPrefix(href, "http://"), strings.HasPrefix(href, "https://"):
+		return fetchIconAbsolute(href)
+	default:
+		return findIconSlow(r, req, path.Clean(href))
 	}
-	return findIconSlow(r, req, href)
 }
