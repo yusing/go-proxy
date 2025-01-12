@@ -174,10 +174,14 @@ func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, st
 		return icon, http.StatusOK, ""
 	}
 
-	icon, status, errMsg = findIconSlow(r, req, uri)
+	icon, status, errMsg = getIconAbsolute(homepage.DashboardIconBaseURL + "png/" + sanitizeName(r.TargetName()) + ".png")
+	cont := r.RawEntry().Container
+	if icon == nil && cont != nil {
+		icon, status, errMsg = getIconAbsolute(homepage.DashboardIconBaseURL + "png/" + sanitizeName(cont.ImageName) + ".png")
+	}
 	if icon == nil {
-		// fallback to dashboard icon
-		icon, status, errMsg = getIconAbsolute(homepage.DashboardIconBaseURL + "png/" + sanitizeName(r.TargetName()) + ".png")
+		// fallback to parse html
+		icon, status, errMsg = findIconSlow(r, req, uri)
 	}
 	// set even if error (nil)
 	storeIconCache(key, icon)
@@ -190,6 +194,9 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 	defer cancel()
 	newReq := req.WithContext(ctx)
 	newReq.Header.Set("Accept-Encoding", "identity") // disable compression
+	if !strings.HasPrefix(uri, "/") {
+		uri = "/" + uri
+	}
 	u, err := url.ParseRequestURI(uri)
 	if err != nil {
 		logging.Error().Err(err).
