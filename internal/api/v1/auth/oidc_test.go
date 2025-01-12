@@ -68,10 +68,10 @@ func TestOIDCLoginHandler(t *testing.T) {
 				oauthConfig = nil
 			}
 
-			req := httptest.NewRequest(http.MethodGet, "/login/oidc", nil)
+			req := httptest.NewRequest(http.MethodGet, "/auth/redirect", nil)
 			w := httptest.NewRecorder()
 
-			OIDCLoginHandler(w, req)
+			RedirectOIDC(w, req)
 
 			if got := w.Code; got != tt.wantStatus {
 				t.Errorf("OIDCLoginHandler() status = %v, want %v", got, tt.wantStatus)

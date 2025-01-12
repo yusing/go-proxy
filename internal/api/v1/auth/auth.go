@@ -1,8 +1,6 @@
 package auth
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -25,51 +23,37 @@ type (
 	}
 )
 
-var (
-	ErrInvalidUsername = E.New("invalid username")
-	ErrInvalidPassword = E.New("invalid password")
-)
-
-func validatePassword(cred *Credentials) error {
-	if cred.Username != common.APIUser {
-		return ErrInvalidUsername.Subject(cred.Username)
-	}
-	if !bytes.Equal(common.HashPassword(cred.Password), common.APIPasswordHash) {
-		return ErrInvalidPassword.Subject(cred.Password)
+// Initialize sets up authentication providers.
+func Initialize() error {
+	// Initialize OIDC if configured.
+	if common.OIDCIssuerURL != "" {
+		return InitOIDC(
+			common.OIDCIssuerURL,
+			common.OIDCClientID,
+			common.OIDCClientSecret,
+			common.OIDCRedirectURL,
+		)
 	}
 	return nil
 }
 
-func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	var creds Credentials
-	err := json.NewDecoder(r.Body).Decode(&creds)
-	if err != nil {
-		U.HandleErr(w, r, err, http.StatusBadRequest)
-		return
-	}
-	if err := validatePassword(&creds); err != nil {
-		U.HandleErr(w, r, err, http.StatusUnauthorized)
-		return
-	}
-	if err := setAuthenticatedCookie(w, creds.Username); err != nil {
-		U.HandleErr(w, r, err, http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
+func IsEnabled() bool {
+	return common.APIJWTSecret != nil || common.OIDCIssuerURL != ""
 }
 
-func AuthMethodHandler(w http.ResponseWriter, r *http.Request) {
+// AuthRedirectHandler handles redirect to login page or OIDC login base on configuration.
+func AuthRedirectHandler(w http.ResponseWriter, r *http.Request) {
 	switch {
+	case oauthConfig != nil:
+		RedirectOIDC(w, r)
+		return
 	case common.APIJWTSecret == nil:
-		U.WriteBody(w, []byte("skip"))
-	case common.OIDCIssuerURL != "":
-		U.WriteBody(w, []byte("oidc"))
-	case common.APIPasswordHash != nil:
-		U.WriteBody(w, []byte("password"))
+		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
+		return
 	default:
 		U.WriteBody(w, []byte("skip"))
+		w.WriteHeader(http.StatusOK)
 	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func setAuthenticatedCookie(w http.ResponseWriter, username string) error {
@@ -86,57 +70,44 @@ func setAuthenticatedCookie(w http.ResponseWriter, username string) error {
 		return err
 	}
 	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
+		Name:     CookieToken,
 		Value:    tokenStr,
 		Expires:  expiresAt,
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 	})
 	return nil
 }
 
+// LogoutHandler clear authentication cookie and redirect to login page.
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
+		Name:     CookieToken,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
+		Secure:   true,
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 	})
-	w.Header().Set("location", "/login")
-	w.WriteHeader(http.StatusTemporaryRedirect)
-}
-
-// Initialize sets up authentication providers.
-func Initialize() error {
-	// Initialize OIDC if configured.
-	if common.OIDCIssuerURL != "" {
-		return InitOIDC(
-			common.OIDCIssuerURL,
-			common.OIDCClientID,
-			common.OIDCClientSecret,
-			common.OIDCRedirectURL,
-		)
-	}
-	return nil
+	AuthRedirectHandler(w, r)
 }
 
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
-	if common.IsDebugSkipAuth || common.APIJWTSecret == nil {
-		return next
-	}
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		if checkToken(w, r) {
-			next(w, r)
+	if IsEnabled() {
+		return func(w http.ResponseWriter, r *http.Request) {
+			if checkToken(w, r) {
+				next(w, r)
+			}
 		}
 	}
+	return next
 }
 
 func checkToken(w http.ResponseWriter, r *http.Request) (ok bool) {
-	tokenCookie, err := r.Cookie("token")
+	tokenCookie, err := r.Cookie(CookieToken)
 	if err != nil {
 		U.RespondError(w, E.New("missing token"), http.StatusUnauthorized)
 		return false

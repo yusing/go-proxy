@@ -7,7 +7,7 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
-// HandleErr logs the error and returns an HTTP error response to the client.
+// HandleErr logs the error and returns an error code to the client.
 // If code is specified, it will be used as the HTTP status code; otherwise,
 // http.StatusInternalServerError is used.
 //
@@ -23,10 +23,14 @@ func HandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
 	http.Error(w, http.StatusText(code[0]), code[0])
 }
 
+// RespondError returns error details to the client.
+// If code is specified, it will be used as the HTTP status code; otherwise,
+// http.StatusBadRequest is used.
 func RespondError(w http.ResponseWriter, err error, code ...int) {
 	if len(code) == 0 {
 		code = []int{http.StatusBadRequest}
 	}
+	// strip ANSI color codes added from Error.WithSubject
 	http.Error(w, ansi.StripANSI(err.Error()), code[0])
 }
 

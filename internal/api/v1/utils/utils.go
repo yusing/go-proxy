@@ -11,7 +11,7 @@ import (
 
 func WriteBody(w http.ResponseWriter, body []byte) {
 	if _, err := w.Write(body); err != nil {
-		HandleErr(w, nil, err)
+		logging.Err(err).Msg("failed to write body")
 	}
 }
 

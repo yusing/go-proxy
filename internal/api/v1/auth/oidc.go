@@ -4,10 +4,8 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
-	"github.com/golang-jwt/jwt/v5"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -47,8 +45,8 @@ func InitOIDC(issuerURL, clientID, clientSecret, redirectURL string) error {
 	return nil
 }
 
-// OIDCLoginHandler initiates the OIDC login flow.
-func OIDCLoginHandler(w http.ResponseWriter, r *http.Request) {
+// RedirectOIDC initiates the OIDC login flow.
+func RedirectOIDC(w http.ResponseWriter, r *http.Request) {
 	if oauthConfig == nil {
 		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
 		return
@@ -56,7 +54,7 @@ func OIDCLoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	state := common.GenerateRandomString(32)
 	http.SetCookie(w, &http.Cookie{
-		Name:     "oauth_state",
+		Name:     CookieOauthState,
 		Value:    state,
 		MaxAge:   300,
 		HttpOnly: true,
@@ -87,7 +85,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := r.Cookie("oauth_state")
+	state, err := r.Cookie(CookieOauthState)
 	if err != nil {
 		U.HandleErr(w, r, E.New("missing state cookie"), http.StatusBadRequest)
 		return
@@ -137,7 +135,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 
 // handleTestCallback handles OIDC callback in test environment.
 func handleTestCallback(w http.ResponseWriter, r *http.Request) {
-	state, err := r.Cookie("oauth_state")
+	state, err := r.Cookie(CookieOauthState)
 	if err != nil {
 		U.HandleErr(w, r, E.New("missing state cookie"), http.StatusBadRequest)
 		return
@@ -149,29 +147,10 @@ func handleTestCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create test JWT token
-	expiresAt := time.Now().Add(common.APIJWTTokenTTL)
-	jwtClaims := &Claims{
-		Username: "test-user",
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expiresAt),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS512, jwtClaims)
-	tokenStr, err := token.SignedString(common.APIJWTSecret)
-	if err != nil {
+	if err := setAuthenticatedCookie(w, "test-user"); err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     "token",
-		Value:    tokenStr,
-		Expires:  expiresAt,
-		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
-		Path:     "/",
-	})
 
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }

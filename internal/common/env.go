@@ -14,11 +14,10 @@ import (
 var (
 	prefixes = []string{"GODOXY_", "GOPROXY_", ""}
 
-	IsTest          = GetEnvBool("TEST", false) || strings.HasSuffix(os.Args[0], ".test")
-	IsDebug         = GetEnvBool("DEBUG", IsTest)
-	IsDebugSkipAuth = GetEnvBool("DEBUG_SKIP_AUTH", false)
-	IsTrace         = GetEnvBool("TRACE", false) && IsDebug
-	IsProduction    = !IsTest && !IsDebug
+	IsTest       = GetEnvBool("TEST", false) || strings.HasSuffix(os.Args[0], ".test")
+	IsDebug      = GetEnvBool("DEBUG", IsTest)
+	IsTrace      = GetEnvBool("TRACE", false) && IsDebug
+	IsProduction = !IsTest && !IsDebug
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,
@@ -46,7 +45,7 @@ var (
 	APIUser         = GetEnvString("API_USER", "admin")
 	APIPasswordHash = HashPassword(GetEnvString("API_PASSWORD", "password"))
 
-	// OIDC Configuration
+	// OIDC Configuration.
 	OIDCIssuerURL    = GetEnvString("OIDC_ISSUER_URL", "")
 	OIDCClientID     = GetEnvString("OIDC_CLIENT_ID", "")
 	OIDCClientSecret = GetEnvString("OIDC_CLIENT_SECRET", "")

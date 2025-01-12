@@ -31,6 +31,7 @@ func makeEntries(cont *types.Container, dockerHostIP ...string) route.RawEntries
 	} else {
 		host = client.DefaultDockerHost
 	}
+	p.name = "test"
 	entries := E.Must(p.entriesFromContainerLabels(D.FromDocker(cont, host)))
 	entries.RangeAll(func(k string, v *route.RawEntry) {
 		v.Finalize()

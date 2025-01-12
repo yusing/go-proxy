@@ -22,9 +22,8 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux := ServeMux{http.NewServeMux()}
 	mux.HandleFunc("GET", "/v1", v1.Index)
 	mux.HandleFunc("GET", "/v1/version", v1.GetVersion)
-	mux.HandleFunc("POST", "/v1/login", auth.LoginHandler)
-	mux.HandleFunc("GET", "/v1/login/method", auth.AuthMethodHandler)
-	mux.HandleFunc("GET", "/v1/login/oidc", auth.OIDCLoginHandler)
+	mux.HandleFunc("POST", "/v1/login", auth.UserPassLoginHandler)
+	mux.HandleFunc("GET", "/v1/auth/redirect", auth.AuthRedirectHandler)
 	mux.HandleFunc("GET", "/v1/auth/callback", auth.OIDCCallbackHandler)
 	mux.HandleFunc("GET", "/v1/logout", auth.LogoutHandler)
 	mux.HandleFunc("POST", "/v1/logout", auth.LogoutHandler)
