@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -157,6 +158,7 @@ func sanitizeName(name string) string {
 }
 
 func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
+	// FIXME: invalidate cache on route change
 	key := r.TargetName()
 	icon, ok := loadIconCache(key)
 	if ok {
@@ -201,6 +203,10 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 			return nil, http.StatusBadGateway, "connection error"
 		default:
 			if loc := c.Header().Get("Location"); loc != "" {
+				loc = path.Clean(loc)
+				if !strings.HasPrefix(loc, "/") {
+					loc = "/" + loc
+				}
 				if loc == newReq.URL.Path {
 					return nil, http.StatusBadGateway, "circular redirect"
 				}
