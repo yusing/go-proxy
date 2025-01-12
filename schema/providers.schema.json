@@ -85,7 +85,7 @@
               "type": "string",
               "oneOf": [
                 {
-                  "pattern": "^(png|svg)\\/[\\w\\d\\-_]+\\.\\1$",
+                  "pattern": "^(png|svg|webp)\\/[\\w\\d\\-_]+\\.\\1$",
                   "title": "Icon from walkxcode/dashboard-icons"
                 },
                 {

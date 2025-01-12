@@ -2,14 +2,12 @@ package internal
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
-	"log"
 	"net/http"
-	"os"
+	"sync"
 	"time"
 
-	"github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/logging"
 )
 
 type GitHubContents struct { //! keep this, may reuse in future
@@ -20,54 +18,71 @@ type GitHubContents struct { //! keep this, may reuse in future
 	Size int    `json:"size"`
 }
 
-const (
-	iconsCachePath = "/tmp/icons_cache.json"
-	updateInterval = 1 * time.Hour
+type Icons map[string]map[string]struct{}
+
+// no longer cache for `godoxy ls-icons`
+
+const updateInterval = 1 * time.Hour
+
+var (
+	iconsCache   = make(Icons)
+	iconsCahceMu sync.Mutex
+	lastUpdate   time.Time
 )
 
-func ListAvailableIcons() ([]string, error) {
-	owner := "walkxcode"
-	repo := "dashboard-icons"
-	ref := "main"
+const walkxcodeIcons = "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons@master/tree.json"
 
-	var lastUpdate time.Time
+func ListAvailableIcons() (Icons, error) {
+	iconsCahceMu.Lock()
+	defer iconsCahceMu.Unlock()
 
-	icons := make([]string, 0)
-	info, err := os.Stat(iconsCachePath)
-	if err == nil {
-		lastUpdate = info.ModTime().Local()
-	}
 	if time.Since(lastUpdate) < updateInterval {
-		err := utils.LoadJSON(iconsCachePath, &icons)
-		if err == nil {
-			return icons, nil
+		if len(iconsCache) > 0 {
+			return iconsCache, nil
 		}
 	}
 
-	contents, err := getRepoContents(http.DefaultClient, owner, repo, ref, "")
+	icons, err := getIcons()
 	if err != nil {
 		return nil, err
 	}
-	for _, content := range contents {
-		if content.Type != "dir" {
-			icons = append(icons, content.Path)
-		}
-	}
-	err = utils.SaveJSON(iconsCachePath, &icons, 0o644)
-	if err != nil {
-		log.Print("error saving cache", err)
-	}
+
+	iconsCache = icons
+	lastUpdate = time.Now()
 	return icons, nil
 }
 
-func getRepoContents(client *http.Client, owner string, repo string, ref string, path string) ([]GitHubContents, error) {
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://api.github.com/repos/%s/%s/contents/%s?ref=%s", owner, repo, path, ref), nil)
+func HasIcon(name string, filetype string) bool {
+	icons, err := ListAvailableIcons()
+	if err != nil {
+		logging.Error().Err(err).Msg("failed to list icons")
+		return false
+	}
+	if _, ok := icons[filetype]; !ok {
+		return false
+	}
+	_, ok := icons[filetype][name+"."+filetype]
+	return ok
+}
+
+/*
+format:
+
+	{
+		"png": [
+			"*.png",
+		],
+		"svg": [
+			"*.svg",
+		]
+	}
+*/
+func getIcons() (Icons, error) {
+	req, err := http.NewRequest(http.MethodGet, walkxcodeIcons, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/json")
-
-	resp, err := client.Do(req)
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -78,24 +93,17 @@ func getRepoContents(client *http.Client, owner string, repo string, ref string,
 		return nil, err
 	}
 
-	var contents []GitHubContents
-	err = json.Unmarshal(body, &contents)
+	data := make(map[string][]string)
+	err = json.Unmarshal(body, &data)
 	if err != nil {
 		return nil, err
 	}
-
-	filesAndDirs := make([]GitHubContents, 0)
-	for _, content := range contents {
-		if content.Type == "dir" {
-			subContents, err := getRepoContents(client, owner, repo, ref, content.Path)
-			if err != nil {
-				return nil, err
-			}
-			filesAndDirs = append(filesAndDirs, subContents...)
-		} else {
-			filesAndDirs = append(filesAndDirs, content)
+	icons := make(Icons, len(data))
+	for fileType, files := range data {
+		icons[fileType] = make(map[string]struct{}, len(files))
+		for _, icon := range files {
+			icons[fileType][icon] = struct{}{}
 		}
 	}
-
-	return filesAndDirs, nil
+	return icons, nil
 }

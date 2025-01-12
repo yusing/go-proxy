@@ -6,10 +6,26 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 )
 
-type IconURL struct {
-	Value      string `json:"value"`
-	IsRelative bool   `json:"is_relative"`
-}
+type (
+	IconURL struct {
+		Value string `json:"value"`
+		IconSource
+		Extra *IconExtra `json:"extra"`
+	}
+
+	IconExtra struct {
+		FileType string `json:"file_type"`
+		Name     string `json:"name"`
+	}
+
+	IconSource int
+)
+
+const (
+	IconSourceAbsolute IconSource = iota
+	IconSourceRelative
+	IconSourceWalkXCode
+)
 
 const DashboardIconBaseURL = "https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/"
 
@@ -28,13 +44,19 @@ func (u *IconURL) Parse(v string) error {
 	switch beforeSlash {
 	case "http:", "https:":
 		u.Value = v
+		u.IconSource = IconSourceAbsolute
 		return nil
 	case "@target":
 		u.Value = v[slashIndex:]
-		u.IsRelative = true
+		u.IconSource = IconSourceRelative
 		return nil
-	case "png", "svg": // walkXCode Icons
-		u.Value = DashboardIconBaseURL + v
+	case "png", "svg", "webp": // walkXCode Icons
+		u.Value = v
+		u.IconSource = IconSourceWalkXCode
+		u.Extra = &IconExtra{
+			FileType: beforeSlash,
+			Name:     strings.TrimSuffix(v[slashIndex+1:], "."+beforeSlash),
+		}
 		return nil
 	default:
 		return ErrInvalidIconURL
