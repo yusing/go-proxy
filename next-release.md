@@ -95,15 +95,22 @@ GoDoxy v0.8.2 expected changes
       do: error 403 Forbidden
   ```
 
-````
-
-- config reload will now cause all servers to fully restart (i.e. proxy, api, prometheus, etc)
-- multiline-string as list now treated as YAML list, which requires hyphen prefix `-`, i.e.
+- **new** GoDoxy server side favicon retreiving and caching
+  - deliver smooth dashboard experience by caching favicons
+  - correct icon can show without setting `homepage.icon` by parsing it from app's root path "/", selecting `link[rel=icon]` from HTML as default icon
+- config reload will now cause a server full restart (i.e. proxy, api, prometheus, etc), eliminating some incorrect behaviors
+- drop support of inline yaml string list without hyphen `-` prefix, e.g.
   ```yaml
-  proxy.app.middlewares.request.hide_headers:
+  # old
+  proxy.app.middlewares.request.hide_headers: |
+    X-Header1
+    X-Header2
+  
+  # new
+  proxy.app.middlewares.request.hide_headers: |
     - X-Header1
     - X-Header2
-````
+  ```
 - autocert now supports hot-reload
 - middleware compose now supports cross-referencing, e.g.
   ```yaml
