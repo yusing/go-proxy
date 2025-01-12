@@ -59,6 +59,8 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// if which is "all" or empty, return map[string]Route of all routes
+// otherwise, return a single Route with alias which or nil if not found.
 func listRoute(which string) any {
 	if which == "" || which == "all" {
 		return routes.RoutesByAlias()

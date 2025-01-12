@@ -18,8 +18,8 @@ func (cfg *Config) DumpEntries() map[string]*types.RawEntry {
 
 func (cfg *Config) DumpProviders() map[string]*provider.Provider {
 	entries := make(map[string]*provider.Provider)
-	cfg.providers.RangeAll(func(name string, p *provider.Provider) {
-		entries[name] = p
+	cfg.providers.RangeAll(func(_ string, p *provider.Provider) {
+		entries[p.ShortName()] = p
 	})
 	return entries
 }
@@ -29,9 +29,9 @@ func (cfg *Config) Statistics() map[string]any {
 	nTotalRPs := 0
 	providerStats := make(map[string]provider.ProviderStats)
 
-	cfg.providers.RangeAll(func(name string, p *provider.Provider) {
+	cfg.providers.RangeAll(func(_ string, p *provider.Provider) {
 		stats := p.Statistics()
-		providerStats[name] = stats
+		providerStats[p.ShortName()] = stats
 
 		nTotalRPs += stats.NumRPs
 		nTotalStreams += stats.NumStreams

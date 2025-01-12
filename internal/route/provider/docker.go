@@ -19,7 +19,6 @@ import (
 
 type DockerProvider struct {
 	name, dockerHost string
-	ExplicitOnly     bool
 	l                zerolog.Logger
 }
 
@@ -30,20 +29,27 @@ const (
 
 var ErrAliasRefIndexOutOfRange = E.New("index out of range")
 
-func DockerProviderImpl(name, dockerHost string, explicitOnly bool) (ProviderImpl, error) {
+func DockerProviderImpl(name, dockerHost string) (ProviderImpl, error) {
 	if dockerHost == common.DockerHostFromEnv {
 		dockerHost = common.GetEnvString("DOCKER_HOST", client.DefaultDockerHost)
 	}
 	return &DockerProvider{
 		name,
 		dockerHost,
-		explicitOnly,
 		logger.With().Str("type", "docker").Str("name", name).Logger(),
 	}, nil
 }
 
 func (p *DockerProvider) String() string {
 	return "docker@" + p.name
+}
+
+func (p *DockerProvider) ShortName() string {
+	return p.name
+}
+
+func (p *DockerProvider) IsExplicitOnly() bool {
+	return p.name[len(p.name)-1] == '!'
 }
 
 func (p *DockerProvider) Logger() *zerolog.Logger {
@@ -92,7 +98,7 @@ func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
 
 func (p *DockerProvider) shouldIgnore(container *docker.Container) bool {
 	return container.IsExcluded ||
-		!container.IsExplicit && p.ExplicitOnly ||
+		!container.IsExplicit && p.IsExplicitOnly() ||
 		!container.IsExplicit && container.IsDatabase ||
 		strings.HasSuffix(container.ContainerName, "-old")
 }

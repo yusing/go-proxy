@@ -269,9 +269,9 @@ func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
 			errs.Add(E.PrependSubject(filename, err))
 			continue
 		}
-		cfg.providers.Store(p.GetName(), p)
-		if len(p.GetName()) > lenLongestName {
-			lenLongestName = len(p.GetName())
+		cfg.providers.Store(p.String(), p)
+		if len(p.String()) > lenLongestName {
+			lenLongestName = len(p.String())
 		}
 	}
 	for name, dockerHost := range providers.Docker {
@@ -280,16 +280,16 @@ func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
 			errs.Add(E.PrependSubject(name, err))
 			continue
 		}
-		cfg.providers.Store(p.GetName(), p)
-		if len(p.GetName()) > lenLongestName {
-			lenLongestName = len(p.GetName())
+		cfg.providers.Store(p.String(), p)
+		if len(p.String()) > lenLongestName {
+			lenLongestName = len(p.String())
 		}
 	}
 	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
 		if err := p.LoadRoutes(); err != nil {
 			errs.Add(err.Subject(p.String()))
 		}
-		results.Addf("%-"+strconv.Itoa(lenLongestName)+"s %d routes", p.GetName(), p.NumRoutes())
+		results.Addf("%-"+strconv.Itoa(lenLongestName)+"s %d routes", p.String(), p.NumRoutes())
 	})
 	logger.Info().Msg(results.String())
 	return errs.Error()
