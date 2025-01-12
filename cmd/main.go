@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"log"
 	"os"
 	"os/signal"
@@ -20,8 +21,6 @@ import (
 	"github.com/yusing/go-proxy/pkg"
 )
 
-var rawLogger = log.New(os.Stdout, "", 0)
-
 func main() {
 	args := common.GetArgs()
 
@@ -33,12 +32,12 @@ func main() {
 		if err := query.ReloadServer(); err != nil {
 			E.LogFatal("server reload error", err)
 		}
-		rawLogger.Println("ok")
+		logging.Info().Msg("ok")
 		return
 	case common.CommandListIcons:
 		icons, err := internal.ListAvailableIcons()
 		if err != nil {
-			rawLogger.Fatal(err)
+			log.Fatal(err)
 		}
 		printJSON(icons)
 		return
@@ -115,6 +114,11 @@ func main() {
 	cfg.Start()
 	config.WatchChanges()
 
+	// Initialize authentication providers.
+	if err := auth.Initialize(); err != nil {
+		logging.Warn().Err(err).Msg("Failed to initialize authentication providers.")
+	}
+
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)
 	signal.Notify(sig, syscall.SIGTERM)
@@ -123,7 +127,7 @@ func main() {
 	// wait for signal
 	<-sig
 
-	// grafully shutdown
+	// gracefully shutdown
 	logging.Info().Msg("shutting down")
 	_ = task.GracefulShutdown(time.Second * time.Duration(cfg.Value().TimeoutShutdown))
 }
@@ -141,5 +145,6 @@ func printJSON(obj any) {
 	if err != nil {
 		logging.Fatal().Err(err).Send()
 	}
+	rawLogger := log.New(os.Stdout, "", 0)
 	rawLogger.Print(string(j)) // raw output for convenience using "jq"
 }

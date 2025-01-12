@@ -5,6 +5,7 @@ go 1.23.4
 require (
 	github.com/PuerkitoBio/goquery v1.10.1
 	github.com/coder/websocket v1.8.12
+	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/docker/cli v27.4.1+incompatible
 	github.com/docker/docker v27.4.1+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
@@ -19,6 +20,7 @@ require (
 	github.com/vincent-petithory/dataurl v1.0.0
 	golang.org/x/crypto v0.32.0
 	golang.org/x/net v0.34.0
+	golang.org/x/oauth2 v0.25.0
 	golang.org/x/text v0.21.0
 	golang.org/x/time v0.9.0
 	gopkg.in/yaml.v3 v3.0.1
@@ -70,7 +72,6 @@ require (
 	go.opentelemetry.io/otel/sdk v1.30.0 // indirect
 	go.opentelemetry.io/otel/trace v1.33.0 // indirect
 	golang.org/x/mod v0.22.0 // indirect
-	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/tools v0.29.0 // indirect
