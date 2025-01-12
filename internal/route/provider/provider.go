@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"path"
-	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -21,7 +20,6 @@ type (
 	Provider struct {
 		ProviderImpl `json:"-"`
 
-		name   string
 		t      types.ProviderType
 		routes R.Routes
 
@@ -29,6 +27,8 @@ type (
 	}
 	ProviderImpl interface {
 		fmt.Stringer
+		ShortName() string
+		IsExplicitOnly() bool
 		loadRoutesImpl() (R.Routes, E.Error)
 		NewWatcher() W.Watcher
 		Logger() *zerolog.Logger
@@ -46,9 +46,8 @@ const (
 
 var ErrEmptyProviderName = errors.New("empty provider name")
 
-func newProvider(name string, t types.ProviderType) *Provider {
+func newProvider(t types.ProviderType) *Provider {
 	return &Provider{
-		name:   name,
 		t:      t,
 		routes: R.NewRoutes(),
 	}
@@ -59,7 +58,7 @@ func NewFileProvider(filename string) (p *Provider, err error) {
 	if name == "" {
 		return nil, ErrEmptyProviderName
 	}
-	p = newProvider(strings.ReplaceAll(name, ".", "_"), types.ProviderTypeFile)
+	p = newProvider(types.ProviderTypeFile)
 	p.ProviderImpl, err = FileProviderImpl(filename)
 	if err != nil {
 		return nil, err
@@ -73,21 +72,13 @@ func NewDockerProvider(name string, dockerHost string) (p *Provider, err error) 
 		return nil, ErrEmptyProviderName
 	}
 
-	p = newProvider(name, types.ProviderTypeDocker)
-	p.ProviderImpl, err = DockerProviderImpl(name, dockerHost, p.IsExplicitOnly())
+	p = newProvider(types.ProviderTypeDocker)
+	p.ProviderImpl, err = DockerProviderImpl(name, dockerHost)
 	if err != nil {
 		return nil, err
 	}
 	p.watcher = p.NewWatcher()
 	return
-}
-
-func (p *Provider) IsExplicitOnly() bool {
-	return p.name[len(p.name)-1] == '!'
-}
-
-func (p *Provider) GetName() string {
-	return p.name
 }
 
 func (p *Provider) GetType() types.ProviderType {
@@ -111,7 +102,7 @@ func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
 
 // Start implements task.TaskStarter.
 func (p *Provider) Start(parent task.Parent) E.Error {
-	t := parent.Subtask("provider."+p.name, false)
+	t := parent.Subtask("provider."+p.String(), false)
 
 	// routes and event queue will stop on config reload
 	errs := p.routes.CollectErrorsParallel(

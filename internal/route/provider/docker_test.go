@@ -39,6 +39,12 @@ func makeEntries(cont *types.Container, dockerHostIP ...string) route.RawEntries
 	return entries
 }
 
+func TestExplicitOnly(t *testing.T) {
+	p, err := NewDockerProvider("a!", "")
+	ExpectNoError(t, err)
+	ExpectTrue(t, p.IsExplicitOnly())
+}
+
 func TestApplyLabel(t *testing.T) {
 	pathPatterns := `
 - /

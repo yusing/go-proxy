@@ -3,6 +3,7 @@ package provider
 import (
 	"os"
 	"path"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
@@ -46,6 +47,14 @@ func Validate(data []byte) (err E.Error) {
 
 func (p *FileProvider) String() string {
 	return p.fileName
+}
+
+func (p *FileProvider) ShortName() string {
+	return strings.Split(p.fileName, ".")[0]
+}
+
+func (p *FileProvider) IsExplicitOnly() bool {
+	return false
 }
 
 func (p *FileProvider) Logger() *zerolog.Logger {
