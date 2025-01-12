@@ -10,7 +10,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
-// setupMockOIDC configures mock OIDC provider for testing
+// setupMockOIDC configures mock OIDC provider for testing.
 func setupMockOIDC(t *testing.T) {
 	t.Helper()
 
@@ -68,7 +68,7 @@ func TestOIDCLoginHandler(t *testing.T) {
 				oauthConfig = nil
 			}
 
-			req := httptest.NewRequest("GET", "/login/oidc", nil)
+			req := httptest.NewRequest(http.MethodGet, "/login/oidc", nil)
 			w := httptest.NewRecorder()
 
 			OIDCLoginHandler(w, req)
@@ -143,7 +143,7 @@ func TestOIDCCallbackHandler(t *testing.T) {
 				oauthConfig = nil
 			}
 
-			req := httptest.NewRequest("GET", "/auth/callback?code="+tt.code+"&state="+tt.state, nil)
+			req := httptest.NewRequest(http.MethodGet, "/auth/callback?code="+tt.code+"&state="+tt.state, nil)
 			if tt.state != "" {
 				req.AddCookie(&http.Cookie{
 					Name:  "oauth_state",

@@ -20,7 +20,7 @@ var (
 	oidcVerifier *oidc.IDTokenVerifier
 )
 
-// InitOIDC initializes the OIDC provider
+// InitOIDC initializes the OIDC provider.
 func InitOIDC(issuerURL, clientID, clientSecret, redirectURL string) error {
 	if issuerURL == "" {
 		return nil // OIDC not configured
@@ -47,7 +47,7 @@ func InitOIDC(issuerURL, clientID, clientSecret, redirectURL string) error {
 	return nil
 }
 
-// OIDCLoginHandler initiates the OIDC login flow
+// OIDCLoginHandler initiates the OIDC login flow.
 func OIDCLoginHandler(w http.ResponseWriter, r *http.Request) {
 	if oauthConfig == nil {
 		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
@@ -69,7 +69,7 @@ func OIDCLoginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
 }
 
-// OIDCCallbackHandler handles the OIDC callback
+// OIDCCallbackHandler handles the OIDC callback.
 func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	if oauthConfig == nil {
 		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
@@ -126,7 +126,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := setAuthenticatedCookie(w, r, claims.Username); err != nil {
+	if err := setAuthenticatedCookie(w, claims.Username); err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -135,7 +135,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
-// handleTestCallback handles OIDC callback in test environment
+// handleTestCallback handles OIDC callback in test environment.
 func handleTestCallback(w http.ResponseWriter, r *http.Request) {
 	state, err := r.Cookie("oauth_state")
 	if err != nil {

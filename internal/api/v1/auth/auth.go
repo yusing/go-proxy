@@ -51,7 +51,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, err, http.StatusUnauthorized)
 		return
 	}
-	if err := setAuthenticatedCookie(w, r, creds.Username); err != nil {
+	if err := setAuthenticatedCookie(w, creds.Username); err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -72,7 +72,7 @@ func AuthMethodHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func setAuthenticatedCookie(w http.ResponseWriter, r *http.Request, username string) error {
+func setAuthenticatedCookie(w http.ResponseWriter, username string) error {
 	expiresAt := time.Now().Add(common.APIJWTTokenTTL)
 	claim := &Claims{
 		Username: username,
