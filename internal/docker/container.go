@@ -45,8 +45,14 @@ type (
 var DummyContainer = new(Container)
 
 func FromDocker(c *types.Container, dockerHost string) (res *Container) {
-	isExplicit := c.Labels[LabelAliases] != ""
+	isExplicit := false
 	helper := containerHelper{c}
+	for lbl := range c.Labels {
+		if strings.HasPrefix(lbl, NSProxy+".") {
+			isExplicit = true
+			break
+		}
+	}
 	res = &Container{
 		DockerHost:    dockerHost,
 		ContainerName: helper.getName(),
