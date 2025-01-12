@@ -12,6 +12,21 @@ import (
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
+type ForceCacheControl struct {
+	expires string
+	http.ResponseWriter
+}
+
+func (f *ForceCacheControl) WriteHeader(code int) {
+	f.ResponseWriter.Header().Set("Cache-Control", "must-revalidate")
+	f.ResponseWriter.Header().Set("Expires", f.expires)
+	f.ResponseWriter.WriteHeader(code)
+}
+
+func (f *ForceCacheControl) Unwrap() http.ResponseWriter {
+	return f.ResponseWriter
+}
+
 // ServeHTTP implements http.Handler.
 func (w *Watcher) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	shouldNext := w.wakeFromHTTP(rw, r)
@@ -22,7 +37,8 @@ func (w *Watcher) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	case <-r.Context().Done():
 		return
 	default:
-		w.rp.ServeHTTP(rw, r)
+		f := &ForceCacheControl{expires: w.expires().Format(http.TimeFormat), ResponseWriter: rw}
+		w.rp.ServeHTTP(f, r)
 	}
 }
 
@@ -53,7 +69,7 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 		body := w.makeLoadingPageBody()
 		rw.Header().Set("Content-Type", "text/html; charset=utf-8")
 		rw.Header().Set("Content-Length", strconv.Itoa(len(body)))
-		rw.Header().Add("Cache-Control", "no-cache")
+		rw.Header().Set("Cache-Control", "no-cache")
 		rw.Header().Add("Cache-Control", "no-store")
 		rw.Header().Add("Cache-Control", "must-revalidate")
 		rw.Header().Add("Connection", "close")

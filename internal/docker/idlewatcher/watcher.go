@@ -32,6 +32,7 @@ type (
 		client       *D.SharedClient
 		stopByMethod StopCallback // send a docker command w.r.t. `stop_method`
 		ticker       *time.Ticker
+		lastReset    time.Time
 		task         *task.Task
 	}
 
@@ -207,6 +208,11 @@ func (w *Watcher) getStopCallback() StopCallback {
 func (w *Watcher) resetIdleTimer() {
 	w.Trace().Msg("reset idle timer")
 	w.ticker.Reset(w.IdleTimeout)
+	w.lastReset = time.Now()
+}
+
+func (w *Watcher) expires() time.Time {
+	return w.lastReset.Add(w.IdleTimeout)
 }
 
 func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventCh <-chan events.Event, errCh <-chan E.Error) {
