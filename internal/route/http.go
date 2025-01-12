@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
@@ -160,6 +161,8 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 	if common.PrometheusEnabled {
 		r.task.OnCancel("metrics_cleanup", r.rp.UnregisterMetrics)
 	}
+
+	r.task.OnCancel("reset_favicon", func() { favicon.ResetIconCache(r) })
 	return nil
 }
 

@@ -1,4 +1,4 @@
-package v1
+package favicon
 
 import (
 	"bufio"
@@ -20,6 +20,7 @@ import (
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
 )
 
@@ -66,8 +67,8 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 		U.RespondError(w, U.ErrMissingKey("alias"), http.StatusBadRequest)
 		return
 	}
-	r := listRoute(alias)
-	if r == nil {
+	r, ok := routes.GetHTTPRoutes().Load(alias)
+	if !ok {
 		http.NotFound(w, req)
 		return
 	}
@@ -103,6 +104,12 @@ var (
 	iconCache   = make(map[string][]byte)
 	iconCacheMu sync.RWMutex
 )
+
+func ResetIconCache(route route.HTTPRoute) {
+	iconCacheMu.Lock()
+	defer iconCacheMu.Unlock()
+	delete(iconCache, route.TargetName())
+}
 
 func loadIconCache(key string) (icon []byte, ok bool) {
 	iconCacheMu.RLock()
@@ -158,7 +165,6 @@ func sanitizeName(name string) string {
 }
 
 func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
-	// FIXME: invalidate cache on route change
 	key := r.TargetName()
 	icon, ok := loadIconCache(key)
 	if ok {
