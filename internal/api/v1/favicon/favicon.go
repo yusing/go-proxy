@@ -131,8 +131,10 @@ func getIconAbsolute(url string) ([]byte, int, string) {
 	}
 
 	resp, err := U.Get(url)
-	if err != nil {
-		storeIconCache(url, nil)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		if err == nil {
+			err = errors.New(resp.Status)
+		}
 		logging.Error().Err(err).
 			Str("url", url).
 			Msg("failed to get icon")
@@ -142,7 +144,6 @@ func getIconAbsolute(url string) ([]byte, int, string) {
 	defer resp.Body.Close()
 	icon, err = io.ReadAll(resp.Body)
 	if err != nil {
-		// storeIconCache(url, nil) // can retry
 		logging.Error().Err(err).
 			Str("url", url).
 			Msg("failed to read icon")
