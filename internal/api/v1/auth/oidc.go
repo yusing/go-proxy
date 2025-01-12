@@ -60,7 +60,8 @@ func OIDCLoginHandler(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		MaxAge:   300,
 		HttpOnly: true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteNoneMode,
+		Secure:   true,
 		Path:     "/",
 	})
 
