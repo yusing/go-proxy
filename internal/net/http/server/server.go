@@ -11,6 +11,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/autocert"
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 )
@@ -52,18 +53,23 @@ func NewServer(opt Options) (s *Server) {
 		certAvailable = err == nil
 	}
 
+	out := io.Discard
+	if common.IsDebug {
+		out = logging.GetLogger()
+	}
+
 	if opt.HTTPAddr != "" {
 		httpSer = &http.Server{
 			Addr:     opt.HTTPAddr,
 			Handler:  opt.Handler,
-			ErrorLog: log.New(io.Discard, "", 0), // most are tls related
+			ErrorLog: log.New(out, "", 0), // most are tls related
 		}
 	}
 	if certAvailable && opt.HTTPSAddr != "" {
 		httpsSer = &http.Server{
 			Addr:     opt.HTTPSAddr,
 			Handler:  opt.Handler,
-			ErrorLog: log.New(io.Discard, "", 0), // most are tls related
+			ErrorLog: log.New(out, "", 0), // most are tls related
 			TLSConfig: &tls.Config{
 				GetCertificate: opt.CertProvider.GetCert,
 			},

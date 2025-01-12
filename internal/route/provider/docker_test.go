@@ -10,6 +10,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/entry"
 	T "github.com/yusing/go-proxy/internal/route/types"
@@ -123,7 +124,8 @@ func TestApplyLabel(t *testing.T) {
 	ExpectEqual(t, b.Container.StopSignal, "SIGTERM")
 
 	ExpectEqual(t, a.Homepage.Show, true)
-	ExpectEqual(t, a.Homepage.Icon, "png/example.png")
+	ExpectEqual(t, a.Homepage.Icon.Value, homepage.DashboardIconBaseURL+"png/example.png")
+	ExpectEqual(t, a.Homepage.Icon.IsRelative, false)
 
 	ExpectEqual(t, a.HealthCheck.Path, "/ping")
 	ExpectEqual(t, a.HealthCheck.Interval, 10*time.Second)
