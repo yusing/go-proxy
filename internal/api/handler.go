@@ -6,6 +6,7 @@ import (
 
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
+	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	. "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -34,7 +35,7 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	mux.HandleFunc("GET", "/v1/stats", useCfg(cfg, v1.Stats))
 	mux.HandleFunc("GET", "/v1/stats/ws", useCfg(cfg, v1.StatsWS))
-	mux.HandleFunc("GET", "/v1/favicon/{alias}", auth.RequireAuth(v1.GetFavIcon))
+	mux.HandleFunc("GET", "/v1/favicon/{alias}", auth.RequireAuth(favicon.GetFavIcon))
 	return mux
 }
 

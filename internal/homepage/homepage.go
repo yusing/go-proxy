@@ -1,7 +1,5 @@
 package homepage
 
-import "strings"
-
 type (
 	//nolint:recvcheck
 	Config   map[string]Category
@@ -38,13 +36,6 @@ func NewHomePageConfig() Config {
 func (c *Config) Clear() {
 	*c = make(Config)
 }
-
-var cleanName = strings.NewReplacer(
-	" ", "-",
-	"_", "-",
-	"(", "",
-	")", "",
-)
 
 func (c Config) Add(item *Item) {
 	if c[item.Category] == nil {
