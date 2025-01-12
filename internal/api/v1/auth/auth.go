@@ -51,10 +51,31 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, err, http.StatusUnauthorized)
 		return
 	}
+	if err := setAuthenticatedCookie(w, r, creds.Username); err != nil {
+		U.HandleErr(w, r, err, http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
 
+func AuthMethodHandler(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case common.APIJWTSecret == nil:
+		U.WriteBody(w, []byte("skip"))
+	case common.OIDCIssuerURL != "":
+		U.WriteBody(w, []byte("oidc"))
+	case common.APIPasswordHash != nil:
+		U.WriteBody(w, []byte("password"))
+	default:
+		U.WriteBody(w, []byte("skip"))
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func setAuthenticatedCookie(w http.ResponseWriter, r *http.Request, username string) error {
 	expiresAt := time.Now().Add(common.APIJWTTokenTTL)
 	claim := &Claims{
-		Username: creds.Username,
+		Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 		},
@@ -62,8 +83,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS512, claim)
 	tokenStr, err := token.SignedString(common.APIJWTSecret)
 	if err != nil {
-		U.HandleErr(w, r, err)
-		return
+		return err
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     "token",
@@ -73,7 +93,7 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 		Path:     "/",
 	})
-	w.WriteHeader(http.StatusOK)
+	return nil
 }
 
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +107,20 @@ func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	})
 	w.Header().Set("location", "/login")
 	w.WriteHeader(http.StatusTemporaryRedirect)
+}
+
+// Initialize sets up authentication providers.
+func Initialize() error {
+	// Initialize OIDC if configured.
+	if common.OIDCIssuerURL != "" {
+		return InitOIDC(
+			common.OIDCIssuerURL,
+			common.OIDCClientID,
+			common.OIDCClientSecret,
+			common.OIDCRedirectURL,
+		)
+	}
+	return nil
 }
 
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {

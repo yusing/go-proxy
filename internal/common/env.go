@@ -45,6 +45,12 @@ var (
 	APIJWTTokenTTL  = GetDurationEnv("API_JWT_TOKEN_TTL", time.Hour)
 	APIUser         = GetEnvString("API_USER", "admin")
 	APIPasswordHash = HashPassword(GetEnvString("API_PASSWORD", "password"))
+
+	// OIDC Configuration
+	OIDCIssuerURL    = GetEnvString("OIDC_ISSUER_URL", "")
+	OIDCClientID     = GetEnvString("OIDC_CLIENT_ID", "")
+	OIDCClientSecret = GetEnvString("OIDC_CLIENT_SECRET", "")
+	OIDCRedirectURL  = GetEnvString("OIDC_REDIRECT_URL", "")
 )
 
 func GetEnv[T any](key string, defaultValue T, parser func(string) (T, error)) T {
