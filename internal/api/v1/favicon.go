@@ -1,11 +1,14 @@
 package v1
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +16,9 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/vincent-petithory/dataurl"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
+	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
+	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	route "github.com/yusing/go-proxy/internal/route/types"
 )
 
@@ -40,6 +45,10 @@ func (c *content) Write(data []byte) (int, error) {
 
 func (c *content) WriteHeader(statusCode int) {
 	c.status = statusCode
+}
+
+func (c *content) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	return nil, nil, errors.New("not supported")
 }
 
 // GetFavIcon returns the favicon of the route
@@ -136,7 +145,18 @@ func getIconAbsolute(url string) ([]byte, int, string) {
 	return icon, http.StatusOK, ""
 }
 
-func findIcon(r route.HTTPRoute, req *http.Request, path string) (icon []byte, status int, errMsg string) {
+var nameSanitizer = strings.NewReplacer(
+	"_", "-",
+	" ", "-",
+	"(", "",
+	")", "",
+)
+
+func sanitizeName(name string) string {
+	return strings.ToLower(nameSanitizer.Replace(name))
+}
+
+func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
 	key := r.TargetName()
 	icon, ok := loadIconCache(key)
 	if ok {
@@ -146,41 +166,72 @@ func findIcon(r route.HTTPRoute, req *http.Request, path string) (icon []byte, s
 		return icon, http.StatusOK, ""
 	}
 
-	icon, status, errMsg = findIconSlow(r, req, path)
+	icon, status, errMsg = findIconSlow(r, req, uri)
+	if icon == nil {
+		// fallback to dashboard icon
+		icon, status, errMsg = getIconAbsolute(homepage.DashboardIconBaseURL + "png/" + sanitizeName(r.TargetName()) + ".png")
+	}
 	// set even if error (nil)
 	storeIconCache(key, icon)
 	return
 }
 
-func findIconSlow(r route.HTTPRoute, req *http.Request, path string) (icon []byte, status int, errMsg string) {
+func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
 	c := newContent()
 	ctx, cancel := context.WithTimeoutCause(req.Context(), 3*time.Second, errors.New("favicon request timeout"))
 	defer cancel()
 	newReq := req.WithContext(ctx)
-	newReq.URL.Path = path
-	newReq.URL.RawPath = path
-	newReq.URL.RawQuery = ""
-	newReq.RequestURI = path
+	newReq.Header.Set("Accept-Encoding", "identity") // disable compression
+	u, err := url.ParseRequestURI(uri)
+	if err != nil {
+		logging.Error().Err(err).
+			Str("route", r.TargetName()).
+			Str("path", uri).
+			Msg("failed to parse uri")
+		return nil, http.StatusInternalServerError, "cannot parse uri"
+	}
+	newReq.URL.Path = u.Path
+	newReq.URL.RawPath = u.RawPath
+	newReq.URL.RawQuery = u.RawQuery
+	newReq.RequestURI = u.String()
 	r.ServeHTTP(c, newReq)
 	if c.status != http.StatusOK {
+		switch c.status {
+		case 0:
+			return nil, http.StatusBadGateway, "connection error"
+		default:
+			if loc := c.Header().Get("Location"); loc != "" {
+				if loc == newReq.URL.Path {
+					return nil, http.StatusBadGateway, "circular redirect"
+				}
+				logging.Debug().Str("route", r.TargetName()).
+					Str("from", uri).
+					Str("to", loc).
+					Msg("favicon redirect")
+				return findIconSlow(r, req, loc)
+			}
+		}
 		return nil, c.status, "upstream error: " + http.StatusText(c.status)
 	}
 	// return icon data
-	if path != "/" {
+	if !gphttp.GetContentType(c.header).IsHTML() {
 		return c.data, http.StatusOK, ""
 	}
 	// try extract from "link[rel=icon]" from path "/"
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(c.data))
 	if err != nil {
+		logging.Error().Err(err).
+			Str("route", r.TargetName()).
+			Msg("failed to parse html")
 		return nil, http.StatusInternalServerError, "internal error"
 	}
-	ele := doc.Find("link[rel=icon]").First()
+	ele := doc.Find("head > link[rel=icon]").First()
 	if ele.Length() == 0 {
-		return nil, http.StatusNotFound, "icon not found"
+		return nil, http.StatusNotFound, "icon element not found"
 	}
 	href := ele.AttrOr("href", "")
 	if href == "" {
-		return nil, http.StatusNotFound, "icon not found"
+		return nil, http.StatusNotFound, "icon href not found"
 	}
 	// https://en.wikipedia.org/wiki/Data_URI_scheme
 	if strings.HasPrefix(href, "data:image/") {
