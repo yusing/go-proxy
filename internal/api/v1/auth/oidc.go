@@ -13,42 +13,66 @@ import (
 	"golang.org/x/oauth2"
 )
 
-var (
+type OIDCProvider struct {
 	oauthConfig  *oauth2.Config
 	oidcProvider *oidc.Provider
 	oidcVerifier *oidc.IDTokenVerifier
+	overrideHost bool
+}
+
+var (
+	apiOAuth               *OIDCProvider
+	APIOIDCCallbackHandler http.HandlerFunc
 )
 
-// InitOIDC initializes the OIDC provider.
-func InitOIDC(issuerURL, clientID, clientSecret, redirectURL string) error {
+// initOIDC initializes the OIDC provider.
+func initOIDC(issuerURL, clientID, clientSecret, redirectURL string) (err error) {
 	if issuerURL == "" {
 		return nil // OIDC not configured
 	}
 
+	apiOAuth, err = NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL)
+	APIOIDCCallbackHandler = apiOAuth.OIDCCallbackHandler
+	return
+}
+
+func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string) (*OIDCProvider, error) {
 	provider, err := oidc.NewProvider(context.Background(), issuerURL)
 	if err != nil {
-		return fmt.Errorf("failed to initialize OIDC provider: %w", err)
+		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
 
-	oidcProvider = provider
-	oidcVerifier = provider.Verifier(&oidc.Config{
-		ClientID: clientID,
-	})
+	return &OIDCProvider{
+		oauthConfig: &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURL:  redirectURL,
+			Endpoint:     provider.Endpoint(),
+			Scopes:       strutils.CommaSeperatedList(common.OIDCScopes),
+		},
+		oidcProvider: provider,
+		oidcVerifier: provider.Verifier(&oidc.Config{
+			ClientID: clientID,
+		}),
+	}, nil
+}
 
-	oauthConfig = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURL,
-		Endpoint:     provider.Endpoint(),
-		Scopes:       strutils.CommaSeperatedList(common.OIDCScopes),
-	}
+func NewOIDCProviderFromEnv(redirectURL string) (*OIDCProvider, error) {
+	return NewOIDCProvider(
+		common.OIDCIssuerURL,
+		common.OIDCClientID,
+		common.OIDCClientSecret,
+		redirectURL,
+	)
+}
 
-	return nil
+func (provider *OIDCProvider) SetOverrideHostEnabled(enabled bool) {
+	provider.overrideHost = enabled
 }
 
 // RedirectOIDC initiates the OIDC login flow.
-func RedirectOIDC(w http.ResponseWriter, r *http.Request) {
-	if oauthConfig == nil {
+func (provider *OIDCProvider) RedirectOIDC(w http.ResponseWriter, r *http.Request) {
+	if provider == nil {
 		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
 		return
 	}
@@ -59,18 +83,29 @@ func RedirectOIDC(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		MaxAge:   300,
 		HttpOnly: true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 		Secure:   true,
 		Path:     "/",
 	})
 
-	url := oauthConfig.AuthCodeURL(state)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	redirURL := provider.oauthConfig.AuthCodeURL(state)
+	if provider.overrideHost {
+		u, err := r.URL.Parse(redirURL)
+		if err != nil {
+			U.HandleErr(w, r, err, http.StatusInternalServerError)
+			return
+		}
+		q := u.Query()
+		q.Set("redirect_uri", "https://"+r.Host+q.Get("redirect_uri"))
+		u.RawQuery = q.Encode()
+		redirURL = u.String()
+	}
+	http.Redirect(w, r, redirURL, http.StatusTemporaryRedirect)
 }
 
 // OIDCCallbackHandler handles the OIDC callback.
-func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	if oauthConfig == nil {
+func (provider *OIDCProvider) OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	if provider == nil {
 		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
 		return
 	}
@@ -81,7 +116,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if oidcProvider == nil {
+	if provider.oidcProvider == nil {
 		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
 		return
 	}
@@ -98,7 +133,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	code := r.URL.Query().Get("code")
-	oauth2Token, err := oauthConfig.Exchange(r.Context(), code)
+	oauth2Token, err := provider.oauthConfig.Exchange(r.Context(), code)
 	if err != nil {
 		U.HandleErr(w, r, fmt.Errorf("failed to exchange token: %w", err), http.StatusInternalServerError)
 		return
@@ -110,7 +145,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idToken, err := oidcVerifier.Verify(r.Context(), rawIDToken)
+	idToken, err := provider.oidcVerifier.Verify(r.Context(), rawIDToken)
 	if err != nil {
 		U.HandleErr(w, r, fmt.Errorf("failed to verify ID token: %w", err), http.StatusInternalServerError)
 		return
@@ -125,7 +160,7 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := setAuthenticatedCookie(w, claims.Username); err != nil {
+	if err := setAuthenticatedCookie(w, r, claims.Username); err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}
@@ -148,7 +183,7 @@ func handleTestCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create test JWT token
-	if err := setAuthenticatedCookie(w, "test-user"); err != nil {
+	if err := setAuthenticatedCookie(w, r, "test-user"); err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}

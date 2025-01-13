@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal"
-	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -111,15 +110,6 @@ func main() {
 
 	cfg.Start()
 	config.WatchChanges()
-
-	if !auth.IsEnabled() {
-		logging.Warn().Msg("authentication is disabled, please set API_JWT_SECRET or OIDC_* to enable authentication")
-	} else {
-		// Initialize authentication providers
-		if err := auth.Initialize(); err != nil {
-			logging.Fatal().Err(err).Msg("Failed to initialize authentication providers")
-		}
-	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)

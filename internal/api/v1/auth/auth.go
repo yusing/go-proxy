@@ -2,6 +2,7 @@ package auth
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -23,29 +25,59 @@ type (
 	}
 )
 
-// Initialize sets up authentication providers.
-func Initialize() error {
+// init sets up authentication providers.
+func init() {
+	if !IsEnabled() {
+		logging.Warn().Msg("authentication is disabled, please set API_JWT_SECRET or OIDC_* to enable authentication")
+		return
+	}
 	// Initialize OIDC if configured.
 	if common.OIDCIssuerURL != "" {
-		return InitOIDC(
+		if err := initOIDC(
 			common.OIDCIssuerURL,
 			common.OIDCClientID,
 			common.OIDCClientSecret,
 			common.OIDCRedirectURL,
-		)
+		); err != nil {
+			logging.Fatal().Err(err).Msg("failed to initialize OIDC provider")
+		}
 	}
-	return nil
 }
 
 func IsEnabled() bool {
-	return common.APIJWTSecret != nil || common.OIDCIssuerURL != ""
+	return common.APIJWTSecret != nil || IsOIDCEnabled()
 }
 
-// AuthRedirectHandler handles redirect to login page or OIDC login base on configuration.
-func AuthRedirectHandler(w http.ResponseWriter, r *http.Request) {
+func IsOIDCEnabled() bool {
+	return common.OIDCIssuerURL != ""
+}
+
+// cookieFQDN returns the fully qualified domain name of the request host
+// with subdomain stripped.
+//
+// If the request host does not have a subdomain,
+// an empty string is returned
+//
+//	"abc.example.com" -> "example.com"
+//	"example.com" -> ""
+func cookieFQDN(r *http.Request) string {
+	host, _, err := net.SplitHostPort(r.Host)
+	if err != nil {
+		host = r.Host
+	}
+	parts := strutils.SplitRune(host, '.')
+	if len(parts) < 2 {
+		return ""
+	}
+	parts[0] = ""
+	return strutils.JoinRune(parts, '.')
+}
+
+// APIAuthRedirectHandler handles API redirect to login page or OIDC login base on configuration.
+func APIAuthRedirectHandler(w http.ResponseWriter, r *http.Request) {
 	switch {
-	case oauthConfig != nil:
-		RedirectOIDC(w, r)
+	case apiOAuth != nil:
+		apiOAuth.RedirectOIDC(w, r)
 		return
 	case common.APIJWTSecret != nil:
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
@@ -55,7 +87,7 @@ func AuthRedirectHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func setAuthenticatedCookie(w http.ResponseWriter, username string) error {
+func setAuthenticatedCookie(w http.ResponseWriter, r *http.Request, username string) error {
 	expiresAt := time.Now().Add(common.APIJWTTokenTTL)
 	claim := &Claims{
 		Username: username,
@@ -72,9 +104,10 @@ func setAuthenticatedCookie(w http.ResponseWriter, username string) error {
 		Name:     CookieToken,
 		Value:    tokenStr,
 		Expires:  expiresAt,
+		Domain:   cookieFQDN(r),
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
 	return nil
@@ -84,20 +117,22 @@ func setAuthenticatedCookie(w http.ResponseWriter, username string) error {
 func LogoutHandler(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieToken,
-		Value:    "",
-		Expires:  time.Unix(0, 0),
+		MaxAge:   -1,
+		Domain:   cookieFQDN(r),
 		HttpOnly: true,
 		Secure:   true,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
-	AuthRedirectHandler(w, r)
+	APIAuthRedirectHandler(w, r)
 }
 
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	if IsEnabled() {
 		return func(w http.ResponseWriter, r *http.Request) {
-			if checkToken(w, r) {
+			if err := CheckToken(w, r); err != nil {
+				U.RespondError(w, err, http.StatusUnauthorized)
+			} else {
 				next(w, r)
 			}
 		}
@@ -105,11 +140,10 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return next
 }
 
-func checkToken(w http.ResponseWriter, r *http.Request) (ok bool) {
+func CheckToken(w http.ResponseWriter, r *http.Request) error {
 	tokenCookie, err := r.Cookie(CookieToken)
 	if err != nil {
-		U.RespondError(w, E.New("missing token"), http.StatusUnauthorized)
-		return false
+		return E.New("missing token")
 	}
 	var claims Claims
 	token, err := jwt.ParseWithClaims(tokenCookie.Value, &claims, func(t *jwt.Token) (interface{}, error) {
@@ -118,22 +152,17 @@ func checkToken(w http.ResponseWriter, r *http.Request) (ok bool) {
 		}
 		return common.APIJWTSecret, nil
 	})
-
-	switch {
-	case err != nil:
-		break
-	case !token.Valid:
-		err = E.New("invalid token")
-	case claims.Username != common.APIUser:
-		err = E.New("username mismatch").Subject(claims.Username)
-	case claims.ExpiresAt.Before(time.Now()):
-		err = E.Errorf("token expired on %s", strutils.FormatTime(claims.ExpiresAt.Time))
-	}
-
 	if err != nil {
-		U.RespondError(w, err, http.StatusForbidden)
-		return false
+		return err
+	}
+	switch {
+	case !token.Valid:
+		return E.New("invalid token")
+	case claims.Username != common.APIUser:
+		return E.New("username mismatch").Subject(claims.Username)
+	case claims.ExpiresAt.Before(time.Now()):
+		return E.Errorf("token expired on %s", strutils.FormatTime(claims.ExpiresAt.Time))
 	}
 
-	return true
+	return nil
 }

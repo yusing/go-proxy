@@ -14,22 +14,22 @@ import (
 func setupMockOIDC(t *testing.T) {
 	t.Helper()
 
-	oauthConfig = &oauth2.Config{
-		ClientID:     "test-client",
-		ClientSecret: "test-secret",
-		RedirectURL:  "http://localhost/callback",
-		Endpoint: oauth2.Endpoint{
-			AuthURL:  "http://mock-provider/auth",
-			TokenURL: "http://mock-provider/token",
+	apiOAuth = &OIDCProvider{
+		oauthConfig: &oauth2.Config{
+			ClientID:     "test-client",
+			ClientSecret: "test-secret",
+			RedirectURL:  "http://localhost/callback",
+			Endpoint: oauth2.Endpoint{
+				AuthURL:  "http://mock-provider/auth",
+				TokenURL: "http://mock-provider/token",
+			},
+			Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 		},
-		Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 	}
 }
 
 func cleanup() {
-	oauthConfig = nil
-	oidcProvider = nil
-	oidcVerifier = nil
+	apiOAuth = nil
 }
 
 func TestOIDCLoginHandler(t *testing.T) {
@@ -65,13 +65,13 @@ func TestOIDCLoginHandler(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if !tt.configureOAuth {
-				oauthConfig = nil
+				apiOAuth = nil
 			}
 
 			req := httptest.NewRequest(http.MethodGet, "/auth/redirect", nil)
 			w := httptest.NewRecorder()
 
-			RedirectOIDC(w, req)
+			apiOAuth.RedirectOIDC(w, req)
 
 			if got := w.Code; got != tt.wantStatus {
 				t.Errorf("OIDCLoginHandler() status = %v, want %v", got, tt.wantStatus)
@@ -140,7 +140,7 @@ func TestOIDCCallbackHandler(t *testing.T) {
 			}
 
 			if !tt.configureOAuth {
-				oauthConfig = nil
+				apiOAuth = nil
 			}
 
 			req := httptest.NewRequest(http.MethodGet, "/auth/callback?code="+tt.code+"&state="+tt.state, nil)
@@ -152,7 +152,7 @@ func TestOIDCCallbackHandler(t *testing.T) {
 			}
 			w := httptest.NewRecorder()
 
-			OIDCCallbackHandler(w, req)
+			apiOAuth.OIDCCallbackHandler(w, req)
 
 			if got := w.Code; got != tt.wantStatus {
 				t.Errorf("OIDCCallbackHandler() status = %v, want %v", got, tt.wantStatus)
@@ -194,7 +194,7 @@ func TestInitOIDC(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Cleanup(cleanup)
-			err := InitOIDC(tt.issuerURL, tt.clientID, tt.clientSecret, tt.redirectURL)
+			err := initOIDC(tt.issuerURL, tt.clientID, tt.clientSecret, tt.redirectURL)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InitOIDC() error = %v, wantErr %v", err, tt.wantErr)
 			}

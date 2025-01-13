@@ -37,7 +37,7 @@ func UserPassLoginHandler(w http.ResponseWriter, r *http.Request) {
 		U.HandleErr(w, r, err, http.StatusUnauthorized)
 		return
 	}
-	if err := setAuthenticatedCookie(w, creds.Username); err != nil {
+	if err := setAuthenticatedCookie(w, r, creds.Username); err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}

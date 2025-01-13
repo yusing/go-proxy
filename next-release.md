@@ -73,6 +73,16 @@ GoDoxy v0.8.2 expected changes
   * Connection #0 to host localhost left intact
   ```
 
+- **Thanks [polds](https://github.com/polds)**
+  Support WebUI authentication via OIDC by setting these environment variables:
+  - `GODOXY_API_USER`
+  - `GODOXY_API_JWT_SECRET`
+  - `GODOXY_OIDC_ISSUER_URL`
+  - `GODOXY_OIDC_CLIENT_ID`
+  - `GODOXY_OIDC_CLIENT_SECRET`
+  - `GODOXY_OIDC_REDIRECT_URL`
+  - `GODOXY_OIDC_SCOPES`
+
 - Caddyfile like rules
 
   ```yaml
