@@ -8,7 +8,7 @@ import (
 )
 
 type oidcMiddleware struct {
-	AllowedUsers []string
+	AllowedUsers []string `json:"allowed_users"`
 
 	auth          auth.Provider
 	authMux       *http.ServeMux
@@ -30,7 +30,12 @@ func (amw *oidcMiddleware) finalize() error {
 	if err != nil {
 		return err
 	}
+
 	authProvider.SetOverrideHostEnabled(true)
+	if len(amw.AllowedUsers) > 0 {
+		authProvider.SetAllowedUsers(amw.AllowedUsers)
+	}
+
 	amw.authMux = http.NewServeMux()
 	amw.authMux.HandleFunc(OIDCMiddlewareCallbackPath, authProvider.LoginCallbackHandler)
 	amw.authMux.HandleFunc(OIDCLogoutPath, func(w http.ResponseWriter, r *http.Request) {

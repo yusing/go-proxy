@@ -107,16 +107,16 @@ func (auth *OIDCProvider) CheckToken(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-// generateState generates a random string for ODIC state.
-const odicStateLength = 32
+// generateState generates a random string for OIDC state.
+const oidcStateLength = 32
 
 func generateState() (string, error) {
-	b := make([]byte, odicStateLength)
+	b := make([]byte, oidcStateLength)
 	_, err := rand.Read(b)
 	if err != nil {
 		return "", err
 	}
-	return base64.URLEncoding.EncodeToString(b)[:odicStateLength], nil
+	return base64.URLEncoding.EncodeToString(b)[:oidcStateLength], nil
 }
 
 // RedirectOIDC initiates the OIDC login flow.
