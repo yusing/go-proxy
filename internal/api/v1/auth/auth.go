@@ -47,12 +47,11 @@ func AuthRedirectHandler(w http.ResponseWriter, r *http.Request) {
 	case oauthConfig != nil:
 		RedirectOIDC(w, r)
 		return
-	case common.APIJWTSecret == nil:
+	case common.APIJWTSecret != nil:
 		http.Redirect(w, r, "/login", http.StatusTemporaryRedirect)
 		return
 	default:
-		U.WriteBody(w, []byte("skip"))
-		w.WriteHeader(http.StatusOK)
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 	}
 }
 
