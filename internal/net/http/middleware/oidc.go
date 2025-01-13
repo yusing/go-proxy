@@ -17,11 +17,6 @@ type oidcMiddleware struct {
 
 var OIDC = NewMiddleware[oidcMiddleware]()
 
-const (
-	OIDCMiddlewareCallbackPath = "/auth/callback"
-	OIDCLogoutPath             = "/auth/logout"
-)
-
 func (amw *oidcMiddleware) finalize() error {
 	if !auth.IsOIDCEnabled() {
 		return E.New("OIDC not enabled but Auth middleware is used")
@@ -31,14 +26,14 @@ func (amw *oidcMiddleware) finalize() error {
 		return err
 	}
 
-	authProvider.SetOverrideHostEnabled(true)
+	authProvider.SetIsMiddleware(true)
 	if len(amw.AllowedUsers) > 0 {
 		authProvider.SetAllowedUsers(amw.AllowedUsers)
 	}
 
 	amw.authMux = http.NewServeMux()
-	amw.authMux.HandleFunc(OIDCMiddlewareCallbackPath, authProvider.LoginCallbackHandler)
-	amw.authMux.HandleFunc(OIDCLogoutPath, func(w http.ResponseWriter, r *http.Request) {
+	amw.authMux.HandleFunc(auth.OIDCMiddlewareCallbackPath, authProvider.LoginCallbackHandler)
+	amw.authMux.HandleFunc(auth.OIDCLogoutPath, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
 	amw.authMux.HandleFunc("/", authProvider.RedirectLoginPage)
@@ -48,11 +43,11 @@ func (amw *oidcMiddleware) finalize() error {
 }
 
 func (amw *oidcMiddleware) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
-	if err := amw.auth.CheckToken(w, r); err != nil {
+	if err := amw.auth.CheckToken(r); err != nil {
 		amw.authMux.ServeHTTP(w, r)
 		return false
 	}
-	if r.URL.Path == OIDCLogoutPath {
+	if r.URL.Path == auth.OIDCLogoutPath {
 		amw.logoutHandler(w, r)
 		return false
 	}

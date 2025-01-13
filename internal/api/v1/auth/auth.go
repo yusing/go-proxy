@@ -43,7 +43,7 @@ func IsOIDCEnabled() bool {
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	if IsEnabled() {
 		return func(w http.ResponseWriter, r *http.Request) {
-			if err := defaultAuth.CheckToken(w, r); err != nil {
+			if err := defaultAuth.CheckToken(r); err != nil {
 				U.RespondError(w, err, http.StatusUnauthorized)
 			} else {
 				next(w, r)

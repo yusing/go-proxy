@@ -58,7 +58,7 @@ func (auth *UserPassAuth) TokenCookieName() string {
 	return "godoxy_token"
 }
 
-func (auth *UserPassAuth) CreateToken(w http.ResponseWriter, r *http.Request) (token string, err error) {
+func (auth *UserPassAuth) NewToken() (token string, err error) {
 	claim := &UserPassClaims{
 		Username: auth.username,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -73,7 +73,7 @@ func (auth *UserPassAuth) CreateToken(w http.ResponseWriter, r *http.Request) (t
 	return token, nil
 }
 
-func (auth *UserPassAuth) CheckToken(w http.ResponseWriter, r *http.Request) error {
+func (auth *UserPassAuth) CheckToken(r *http.Request) error {
 	jwtCookie, err := r.Cookie(auth.TokenCookieName())
 	if err != nil {
 		return ErrMissingToken
@@ -118,7 +118,7 @@ func (auth *UserPassAuth) LoginCallbackHandler(w http.ResponseWriter, r *http.Re
 		U.HandleErr(w, r, err, http.StatusUnauthorized)
 		return
 	}
-	token, err := auth.CreateToken(w, r)
+	token, err := auth.NewToken()
 	if err != nil {
 		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
@@ -132,7 +132,7 @@ func (auth *UserPassAuth) validatePassword(user, pass string) error {
 		return ErrInvalidUsername.Subject(user)
 	}
 	if err := bcrypt.CompareHashAndPassword(auth.pwdHash, []byte(pass)); err != nil {
-		return ErrInvalidPassword.Subject(pass)
+		return ErrInvalidPassword.With(err).Subject(pass)
 	}
 	return nil
 }

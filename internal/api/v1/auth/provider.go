@@ -6,7 +6,7 @@ import (
 
 type Provider interface {
 	TokenCookieName() string
-	CheckToken(w http.ResponseWriter, r *http.Request) error
+	CheckToken(r *http.Request) error
 	RedirectLoginPage(w http.ResponseWriter, r *http.Request)
 	LoginCallbackHandler(w http.ResponseWriter, r *http.Request)
 }

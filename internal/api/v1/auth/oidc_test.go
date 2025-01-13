@@ -8,7 +8,10 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/yusing/go-proxy/internal/common"
+	E "github.com/yusing/go-proxy/internal/error"
 	"golang.org/x/oauth2"
+
+	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 // setupMockOIDC configures mock OIDC provider for testing.
@@ -130,10 +133,12 @@ func TestOIDCCallbackHandler(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusTemporaryRedirect {
-				cookie := w.Header().Get("Set-Cookie")
-				if cookie == "" {
-					t.Error("OIDCCallbackHandler() missing token cookie")
-				}
+				setCookie := E.Must(http.ParseSetCookie(w.Header().Get("Set-Cookie")))
+				ExpectEqual(t, setCookie.Name, defaultAuth.TokenCookieName())
+				ExpectTrue(t, setCookie.Value != "")
+				ExpectEqual(t, setCookie.Path, "/")
+				ExpectEqual(t, setCookie.SameSite, http.SameSiteLaxMode)
+				ExpectEqual(t, setCookie.HttpOnly, true)
 			}
 		})
 	}

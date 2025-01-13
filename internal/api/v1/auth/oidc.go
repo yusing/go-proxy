@@ -23,10 +23,15 @@ type OIDCProvider struct {
 	oidcProvider *oidc.Provider
 	oidcVerifier *oidc.IDTokenVerifier
 	allowedUsers []string
-	overrideHost bool
+	isMiddleware bool
 }
 
 const CookieOauthState = "godoxy_oidc_state"
+
+const (
+	OIDCMiddlewareCallbackPath = "/auth/callback"
+	OIDCLogoutPath             = "/auth/logout"
+)
 
 func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allowedUsers []string) (*OIDCProvider, error) {
 	if len(allowedUsers) == 0 {
@@ -69,15 +74,18 @@ func (auth *OIDCProvider) TokenCookieName() string {
 	return "godoxy_oidc_token"
 }
 
-func (auth *OIDCProvider) SetOverrideHostEnabled(enabled bool) {
-	auth.overrideHost = enabled
+func (auth *OIDCProvider) SetIsMiddleware(enabled bool) {
+	auth.isMiddleware = enabled
+	if auth.isMiddleware {
+		auth.oauthConfig.RedirectURL = OIDCMiddlewareCallbackPath
+	}
 }
 
 func (auth *OIDCProvider) SetAllowedUsers(users []string) {
 	auth.allowedUsers = users
 }
 
-func (auth *OIDCProvider) CheckToken(w http.ResponseWriter, r *http.Request) error {
+func (auth *OIDCProvider) CheckToken(r *http.Request) error {
 	token, err := r.Cookie(auth.TokenCookieName())
 	if err != nil {
 		return ErrMissingToken
@@ -137,7 +145,7 @@ func (auth *OIDCProvider) RedirectLoginPage(w http.ResponseWriter, r *http.Reque
 	})
 
 	redirURL := auth.oauthConfig.AuthCodeURL(state)
-	if auth.overrideHost {
+	if auth.isMiddleware {
 		u, err := r.URL.Parse(redirURL)
 		if err != nil {
 			U.HandleErr(w, r, err, http.StatusInternalServerError)
@@ -165,12 +173,13 @@ func (auth *OIDCProvider) LoginCallbackHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if r.URL.Query().Get("state") != state.Value {
+	query := r.URL.Query()
+	if query.Get("state") != state.Value {
 		U.HandleErr(w, r, E.New("invalid oauth state"), http.StatusBadRequest)
 		return
 	}
 
-	code := r.URL.Query().Get("code")
+	code := query.Get("code")
 	oauth2Token, err := auth.oauthConfig.Exchange(r.Context(), code)
 	if err != nil {
 		U.HandleErr(w, r, fmt.Errorf("failed to exchange token: %w", err), http.StatusInternalServerError)
