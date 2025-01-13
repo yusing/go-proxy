@@ -50,6 +50,7 @@ var (
 	OIDCClientID     = GetEnvString("OIDC_CLIENT_ID", "")
 	OIDCClientSecret = GetEnvString("OIDC_CLIENT_SECRET", "")
 	OIDCRedirectURL  = GetEnvString("OIDC_REDIRECT_URL", "")
+	OIDCScopes       = GetEnvString("OIDC_SCOPES", "openid, profile, email")
 )
 
 func GetEnv[T any](key string, defaultValue T, parser func(string) (T, error)) T {

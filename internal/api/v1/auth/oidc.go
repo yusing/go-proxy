@@ -9,6 +9,7 @@ import (
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"golang.org/x/oauth2"
 )
 
@@ -39,7 +40,7 @@ func InitOIDC(issuerURL, clientID, clientSecret, redirectURL string) error {
 		ClientSecret: clientSecret,
 		RedirectURL:  redirectURL,
 		Endpoint:     provider.Endpoint(),
-		Scopes:       []string{oidc.ScopeOpenID, "profile", "email"},
+		Scopes:       strutils.CommaSeperatedList(common.OIDCScopes),
 	}
 
 	return nil
