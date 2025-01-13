@@ -1,6 +1,6 @@
 package auth
 
 const (
-	CookieToken      = "token"
-	CookieOauthState = "oauth_state"
+	CookieToken      = "godoxy_token"
+	CookieOauthState = "godoxy_oauth_state"
 )
