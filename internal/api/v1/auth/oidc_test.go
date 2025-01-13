@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,8 @@ import (
 func setupMockOIDC(t *testing.T) {
 	t.Helper()
 
-	apiOAuth = &OIDCProvider{
+	provider := (&oidc.ProviderConfig{}).NewProvider(context.TODO())
+	defaultAuth = &OIDCProvider{
 		oauthConfig: &oauth2.Config{
 			ClientID:     "test-client",
 			ClientSecret: "test-secret",
@@ -25,53 +27,42 @@ func setupMockOIDC(t *testing.T) {
 			},
 			Scopes: []string{oidc.ScopeOpenID, "profile", "email"},
 		},
+		oidcProvider: provider,
+		oidcVerifier: provider.Verifier(&oidc.Config{
+			ClientID: "test-client",
+		}),
+		allowedUsers: []string{"test-user"},
 	}
 }
 
 func cleanup() {
-	apiOAuth = nil
+	defaultAuth = nil
 }
 
 func TestOIDCLoginHandler(t *testing.T) {
 	// Setup
 	common.APIJWTSecret = []byte("test-secret")
-	common.IsTest = true
-	t.Cleanup(func() {
-		cleanup()
-		common.IsTest = false
-	})
+	t.Cleanup(cleanup)
 	setupMockOIDC(t)
 
 	tests := []struct {
-		name           string
-		configureOAuth bool
-		wantStatus     int
-		wantRedirect   bool
+		name         string
+		wantStatus   int
+		wantRedirect bool
 	}{
 		{
-			name:           "Success - Redirects to provider",
-			configureOAuth: true,
-			wantStatus:     http.StatusTemporaryRedirect,
-			wantRedirect:   true,
-		},
-		{
-			name:           "Failure - OIDC not configured",
-			configureOAuth: false,
-			wantStatus:     http.StatusNotImplemented,
-			wantRedirect:   false,
+			name:         "Success - Redirects to provider",
+			wantStatus:   http.StatusTemporaryRedirect,
+			wantRedirect: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if !tt.configureOAuth {
-				apiOAuth = nil
-			}
-
 			req := httptest.NewRequest(http.MethodGet, "/auth/redirect", nil)
 			w := httptest.NewRecorder()
 
-			apiOAuth.RedirectOIDC(w, req)
+			defaultAuth.RedirectLoginPage(w, req)
 
 			if got := w.Code; got != tt.wantStatus {
 				t.Errorf("OIDCLoginHandler() status = %v, want %v", got, tt.wantStatus)
@@ -94,65 +85,45 @@ func TestOIDCLoginHandler(t *testing.T) {
 func TestOIDCCallbackHandler(t *testing.T) {
 	// Setup
 	common.APIJWTSecret = []byte("test-secret")
-	common.IsTest = true
-	t.Cleanup(func() {
-		cleanup()
-		common.IsTest = false
-	})
+	t.Cleanup(cleanup)
 	tests := []struct {
-		name           string
-		configureOAuth bool
-		state          string
-		code           string
-		setupMocks     func()
-		wantStatus     int
+		name       string
+		state      string
+		code       string
+		setupMocks bool
+		wantStatus int
 	}{
 		{
-			name:           "Success - Valid callback",
-			configureOAuth: true,
-			state:          "valid-state",
-			code:           "valid-code",
-			setupMocks: func() {
-				setupMockOIDC(t)
-			},
+			name:       "Success - Valid callback",
+			state:      "valid-state",
+			code:       "valid-code",
+			setupMocks: true,
 			wantStatus: http.StatusTemporaryRedirect,
 		},
 		{
-			name:           "Failure - OIDC not configured",
-			configureOAuth: false,
-			wantStatus:     http.StatusNotImplemented,
-		},
-		{
-			name:           "Failure - Missing state",
-			configureOAuth: true,
-			code:           "valid-code",
-			setupMocks: func() {
-				setupMockOIDC(t)
-			},
+			name:       "Failure - Missing state",
+			code:       "valid-code",
+			setupMocks: true,
 			wantStatus: http.StatusBadRequest,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.setupMocks != nil {
-				tt.setupMocks()
-			}
-
-			if !tt.configureOAuth {
-				apiOAuth = nil
+			if tt.setupMocks {
+				setupMockOIDC(t)
 			}
 
 			req := httptest.NewRequest(http.MethodGet, "/auth/callback?code="+tt.code+"&state="+tt.state, nil)
 			if tt.state != "" {
 				req.AddCookie(&http.Cookie{
-					Name:  "oauth_state",
+					Name:  CookieOauthState,
 					Value: tt.state,
 				})
 			}
 			w := httptest.NewRecorder()
 
-			apiOAuth.OIDCCallbackHandler(w, req)
+			defaultAuth.LoginCallbackHandler(w, req)
 
 			if got := w.Code; got != tt.wantStatus {
 				t.Errorf("OIDCCallbackHandler() status = %v, want %v", got, tt.wantStatus)
@@ -169,32 +140,48 @@ func TestOIDCCallbackHandler(t *testing.T) {
 }
 
 func TestInitOIDC(t *testing.T) {
-	common.IsTest = true
-	t.Cleanup(func() {
-		common.IsTest = false
-	})
 	tests := []struct {
 		name         string
 		issuerURL    string
 		clientID     string
 		clientSecret string
 		redirectURL  string
+		allowedUsers []string
 		wantErr      bool
 	}{
 		{
-			name:         "Success - Empty configuration",
+			name:         "Fail - Empty configuration",
 			issuerURL:    "",
 			clientID:     "",
 			clientSecret: "",
 			redirectURL:  "",
-			wantErr:      false,
+			allowedUsers: nil,
+			wantErr:      true,
+		},
+		// {
+		// 	name:         "Success - Valid configuration",
+		// 	issuerURL:    "https://example.com",
+		// 	clientID:     "client_id",
+		// 	clientSecret: "client_secret",
+		// 	redirectURL:  "https://example.com/callback",
+		// 	allowedUsers: []string{"user1", "user2"},
+		// 	wantErr:      false,
+		// },
+		{
+			name:         "Fail - No allowed users",
+			issuerURL:    "https://example.com",
+			clientID:     "client_id",
+			clientSecret: "client_secret",
+			redirectURL:  "https://example.com/callback",
+			allowedUsers: []string{},
+			wantErr:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Cleanup(cleanup)
-			err := initOIDC(tt.issuerURL, tt.clientID, tt.clientSecret, tt.redirectURL)
+			_, err := NewOIDCProvider(tt.issuerURL, tt.clientID, tt.clientSecret, tt.redirectURL, tt.allowedUsers)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InitOIDC() error = %v, wantErr %v", err, tt.wantErr)
 			}

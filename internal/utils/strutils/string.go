@@ -10,6 +10,9 @@ import (
 // CommaSeperatedList returns a list of strings split by commas,
 // then trim spaces from each element.
 func CommaSeperatedList(s string) []string {
+	if s == "" {
+		return []string{}
+	}
 	res := SplitComma(s)
 	for i, part := range res {
 		res[i] = strings.TrimSpace(part)

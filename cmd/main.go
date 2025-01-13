@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal"
+	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -106,6 +107,10 @@ func main() {
 	case common.CommandDebugListProviders:
 		printJSON(cfg.DumpProviders())
 		return
+	}
+
+	if err := auth.Initialize(); err != nil {
+		logging.Fatal().Err(err).Msg("failed to initialize authentication")
 	}
 
 	cfg.Start()

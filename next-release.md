@@ -75,13 +75,12 @@ GoDoxy v0.8.2 expected changes
 
 - **Thanks [polds](https://github.com/polds)**
   Support WebUI authentication via OIDC by setting these environment variables:
-  - `GODOXY_API_USER`
-  - `GODOXY_API_JWT_SECRET`
   - `GODOXY_OIDC_ISSUER_URL`
   - `GODOXY_OIDC_CLIENT_ID`
   - `GODOXY_OIDC_CLIENT_SECRET`
   - `GODOXY_OIDC_REDIRECT_URL`
-  - `GODOXY_OIDC_SCOPES`
+  - `GODOXY_OIDC_SCOPES` _(optional)_
+  - `GODOXY_OIDC_ALLOWED_USERS`
 
 - Caddyfile like rules
 

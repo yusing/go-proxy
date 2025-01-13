@@ -8,43 +8,47 @@ import (
 )
 
 type oidcMiddleware struct {
-	oauth   *auth.OIDCProvider
-	authMux *http.ServeMux
+	AllowedUsers []string
+
+	auth          auth.Provider
+	authMux       *http.ServeMux
+	logoutHandler http.HandlerFunc
 }
 
 var OIDC = NewMiddleware[oidcMiddleware]()
 
 const (
-	OIDCMiddlewareCallbackPath = "/godoxy-auth-oidc/callback"
-	OIDCLogoutPath             = "/logout"
+	OIDCMiddlewareCallbackPath = "/auth/callback"
+	OIDCLogoutPath             = "/auth/logout"
 )
 
 func (amw *oidcMiddleware) finalize() error {
 	if !auth.IsOIDCEnabled() {
 		return E.New("OIDC not enabled but Auth middleware is used")
 	}
-	provider, err := auth.NewOIDCProviderFromEnv(OIDCMiddlewareCallbackPath)
+	authProvider, err := auth.NewOIDCProviderFromEnv()
 	if err != nil {
 		return err
 	}
-	provider.SetOverrideHostEnabled(true)
-	amw.oauth = provider
+	authProvider.SetOverrideHostEnabled(true)
 	amw.authMux = http.NewServeMux()
-	amw.authMux.HandleFunc(OIDCMiddlewareCallbackPath, provider.OIDCCallbackHandler)
+	amw.authMux.HandleFunc(OIDCMiddlewareCallbackPath, authProvider.LoginCallbackHandler)
 	amw.authMux.HandleFunc(OIDCLogoutPath, func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
-	amw.authMux.HandleFunc("/", provider.RedirectOIDC)
+	amw.authMux.HandleFunc("/", authProvider.RedirectLoginPage)
+	amw.logoutHandler = auth.LogoutCallbackHandler(authProvider)
+	amw.auth = authProvider
 	return nil
 }
 
 func (amw *oidcMiddleware) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
-	if err, _ := auth.CheckToken(w, r); err != nil {
+	if err := amw.auth.CheckToken(w, r); err != nil {
 		amw.authMux.ServeHTTP(w, r)
 		return false
 	}
 	if r.URL.Path == OIDCLogoutPath {
-		auth.LogoutHandler(w, r)
+		amw.logoutHandler(w, r)
 		return false
 	}
 	return true
