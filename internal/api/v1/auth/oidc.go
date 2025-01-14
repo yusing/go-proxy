@@ -76,9 +76,6 @@ func (auth *OIDCProvider) TokenCookieName() string {
 
 func (auth *OIDCProvider) SetIsMiddleware(enabled bool) {
 	auth.isMiddleware = enabled
-	if auth.isMiddleware {
-		auth.oauthConfig.RedirectURL = OIDCMiddlewareCallbackPath
-	}
 }
 
 func (auth *OIDCProvider) SetAllowedUsers(users []string) {
@@ -152,11 +149,20 @@ func (auth *OIDCProvider) RedirectLoginPage(w http.ResponseWriter, r *http.Reque
 			return
 		}
 		q := u.Query()
-		q.Set("redirect_uri", "https://"+r.Host+q.Get("redirect_uri"))
+		q.Set("redirect_uri", "https://"+r.Host+OIDCMiddlewareCallbackPath+q.Get("redirect_uri"))
 		u.RawQuery = q.Encode()
 		redirURL = u.String()
 	}
 	http.Redirect(w, r, redirURL, http.StatusTemporaryRedirect)
+}
+
+func (auth *OIDCProvider) exchange(r *http.Request) (*oauth2.Token, error) {
+	if auth.isMiddleware {
+		cfg := *auth.oauthConfig
+		cfg.RedirectURL = "https://" + r.Host + OIDCMiddlewareCallbackPath
+		return cfg.Exchange(r.Context(), r.URL.Query().Get("code"))
+	}
+	return auth.oauthConfig.Exchange(r.Context(), r.URL.Query().Get("code"))
 }
 
 // OIDCCallbackHandler handles the OIDC callback.
@@ -179,8 +185,7 @@ func (auth *OIDCProvider) LoginCallbackHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	code := query.Get("code")
-	oauth2Token, err := auth.oauthConfig.Exchange(r.Context(), code)
+	oauth2Token, err := auth.exchange(r)
 	if err != nil {
 		U.HandleErr(w, r, fmt.Errorf("failed to exchange token: %w", err), http.StatusInternalServerError)
 		return
