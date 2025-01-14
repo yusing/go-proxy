@@ -14,16 +14,18 @@ import (
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	CE "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"golang.org/x/oauth2"
 )
 
 type OIDCProvider struct {
-	oauthConfig  *oauth2.Config
-	oidcProvider *oidc.Provider
-	oidcVerifier *oidc.IDTokenVerifier
-	allowedUsers []string
-	isMiddleware bool
+	oauthConfig   *oauth2.Config
+	oidcProvider  *oidc.Provider
+	oidcVerifier  *oidc.IDTokenVerifier
+	allowedUsers  []string
+	allowedGroups []string
+	isMiddleware  bool
 }
 
 const CookieOauthState = "godoxy_oidc_state"
@@ -33,9 +35,9 @@ const (
 	OIDCLogoutPath             = "/auth/logout"
 )
 
-func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allowedUsers []string) (*OIDCProvider, error) {
-	if len(allowedUsers) == 0 {
-		return nil, errors.New("OIDC allowed users must not be empty")
+func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allowedUsers, allowedGroups []string) (*OIDCProvider, error) {
+	if len(allowedUsers)+len(allowedGroups) == 0 {
+		return nil, errors.New("OIDC users, groups, or both must not be empty")
 	}
 
 	provider, err := oidc.NewProvider(context.Background(), issuerURL)
@@ -55,7 +57,8 @@ func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allo
 		oidcVerifier: provider.Verifier(&oidc.Config{
 			ClientID: clientID,
 		}),
-		allowedUsers: allowedUsers,
+		allowedUsers:  allowedUsers,
+		allowedGroups: allowedGroups,
 	}, nil
 }
 
@@ -67,6 +70,7 @@ func NewOIDCProviderFromEnv() (*OIDCProvider, error) {
 		common.OIDCClientSecret,
 		common.OIDCRedirectURL,
 		common.OIDCAllowedUsers,
+		common.OIDCAllowedGroups,
 	)
 }
 
@@ -85,6 +89,10 @@ func (auth *OIDCProvider) SetAllowedUsers(users []string) {
 	auth.allowedUsers = users
 }
 
+func (auth *OIDCProvider) SetAllowedGroups(groups []string) {
+	auth.allowedGroups = groups
+}
+
 func (auth *OIDCProvider) CheckToken(r *http.Request) error {
 	token, err := r.Cookie(auth.TokenCookieName())
 	if err != nil {
@@ -94,7 +102,7 @@ func (auth *OIDCProvider) CheckToken(r *http.Request) error {
 	// checks for Expiry, Audience == ClientID, Issuer, etc.
 	idToken, err := auth.oidcVerifier.Verify(r.Context(), token.Value)
 	if err != nil {
-		return fmt.Errorf("failed to verify ID token: %w", err)
+		return fmt.Errorf("failed to verify ID token: %w: %w", ErrInvalidToken, err)
 	}
 
 	if len(idToken.Audience) == 0 {
@@ -102,14 +110,18 @@ func (auth *OIDCProvider) CheckToken(r *http.Request) error {
 	}
 
 	var claims struct {
-		Email    string `json:"email"`
-		Username string `json:"preferred_username"`
+		Email    string   `json:"email"`
+		Username string   `json:"preferred_username"`
+		Groups   []string `json:"groups"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		return fmt.Errorf("failed to parse claims: %w", err)
 	}
 
-	if !slices.Contains(auth.allowedUsers, claims.Username) {
+	// Logical AND between allowed users and groups.
+	allowedUser := slices.Contains(auth.allowedUsers, claims.Username)
+	allowedGroup := len(CE.Intersect(claims.Groups, auth.allowedGroups)) > 0
+	if !allowedUser && !allowedGroup {
 		return ErrUserNotAllowed.Subject(claims.Username)
 	}
 	return nil
