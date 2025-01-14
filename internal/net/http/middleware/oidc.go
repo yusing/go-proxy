@@ -8,7 +8,8 @@ import (
 )
 
 type oidcMiddleware struct {
-	AllowedUsers []string `json:"allowed_users"`
+	AllowedUsers  []string `json:"allowed_users"`
+	AllowedGroups []string `json:"allowed_groups"`
 
 	auth          auth.Provider
 	authMux       *http.ServeMux
@@ -29,6 +30,9 @@ func (amw *oidcMiddleware) finalize() error {
 	authProvider.SetIsMiddleware(true)
 	if len(amw.AllowedUsers) > 0 {
 		authProvider.SetAllowedUsers(amw.AllowedUsers)
+	}
+	if len(amw.AllowedGroups) > 0 {
+		authProvider.SetAllowedGroups(amw.AllowedGroups)
 	}
 
 	amw.authMux = http.NewServeMux()

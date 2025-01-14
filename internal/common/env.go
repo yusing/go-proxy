@@ -47,12 +47,13 @@ var (
 	APIPassword    = GetEnvString("API_PASSWORD", "password")
 
 	// OIDC Configuration.
-	OIDCIssuerURL    = GetEnvString("OIDC_ISSUER_URL", "")
-	OIDCClientID     = GetEnvString("OIDC_CLIENT_ID", "")
-	OIDCClientSecret = GetEnvString("OIDC_CLIENT_SECRET", "")
-	OIDCRedirectURL  = GetEnvString("OIDC_REDIRECT_URL", "")
-	OIDCScopes       = GetEnvString("OIDC_SCOPES", "openid, profile, email")
-	OIDCAllowedUsers = GetCommaSepEnv("OIDC_ALLOWED_USERS", "")
+	OIDCIssuerURL     = GetEnvString("OIDC_ISSUER_URL", "")
+	OIDCClientID      = GetEnvString("OIDC_CLIENT_ID", "")
+	OIDCClientSecret  = GetEnvString("OIDC_CLIENT_SECRET", "")
+	OIDCRedirectURL   = GetEnvString("OIDC_REDIRECT_URL", "")
+	OIDCScopes        = GetEnvString("OIDC_SCOPES", "openid, profile, email")
+	OIDCAllowedUsers  = GetCommaSepEnv("OIDC_ALLOWED_USERS", "")
+	OIDCAllowedGroups = GetCommaSepEnv("OIDC_ALLOWED_GROUPS", "")
 )
 
 func GetEnv[T any](key string, defaultValue T, parser func(string) (T, error)) T {
