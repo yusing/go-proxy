@@ -75,12 +75,23 @@ GoDoxy v0.8.2 expected changes
 
 - **Thanks [polds](https://github.com/polds)**
   Support WebUI authentication via OIDC by setting these environment variables:
-  - `GODOXY_OIDC_ISSUER_URL`
+  - `GODOXY_OIDC_ISSUER_URL` e.g.:
+    - Pocket ID: `https://pocker-id.yourdomain.com`
+    - Authentik: `https://authentik.yourdomain.com/application/o/<application_slug>/` **The ending slash is required**
   - `GODOXY_OIDC_CLIENT_ID`
   - `GODOXY_OIDC_CLIENT_SECRET`
   - `GODOXY_OIDC_REDIRECT_URL`
   - `GODOXY_OIDC_SCOPES` _(optional)_
   - `GODOXY_OIDC_ALLOWED_USERS`
+
+- Use OpenID Connect to authenticate GoDoxy's WebUI and all your services (SSO)
+  ```yaml
+    # default
+  proxy.app.middlewares.oidc:
+
+  # override allowed users
+  proxy.app.middlewares.oidc.allowed_users: user1, user2
+  ```
 
 - Caddyfile like rules
 
