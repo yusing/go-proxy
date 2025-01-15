@@ -116,6 +116,14 @@ func (r *StreamRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }
 
+
+func (r *StreamRoute) Health() health.Status {
+	if r.HealthMon != nil {
+		return r.HealthMon.Status()
+	}
+	return health.StatusUnknown
+}
+
 func (r *StreamRoute) acceptConnections() {
 	defer r.task.Finish("listener closed")
 

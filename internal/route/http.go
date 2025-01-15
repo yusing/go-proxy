@@ -180,6 +180,13 @@ func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
+func (r *HTTPRoute) Health() health.Status {
+	if r.HealthMon != nil {
+		return r.HealthMon.Status()
+	}
+	return health.StatusUnknown
+}
+
 func (r *HTTPRoute) addToLoadBalancer(parent task.Parent) {
 	var lb *loadbalancer.LoadBalancer
 	cfg := r.Raw.LoadBalance
