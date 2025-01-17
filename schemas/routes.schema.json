@@ -1,0 +1,1311 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": {
+        "$ref": "#/definitions/Route"
+    },
+    "definitions": {
+        "AccessLogFieldMode": {
+            "enum": [
+                "drop",
+                "keep",
+                "redact"
+            ],
+            "type": "string"
+        },
+        "AccessLogFormat": {
+            "enum": [
+                "combined",
+                "common",
+                "json"
+            ],
+            "type": "string"
+        },
+        "CIDR": {
+            "anyOf": [
+                {
+                    "pattern": "^[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^.*:.*:.*:.*:.*:.*:.*:.*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*/[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^::[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^.*::/[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^.*:.*::/[0-9]*$",
+                    "type": "string"
+                }
+            ]
+        },
+        "LoadBalanceConfig": {
+            "additionalProperties": false,
+            "anyOf": [
+                {
+                    "allOf": [
+                        {
+                            "additionalProperties": false,
+                            "properties": {
+                                "link": {
+                                    "description": "Alias (subdomain or FDN) of load-balancer",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "weight": {
+                                    "description": "Load-balance weight (reserved for future use)",
+                                    "maximum": 100,
+                                    "minimum": 0,
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "link"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "properties": {
+                                "mode": {
+                                    "enum": [
+                                        "round_robin"
+                                    ],
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "mode"
+                            ],
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "additionalProperties": false,
+                            "properties": {
+                                "link": {
+                                    "description": "Alias (subdomain or FDN) of load-balancer",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "weight": {
+                                    "description": "Load-balance weight (reserved for future use)",
+                                    "maximum": 100,
+                                    "minimum": 0,
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "link"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "properties": {
+                                "mode": {
+                                    "enum": [
+                                        "least_conn"
+                                    ],
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "mode"
+                            ],
+                            "type": "object"
+                        }
+                    ]
+                },
+                {
+                    "allOf": [
+                        {
+                            "additionalProperties": false,
+                            "properties": {
+                                "link": {
+                                    "description": "Alias (subdomain or FDN) of load-balancer",
+                                    "minLength": 1,
+                                    "type": "string"
+                                },
+                                "weight": {
+                                    "description": "Load-balance weight (reserved for future use)",
+                                    "maximum": 100,
+                                    "minimum": 0,
+                                    "type": "number"
+                                }
+                            },
+                            "required": [
+                                "link"
+                            ],
+                            "type": "object"
+                        },
+                        {
+                            "additionalProperties": false,
+                            "properties": {
+                                "config": {
+                                    "additionalProperties": false,
+                                    "description": "Real IP config, header to get client IP from",
+                                    "properties": {
+                                        "from": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "header": {
+                                            "description": "Header to get the client IP from",
+                                            "pattern": "^[a-zA-Z0-9\\-]+$",
+                                            "type": "string"
+                                        },
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursive resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "header",
+                                        "recursive"
+                                    ],
+                                    "type": "object"
+                                },
+                                "mode": {
+                                    "enum": [
+                                        "ip_hash"
+                                    ],
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "config",
+                                "mode"
+                            ],
+                            "type": "object"
+                        }
+                    ]
+                }
+            ]
+        },
+        "ProxyScheme": {
+            "enum": [
+                "http",
+                "https"
+            ],
+            "type": "string"
+        },
+        "Route": {
+            "anyOf": [
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "access_log": {
+                            "additionalProperties": false,
+                            "description": "Access log config",
+                            "examples": [
+                                {
+                                    "fields": {
+                                        "headers": {
+                                            "config": {
+                                                "foo": "redact"
+                                            },
+                                            "default": "keep"
+                                        }
+                                    },
+                                    "filters": {
+                                        "status_codes": {
+                                            "values": [
+                                                "200-299"
+                                            ]
+                                        }
+                                    },
+                                    "format": "combined",
+                                    "path": "/var/log/access.log"
+                                }
+                            ],
+                            "properties": {
+                                "buffer_size": {
+                                    "default": 65536,
+                                    "description": "The size of the buffer.",
+                                    "minimum": 0,
+                                    "type": "integer"
+                                },
+                                "fields": {
+                                    "properties": {
+                                        "cookie": {
+                                            "properties": {
+                                                "config": {
+                                                    "additionalProperties": {
+                                                        "enum": [
+                                                            "drop",
+                                                            "keep",
+                                                            "redact"
+                                                        ],
+                                                        "type": "string"
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "default": {
+                                                    "$ref": "#/definitions/AccessLogFieldMode"
+                                                }
+                                            },
+                                            "required": [
+                                                "config"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "header": {
+                                            "properties": {
+                                                "config": {
+                                                    "additionalProperties": {
+                                                        "enum": [
+                                                            "drop",
+                                                            "keep",
+                                                            "redact"
+                                                        ],
+                                                        "type": "string"
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "default": {
+                                                    "$ref": "#/definitions/AccessLogFieldMode"
+                                                }
+                                            },
+                                            "required": [
+                                                "config"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "query": {
+                                            "properties": {
+                                                "config": {
+                                                    "additionalProperties": {
+                                                        "enum": [
+                                                            "drop",
+                                                            "keep",
+                                                            "redact"
+                                                        ],
+                                                        "type": "string"
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "default": {
+                                                    "$ref": "#/definitions/AccessLogFieldMode"
+                                                }
+                                            },
+                                            "required": [
+                                                "config"
+                                            ],
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "filters": {
+                                    "properties": {
+                                        "cidr": {
+                                            "properties": {
+                                                "negative": {
+                                                    "default": false,
+                                                    "description": "Whether the filter is negative.",
+                                                    "type": "boolean"
+                                                },
+                                                "values": {
+                                                    "items": {
+                                                        "$ref": "#/definitions/CIDR"
+                                                    },
+                                                    "type": "array"
+                                                }
+                                            },
+                                            "required": [
+                                                "values"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "headers": {
+                                            "properties": {
+                                                "negative": {
+                                                    "default": false,
+                                                    "description": "Whether the filter is negative.",
+                                                    "type": "boolean"
+                                                },
+                                                "values": {
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": "array"
+                                                }
+                                            },
+                                            "required": [
+                                                "values"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "host": {
+                                            "properties": {
+                                                "negative": {
+                                                    "default": false,
+                                                    "description": "Whether the filter is negative.",
+                                                    "type": "boolean"
+                                                },
+                                                "values": {
+                                                    "items": {
+                                                        "type": "string"
+                                                    },
+                                                    "type": "array"
+                                                }
+                                            },
+                                            "required": [
+                                                "values"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "method": {
+                                            "properties": {
+                                                "negative": {
+                                                    "default": false,
+                                                    "description": "Whether the filter is negative.",
+                                                    "type": "boolean"
+                                                },
+                                                "values": {
+                                                    "items": {
+                                                        "enum": [
+                                                            "CONNECT",
+                                                            "DELETE",
+                                                            "GET",
+                                                            "HEAD",
+                                                            "OPTIONS",
+                                                            "PATCH",
+                                                            "POST",
+                                                            "PUT",
+                                                            "TRACE"
+                                                        ],
+                                                        "type": "string"
+                                                    },
+                                                    "type": "array"
+                                                }
+                                            },
+                                            "required": [
+                                                "values"
+                                            ],
+                                            "type": "object"
+                                        },
+                                        "status_code": {
+                                            "properties": {
+                                                "negative": {
+                                                    "default": false,
+                                                    "description": "Whether the filter is negative.",
+                                                    "type": "boolean"
+                                                },
+                                                "values": {
+                                                    "items": {
+                                                        "$ref": "#/definitions/StatusCodeRange"
+                                                    },
+                                                    "type": "array"
+                                                }
+                                            },
+                                            "required": [
+                                                "values"
+                                            ],
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "format": {
+                                    "$ref": "#/definitions/AccessLogFormat",
+                                    "default": "combined",
+                                    "description": "The format of the access log."
+                                },
+                                "path": {
+                                    "format": "uri-reference",
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "path"
+                            ],
+                            "type": "object"
+                        },
+                        "alias": {
+                            "description": "Alias (subdomain or FDN)",
+                            "minLength": 1,
+                            "type": "string"
+                        },
+                        "healthcheck": {
+                            "additionalProperties": false,
+                            "description": "Healthcheck config",
+                            "properties": {
+                                "disable": {
+                                    "default": false,
+                                    "description": "Disable healthcheck",
+                                    "type": "boolean"
+                                },
+                                "interval": {
+                                    "default": "5s",
+                                    "description": "Healthcheck interval",
+                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                    "type": "string"
+                                },
+                                "path": {
+                                    "default": "/",
+                                    "description": "Healthcheck path",
+                                    "format": "uri-reference",
+                                    "type": "string"
+                                },
+                                "timeout": {
+                                    "default": "5s",
+                                    "description": "Healthcheck timeout",
+                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                    "type": "string"
+                                },
+                                "use_get": {
+                                    "default": false,
+                                    "description": "Use GET instead of HEAD",
+                                    "type": "boolean"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        "homepage": {
+                            "additionalProperties": false,
+                            "description": "Homepage config",
+                            "examples": [
+                                {
+                                    "category": "Arr suite",
+                                    "icon": "png/sonarr.png",
+                                    "name": "Sonarr"
+                                },
+                                {
+                                    "icon": "@target/favicon.ico",
+                                    "name": "App"
+                                }
+                            ],
+                            "properties": {
+                                "category": {
+                                    "type": "string"
+                                },
+                                "description": {
+                                    "type": "string"
+                                },
+                                "icon": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "url": {
+                                    "format": "uri",
+                                    "type": "string"
+                                },
+                                "widget_config": {
+                                    "additionalProperties": {},
+                                    "type": "object"
+                                }
+                            },
+                            "required": [
+                                "name"
+                            ],
+                            "type": "object"
+                        },
+                        "host": {
+                            "default": "localhost",
+                            "description": "Proxy host",
+                            "type": "string"
+                        },
+                        "load_balance": {
+                            "$ref": "#/definitions/LoadBalanceConfig",
+                            "description": "Load balance config"
+                        },
+                        "middlewares": {
+                            "description": "Middlewares",
+                            "properties": {
+                                "CIDRWhitelist": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "allow": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "message": {
+                                            "default": "IP not allowed",
+                                            "description": "Error message when blocked",
+                                            "type": "string"
+                                        },
+                                        "status_code": {
+                                            "$ref": "#/definitions/StatusCode",
+                                            "default": 403,
+                                            "description": "HTTP status code when blocked"
+                                        }
+                                    },
+                                    "required": [
+                                        "allow"
+                                    ],
+                                    "type": "object"
+                                },
+                                "CloudflareRealIP": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursively resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "CustomErrorPage": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "HideXForwarded": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "ModifyRequest": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "ModifyResponse": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "OIDC": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "allowed_groups": {
+                                            "description": "Allowed groups",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 1,
+                                            "type": "array"
+                                        },
+                                        "allowed_users": {
+                                            "description": "Allowed users",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 1,
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "RateLimit": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "average": {
+                                            "description": "Average number of requests allowed in a period",
+                                            "type": "number"
+                                        },
+                                        "burst": {
+                                            "description": "Maximum number of requests allowed in a period",
+                                            "type": "number"
+                                        },
+                                        "period": {
+                                            "default": "1s",
+                                            "description": "Duration of the rate limit",
+                                            "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "average",
+                                        "burst"
+                                    ],
+                                    "type": "object"
+                                },
+                                "RealIP": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "from": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "header": {
+                                            "description": "Header to get the client IP from",
+                                            "pattern": "^[a-zA-Z0-9\\-]+$",
+                                            "type": "string"
+                                        },
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursive resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "header",
+                                        "recursive"
+                                    ],
+                                    "type": "object"
+                                },
+                                "RedirectHTTP": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "Request": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "Response": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "SetXForwarded": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "cidrWhitelist": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "allow": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "message": {
+                                            "default": "IP not allowed",
+                                            "description": "Error message when blocked",
+                                            "type": "string"
+                                        },
+                                        "status_code": {
+                                            "$ref": "#/definitions/StatusCode",
+                                            "default": 403,
+                                            "description": "HTTP status code when blocked"
+                                        }
+                                    },
+                                    "required": [
+                                        "allow"
+                                    ],
+                                    "type": "object"
+                                },
+                                "cidr_whitelist": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "allow": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "message": {
+                                            "default": "IP not allowed",
+                                            "description": "Error message when blocked",
+                                            "type": "string"
+                                        },
+                                        "status_code": {
+                                            "$ref": "#/definitions/StatusCode",
+                                            "default": 403,
+                                            "description": "HTTP status code when blocked"
+                                        }
+                                    },
+                                    "required": [
+                                        "allow"
+                                    ],
+                                    "type": "object"
+                                },
+                                "cloudflareRealIP": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursively resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "cloudflare_real_ip": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursively resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "customErrorPage": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "custom_error_page": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "errorPage": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "error_page": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "hideXForwarded": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "hide_x_forwarded": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "modifyRequest": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "modifyResponse": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "modify_request": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "modify_response": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "oidc": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "allowed_groups": {
+                                            "description": "Allowed groups",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 1,
+                                            "type": "array"
+                                        },
+                                        "allowed_users": {
+                                            "description": "Allowed users",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "minItems": 1,
+                                            "type": "array"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "rateLimit": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "average": {
+                                            "description": "Average number of requests allowed in a period",
+                                            "type": "number"
+                                        },
+                                        "burst": {
+                                            "description": "Maximum number of requests allowed in a period",
+                                            "type": "number"
+                                        },
+                                        "period": {
+                                            "default": "1s",
+                                            "description": "Duration of the rate limit",
+                                            "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "average",
+                                        "burst"
+                                    ],
+                                    "type": "object"
+                                },
+                                "rate_limit": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "average": {
+                                            "description": "Average number of requests allowed in a period",
+                                            "type": "number"
+                                        },
+                                        "burst": {
+                                            "description": "Maximum number of requests allowed in a period",
+                                            "type": "number"
+                                        },
+                                        "period": {
+                                            "default": "1s",
+                                            "description": "Duration of the rate limit",
+                                            "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "average",
+                                        "burst"
+                                    ],
+                                    "type": "object"
+                                },
+                                "realIP": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "from": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "header": {
+                                            "description": "Header to get the client IP from",
+                                            "pattern": "^[a-zA-Z0-9\\-]+$",
+                                            "type": "string"
+                                        },
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursive resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "header",
+                                        "recursive"
+                                    ],
+                                    "type": "object"
+                                },
+                                "real_ip": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "from": {
+                                            "items": {
+                                                "$ref": "#/definitions/CIDR"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "header": {
+                                            "description": "Header to get the client IP from",
+                                            "pattern": "^[a-zA-Z0-9\\-]+$",
+                                            "type": "string"
+                                        },
+                                        "recursive": {
+                                            "default": false,
+                                            "description": "Recursive resolve the IP",
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "from",
+                                        "header",
+                                        "recursive"
+                                    ],
+                                    "type": "object"
+                                },
+                                "redirectHTTP": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "redirect_http": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "request": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "response": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                        "add_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Add HTTP headers",
+                                            "type": "object"
+                                        },
+                                        "hide_headers": {
+                                            "description": "Hide HTTP headers",
+                                            "items": {
+                                                "type": "string"
+                                            },
+                                            "type": "array"
+                                        },
+                                        "set_headers": {
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            },
+                                            "description": "Set HTTP headers",
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                },
+                                "setXForwarded": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                },
+                                "set_x_forwarded": {
+                                    "additionalProperties": false,
+                                    "properties": {},
+                                    "type": "object"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        "no_tls_verify": {
+                            "default": false,
+                            "description": "Skip TLS verification",
+                            "type": "boolean"
+                        },
+                        "path_patterns": {
+                            "description": "Path patterns (only patterns that match will be proxied).\n\nSee https://pkg.go.dev/net/http#hdr-Patterns-ServeMux",
+                            "items": {
+                                "type": "string"
+                            },
+                            "type": "array"
+                        },
+                        "port": {
+                            "default": 80,
+                            "description": "Proxy port",
+                            "maximum": 65535,
+                            "minimum": 0,
+                            "type": "integer"
+                        },
+                        "scheme": {
+                            "$ref": "#/definitions/ProxyScheme",
+                            "default": "http",
+                            "description": "Proxy scheme"
+                        }
+                    },
+                    "type": "object"
+                },
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "alias": {
+                            "description": "Alias (subdomain or FDN)",
+                            "minLength": 1,
+                            "type": "string"
+                        },
+                        "healthcheck": {
+                            "additionalProperties": false,
+                            "description": "Healthcheck config",
+                            "properties": {
+                                "disable": {
+                                    "default": false,
+                                    "description": "Disable healthcheck",
+                                    "type": "boolean"
+                                },
+                                "interval": {
+                                    "default": "5s",
+                                    "description": "Healthcheck interval",
+                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                    "type": "string"
+                                },
+                                "path": {
+                                    "default": "/",
+                                    "description": "Healthcheck path",
+                                    "format": "uri-reference",
+                                    "type": "string"
+                                },
+                                "timeout": {
+                                    "default": "5s",
+                                    "description": "Healthcheck timeout",
+                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                    "type": "string"
+                                },
+                                "use_get": {
+                                    "default": false,
+                                    "description": "Use GET instead of HEAD",
+                                    "type": "boolean"
+                                }
+                            },
+                            "type": "object"
+                        },
+                        "host": {
+                            "default": "localhost",
+                            "description": "Stream host",
+                            "type": "string"
+                        },
+                        "port": {
+                            "pattern": "^\\d+\\:\\d+$",
+                            "type": "string"
+                        },
+                        "scheme": {
+                            "$ref": "#/definitions/StreamScheme",
+                            "default": "tcp",
+                            "description": "Stream scheme"
+                        }
+                    },
+                    "required": [
+                        "port"
+                    ],
+                    "type": "object"
+                }
+            ]
+        },
+        "StatusCode": {
+            "anyOf": [
+                {
+                    "pattern": "^[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "type": "number"
+                }
+            ]
+        },
+        "StatusCodeRange": {
+            "anyOf": [
+                {
+                    "pattern": "^[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^[0-9]*-[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "type": "number"
+                }
+            ]
+        },
+        "StreamScheme": {
+            "enum": [
+                "tcp",
+                "udp"
+            ],
+            "type": "string"
+        }
+    },
+    "type": "object"
+}
+

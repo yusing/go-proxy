@@ -1,0 +1,761 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "additionalProperties": false,
+    "definitions": {
+        "CIDR": {
+            "anyOf": [
+                {
+                    "pattern": "^[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^.*:.*:.*:.*:.*:.*:.*:.*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^[0-9]*\\.[0-9]*\\.[0-9]*\\.[0-9]*/[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^::[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^.*::/[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "pattern": "^.*:.*::/[0-9]*$",
+                    "type": "string"
+                }
+            ]
+        },
+        "Partial<CIDRWhitelist>": {
+            "properties": {
+                "allow": {
+                    "items": {
+                        "$ref": "#/definitions/CIDR"
+                    },
+                    "type": "array"
+                },
+                "message": {
+                    "default": "IP not allowed",
+                    "description": "Error message when blocked",
+                    "type": "string"
+                },
+                "status_code": {
+                    "$ref": "#/definitions/StatusCode",
+                    "default": 403,
+                    "description": "HTTP status code when blocked"
+                }
+            },
+            "type": "object"
+        },
+        "Partial<CloudflareRealIP>": {
+            "properties": {
+                "recursive": {
+                    "default": false,
+                    "description": "Recursively resolve the IP",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "Partial<CustomErrorPage>": {
+            "type": "object"
+        },
+        "Partial<HideXForwarded>": {
+            "type": "object"
+        },
+        "Partial<ModifyRequest>": {
+            "properties": {
+                "add_headers": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Add HTTP headers",
+                    "type": "object"
+                },
+                "hide_headers": {
+                    "description": "Hide HTTP headers",
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "set_headers": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "description": "Set HTTP headers",
+                    "type": "object"
+                }
+            },
+            "type": "object"
+        },
+        "Partial<OIDC>": {
+            "properties": {
+                "allowed_groups": {
+                    "description": "Allowed groups",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                },
+                "allowed_users": {
+                    "description": "Allowed users",
+                    "items": {
+                        "type": "string"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                }
+            },
+            "type": "object"
+        },
+        "Partial<RateLimit>": {
+            "properties": {
+                "average": {
+                    "description": "Average number of requests allowed in a period",
+                    "type": "number"
+                },
+                "burst": {
+                    "description": "Maximum number of requests allowed in a period",
+                    "type": "number"
+                },
+                "period": {
+                    "default": "1s",
+                    "description": "Duration of the rate limit",
+                    "pattern": "^([0-9]+(ms|s|m|h))+$",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "Partial<RealIP>": {
+            "properties": {
+                "from": {
+                    "items": {
+                        "$ref": "#/definitions/CIDR"
+                    },
+                    "type": "array"
+                },
+                "header": {
+                    "description": "Header to get the client IP from",
+                    "pattern": "^[a-zA-Z0-9\\-]+$",
+                    "type": "string"
+                },
+                "recursive": {
+                    "default": false,
+                    "description": "Recursive resolve the IP",
+                    "type": "boolean"
+                }
+            },
+            "type": "object"
+        },
+        "Partial<RedirectHTTP>": {
+            "type": "object"
+        },
+        "Partial<SetXForwarded>": {
+            "type": "object"
+        },
+        "StatusCode": {
+            "anyOf": [
+                {
+                    "pattern": "^[0-9]*$",
+                    "type": "string"
+                },
+                {
+                    "type": "number"
+                }
+            ]
+        }
+    },
+    "items": {
+        "anyOf": [
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<RedirectHTTP>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<OIDC>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<ModifyRequest>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<SetXForwarded>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<HideXForwarded>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<CustomErrorPage>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<RealIP>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<CloudflareRealIP>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<RateLimit>"
+                    }
+                ]
+            },
+            {
+                "allOf": [
+                    {
+                        "properties": {
+                            "use": {
+                                "enum": [
+                                    "CIDRWhitelist",
+                                    "CloudflareRealIP",
+                                    "CustomErrorPage",
+                                    "HideXForwarded",
+                                    "ModifyRequest",
+                                    "ModifyResponse",
+                                    "OIDC",
+                                    "RateLimit",
+                                    "RealIP",
+                                    "RedirectHTTP",
+                                    "Request",
+                                    "Response",
+                                    "SetXForwarded",
+                                    "cidrWhitelist",
+                                    "cidr_whitelist",
+                                    "cloudflareRealIP",
+                                    "cloudflare_real_ip",
+                                    "customErrorPage",
+                                    "custom_error_page",
+                                    "errorPage",
+                                    "error_page",
+                                    "hideXForwarded",
+                                    "hide_x_forwarded",
+                                    "modifyRequest",
+                                    "modifyResponse",
+                                    "modify_request",
+                                    "modify_response",
+                                    "oidc",
+                                    "rateLimit",
+                                    "rate_limit",
+                                    "realIP",
+                                    "real_ip",
+                                    "redirectHTTP",
+                                    "redirect_http",
+                                    "request",
+                                    "response",
+                                    "setXForwarded",
+                                    "set_x_forwarded"
+                                ],
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "use"
+                        ],
+                        "type": "object"
+                    },
+                    {
+                        "$ref": "#/definitions/Partial<CIDRWhitelist>"
+                    }
+                ]
+            }
+        ]
+    },
+    "type": "array"
+}
+

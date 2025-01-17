@@ -25,9 +25,9 @@ const (
 
 	MiddlewareComposeBasePath = ConfigBasePath + "/middlewares"
 
-	SchemaBasePath         = "schema"
-	ConfigSchemaPath       = SchemaBasePath + "/config.schema.json"
-	FileProviderSchemaPath = SchemaBasePath + "/providers.schema.json"
+	SchemasBasePath        = "schemas"
+	ConfigSchemaPath       = SchemasBasePath + "/config.schema.json"
+	FileProviderSchemaPath = SchemasBasePath + "/providers.schema.json"
 
 	ComposeFileName        = "compose.yml"
 	ComposeExampleFileName = "compose.example.yml"
@@ -37,7 +37,7 @@ const (
 
 var RequiredDirectories = []string{
 	ConfigBasePath,
-	SchemaBasePath,
+	SchemasBasePath,
 	ErrorPagesBasePath,
 	MiddlewareComposeBasePath,
 }
