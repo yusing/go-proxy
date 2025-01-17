@@ -1,11 +1,14 @@
 import * as types from "../types";
 
+/**
+ * @additionalProperties false
+ */
 export type MiddlewaresMap = {
   redirect_http?: RedirectHTTP;
   redirectHTTP?: RedirectHTTP;
   RedirectHTTP?: RedirectHTTP;
-  oidc?: OIDC;
-  OIDC?: OIDC;
+  oidc?: types.Nullable<OIDC>;
+  OIDC?: types.Nullable<OIDC>;
   request?: ModifyRequest;
   Request?: ModifyRequest;
   modify_request?: ModifyRequest;
@@ -30,9 +33,9 @@ export type MiddlewaresMap = {
   real_ip?: RealIP;
   realIP?: RealIP;
   RealIP?: RealIP;
-  cloudflare_real_ip?: CloudflareRealIP;
-  cloudflareRealIP?: CloudflareRealIP;
-  CloudflareRealIP?: CloudflareRealIP;
+  cloudflare_real_ip?: types.Nullable<CloudflareRealIP>;
+  cloudflareRealIP?: types.Nullable<CloudflareRealIP>;
+  CloudflareRealIP?: types.Nullable<CloudflareRealIP>;
   rate_limit?: RateLimit;
   rateLimit?: RateLimit;
   RateLimit?: RateLimit;
@@ -41,10 +44,10 @@ export type MiddlewaresMap = {
   CIDRWhitelist?: CIDRWhitelist;
 };
 
-/**
- * @additionalProperties false
- */
-export type CustomErrorPage = {};
+export type CustomErrorPage = types.Null;
+export type RedirectHTTP = types.Null;
+export type SetXForwarded = types.Null;
+export type HideXForwarded = types.Null;
 
 /**
  * @additionalProperties false
@@ -144,18 +147,3 @@ export type RealIP = {
    */
   recursive: boolean;
 };
-
-/**
- * @additionalProperties false
- */
-export type RedirectHTTP = {};
-
-/**
- * @additionalProperties false
- */
-export type SetXForwarded = {};
-
-/**
- * @additionalProperties false
- */
-export type HideXForwarded = {};

@@ -79,7 +79,7 @@ export type StreamRoute = {
    *
    * @default tcp
    */
-  scheme?: StreamScheme;
+  scheme: StreamScheme;
   /** Stream host
    *
    * @default localhost

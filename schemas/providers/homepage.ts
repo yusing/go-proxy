@@ -4,8 +4,13 @@ import { URL } from "../types";
  * @additionalProperties false
  */
 export type HomepageConfig = {
+  /** Whether show in dashboard
+   *
+   * @default true
+   */
+  show?: boolean;
   /* Display name on dashboard */
-  name: string;
+  name?: string;
   /* Display icon on dashboard */
   icon?: URL | WalkxcodeIcon | TargetRelativeIconPath;
   /* App description */

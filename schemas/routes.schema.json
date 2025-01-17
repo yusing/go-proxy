@@ -199,6 +199,56 @@
                 }
             ]
         },
+        "Null": {
+            "type": "null"
+        },
+        "Nullable<CloudflareRealIP>": {
+            "anyOf": [
+                {
+                    "$ref": "#/definitions/Null"
+                },
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "recursive": {
+                            "default": false,
+                            "description": "Recursively resolve the IP",
+                            "type": "boolean"
+                        }
+                    },
+                    "type": "object"
+                }
+            ]
+        },
+        "Nullable<OIDC>": {
+            "anyOf": [
+                {
+                    "$ref": "#/definitions/Null"
+                },
+                {
+                    "additionalProperties": false,
+                    "properties": {
+                        "allowed_groups": {
+                            "description": "Allowed groups",
+                            "items": {
+                                "type": "string"
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                        },
+                        "allowed_users": {
+                            "description": "Allowed users",
+                            "items": {
+                                "type": "string"
+                            },
+                            "minItems": 1,
+                            "type": "array"
+                        }
+                    },
+                    "type": "object"
+                }
+            ]
+        },
         "ProxyScheme": {
             "enum": [
                 "http",
@@ -506,6 +556,11 @@
                                 "name": {
                                     "type": "string"
                                 },
+                                "show": {
+                                    "default": true,
+                                    "description": "Whether show in dashboard",
+                                    "type": "boolean"
+                                },
                                 "url": {
                                     "format": "uri",
                                     "type": "string"
@@ -515,9 +570,6 @@
                                     "type": "object"
                                 }
                             },
-                            "required": [
-                                "name"
-                            ],
                             "type": "object"
                         },
                         "host": {
@@ -530,6 +582,7 @@
                             "description": "Load balance config"
                         },
                         "middlewares": {
+                            "additionalProperties": false,
                             "description": "Middlewares",
                             "properties": {
                                 "CIDRWhitelist": {
@@ -558,25 +611,13 @@
                                     "type": "object"
                                 },
                                 "CloudflareRealIP": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "recursive": {
-                                            "default": false,
-                                            "description": "Recursively resolve the IP",
-                                            "type": "boolean"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/definitions/Nullable<CloudflareRealIP>"
                                 },
                                 "CustomErrorPage": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "HideXForwarded": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "ModifyRequest": {
                                     "additionalProperties": false,
@@ -633,26 +674,7 @@
                                     "type": "object"
                                 },
                                 "OIDC": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "allowed_groups": {
-                                            "description": "Allowed groups",
-                                            "items": {
-                                                "type": "string"
-                                            },
-                                            "minItems": 1,
-                                            "type": "array"
-                                        },
-                                        "allowed_users": {
-                                            "description": "Allowed users",
-                                            "items": {
-                                                "type": "string"
-                                            },
-                                            "minItems": 1,
-                                            "type": "array"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/definitions/Nullable<OIDC>"
                                 },
                                 "RateLimit": {
                                     "additionalProperties": false,
@@ -706,9 +728,7 @@
                                     "type": "object"
                                 },
                                 "RedirectHTTP": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "Request": {
                                     "additionalProperties": false,
@@ -765,9 +785,7 @@
                                     "type": "object"
                                 },
                                 "SetXForwarded": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "cidrWhitelist": {
                                     "additionalProperties": false,
@@ -820,56 +838,28 @@
                                     "type": "object"
                                 },
                                 "cloudflareRealIP": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "recursive": {
-                                            "default": false,
-                                            "description": "Recursively resolve the IP",
-                                            "type": "boolean"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/definitions/Nullable<CloudflareRealIP>"
                                 },
                                 "cloudflare_real_ip": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "recursive": {
-                                            "default": false,
-                                            "description": "Recursively resolve the IP",
-                                            "type": "boolean"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/definitions/Nullable<CloudflareRealIP>"
                                 },
                                 "customErrorPage": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "custom_error_page": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "errorPage": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "error_page": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "hideXForwarded": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "hide_x_forwarded": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "modifyRequest": {
                                     "additionalProperties": false,
@@ -980,26 +970,7 @@
                                     "type": "object"
                                 },
                                 "oidc": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "allowed_groups": {
-                                            "description": "Allowed groups",
-                                            "items": {
-                                                "type": "string"
-                                            },
-                                            "minItems": 1,
-                                            "type": "array"
-                                        },
-                                        "allowed_users": {
-                                            "description": "Allowed users",
-                                            "items": {
-                                                "type": "string"
-                                            },
-                                            "minItems": 1,
-                                            "type": "array"
-                                        }
-                                    },
-                                    "type": "object"
+                                    "$ref": "#/definitions/Nullable<OIDC>"
                                 },
                                 "rateLimit": {
                                     "additionalProperties": false,
@@ -1104,14 +1075,10 @@
                                     "type": "object"
                                 },
                                 "redirectHTTP": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "redirect_http": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "request": {
                                     "additionalProperties": false,
@@ -1168,14 +1135,10 @@
                                     "type": "object"
                                 },
                                 "setXForwarded": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 },
                                 "set_x_forwarded": {
-                                    "additionalProperties": false,
-                                    "properties": {},
-                                    "type": "object"
+                                    "$ref": "#/definitions/Null"
                                 }
                             },
                             "type": "object"
@@ -1256,7 +1219,7 @@
                             "type": "string"
                         },
                         "port": {
-                            "pattern": "^\\d+\\:\\d+$",
+                            "pattern": "^\\d+:\\d+$",
                             "type": "string"
                         },
                         "scheme": {
@@ -1266,7 +1229,8 @@
                         }
                     },
                     "required": [
-                        "port"
+                        "port",
+                        "scheme"
                     ],
                     "type": "object"
                 }

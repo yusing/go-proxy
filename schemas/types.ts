@@ -1,3 +1,9 @@
+/**
+ * @type "null"
+ */
+export interface Null {}
+export type Nullable<T> = T | Null;
+
 export const HTTP_METHODS = [
   "GET",
   "POST",
@@ -69,7 +75,7 @@ export type CIDR =
 export type Port = number;
 
 /**
- * @pattern ^\d+\:\d+$
+ * @pattern ^\d+:\d+$
  */
 export type StreamPort = string;
 
