@@ -15,13 +15,17 @@ type (
 		Detail  string
 		Latency time.Duration
 	}
+	WithHealthInfo interface {
+		Status() Status
+		Uptime() time.Duration
+		Latency() time.Duration
+	}
 	HealthMonitor interface {
 		task.TaskStarter
 		task.TaskFinisher
 		fmt.Stringer
 		json.Marshaler
-		Status() Status
-		Uptime() time.Duration
+		WithHealthInfo
 		Name() string
 	}
 	HealthChecker interface {

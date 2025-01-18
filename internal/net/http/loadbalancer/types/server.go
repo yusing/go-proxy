@@ -2,7 +2,6 @@ package types
 
 import (
 	"net/http"
-	"time"
 
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/net/types"
@@ -12,59 +11,76 @@ import (
 )
 
 type (
-	Server struct {
+	server struct {
 		_ U.NoCopy
 
-		Name   string
-		URL    types.URL
-		Weight Weight
+		name   string
+		url    types.URL
+		weight Weight
 
-		handler   http.Handler
-		healthMon health.HealthMonitor
+		http.Handler `json:"-"`
+		health.HealthMonitor
 	}
-	Servers = []*Server
-	Pool    = F.Map[string, *Server]
+
+	Server interface {
+		http.Handler
+		health.HealthMonitor
+		Name() string
+		URL() types.URL
+		Weight() Weight
+		SetWeight(Weight)
+		TryWake() error
+	}
+
+	Pool = F.Map[string, Server]
 )
 
 var NewServerPool = F.NewMap[Pool]
 
-func NewServer(name string, url types.URL, weight Weight, handler http.Handler, healthMon health.HealthMonitor) *Server {
-	srv := &Server{
-		Name:      name,
-		URL:       url,
-		Weight:    weight,
-		handler:   handler,
-		healthMon: healthMon,
+func NewServer(name string, url types.URL, weight Weight, handler http.Handler, healthMon health.HealthMonitor) Server {
+	srv := &server{
+		name:          name,
+		url:           url,
+		weight:        weight,
+		Handler:       handler,
+		HealthMonitor: healthMon,
 	}
 	return srv
 }
 
-func (srv *Server) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
-	srv.handler.ServeHTTP(rw, r)
+func TestNewServer[T ~int | ~float32 | ~float64](weight T) Server {
+	srv := &server{
+		weight: Weight(weight),
+	}
+	return srv
 }
 
-func (srv *Server) String() string {
-	return srv.Name
+func (srv *server) Name() string {
+	return srv.name
 }
 
-func (srv *Server) Status() health.Status {
-	return srv.healthMon.Status()
+func (srv *server) URL() types.URL {
+	return srv.url
 }
 
-func (srv *Server) Uptime() time.Duration {
-	return srv.healthMon.Uptime()
+func (srv *server) Weight() Weight {
+	return srv.weight
 }
 
-func (srv *Server) TryWake() error {
-	waker, ok := srv.handler.(idlewatcher.Waker)
+func (srv *server) SetWeight(weight Weight) {
+	srv.weight = weight
+}
+
+func (srv *server) String() string {
+	return srv.name
+}
+
+func (srv *server) TryWake() error {
+	waker, ok := srv.Handler.(idlewatcher.Waker)
 	if ok {
 		if err := waker.Wake(); err != nil {
 			return err
 		}
 	}
 	return nil
-}
-
-func (srv *Server) HealthMonitor() health.HealthMonitor {
-	return srv.healthMon
 }
