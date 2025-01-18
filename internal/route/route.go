@@ -11,7 +11,6 @@ import (
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
-	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
@@ -24,12 +23,11 @@ type (
 	Routes = F.Map[string, *Route]
 
 	impl interface {
-		entry.Entry
+		types.Route
 		task.TaskStarter
 		task.TaskFinisher
 		String() string
 		TargetURL() url.URL
-		Health() health.Status
 	}
 	RawEntry   = types.RawEntry
 	RawEntries = types.RawEntries

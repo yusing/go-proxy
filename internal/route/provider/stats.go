@@ -26,7 +26,12 @@ type (
 
 func (stats *RouteStats) Add(r *R.Route) {
 	stats.Total++
-	switch r.Health() {
+	mon := r.HealthMonitor()
+	if mon == nil {
+		stats.NumUnknown++
+		return
+	}
+	switch mon.Status() {
 	case health.StatusHealthy:
 		stats.NumHealthy++
 	case health.StatusUnhealthy:

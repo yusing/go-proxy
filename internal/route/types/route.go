@@ -8,14 +8,16 @@ import (
 )
 
 type (
-	HTTPRoute interface {
+	Route interface {
 		Entry
+		HealthMonitor() health.HealthMonitor
+	}
+	HTTPRoute interface {
+		Route
 		http.Handler
-		Health() health.Status
 	}
 	StreamRoute interface {
-		Entry
+		Route
 		net.Stream
-		Health() health.Status
 	}
 )

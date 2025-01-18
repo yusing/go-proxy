@@ -142,6 +142,14 @@ func (mon *monitor) Uptime() time.Duration {
 	return time.Since(mon.startTime)
 }
 
+// Latency implements HealthMonitor.
+func (mon *monitor) Latency() time.Duration {
+	if mon.lastResult == nil {
+		return 0
+	}
+	return mon.lastResult.Latency
+}
+
 // Name implements HealthMonitor.
 func (mon *monitor) Name() string {
 	parts := strutils.SplitRune(mon.service, '/')

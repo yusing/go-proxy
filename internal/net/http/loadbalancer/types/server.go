@@ -28,7 +28,7 @@ type (
 		Name() string
 		URL() types.URL
 		Weight() Weight
-		SetWeight(Weight)
+		SetWeight(weight Weight)
 		TryWake() error
 	}
 

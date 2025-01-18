@@ -116,12 +116,8 @@ func (r *StreamRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }
 
-
-func (r *StreamRoute) Health() health.Status {
-	if r.HealthMon != nil {
-		return r.HealthMon.Status()
-	}
-	return health.StatusUnknown
+func (r *StreamRoute) HealthMonitor() health.HealthMonitor {
+	return r.HealthMon
 }
 
 func (r *StreamRoute) acceptConnections() {

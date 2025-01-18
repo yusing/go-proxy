@@ -1,6 +1,8 @@
 package types
 
 import (
+	"context"
+
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/utils"
 
@@ -31,6 +33,7 @@ type (
 		Value() *Config
 		Reload() E.Error
 		Statistics() map[string]any
+		Context() context.Context
 	}
 )
 
