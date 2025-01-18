@@ -5,19 +5,12 @@ export const NOTIFICATION_PROVIDERS = ["webhook", "gotify"] as const;
 export type NotificationProvider = (typeof NOTIFICATION_PROVIDERS)[number];
 
 export type NotificationConfig = {
-  /**
-   * Name of the notification provider
-   */
+  /* Name of the notification provider */
   name: string;
-  /**
-   * URL of the notification provider
-   */
+  /* URL of the notification provider */
   url: URL;
 };
 
-/**
- * @additionalProperties false
- */
 export interface GotifyConfig extends NotificationConfig {
   provider: "gotify";
   /* Gotify token */
@@ -38,9 +31,6 @@ export type WebhookMethod = (typeof WEBHOOK_METHODS)[number];
 export type WebhookMimeType = (typeof WEBHOOK_MIME_TYPES)[number];
 export type WebhookColorMode = (typeof WEBHOOK_COLOR_MODES)[number];
 
-/**
- * @additionalProperties false
- */
 export interface WebhookConfig extends NotificationConfig {
   provider: "webhook";
   /**

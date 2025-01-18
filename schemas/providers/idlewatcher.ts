@@ -14,12 +14,8 @@ export const STOP_SIGNALS = [
   "HUP",
   "QUIT",
 ] as const;
-
 export type Signal = (typeof STOP_SIGNALS)[number];
 
-/**
- * @additionalProperties false
- */
 export type IdleWatcherConfig = {
   /* Idle timeout */
   idle_timeout?: Duration;

@@ -5,12 +5,8 @@ export const LOAD_BALANCE_MODES = [
   "least_conn",
   "ip_hash",
 ] as const;
-
 export type LoadBalanceMode = (typeof LOAD_BALANCE_MODES)[number];
 
-/**
- * @additionalProperties false
- */
 export type LoadBalanceConfigBase = {
   /** Alias (subdomain or FDN) of load-balancer
    *
@@ -25,33 +21,24 @@ export type LoadBalanceConfigBase = {
   weight?: number;
 };
 
-/**
- * @additionalProperties false
- */
 export type LoadBalanceConfig = LoadBalanceConfigBase &
   (
+    | {} // linking other routes
     | RoundRobinLoadBalanceConfig
     | LeastConnLoadBalanceConfig
     | IPHashLoadBalanceConfig
   );
 
-/**
- * @additionalProperties false
- */
 export type IPHashLoadBalanceConfig = {
   mode: "ip_hash";
   /** Real IP config, header to get client IP from */
   config: RealIP;
 };
-/**
- * @additionalProperties false
- */
+
 export type LeastConnLoadBalanceConfig = {
   mode: "least_conn";
 };
-/**
- * @additionalProperties false
- */
+
 export type RoundRobinLoadBalanceConfig = {
   mode: "round_robin";
 };

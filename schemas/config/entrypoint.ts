@@ -1,15 +1,12 @@
-import { MiddlewareComposeConfig } from "../middlewares/middleware_compose";
+import { MiddlewareCompose } from "../middlewares/middleware_compose";
 import { AccessLogConfig } from "./access_log";
 
-/**
- * @additionalProperties false
- */
 export type EntrypointConfig = {
   /** Entrypoint middleware configuration
    *
    * @examples require(".").middlewaresExamples
    */
-  middlewares: MiddlewareComposeConfig;
+  middlewares: MiddlewareCompose;
   /** Entrypoint access log configuration
    *
    * @examples require(".").accessLogExamples

@@ -1,58 +1,57 @@
 import * as types from "../types";
 
-/**
- * @additionalProperties false
- */
-export type MiddlewaresMap = {
-  redirect_http?: RedirectHTTP;
-  redirectHTTP?: RedirectHTTP;
-  RedirectHTTP?: RedirectHTTP;
-  oidc?: types.Nullable<OIDC>;
-  OIDC?: types.Nullable<OIDC>;
-  request?: ModifyRequest;
-  Request?: ModifyRequest;
-  modify_request?: ModifyRequest;
-  modifyRequest?: ModifyRequest;
-  ModifyRequest?: ModifyRequest;
-  response?: ModifyResponse;
-  Response?: ModifyResponse;
-  modify_response?: ModifyResponse;
-  modifyResponse?: ModifyResponse;
-  ModifyResponse?: ModifyResponse;
-  set_x_forwarded?: SetXForwarded;
-  setXForwarded?: SetXForwarded;
-  SetXForwarded?: SetXForwarded;
-  hide_x_forwarded?: HideXForwarded;
-  hideXForwarded?: HideXForwarded;
-  HideXForwarded?: HideXForwarded;
-  error_page?: CustomErrorPage;
-  errorPage?: CustomErrorPage;
-  custom_error_page?: CustomErrorPage;
-  customErrorPage?: CustomErrorPage;
-  CustomErrorPage?: CustomErrorPage;
-  real_ip?: RealIP;
-  realIP?: RealIP;
-  RealIP?: RealIP;
-  cloudflare_real_ip?: types.Nullable<CloudflareRealIP>;
-  cloudflareRealIP?: types.Nullable<CloudflareRealIP>;
-  CloudflareRealIP?: types.Nullable<CloudflareRealIP>;
-  rate_limit?: RateLimit;
-  rateLimit?: RateLimit;
-  RateLimit?: RateLimit;
-  cidr_whitelist?: CIDRWhitelist;
-  cidrWhitelist?: CIDRWhitelist;
-  CIDRWhitelist?: CIDRWhitelist;
+export type MiddlewareComposeObjectRef = `${string}@file`;
+
+export type KeyOptMapping<T extends { use: string }> = {
+  [key in T["use"]]: Omit<T, "use">;
+} | { use: MiddlewareComposeObjectRef };
+
+export type MiddlewaresMap = (
+  | KeyOptMapping<CustomErrorPage>
+  | KeyOptMapping<RedirectHTTP>
+  | KeyOptMapping<SetXForwarded>
+  | KeyOptMapping<HideXForwarded>
+  | KeyOptMapping<CIDRWhitelist>
+  | KeyOptMapping<CloudflareRealIP>
+  | KeyOptMapping<ModifyRequest>
+  | KeyOptMapping<ModifyResponse>
+  | KeyOptMapping<OIDC>
+  | KeyOptMapping<RateLimit>
+  | KeyOptMapping<RealIP>
+  | { [key in MiddlewareComposeObjectRef]: types.NullOrEmptyMap }
+);
+
+export type MiddlewareComposeMap = (
+  | CustomErrorPage
+  | RedirectHTTP
+  | SetXForwarded
+  | HideXForwarded
+  | CIDRWhitelist
+  | CloudflareRealIP
+  | ModifyRequest
+  | ModifyResponse
+  | OIDC
+  | RateLimit
+  | RealIP
+);
+
+export type CustomErrorPage = {
+  use: "error_page" | "errorPage" | "ErrorPage" | "custom_error_page" | "customErrorPage" | "CustomErrorPage";
 };
 
-export type CustomErrorPage = types.Null;
-export type RedirectHTTP = types.Null;
-export type SetXForwarded = types.Null;
-export type HideXForwarded = types.Null;
+export type RedirectHTTP = {
+  use: "redirect_http" | "redirectHTTP" | "RedirectHTTP";
+};
 
-/**
- * @additionalProperties false
- */
+export type SetXForwarded = {
+  use: "set_x_forwarded" | "setXForwarded" | "SetXForwarded";
+};
+export type HideXForwarded = {
+  use: "hide_x_forwarded" | "hideXForwarded" | "HideXForwarded";
+};
+
 export type CIDRWhitelist = {
+  use: "cidr_whitelist" | "cidrWhitelist" | "CIDRWhitelist";
   /* Allowed CIDRs/IPs */
   allow: types.CIDR[];
   /** HTTP status code when blocked
@@ -60,6 +59,11 @@ export type CIDRWhitelist = {
    * @default 403
    */
   status_code?: types.StatusCode;
+  /** HTTP status code when blocked (alias of status_code)
+   *
+   * @default 403
+   */
+  status?: types.StatusCode;
   /** Error message when blocked
    *
    * @default "IP not allowed"
@@ -67,10 +71,8 @@ export type CIDRWhitelist = {
   message?: string;
 };
 
-/**
- * @additionalProperties false
- */
 export type CloudflareRealIP = {
+  use: "cloudflare_real_ip" | "cloudflareRealIp" | "cloudflare_real_ip";
   /** Recursively resolve the IP
    *
    * @default false
@@ -78,10 +80,8 @@ export type CloudflareRealIP = {
   recursive?: boolean;
 };
 
-/**
- * @additionalProperties false
- */
 export type ModifyRequest = {
+  use: "request" | "Request" | "modify_request" | "modifyRequest" | "ModifyRequest";
   /** Set HTTP headers */
   set_headers?: { [key: types.HTTPHeader]: string };
   /** Add HTTP headers */
@@ -90,15 +90,18 @@ export type ModifyRequest = {
   hide_headers?: types.HTTPHeader[];
 };
 
-/**
- * @additionalProperties false
- */
-export type ModifyResponse = ModifyRequest;
+export type ModifyResponse = {
+  use: "response" | "Response" | "modify_response" | "modifyResponse" | "ModifyResponse";
+  /** Set HTTP headers */
+  set_headers?: { [key: types.HTTPHeader]: string };
+  /** Add HTTP headers */
+  add_headers?: { [key: types.HTTPHeader]: string };
+  /** Hide HTTP headers */
+  hide_headers?: types.HTTPHeader[];
+};
 
-/**
- * @additionalProperties false
- */
 export type OIDC = {
+  use: "oidc" | "OIDC";
   /** Allowed users
    *
    * @minItems 1
@@ -111,10 +114,8 @@ export type OIDC = {
   allowed_groups?: string[];
 };
 
-/**
- * @additionalProperties false
- */
 export type RateLimit = {
+  use: "rate_limit" | "rateLimit" | "RateLimit";
   /** Average number of requests allowed in a period
    *
    * @min 1
@@ -132,18 +133,17 @@ export type RateLimit = {
   period?: types.Duration;
 };
 
-/**
- * @additionalProperties false
- */
 export type RealIP = {
+  use: "real_ip" | "realIP" | "RealIP";
   /** Header to get the client IP from
    *
+   * @default "X-Real-IP"
    */
-  header: types.HTTPHeader;
+  header?: types.HTTPHeader;
   from: types.CIDR[];
   /** Recursive resolve the IP
    *
    * @default false
    */
-  recursive: boolean;
+  recursive?: boolean;
 };

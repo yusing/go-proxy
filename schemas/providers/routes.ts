@@ -16,9 +16,6 @@ export type Routes = {
   [key: string]: Route;
 };
 
-/**
- * @additionalProperties false
- */
 export type ReverseProxyRoute = {
   /** Alias (subdomain or FDN)
    * @minLength 1
@@ -67,9 +64,6 @@ export type ReverseProxyRoute = {
   access_log?: AccessLogConfig;
 };
 
-/**
- * @additionalProperties false
- */
 export type StreamRoute = {
   /** Alias (subdomain or FDN)
    * @minLength 1

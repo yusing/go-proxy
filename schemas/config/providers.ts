@@ -1,9 +1,6 @@
 import { URI, URL } from "../types";
 import { GotifyConfig, WebhookConfig } from "./notification";
 
-/**
- * @additionalProperties false
- */
 export type Providers = {
   /** List of route definition files to include
    *

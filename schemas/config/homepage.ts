@@ -1,6 +1,3 @@
-/**
- * @additionalProperties false
- */
 export type HomepageConfig = {
   /**
    * Use default app categories (uses docker image name)

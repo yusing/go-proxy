@@ -4,9 +4,6 @@ import { EntrypointConfig } from "./entrypoint";
 import { HomepageConfig } from "./homepage";
 import { Providers } from "./providers";
 
-/**
- * @additionalProperties false
- */
 export type Config = {
   /** Optional autocert configuration
    *

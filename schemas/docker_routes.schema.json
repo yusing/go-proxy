@@ -1,7 +1,492 @@
 {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "additionalProperties": {
-        "$ref": "#/definitions/Route"
+        "anyOf": [
+            {
+                "additionalProperties": false,
+                "properties": {
+                    "access_log": {
+                        "additionalProperties": false,
+                        "description": "Access log config",
+                        "examples": [
+                            {
+                                "fields": {
+                                    "headers": {
+                                        "config": {
+                                            "foo": "redact"
+                                        },
+                                        "default": "keep"
+                                    }
+                                },
+                                "filters": {
+                                    "status_codes": {
+                                        "values": [
+                                            "200-299"
+                                        ]
+                                    }
+                                },
+                                "format": "combined",
+                                "path": "/var/log/access.log"
+                            }
+                        ],
+                        "properties": {
+                            "buffer_size": {
+                                "default": 65536,
+                                "description": "The size of the buffer.",
+                                "minimum": 0,
+                                "type": "integer"
+                            },
+                            "fields": {
+                                "additionalProperties": false,
+                                "properties": {
+                                    "cookie": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "config": {
+                                                "additionalProperties": {
+                                                    "enum": [
+                                                        "drop",
+                                                        "keep",
+                                                        "redact"
+                                                    ],
+                                                    "type": "string"
+                                                },
+                                                "type": "object"
+                                            },
+                                            "default": {
+                                                "$ref": "#/definitions/AccessLogFieldMode"
+                                            }
+                                        },
+                                        "required": [
+                                            "config"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "header": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "config": {
+                                                "additionalProperties": {
+                                                    "enum": [
+                                                        "drop",
+                                                        "keep",
+                                                        "redact"
+                                                    ],
+                                                    "type": "string"
+                                                },
+                                                "type": "object"
+                                            },
+                                            "default": {
+                                                "$ref": "#/definitions/AccessLogFieldMode"
+                                            }
+                                        },
+                                        "required": [
+                                            "config"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "query": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "config": {
+                                                "additionalProperties": {
+                                                    "enum": [
+                                                        "drop",
+                                                        "keep",
+                                                        "redact"
+                                                    ],
+                                                    "type": "string"
+                                                },
+                                                "type": "object"
+                                            },
+                                            "default": {
+                                                "$ref": "#/definitions/AccessLogFieldMode"
+                                            }
+                                        },
+                                        "required": [
+                                            "config"
+                                        ],
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "filters": {
+                                "additionalProperties": false,
+                                "properties": {
+                                    "cidr": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "negative": {
+                                                "default": false,
+                                                "description": "Whether the filter is negative.",
+                                                "type": "boolean"
+                                            },
+                                            "values": {
+                                                "items": {
+                                                    "$ref": "#/definitions/CIDR"
+                                                },
+                                                "type": "array"
+                                            }
+                                        },
+                                        "required": [
+                                            "values"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "headers": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "negative": {
+                                                "default": false,
+                                                "description": "Whether the filter is negative.",
+                                                "type": "boolean"
+                                            },
+                                            "values": {
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "type": "array"
+                                            }
+                                        },
+                                        "required": [
+                                            "values"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "host": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "negative": {
+                                                "default": false,
+                                                "description": "Whether the filter is negative.",
+                                                "type": "boolean"
+                                            },
+                                            "values": {
+                                                "items": {
+                                                    "type": "string"
+                                                },
+                                                "type": "array"
+                                            }
+                                        },
+                                        "required": [
+                                            "values"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "method": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "negative": {
+                                                "default": false,
+                                                "description": "Whether the filter is negative.",
+                                                "type": "boolean"
+                                            },
+                                            "values": {
+                                                "items": {
+                                                    "enum": [
+                                                        "CONNECT",
+                                                        "DELETE",
+                                                        "GET",
+                                                        "HEAD",
+                                                        "OPTIONS",
+                                                        "PATCH",
+                                                        "POST",
+                                                        "PUT",
+                                                        "TRACE"
+                                                    ],
+                                                    "type": "string"
+                                                },
+                                                "type": "array"
+                                            }
+                                        },
+                                        "required": [
+                                            "values"
+                                        ],
+                                        "type": "object"
+                                    },
+                                    "status_code": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                            "negative": {
+                                                "default": false,
+                                                "description": "Whether the filter is negative.",
+                                                "type": "boolean"
+                                            },
+                                            "values": {
+                                                "items": {
+                                                    "$ref": "#/definitions/StatusCodeRange"
+                                                },
+                                                "type": "array"
+                                            }
+                                        },
+                                        "required": [
+                                            "values"
+                                        ],
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "format": {
+                                "$ref": "#/definitions/AccessLogFormat",
+                                "default": "combined",
+                                "description": "The format of the access log."
+                            },
+                            "path": {
+                                "format": "uri-reference",
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "path"
+                        ],
+                        "type": "object"
+                    },
+                    "alias": {
+                        "description": "Alias (subdomain or FDN)",
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "healthcheck": {
+                        "additionalProperties": false,
+                        "description": "Healthcheck config",
+                        "properties": {
+                            "disable": {
+                                "default": false,
+                                "description": "Disable healthcheck",
+                                "type": "boolean"
+                            },
+                            "interval": {
+                                "default": "5s",
+                                "description": "Healthcheck interval",
+                                "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                "type": "string"
+                            },
+                            "path": {
+                                "default": "/",
+                                "description": "Healthcheck path",
+                                "format": "uri-reference",
+                                "type": "string"
+                            },
+                            "timeout": {
+                                "default": "5s",
+                                "description": "Healthcheck timeout",
+                                "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                "type": "string"
+                            },
+                            "use_get": {
+                                "default": false,
+                                "description": "Use GET instead of HEAD",
+                                "type": "boolean"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "homepage": {
+                        "additionalProperties": false,
+                        "description": "Homepage config",
+                        "examples": [
+                            {
+                                "category": "Arr suite",
+                                "icon": "png/sonarr.png",
+                                "name": "Sonarr"
+                            },
+                            {
+                                "icon": "@target/favicon.ico",
+                                "name": "App"
+                            }
+                        ],
+                        "properties": {
+                            "category": {
+                                "type": "string"
+                            },
+                            "description": {
+                                "type": "string"
+                            },
+                            "icon": {
+                                "type": "string"
+                            },
+                            "name": {
+                                "type": "string"
+                            },
+                            "show": {
+                                "default": true,
+                                "description": "Whether show in dashboard",
+                                "type": "boolean"
+                            },
+                            "url": {
+                                "format": "uri",
+                                "type": "string"
+                            },
+                            "widget_config": {
+                                "additionalProperties": {},
+                                "type": "object"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "host": {
+                        "default": "localhost",
+                        "description": "Proxy host",
+                        "type": "string"
+                    },
+                    "idle_timeout": {
+                        "pattern": "^([0-9]+(ms|s|m|h))+$",
+                        "type": "string"
+                    },
+                    "load_balance": {
+                        "$ref": "#/definitions/LoadBalanceConfig",
+                        "description": "Load balance config"
+                    },
+                    "middlewares": {
+                        "$ref": "#/definitions/MiddlewaresMap",
+                        "description": "Middlewares"
+                    },
+                    "no_tls_verify": {
+                        "default": false,
+                        "description": "Skip TLS verification",
+                        "type": "boolean"
+                    },
+                    "path_patterns": {
+                        "description": "Path patterns (only patterns that match will be proxied).\n\nSee https://pkg.go.dev/net/http#hdr-Patterns-ServeMux",
+                        "items": {
+                            "type": "string"
+                        },
+                        "type": "array"
+                    },
+                    "port": {
+                        "default": 80,
+                        "description": "Proxy port",
+                        "maximum": 65535,
+                        "minimum": 0,
+                        "type": "integer"
+                    },
+                    "scheme": {
+                        "$ref": "#/definitions/ProxyScheme",
+                        "default": "http",
+                        "description": "Proxy scheme"
+                    },
+                    "start_endpoint": {
+                        "format": "uri-reference",
+                        "type": "string"
+                    },
+                    "stop_method": {
+                        "$ref": "#/definitions/StopMethod",
+                        "default": "stop",
+                        "description": "Stop method"
+                    },
+                    "stop_signal": {
+                        "$ref": "#/definitions/Signal"
+                    },
+                    "stop_timeout": {
+                        "default": "10s",
+                        "description": "Stop timeout",
+                        "pattern": "^([0-9]+(ms|s|m|h))+$",
+                        "type": "string"
+                    },
+                    "wake_timeout": {
+                        "default": "30s",
+                        "description": "Wake timeout",
+                        "pattern": "^([0-9]+(ms|s|m|h))+$",
+                        "type": "string"
+                    }
+                },
+                "type": "object"
+            },
+            {
+                "additionalProperties": false,
+                "properties": {
+                    "alias": {
+                        "description": "Alias (subdomain or FDN)",
+                        "minLength": 1,
+                        "type": "string"
+                    },
+                    "healthcheck": {
+                        "additionalProperties": false,
+                        "description": "Healthcheck config",
+                        "properties": {
+                            "disable": {
+                                "default": false,
+                                "description": "Disable healthcheck",
+                                "type": "boolean"
+                            },
+                            "interval": {
+                                "default": "5s",
+                                "description": "Healthcheck interval",
+                                "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                "type": "string"
+                            },
+                            "path": {
+                                "default": "/",
+                                "description": "Healthcheck path",
+                                "format": "uri-reference",
+                                "type": "string"
+                            },
+                            "timeout": {
+                                "default": "5s",
+                                "description": "Healthcheck timeout",
+                                "pattern": "^([0-9]+(ms|s|m|h))+$",
+                                "type": "string"
+                            },
+                            "use_get": {
+                                "default": false,
+                                "description": "Use GET instead of HEAD",
+                                "type": "boolean"
+                            }
+                        },
+                        "type": "object"
+                    },
+                    "host": {
+                        "default": "localhost",
+                        "description": "Stream host",
+                        "type": "string"
+                    },
+                    "idle_timeout": {
+                        "pattern": "^([0-9]+(ms|s|m|h))+$",
+                        "type": "string"
+                    },
+                    "port": {
+                        "pattern": "^\\d+:\\d+$",
+                        "type": "string"
+                    },
+                    "scheme": {
+                        "$ref": "#/definitions/StreamScheme",
+                        "default": "tcp",
+                        "description": "Stream scheme"
+                    },
+                    "start_endpoint": {
+                        "format": "uri-reference",
+                        "type": "string"
+                    },
+                    "stop_method": {
+                        "$ref": "#/definitions/StopMethod",
+                        "default": "stop",
+                        "description": "Stop method"
+                    },
+                    "stop_signal": {
+                        "$ref": "#/definitions/Signal"
+                    },
+                    "stop_timeout": {
+                        "default": "10s",
+                        "description": "Stop timeout",
+                        "pattern": "^([0-9]+(ms|s|m|h))+$",
+                        "type": "string"
+                    },
+                    "wake_timeout": {
+                        "default": "30s",
+                        "description": "Wake timeout",
+                        "pattern": "^([0-9]+(ms|s|m|h))+$",
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "port",
+                    "scheme"
+                ],
+                "type": "object"
+            }
+        ]
     },
     "definitions": {
         "AccessLogFieldMode": {
@@ -408,437 +893,19 @@
             ],
             "type": "string"
         },
-        "Route": {
-            "anyOf": [
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "access_log": {
-                            "additionalProperties": false,
-                            "description": "Access log config",
-                            "examples": [
-                                {
-                                    "fields": {
-                                        "headers": {
-                                            "config": {
-                                                "foo": "redact"
-                                            },
-                                            "default": "keep"
-                                        }
-                                    },
-                                    "filters": {
-                                        "status_codes": {
-                                            "values": [
-                                                "200-299"
-                                            ]
-                                        }
-                                    },
-                                    "format": "combined",
-                                    "path": "/var/log/access.log"
-                                }
-                            ],
-                            "properties": {
-                                "buffer_size": {
-                                    "default": 65536,
-                                    "description": "The size of the buffer.",
-                                    "minimum": 0,
-                                    "type": "integer"
-                                },
-                                "fields": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "cookie": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "config": {
-                                                    "additionalProperties": {
-                                                        "enum": [
-                                                            "drop",
-                                                            "keep",
-                                                            "redact"
-                                                        ],
-                                                        "type": "string"
-                                                    },
-                                                    "type": "object"
-                                                },
-                                                "default": {
-                                                    "$ref": "#/definitions/AccessLogFieldMode"
-                                                }
-                                            },
-                                            "required": [
-                                                "config"
-                                            ],
-                                            "type": "object"
-                                        },
-                                        "header": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "config": {
-                                                    "additionalProperties": {
-                                                        "enum": [
-                                                            "drop",
-                                                            "keep",
-                                                            "redact"
-                                                        ],
-                                                        "type": "string"
-                                                    },
-                                                    "type": "object"
-                                                },
-                                                "default": {
-                                                    "$ref": "#/definitions/AccessLogFieldMode"
-                                                }
-                                            },
-                                            "required": [
-                                                "config"
-                                            ],
-                                            "type": "object"
-                                        },
-                                        "query": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "config": {
-                                                    "additionalProperties": {
-                                                        "enum": [
-                                                            "drop",
-                                                            "keep",
-                                                            "redact"
-                                                        ],
-                                                        "type": "string"
-                                                    },
-                                                    "type": "object"
-                                                },
-                                                "default": {
-                                                    "$ref": "#/definitions/AccessLogFieldMode"
-                                                }
-                                            },
-                                            "required": [
-                                                "config"
-                                            ],
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                },
-                                "filters": {
-                                    "additionalProperties": false,
-                                    "properties": {
-                                        "cidr": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "negative": {
-                                                    "default": false,
-                                                    "description": "Whether the filter is negative.",
-                                                    "type": "boolean"
-                                                },
-                                                "values": {
-                                                    "items": {
-                                                        "$ref": "#/definitions/CIDR"
-                                                    },
-                                                    "type": "array"
-                                                }
-                                            },
-                                            "required": [
-                                                "values"
-                                            ],
-                                            "type": "object"
-                                        },
-                                        "headers": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "negative": {
-                                                    "default": false,
-                                                    "description": "Whether the filter is negative.",
-                                                    "type": "boolean"
-                                                },
-                                                "values": {
-                                                    "items": {
-                                                        "type": "string"
-                                                    },
-                                                    "type": "array"
-                                                }
-                                            },
-                                            "required": [
-                                                "values"
-                                            ],
-                                            "type": "object"
-                                        },
-                                        "host": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "negative": {
-                                                    "default": false,
-                                                    "description": "Whether the filter is negative.",
-                                                    "type": "boolean"
-                                                },
-                                                "values": {
-                                                    "items": {
-                                                        "type": "string"
-                                                    },
-                                                    "type": "array"
-                                                }
-                                            },
-                                            "required": [
-                                                "values"
-                                            ],
-                                            "type": "object"
-                                        },
-                                        "method": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "negative": {
-                                                    "default": false,
-                                                    "description": "Whether the filter is negative.",
-                                                    "type": "boolean"
-                                                },
-                                                "values": {
-                                                    "items": {
-                                                        "enum": [
-                                                            "CONNECT",
-                                                            "DELETE",
-                                                            "GET",
-                                                            "HEAD",
-                                                            "OPTIONS",
-                                                            "PATCH",
-                                                            "POST",
-                                                            "PUT",
-                                                            "TRACE"
-                                                        ],
-                                                        "type": "string"
-                                                    },
-                                                    "type": "array"
-                                                }
-                                            },
-                                            "required": [
-                                                "values"
-                                            ],
-                                            "type": "object"
-                                        },
-                                        "status_code": {
-                                            "additionalProperties": false,
-                                            "properties": {
-                                                "negative": {
-                                                    "default": false,
-                                                    "description": "Whether the filter is negative.",
-                                                    "type": "boolean"
-                                                },
-                                                "values": {
-                                                    "items": {
-                                                        "$ref": "#/definitions/StatusCodeRange"
-                                                    },
-                                                    "type": "array"
-                                                }
-                                            },
-                                            "required": [
-                                                "values"
-                                            ],
-                                            "type": "object"
-                                        }
-                                    },
-                                    "type": "object"
-                                },
-                                "format": {
-                                    "$ref": "#/definitions/AccessLogFormat",
-                                    "default": "combined",
-                                    "description": "The format of the access log."
-                                },
-                                "path": {
-                                    "format": "uri-reference",
-                                    "type": "string"
-                                }
-                            },
-                            "required": [
-                                "path"
-                            ],
-                            "type": "object"
-                        },
-                        "alias": {
-                            "description": "Alias (subdomain or FDN)",
-                            "minLength": 1,
-                            "type": "string"
-                        },
-                        "healthcheck": {
-                            "additionalProperties": false,
-                            "description": "Healthcheck config",
-                            "properties": {
-                                "disable": {
-                                    "default": false,
-                                    "description": "Disable healthcheck",
-                                    "type": "boolean"
-                                },
-                                "interval": {
-                                    "default": "5s",
-                                    "description": "Healthcheck interval",
-                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
-                                    "type": "string"
-                                },
-                                "path": {
-                                    "default": "/",
-                                    "description": "Healthcheck path",
-                                    "format": "uri-reference",
-                                    "type": "string"
-                                },
-                                "timeout": {
-                                    "default": "5s",
-                                    "description": "Healthcheck timeout",
-                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
-                                    "type": "string"
-                                },
-                                "use_get": {
-                                    "default": false,
-                                    "description": "Use GET instead of HEAD",
-                                    "type": "boolean"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        "homepage": {
-                            "additionalProperties": false,
-                            "description": "Homepage config",
-                            "examples": [
-                                {
-                                    "category": "Arr suite",
-                                    "icon": "png/sonarr.png",
-                                    "name": "Sonarr"
-                                },
-                                {
-                                    "icon": "@target/favicon.ico",
-                                    "name": "App"
-                                }
-                            ],
-                            "properties": {
-                                "category": {
-                                    "type": "string"
-                                },
-                                "description": {
-                                    "type": "string"
-                                },
-                                "icon": {
-                                    "type": "string"
-                                },
-                                "name": {
-                                    "type": "string"
-                                },
-                                "show": {
-                                    "default": true,
-                                    "description": "Whether show in dashboard",
-                                    "type": "boolean"
-                                },
-                                "url": {
-                                    "format": "uri",
-                                    "type": "string"
-                                },
-                                "widget_config": {
-                                    "additionalProperties": {},
-                                    "type": "object"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        "host": {
-                            "default": "localhost",
-                            "description": "Proxy host",
-                            "type": "string"
-                        },
-                        "load_balance": {
-                            "$ref": "#/definitions/LoadBalanceConfig",
-                            "description": "Load balance config"
-                        },
-                        "middlewares": {
-                            "$ref": "#/definitions/MiddlewaresMap",
-                            "description": "Middlewares"
-                        },
-                        "no_tls_verify": {
-                            "default": false,
-                            "description": "Skip TLS verification",
-                            "type": "boolean"
-                        },
-                        "path_patterns": {
-                            "description": "Path patterns (only patterns that match will be proxied).\n\nSee https://pkg.go.dev/net/http#hdr-Patterns-ServeMux",
-                            "items": {
-                                "type": "string"
-                            },
-                            "type": "array"
-                        },
-                        "port": {
-                            "default": 80,
-                            "description": "Proxy port",
-                            "maximum": 65535,
-                            "minimum": 0,
-                            "type": "integer"
-                        },
-                        "scheme": {
-                            "$ref": "#/definitions/ProxyScheme",
-                            "default": "http",
-                            "description": "Proxy scheme"
-                        }
-                    },
-                    "type": "object"
-                },
-                {
-                    "additionalProperties": false,
-                    "properties": {
-                        "alias": {
-                            "description": "Alias (subdomain or FDN)",
-                            "minLength": 1,
-                            "type": "string"
-                        },
-                        "healthcheck": {
-                            "additionalProperties": false,
-                            "description": "Healthcheck config",
-                            "properties": {
-                                "disable": {
-                                    "default": false,
-                                    "description": "Disable healthcheck",
-                                    "type": "boolean"
-                                },
-                                "interval": {
-                                    "default": "5s",
-                                    "description": "Healthcheck interval",
-                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
-                                    "type": "string"
-                                },
-                                "path": {
-                                    "default": "/",
-                                    "description": "Healthcheck path",
-                                    "format": "uri-reference",
-                                    "type": "string"
-                                },
-                                "timeout": {
-                                    "default": "5s",
-                                    "description": "Healthcheck timeout",
-                                    "pattern": "^([0-9]+(ms|s|m|h))+$",
-                                    "type": "string"
-                                },
-                                "use_get": {
-                                    "default": false,
-                                    "description": "Use GET instead of HEAD",
-                                    "type": "boolean"
-                                }
-                            },
-                            "type": "object"
-                        },
-                        "host": {
-                            "default": "localhost",
-                            "description": "Stream host",
-                            "type": "string"
-                        },
-                        "port": {
-                            "pattern": "^\\d+:\\d+$",
-                            "type": "string"
-                        },
-                        "scheme": {
-                            "$ref": "#/definitions/StreamScheme",
-                            "default": "tcp",
-                            "description": "Stream scheme"
-                        }
-                    },
-                    "required": [
-                        "port",
-                        "scheme"
-                    ],
-                    "type": "object"
-                }
-            ]
+        "Signal": {
+            "enum": [
+                "",
+                "HUP",
+                "INT",
+                "QUIT",
+                "SIGHUP",
+                "SIGINT",
+                "SIGQUIT",
+                "SIGTERM",
+                "TERM"
+            ],
+            "type": "string"
         },
         "StatusCode": {
             "anyOf": [
@@ -865,6 +932,14 @@
                     "type": "number"
                 }
             ]
+        },
+        "StopMethod": {
+            "enum": [
+                "kill",
+                "pause",
+                "stop"
+            ],
+            "type": "string"
         },
         "StreamScheme": {
             "enum": [

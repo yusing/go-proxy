@@ -11,6 +11,7 @@ export const AUTOCERT_PROVIDERS = [
 export type AutocertProvider = (typeof AUTOCERT_PROVIDERS)[number];
 
 export type AutocertConfig =
+  | LocalOptions
   | CloudflareOptions
   | CloudDNSOptions
   | DuckDNSOptions
@@ -28,32 +29,25 @@ export interface AutocertConfigBase {
   key_path?: string;
 }
 
-/**
- * @additionalProperties false
- */
+export interface LocalOptions extends AutocertConfigBase {
+  provider: "local";
+}
+
 export interface CloudflareOptions extends AutocertConfigBase {
   provider: "cloudflare";
   options: { auth_token: string };
 }
 
-/**
- * @additionalProperties false
- */
 export interface CloudDNSOptions extends AutocertConfigBase {
   provider: "clouddns";
   options: {
     client_id: string;
-    /**
-     * @format email
-     */
     email: Email;
     password: string;
   };
 }
 
-/**
- * @additionalProperties false
- */
+
 export interface DuckDNSOptions extends AutocertConfigBase {
   provider: "duckdns";
   options: {
@@ -73,9 +67,6 @@ export const OVH_ENDPOINTS = [
 
 export type OVHEndpoint = (typeof OVH_ENDPOINTS)[number];
 
-/**
- * @additionalProperties false
- */
 export interface OVHOptionsWithAppKey extends AutocertConfigBase {
   provider: "ovh";
   options: {
@@ -86,9 +77,6 @@ export interface OVHOptionsWithAppKey extends AutocertConfigBase {
   };
 }
 
-/**
- * @additionalProperties false
- */
 export interface OVHOptionsWithOAuth2Config extends AutocertConfigBase {
   provider: "ovh";
   options: {

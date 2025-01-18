@@ -4,9 +4,6 @@ export const ACCESS_LOG_FORMATS = ["combined", "common", "json"] as const;
 
 export type AccessLogFormat = (typeof ACCESS_LOG_FORMATS)[number];
 
-/**
- * @additionalProperties false
- */
 export type AccessLogConfig = {
   /**
    * The size of the buffer.
