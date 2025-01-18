@@ -71,3 +71,27 @@ push-docker-io:
 build-docker:
 	docker build -t godoxy-nightly \
 		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" .
+
+gen-schema-single:
+	typescript-json-schema --noExtraProps --required --skipLibCheck --tsNodeRegister=true -o schemas/${OUT} schemas/${IN} ${CLASS}
+
+gen-schema:
+	make IN=config/config.ts \
+			CLASS=Config \
+			OUT=config.schema.json \
+			gen-schema-single
+	make IN=providers/routes.ts \
+			CLASS=Routes \
+			OUT=routes.schema.json \
+			gen-schema-single
+	make IN=middlewares/middleware_compose.ts \
+			CLASS=MiddlewareCompose \
+			OUT=middleware_compose.schema.json \
+			gen-schema-single
+	make IN=docker.ts \
+			CLASS=DockerRoutes \
+			OUT=docker_routes.schema.json \
+			gen-schema-single
+
+push-github:
+	git push origin $(shell git rev-parse --abbrev-ref HEAD)

@@ -2,6 +2,7 @@ example: # matching `example.y.z`
   scheme: http
   host: 10.0.0.254
   port: 80
+  no_tls_verify: true
   path_patterns: # Check https://pkg.go.dev/net/http#hdr-Patterns-ServeMux for syntax
     - GET / # accept any GET request
     - POST /auth # for /auth and /auth/* accept only POST

@@ -294,6 +294,9 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 				case errors.Is(err, context.Canceled):
 					continue
 				case err != nil:
+					if errors.Is(err, context.DeadlineExceeded) {
+						err = errors.New("timeout waiting for container to stop, please set a higher value for `stop_timeout`")
+					}
 					w.Err(err).Msgf("container stop with method %q failed", w.StopMethod)
 				default:
 					w.LogReason("container stopped", "idle timeout")
