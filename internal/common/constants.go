@@ -49,7 +49,7 @@ const (
 	HealthCheckTimeoutDefault  = 5 * time.Second
 
 	WakeTimeoutDefault = "30s"
-	StopTimeoutDefault = "10s"
+	StopTimeoutDefault = "30s"
 	StopMethodDefault  = "stop"
 )
 

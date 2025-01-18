@@ -12,6 +12,7 @@ package reverseproxy
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -207,13 +208,25 @@ func copyHeader(dst, src http.Header) {
 }
 
 func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err error, writeHeader bool) {
+	reqURL := r.Host + r.RequestURI
 	switch {
 	case errors.Is(err, context.Canceled),
-		errors.Is(err, io.EOF):
-		logger.Debug().Err(err).Str("url", r.URL.String()).Msg("http proxy error")
+		errors.Is(err, io.EOF),
+		errors.Is(err, context.DeadlineExceeded):
+		logger.Debug().Err(err).Str("url", reqURL).Msg("http proxy error")
 	default:
-		logger.Err(err).Str("url", r.URL.String()).Msg("http proxy error")
+		var recordErr tls.RecordHeaderError
+		if errors.As(err, &recordErr) {
+			logger.Error().
+				Str("url", reqURL).
+				Msgf(`scheme was likely misconfigured as https,
+						try setting "proxy.%s.scheme" back to "http"`, p.TargetName)
+			logging.Err(err).Msg("underlying error")
+		} else {
+			logger.Err(err).Str("url", reqURL).Msg("http proxy error")
+		}
 	}
+
 	if writeHeader {
 		rw.WriteHeader(http.StatusInternalServerError)
 	}
