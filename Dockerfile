@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM golang:1.23.4-alpine AS builder
+FROM golang:1.23.5-alpine AS builder
 HEALTHCHECK NONE
 
 # package version does not matter
@@ -51,7 +51,7 @@ COPY config.example.yml /app/config/config.yml
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
 # copy schema
-COPY schemas/config.schema.json schemas/routes.schema.json /app/schemas/
+COPY schemas/config.schema.json schemas/routes.schema.json schemas/middleware_compose.schema.json /app/schemas/
 
 ENV DOCKER_HOST=unix:///var/run/docker.sock
 ENV GODOXY_DEBUG=0
