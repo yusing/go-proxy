@@ -32,16 +32,16 @@ func FileProviderImpl(filename string) (ProviderImpl, error) {
 	return impl, nil
 }
 
-func validate(data []byte) (route.Routes, E.Error) {
+func validate(provider string, data []byte) (route.Routes, E.Error) {
 	entries, err := utils.DeserializeYAMLMap[*route.RawEntry](data)
 	if err != nil {
 		return route.NewRoutes(), err
 	}
-	return route.FromEntries(entries)
+	return route.FromEntries(provider, entries)
 }
 
 func Validate(data []byte) (err E.Error) {
-	_, err = validate(data)
+	_, err = validate("", data)
 	return
 }
 
@@ -69,7 +69,7 @@ func (p *FileProvider) loadRoutesImpl() (route.Routes, E.Error) {
 		return routes, E.From(err)
 	}
 
-	return validate(data)
+	return validate(p.ShortName(), data)
 }
 
 func (p *FileProvider) NewWatcher() W.Watcher {

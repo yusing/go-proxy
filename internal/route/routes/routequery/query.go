@@ -1,4 +1,4 @@
-package routes
+package routequery
 
 import (
 	"strings"
@@ -7,6 +7,7 @@ import (
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/route/entry"
 	provider "github.com/yusing/go-proxy/internal/route/provider/types"
+	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -29,18 +30,36 @@ func getHealthInfo(r route.Route) map[string]string {
 
 func HealthMap() map[string]map[string]string {
 	healthMap := make(map[string]map[string]string)
-	httpRoutes.RangeAll(func(alias string, r route.HTTPRoute) {
+	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		healthMap[alias] = getHealthInfo(r)
 	})
-	streamRoutes.RangeAll(func(alias string, r route.StreamRoute) {
+	routes.GetStreamRoutes().RangeAll(func(alias string, r route.StreamRoute) {
 		healthMap[alias] = getHealthInfo(r)
 	})
 	return healthMap
 }
 
-func HomepageConfig(useDefaultCategories bool) homepage.Config {
+func HomepageCategories() []string {
+	check := make(map[string]struct{})
+	categories := make([]string, 0)
+	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
+		en := r.RawEntry()
+		if en.Homepage == nil || en.Homepage.Category == "" {
+			return
+		}
+		if _, ok := check[en.Homepage.Category]; ok {
+			return
+		}
+		check[en.Homepage.Category] = struct{}{}
+		categories = append(categories, en.Homepage.Category)
+	})
+	return categories
+}
+
+func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter string) homepage.Config {
 	hpCfg := homepage.NewHomePageConfig()
-	GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
+
+	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		en := r.RawEntry()
 		item := en.Homepage
 		if item == nil {
@@ -57,6 +76,11 @@ func HomepageConfig(useDefaultCategories bool) homepage.Config {
 		}
 
 		item.Alias = alias
+		item.Provider = r.RawEntry().Provider
+
+		if providerFilter != "" && item.Provider != providerFilter {
+			return
+		}
 
 		if item.Name == "" {
 			item.Name = strutils.Title(
@@ -79,6 +103,10 @@ func HomepageConfig(useDefaultCategories bool) homepage.Config {
 					item.Category = category
 				}
 			}
+		}
+
+		if categoryFilter != "" && item.Category != categoryFilter {
+			return
 		}
 
 		switch {
@@ -113,11 +141,11 @@ func RoutesByAlias(typeFilter ...route.RouteType) map[string]route.Route {
 	for _, t := range typeFilter {
 		switch t {
 		case route.RouteTypeReverseProxy:
-			GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
+			routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 				rts[alias] = r
 			})
 		case route.RouteTypeStream:
-			GetStreamRoutes().RangeAll(func(alias string, r route.StreamRoute) {
+			routes.GetStreamRoutes().RangeAll(func(alias string, r route.StreamRoute) {
 				rts[alias] = r
 			})
 		}

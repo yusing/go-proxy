@@ -8,21 +8,23 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	"github.com/yusing/go-proxy/internal/route/routes"
+	"github.com/yusing/go-proxy/internal/route/routes/routequery"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
 const (
-	ListRoute            = "route"
-	ListRoutes           = "routes"
-	ListFiles            = "files"
-	ListMiddlewares      = "middlewares"
-	ListMiddlewareTraces = "middleware_trace"
-	ListMatchDomains     = "match_domains"
-	ListHomepageConfig   = "homepage_config"
-	ListTasks            = "tasks"
+	ListRoute              = "route"
+	ListRoutes             = "routes"
+	ListFiles              = "files"
+	ListMiddlewares        = "middlewares"
+	ListMiddlewareTraces   = "middleware_trace"
+	ListMatchDomains       = "match_domains"
+	ListHomepageConfig     = "homepage_config"
+	ListRouteProviders     = "route_providers"
+	ListHomepageCategories = "homepage_categories"
+	ListTasks              = "tasks"
 )
 
 func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
@@ -41,7 +43,7 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 			U.RespondJSON(w, r, route)
 		}
 	case ListRoutes:
-		U.RespondJSON(w, r, routes.RoutesByAlias(route.RouteType(r.FormValue("type"))))
+		U.RespondJSON(w, r, routequery.RoutesByAlias(route.RouteType(r.FormValue("type"))))
 	case ListFiles:
 		listFiles(w, r)
 	case ListMiddlewares:
@@ -51,7 +53,11 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	case ListMatchDomains:
 		U.RespondJSON(w, r, cfg.Value().MatchDomains)
 	case ListHomepageConfig:
-		U.RespondJSON(w, r, routes.HomepageConfig(cfg.Value().Homepage.UseDefaultCategories))
+		U.RespondJSON(w, r, routequery.HomepageConfig(cfg.Value().Homepage.UseDefaultCategories, r.FormValue("category"), r.FormValue("provider")))
+	case ListRouteProviders:
+		U.RespondJSON(w, r, cfg.RouteProviderList())
+	case ListHomepageCategories:
+		U.RespondJSON(w, r, routequery.HomepageCategories())
 	case ListTasks:
 		U.RespondJSON(w, r, task.DebugTaskList())
 	default:
@@ -63,9 +69,9 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 // otherwise, return a single Route with alias which or nil if not found.
 func listRoute(which string) any {
 	if which == "" || which == "all" {
-		return routes.RoutesByAlias()
+		return routequery.RoutesByAlias()
 	}
-	routes := routes.RoutesByAlias()
+	routes := routequery.RoutesByAlias()
 	route, ok := routes[which]
 	if !ok {
 		return nil

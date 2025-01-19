@@ -18,7 +18,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	"github.com/yusing/go-proxy/internal/route/routes"
+	"github.com/yusing/go-proxy/internal/route/routes/routequery"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
 )
@@ -104,7 +104,7 @@ func main() {
 	switch args.Command {
 	case common.CommandListRoutes:
 		cfg.StartProxyProviders()
-		printJSON(routes.RoutesByAlias())
+		printJSON(routequery.RoutesByAlias())
 		return
 	case common.CommandListConfigs:
 		printJSON(cfg.Value())
@@ -113,7 +113,7 @@ func main() {
 		printJSON(cfg.DumpEntries())
 		return
 	case common.CommandDebugListProviders:
-		printJSON(cfg.DumpProviders())
+		printJSON(cfg.DumpRouteProviders())
 		return
 	}
 

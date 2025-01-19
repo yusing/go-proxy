@@ -33,7 +33,6 @@ var PredefinedCategories = map[string]string{
 	"changedetection":    "Monitoring",
 	"influxdb":           "Monitoring",
 	"influx":             "Monitoring",
-	"dozzle":             "Monitoring",
 
 	"adguardhome":  "Networking",
 	"adgh":         "Networking",
@@ -47,6 +46,8 @@ var PredefinedCategories = map[string]string{
 	"dockge":       "Container Management",
 	"portainer-ce": "Container Management",
 	"portainer-be": "Container Management",
+	"logs":         "Container Management",
+	"dozzle":       "Container Management",
 
 	"rss":        "RSS",
 	"rsshub":     "RSS",
@@ -57,6 +58,7 @@ var PredefinedCategories = map[string]string{
 	"paperless":     "Documents",
 	"paperless-ngx": "Documents",
 	"s-pdf":         "Documents",
+	"stirling-pdf":  "Documents",
 
 	"minio":       "Storage",
 	"filebrowser": "Storage",

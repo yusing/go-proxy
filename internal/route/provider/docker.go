@@ -90,7 +90,7 @@ func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
 		})
 	}
 
-	routes, err = route.FromEntries(entries)
+	routes, err = route.FromEntries(p.ShortName(), entries)
 	errs.Add(err)
 
 	return routes, errs.Error()

@@ -76,7 +76,7 @@ func NewRoute(raw *RawEntry) (*Route, E.Error) {
 	}, nil
 }
 
-func FromEntries(entries RawEntries) (Routes, E.Error) {
+func FromEntries(provider string, entries RawEntries) (Routes, E.Error) {
 	b := E.NewBuilder("errors in routes")
 
 	routes := NewRoutes()
@@ -85,6 +85,7 @@ func FromEntries(entries RawEntries) (Routes, E.Error) {
 			en = new(RawEntry)
 		}
 		en.Alias = alias
+		en.Provider = provider
 		if strings.HasPrefix(alias, "x-") { // x properties
 			return
 		}

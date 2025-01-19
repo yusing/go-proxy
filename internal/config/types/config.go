@@ -33,6 +33,7 @@ type (
 		Value() *Config
 		Reload() E.Error
 		Statistics() map[string]any
+		RouteProviderList() []string
 		Context() context.Context
 	}
 )

@@ -12,6 +12,6 @@ import (
 var testAllFieldsYAML []byte
 
 func TestFile(t *testing.T) {
-	_, err := validate(testAllFieldsYAML)
+	_, err := validate("", testAllFieldsYAML)
 	ExpectNoError(t, err)
 }

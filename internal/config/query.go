@@ -16,12 +16,20 @@ func (cfg *Config) DumpEntries() map[string]*types.RawEntry {
 	return entries
 }
 
-func (cfg *Config) DumpProviders() map[string]*provider.Provider {
+func (cfg *Config) DumpRouteProviders() map[string]*provider.Provider {
 	entries := make(map[string]*provider.Provider)
 	cfg.providers.RangeAll(func(_ string, p *provider.Provider) {
 		entries[p.ShortName()] = p
 	})
 	return entries
+}
+
+func (cfg *Config) RouteProviderList() []string {
+	var list []string
+	cfg.providers.RangeAll(func(_ string, p *provider.Provider) {
+		list = append(list, p.ShortName())
+	})
+	return list
 }
 
 func (cfg *Config) Statistics() map[string]any {

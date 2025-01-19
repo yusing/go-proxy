@@ -40,6 +40,7 @@ type (
 
 		/* Docker only */
 		Container *docker.Container `json:"container,omitempty"`
+		Provider  string            `json:"provider,omitempty"`
 
 		finalized bool
 	}
