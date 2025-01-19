@@ -2,7 +2,7 @@
 package logging
 
 import (
-	"os"
+	"io"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -12,7 +12,7 @@ import (
 
 var logger zerolog.Logger
 
-func init() {
+func InitLogger(out io.Writer) {
 	var timeFmt string
 	var level zerolog.Level
 	var exclude []string
@@ -35,7 +35,7 @@ func init() {
 
 	logger = zerolog.New(
 		zerolog.ConsoleWriter{
-			Out:           os.Stderr,
+			Out:           out,
 			TimeFormat:    timeFmt,
 			FieldsExclude: exclude,
 			FormatMessage: func(msgI interface{}) string { // pad spaces for each line
