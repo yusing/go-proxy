@@ -31,7 +31,7 @@ func (lb *LoadBalancer) newIPHash() impl {
 	return impl
 }
 
-func (impl *ipHash) OnAddServer(srv *Server) {
+func (impl *ipHash) OnAddServer(srv Server) {
 	impl.mu.Lock()
 	defer impl.mu.Unlock()
 
@@ -48,7 +48,7 @@ func (impl *ipHash) OnAddServer(srv *Server) {
 	impl.pool = append(impl.pool, srv)
 }
 
-func (impl *ipHash) OnRemoveServer(srv *Server) {
+func (impl *ipHash) OnRemoveServer(srv Server) {
 	impl.mu.Lock()
 	defer impl.mu.Unlock()
 

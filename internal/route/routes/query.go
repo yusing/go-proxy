@@ -2,6 +2,7 @@ package routes
 
 import (
 	"strings"
+	"time"
 
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/route/entry"
@@ -9,6 +10,33 @@ import (
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
+
+func getHealthInfo(r route.Route) map[string]string {
+	mon := r.HealthMonitor()
+	if mon == nil {
+		return map[string]string{
+			"status":  "unknown",
+			"uptime":  "n/a",
+			"latency": "n/a",
+		}
+	}
+	return map[string]string{
+		"status":  mon.Status().String(),
+		"uptime":  mon.Uptime().Round(time.Second).String(),
+		"latency": mon.Latency().Round(time.Microsecond).String(),
+	}
+}
+
+func HealthMap() map[string]map[string]string {
+	healthMap := make(map[string]map[string]string)
+	httpRoutes.RangeAll(func(alias string, r route.HTTPRoute) {
+		healthMap[alias] = getHealthInfo(r)
+	})
+	streamRoutes.RangeAll(func(alias string, r route.StreamRoute) {
+		healthMap[alias] = getHealthInfo(r)
+	})
+	return healthMap
+}
 
 func HomepageConfig(useDefaultCategories bool) homepage.Config {
 	hpCfg := homepage.NewHomePageConfig()
@@ -77,8 +105,8 @@ func HomepageConfig(useDefaultCategories bool) homepage.Config {
 	return hpCfg
 }
 
-func RoutesByAlias(typeFilter ...route.RouteType) map[string]any {
-	rts := make(map[string]any)
+func RoutesByAlias(typeFilter ...route.RouteType) map[string]route.Route {
+	rts := make(map[string]route.Route)
 	if len(typeFilter) == 0 || typeFilter[0] == "" {
 		typeFilter = []route.RouteType{route.RouteTypeReverseProxy, route.RouteTypeStream}
 	}

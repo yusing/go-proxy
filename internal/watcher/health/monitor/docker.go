@@ -29,6 +29,19 @@ func (mon *DockerHealthMonitor) CheckHealth() (result *health.HealthCheckResult,
 	if err != nil {
 		return mon.fallback.CheckHealth()
 	}
+	status := cont.State.Status
+	switch status {
+	case "dead", "exited", "paused", "restarting", "removing":
+		return &health.HealthCheckResult{
+			Healthy: false,
+			Detail:  "container is " + status,
+		}, nil
+	case "created":
+		return &health.HealthCheckResult{
+			Healthy: false,
+			Detail:  "container is not started",
+		}, nil
+	}
 	if cont.State.Health == nil {
 		return mon.fallback.CheckHealth()
 	}

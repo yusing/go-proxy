@@ -117,6 +117,11 @@ func (w *Watcher) Uptime() time.Duration {
 	return 0
 }
 
+// Latency implements health.HealthMonitor.
+func (w *Watcher) Latency() time.Duration {
+	return 0
+}
+
 // Status implements health.HealthMonitor.
 func (w *Watcher) Status() health.Status {
 	status := w.getStatusUpdateReady()

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"strings"
@@ -144,6 +145,10 @@ func (cfg *Config) AutoCertProvider() *autocert.Provider {
 
 func (cfg *Config) Task() *task.Task {
 	return cfg.task
+}
+
+func (cfg *Config) Context() context.Context {
+	return cfg.task.Context()
 }
 
 func (cfg *Config) Start() {

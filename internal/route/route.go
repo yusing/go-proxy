@@ -23,7 +23,7 @@ type (
 	Routes = F.Map[string, *Route]
 
 	impl interface {
-		entry.Entry
+		types.Route
 		task.TaskStarter
 		task.TaskFinisher
 		String() string

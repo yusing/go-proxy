@@ -14,7 +14,7 @@ func GetSchemaFile(w http.ResponseWriter, r *http.Request) {
 	if filename == "" {
 		U.RespondError(w, U.ErrMissingKey("filename"), http.StatusBadRequest)
 	}
-	content, err := os.ReadFile(path.Join(common.SchemaBasePath, filename))
+	content, err := os.ReadFile(path.Join(common.SchemasBasePath, filename))
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return

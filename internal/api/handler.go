@@ -31,6 +31,8 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	mux.HandleFunc("GET", "/v1/stats", useCfg(cfg, v1.Stats))
 	mux.HandleFunc("GET", "/v1/stats/ws", useCfg(cfg, v1.StatsWS))
+	mux.HandleFunc("GET", "/v1/health/ws", useCfg(cfg, v1.HealthWS))
+	mux.HandleFunc("GET", "/v1/logs/ws", useCfg(cfg, v1.LogsWS()))
 	mux.HandleFunc("GET", "/v1/favicon/{alias}", auth.RequireAuth(favicon.GetFavIcon))
 
 	defaultAuth := auth.GetDefaultAuth()

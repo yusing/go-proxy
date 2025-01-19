@@ -10,7 +10,6 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	R "github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
-	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	W "github.com/yusing/go-proxy/internal/watcher"
 	"github.com/yusing/go-proxy/internal/watcher/events"
@@ -32,11 +31,6 @@ type (
 		loadRoutesImpl() (R.Routes, E.Error)
 		NewWatcher() W.Watcher
 		Logger() *zerolog.Logger
-	}
-	ProviderStats struct {
-		NumRPs     int                `json:"num_reverse_proxies"`
-		NumStreams int                `json:"num_streams"`
-		Type       types.ProviderType `json:"type"`
 	}
 )
 
@@ -153,22 +147,4 @@ func (p *Provider) LoadRoutes() E.Error {
 
 func (p *Provider) NumRoutes() int {
 	return p.routes.Size()
-}
-
-func (p *Provider) Statistics() ProviderStats {
-	numRPs := 0
-	numStreams := 0
-	p.routes.RangeAll(func(_ string, r *R.Route) {
-		switch r.Type {
-		case route.RouteTypeReverseProxy:
-			numRPs++
-		case route.RouteTypeStream:
-			numStreams++
-		}
-	})
-	return ProviderStats{
-		NumRPs:     numRPs,
-		NumStreams: numStreams,
-		Type:       p.t,
-	}
 }

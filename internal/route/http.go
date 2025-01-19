@@ -30,7 +30,7 @@ type (
 		HealthMon health.HealthMonitor `json:"health,omitempty"`
 
 		loadBalancer *loadbalancer.LoadBalancer
-		server       *loadbalancer.Server
+		server       loadbalancer.Server
 		handler      http.Handler
 		rp           *reverseproxy.ReverseProxy
 
@@ -178,6 +178,10 @@ func (r *HTTPRoute) Finish(reason any) {
 
 func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
+}
+
+func (r *HTTPRoute) HealthMonitor() health.HealthMonitor {
+	return r.HealthMon
 }
 
 func (r *HTTPRoute) addToLoadBalancer(parent task.Parent) {

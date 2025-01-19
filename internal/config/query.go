@@ -25,21 +25,22 @@ func (cfg *Config) DumpProviders() map[string]*provider.Provider {
 }
 
 func (cfg *Config) Statistics() map[string]any {
-	nTotalStreams := 0
-	nTotalRPs := 0
+	var rps, streams provider.RouteStats
+	var total uint16
 	providerStats := make(map[string]provider.ProviderStats)
 
 	cfg.providers.RangeAll(func(_ string, p *provider.Provider) {
 		stats := p.Statistics()
 		providerStats[p.ShortName()] = stats
-
-		nTotalRPs += stats.NumRPs
-		nTotalStreams += stats.NumStreams
+		rps.AddOther(stats.RPs)
+		streams.AddOther(stats.Streams)
+		total += stats.RPs.Total + stats.Streams.Total
 	})
 
 	return map[string]any{
-		"num_total_streams":         nTotalStreams,
-		"num_total_reverse_proxies": nTotalRPs,
-		"providers":                 providerStats,
+		"total":           total,
+		"reverse_proxies": rps,
+		"streams":         streams,
+		"providers":       providerStats,
 	}
 }

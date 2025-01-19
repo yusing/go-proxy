@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal"
+	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
@@ -24,6 +26,12 @@ import (
 var rawLogger = log.New(os.Stdout, "", 0)
 
 func main() {
+	var out io.Writer = os.Stdout
+	if common.EnableLogStreaming {
+		out = io.MultiWriter(out, v1.MemLogger())
+	}
+	logging.InitLogger(out)
+
 	args := common.GetArgs()
 
 	switch args.Command {

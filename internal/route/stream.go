@@ -116,6 +116,10 @@ func (r *StreamRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }
 
+func (r *StreamRoute) HealthMonitor() health.HealthMonitor {
+	return r.HealthMon
+}
+
 func (r *StreamRoute) acceptConnections() {
 	defer r.task.Finish("listener closed")
 

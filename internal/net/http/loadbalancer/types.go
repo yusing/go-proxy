@@ -6,7 +6,7 @@ import (
 
 type (
 	Server  = types.Server
-	Servers = types.Servers
+	Servers = []types.Server
 	Pool    = types.Pool
 	Weight  = types.Weight
 	Config  = types.Config

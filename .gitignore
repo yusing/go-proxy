@@ -4,6 +4,7 @@ compose.yml
 config
 certs
 config*/
+!schemas/**
 certs*/
 bin/
 error_pages/
