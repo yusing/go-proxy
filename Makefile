@@ -39,7 +39,7 @@ profile:
 
 run: build
 	sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy
-	bin/godoxy
+	[ -f .env ] && godotenv -f .env bin/godoxy || bin/godoxy
 
 mtrace:
 	bin/godoxy debug-ls-mtrace > mtrace.json

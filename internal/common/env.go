@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 var (
@@ -43,17 +44,19 @@ var (
 	MetricsHTTPURL = GetAddrEnv("PROMETHEUS_ADDR", "", "http")
 	PrometheusEnabled = MetricsHTTPURL != ""
 
-	APIJWTSecret    = decodeJWTKey(GetEnvString("API_JWT_SECRET", ""))
-	APIJWTTokenTTL  = GetDurationEnv("API_JWT_TOKEN_TTL", time.Hour)
-	APIUser         = GetEnvString("API_USER", "admin")
-	APIPasswordHash = HashPassword(GetEnvString("API_PASSWORD", "password"))
+	APIJWTSecret   = decodeJWTKey(GetEnvString("API_JWT_SECRET", ""))
+	APIJWTTokenTTL = GetDurationEnv("API_JWT_TOKEN_TTL", time.Hour)
+	APIUser        = GetEnvString("API_USER", "admin")
+	APIPassword    = GetEnvString("API_PASSWORD", "password")
 
 	// OIDC Configuration.
-	OIDCIssuerURL    = GetEnvString("OIDC_ISSUER_URL", "")
-	OIDCClientID     = GetEnvString("OIDC_CLIENT_ID", "")
-	OIDCClientSecret = GetEnvString("OIDC_CLIENT_SECRET", "")
-	OIDCRedirectURL  = GetEnvString("OIDC_REDIRECT_URL", "")
-	OIDCScopes       = GetEnvString("OIDC_SCOPES", "openid, profile, email")
+	OIDCIssuerURL     = GetEnvString("OIDC_ISSUER_URL", "")
+	OIDCClientID      = GetEnvString("OIDC_CLIENT_ID", "")
+	OIDCClientSecret  = GetEnvString("OIDC_CLIENT_SECRET", "")
+	OIDCRedirectURL   = GetEnvString("OIDC_REDIRECT_URL", "")
+	OIDCScopes        = GetEnvString("OIDC_SCOPES", "openid, profile, email")
+	OIDCAllowedUsers  = GetCommaSepEnv("OIDC_ALLOWED_USERS", "")
+	OIDCAllowedGroups = GetCommaSepEnv("OIDC_ALLOWED_GROUPS", "")
 )
 
 func GetEnv[T any](key string, defaultValue T, parser func(string) (T, error)) T {
@@ -104,4 +107,8 @@ func GetAddrEnv(key, defaultValue, scheme string) (addr, host, port, fullURL str
 
 func GetDurationEnv(key string, defaultValue time.Duration) time.Duration {
 	return GetEnv(key, defaultValue, time.ParseDuration)
+}
+
+func GetCommaSepEnv(key string, defaultValue string) []string {
+	return strutils.CommaSeperatedList(GetEnvString(key, defaultValue))
 }

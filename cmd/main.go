@@ -117,17 +117,12 @@ func main() {
 		return
 	}
 
+	if err := auth.Initialize(); err != nil {
+		logging.Fatal().Err(err).Msg("failed to initialize authentication")
+	}
+
 	cfg.Start()
 	config.WatchChanges()
-
-	if !auth.IsEnabled() {
-		logging.Warn().Msg("authentication is disabled, please set API_JWT_SECRET or OIDC_* to enable authentication")
-	} else {
-		// Initialize authentication providers
-		if err := auth.Initialize(); err != nil {
-			logging.Fatal().Err(err).Msg("Failed to initialize authentication providers")
-		}
-	}
 
 	sig := make(chan os.Signal, 1)
 	signal.Notify(sig, syscall.SIGINT)

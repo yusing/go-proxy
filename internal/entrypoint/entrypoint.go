@@ -89,7 +89,11 @@ func (ep *Entrypoint) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// Then scraper / scanners will know the subdomain is invalid.
 	// With StatusNotFound, they won't know whether it's the path, or the subdomain that is invalid.
 	if served := middleware.ServeStaticErrorPageFile(w, r); !served {
-		logger.Err(err).Str("method", r.Method).Str("url", r.URL.String()).Msg("request")
+		logger.Err(err).
+			Str("method", r.Method).
+			Str("url", r.URL.String()).
+			Str("remote", r.RemoteAddr).
+			Msg("request")
 		errorPage, ok := errorpage.GetErrorPageByStatus(http.StatusNotFound)
 		if ok {
 			w.WriteHeader(http.StatusNotFound)

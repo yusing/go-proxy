@@ -11,6 +11,7 @@ func reqLogger(r *http.Request, level zerolog.Level) *zerolog.Event {
 	return logging.WithLevel(level).
 		Str("module", "api").
 		Str("remote", r.RemoteAddr).
+		Str("host", r.Host).
 		Str("uri", r.Method+" "+r.RequestURI)
 }
 

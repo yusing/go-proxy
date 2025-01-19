@@ -2,87 +2,186 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	CE "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"golang.org/x/oauth2"
 )
 
-var (
-	oauthConfig  *oauth2.Config
-	oidcProvider *oidc.Provider
-	oidcVerifier *oidc.IDTokenVerifier
+type OIDCProvider struct {
+	oauthConfig   *oauth2.Config
+	oidcProvider  *oidc.Provider
+	oidcVerifier  *oidc.IDTokenVerifier
+	allowedUsers  []string
+	allowedGroups []string
+	isMiddleware  bool
+}
+
+const CookieOauthState = "godoxy_oidc_state"
+
+const (
+	OIDCMiddlewareCallbackPath = "/auth/callback"
+	OIDCLogoutPath             = "/auth/logout"
 )
 
-// InitOIDC initializes the OIDC provider.
-func InitOIDC(issuerURL, clientID, clientSecret, redirectURL string) error {
-	if issuerURL == "" {
-		return nil // OIDC not configured
+func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allowedUsers, allowedGroups []string) (*OIDCProvider, error) {
+	if len(allowedUsers)+len(allowedGroups) == 0 {
+		return nil, errors.New("OIDC users, groups, or both must not be empty")
 	}
 
 	provider, err := oidc.NewProvider(context.Background(), issuerURL)
 	if err != nil {
-		return fmt.Errorf("failed to initialize OIDC provider: %w", err)
+		return nil, fmt.Errorf("failed to initialize OIDC provider: %w", err)
 	}
 
-	oidcProvider = provider
-	oidcVerifier = provider.Verifier(&oidc.Config{
-		ClientID: clientID,
-	})
+	return &OIDCProvider{
+		oauthConfig: &oauth2.Config{
+			ClientID:     clientID,
+			ClientSecret: clientSecret,
+			RedirectURL:  redirectURL,
+			Endpoint:     provider.Endpoint(),
+			Scopes:       strutils.CommaSeperatedList(common.OIDCScopes),
+		},
+		oidcProvider: provider,
+		oidcVerifier: provider.Verifier(&oidc.Config{
+			ClientID: clientID,
+		}),
+		allowedUsers:  allowedUsers,
+		allowedGroups: allowedGroups,
+	}, nil
+}
 
-	oauthConfig = &oauth2.Config{
-		ClientID:     clientID,
-		ClientSecret: clientSecret,
-		RedirectURL:  redirectURL,
-		Endpoint:     provider.Endpoint(),
-		Scopes:       strutils.CommaSeperatedList(common.OIDCScopes),
+// NewOIDCProviderFromEnv creates a new OIDCProvider from environment variables.
+func NewOIDCProviderFromEnv() (*OIDCProvider, error) {
+	return NewOIDCProvider(
+		common.OIDCIssuerURL,
+		common.OIDCClientID,
+		common.OIDCClientSecret,
+		common.OIDCRedirectURL,
+		common.OIDCAllowedUsers,
+		common.OIDCAllowedGroups,
+	)
+}
+
+func (auth *OIDCProvider) TokenCookieName() string {
+	return "godoxy_oidc_token"
+}
+
+func (auth *OIDCProvider) SetIsMiddleware(enabled bool) {
+	auth.isMiddleware = enabled
+}
+
+func (auth *OIDCProvider) SetAllowedUsers(users []string) {
+	auth.allowedUsers = users
+}
+
+func (auth *OIDCProvider) SetAllowedGroups(groups []string) {
+	auth.allowedGroups = groups
+}
+
+func (auth *OIDCProvider) CheckToken(r *http.Request) error {
+	token, err := r.Cookie(auth.TokenCookieName())
+	if err != nil {
+		return ErrMissingToken
 	}
 
+	// checks for Expiry, Audience == ClientID, Issuer, etc.
+	idToken, err := auth.oidcVerifier.Verify(r.Context(), token.Value)
+	if err != nil {
+		return fmt.Errorf("failed to verify ID token: %w: %w", ErrInvalidToken, err)
+	}
+
+	if len(idToken.Audience) == 0 {
+		return ErrInvalidToken
+	}
+
+	var claims struct {
+		Email    string   `json:"email"`
+		Username string   `json:"preferred_username"`
+		Groups   []string `json:"groups"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		return fmt.Errorf("failed to parse claims: %w", err)
+	}
+
+	// Logical AND between allowed users and groups.
+	allowedUser := slices.Contains(auth.allowedUsers, claims.Username)
+	allowedGroup := len(CE.Intersect(claims.Groups, auth.allowedGroups)) > 0
+	if !allowedUser && !allowedGroup {
+		return ErrUserNotAllowed.Subject(claims.Username)
+	}
 	return nil
 }
 
+// generateState generates a random string for OIDC state.
+const oidcStateLength = 32
+
+func generateState() (string, error) {
+	b := make([]byte, oidcStateLength)
+	_, err := rand.Read(b)
+	if err != nil {
+		return "", err
+	}
+	return base64.URLEncoding.EncodeToString(b)[:oidcStateLength], nil
+}
+
 // RedirectOIDC initiates the OIDC login flow.
-func RedirectOIDC(w http.ResponseWriter, r *http.Request) {
-	if oauthConfig == nil {
-		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
+func (auth *OIDCProvider) RedirectLoginPage(w http.ResponseWriter, r *http.Request) {
+	state, err := generateState()
+	if err != nil {
+		U.HandleErr(w, r, err, http.StatusInternalServerError)
 		return
 	}
-
-	state := common.GenerateRandomString(32)
 	http.SetCookie(w, &http.Cookie{
 		Name:     CookieOauthState,
 		Value:    state,
 		MaxAge:   300,
 		HttpOnly: true,
-		SameSite: http.SameSiteNoneMode,
+		SameSite: http.SameSiteLaxMode,
 		Secure:   true,
 		Path:     "/",
 	})
 
-	url := oauthConfig.AuthCodeURL(state)
-	http.Redirect(w, r, url, http.StatusTemporaryRedirect)
+	redirURL := auth.oauthConfig.AuthCodeURL(state)
+	if auth.isMiddleware {
+		u, err := r.URL.Parse(redirURL)
+		if err != nil {
+			U.HandleErr(w, r, err, http.StatusInternalServerError)
+			return
+		}
+		q := u.Query()
+		q.Set("redirect_uri", "https://"+r.Host+OIDCMiddlewareCallbackPath+q.Get("redirect_uri"))
+		u.RawQuery = q.Encode()
+		redirURL = u.String()
+	}
+	http.Redirect(w, r, redirURL, http.StatusTemporaryRedirect)
+}
+
+func (auth *OIDCProvider) exchange(r *http.Request) (*oauth2.Token, error) {
+	if auth.isMiddleware {
+		cfg := *auth.oauthConfig
+		cfg.RedirectURL = "https://" + r.Host + OIDCMiddlewareCallbackPath
+		return cfg.Exchange(r.Context(), r.URL.Query().Get("code"))
+	}
+	return auth.oauthConfig.Exchange(r.Context(), r.URL.Query().Get("code"))
 }
 
 // OIDCCallbackHandler handles the OIDC callback.
-func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
-	if oauthConfig == nil {
-		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
-		return
-	}
-
+func (auth *OIDCProvider) LoginCallbackHandler(w http.ResponseWriter, r *http.Request) {
 	// For testing purposes, skip provider verification
 	if common.IsTest {
-		handleTestCallback(w, r)
-		return
-	}
-
-	if oidcProvider == nil {
-		U.HandleErr(w, r, E.New("OIDC not configured"), http.StatusNotImplemented)
+		auth.handleTestCallback(w, r)
 		return
 	}
 
@@ -92,13 +191,13 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Query().Get("state") != state.Value {
+	query := r.URL.Query()
+	if query.Get("state") != state.Value {
 		U.HandleErr(w, r, E.New("invalid oauth state"), http.StatusBadRequest)
 		return
 	}
 
-	code := r.URL.Query().Get("code")
-	oauth2Token, err := oauthConfig.Exchange(r.Context(), code)
+	oauth2Token, err := auth.exchange(r)
 	if err != nil {
 		U.HandleErr(w, r, fmt.Errorf("failed to exchange token: %w", err), http.StatusInternalServerError)
 		return
@@ -110,32 +209,20 @@ func OIDCCallbackHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	idToken, err := oidcVerifier.Verify(r.Context(), rawIDToken)
+	idToken, err := auth.oidcVerifier.Verify(r.Context(), rawIDToken)
 	if err != nil {
 		U.HandleErr(w, r, fmt.Errorf("failed to verify ID token: %w", err), http.StatusInternalServerError)
 		return
 	}
 
-	var claims struct {
-		Email    string `json:"email"`
-		Username string `json:"preferred_username"`
-	}
-	if err := idToken.Claims(&claims); err != nil {
-		U.HandleErr(w, r, fmt.Errorf("failed to parse claims: %w", err), http.StatusInternalServerError)
-		return
-	}
-
-	if err := setAuthenticatedCookie(w, claims.Username); err != nil {
-		U.HandleErr(w, r, err, http.StatusInternalServerError)
-		return
-	}
+	setTokenCookie(w, r, auth.TokenCookieName(), rawIDToken, time.Until(idToken.Expiry))
 
 	// Redirect to home page
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }
 
 // handleTestCallback handles OIDC callback in test environment.
-func handleTestCallback(w http.ResponseWriter, r *http.Request) {
+func (auth *OIDCProvider) handleTestCallback(w http.ResponseWriter, r *http.Request) {
 	state, err := r.Cookie(CookieOauthState)
 	if err != nil {
 		U.HandleErr(w, r, E.New("missing state cookie"), http.StatusBadRequest)
@@ -148,10 +235,7 @@ func handleTestCallback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create test JWT token
-	if err := setAuthenticatedCookie(w, "test-user"); err != nil {
-		U.HandleErr(w, r, err, http.StatusInternalServerError)
-		return
-	}
+	setTokenCookie(w, r, auth.TokenCookieName(), "test", time.Hour)
 
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 }

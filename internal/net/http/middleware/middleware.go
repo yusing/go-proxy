@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"sort"
 	"strings"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -26,27 +27,49 @@ type (
 		name      string
 		construct ImplNewFunc
 		impl      any
+		// priority is only applied for ReverseProxy.
+		//
+		// Middleware compose follows the order of the slice
+		//
+		// Default is 10, 0 is the highest
+		priority int
 	}
+	ByPriority []*Middleware
 
 	RequestModifier interface {
 		before(w http.ResponseWriter, r *http.Request) (proceed bool)
 	}
-	ResponseModifier     interface{ modifyResponse(r *http.Response) error }
-	MiddlewareWithSetup  interface{ setup() }
-	MiddlewareFinalizer  interface{ finalize() }
+	ResponseModifier             interface{ modifyResponse(r *http.Response) error }
+	MiddlewareWithSetup          interface{ setup() }
+	MiddlewareFinalizer          interface{ finalize() }
+	MiddlewareFinalizerWithError interface {
+		finalize() error
+	}
 	MiddlewareWithTracer interface {
 		enableTrace()
 		getTracer() *Tracer
 	}
 )
 
+const DefaultPriority = 10
+
+func (m ByPriority) Len() int           { return len(m) }
+func (m ByPriority) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
+func (m ByPriority) Less(i, j int) bool { return m[i].priority < m[j].priority }
+
 func NewMiddleware[ImplType any]() *Middleware {
 	// type check
-	switch any(new(ImplType)).(type) {
+	t := any(new(ImplType))
+	switch t.(type) {
 	case RequestModifier:
 	case ResponseModifier:
 	default:
 		panic("must implement RequestModifier or ResponseModifier")
+	}
+	_, hasFinializer := t.(MiddlewareFinalizer)
+	_, hasFinializerWithError := t.(MiddlewareFinalizerWithError)
+	if hasFinializer && hasFinializerWithError {
+		panic("MiddlewareFinalizer and MiddlewareFinalizerWithError are mutually exclusive")
 	}
 	return &Middleware{
 		name:      strings.ToLower(reflect.TypeFor[ImplType]().Name()),
@@ -84,13 +107,29 @@ func (m *Middleware) apply(optsRaw OptionsRaw) E.Error {
 	if len(optsRaw) == 0 {
 		return nil
 	}
+	priority, ok := optsRaw["priority"].(int)
+	if ok {
+		m.priority = priority
+		// remove priority for deserialization, restore later
+		delete(optsRaw, "priority")
+		defer func() {
+			optsRaw["priority"] = priority
+		}()
+	} else {
+		m.priority = DefaultPriority
+	}
 	return utils.Deserialize(optsRaw, m.impl)
 }
 
-func (m *Middleware) finalize() {
+func (m *Middleware) finalize() error {
 	if finalizer, ok := m.impl.(MiddlewareFinalizer); ok {
 		finalizer.finalize()
+		return nil
 	}
+	if finalizer, ok := m.impl.(MiddlewareFinalizerWithError); ok {
+		return finalizer.finalize()
+	}
+	return nil
 }
 
 func (m *Middleware) New(optsRaw OptionsRaw) (*Middleware, E.Error) {
@@ -105,7 +144,9 @@ func (m *Middleware) New(optsRaw OptionsRaw) (*Middleware, E.Error) {
 	if err := mid.apply(optsRaw); err != nil {
 		return nil, err
 	}
-	mid.finalize()
+	if err := mid.finalize(); err != nil {
+		return nil, E.From(err)
+	}
 	return mid, nil
 }
 
@@ -119,8 +160,9 @@ func (m *Middleware) String() string {
 
 func (m *Middleware) MarshalJSON() ([]byte, error) {
 	return json.MarshalIndent(map[string]any{
-		"name":    m.name,
-		"options": m.impl,
+		"name":     m.name,
+		"options":  m.impl,
+		"priority": m.priority,
 	}, "", "  ")
 }
 
@@ -193,6 +235,7 @@ func PatchReverseProxy(rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (
 }
 
 func patchReverseProxy(rp *ReverseProxy, middlewares []*Middleware) {
+	sort.Sort(ByPriority(middlewares))
 	middlewares = append([]*Middleware{newSetUpstreamHeaders(rp)}, middlewares...)
 
 	mid := NewMiddlewareChain(rp.TargetName, middlewares)

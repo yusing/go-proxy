@@ -127,6 +127,20 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.E
 	}
 	args.setDefaults()
 
+	mid, setOptErr := middleware.New(args.middlewareOpt)
+	if setOptErr != nil {
+		return nil, setOptErr
+	}
+
+	return newMiddlewaresTest([]*Middleware{mid}, args)
+}
+
+func newMiddlewaresTest(middlewares []*Middleware, args *testArgs) (*TestResult, E.Error) {
+	if args == nil {
+		args = new(testArgs)
+	}
+	args.setDefaults()
+
 	req := httptest.NewRequest(args.reqMethod, args.reqURL.String(), args.bodyReader())
 	for k, v := range args.headers {
 		req.Header[k] = v
@@ -139,14 +153,8 @@ func newMiddlewareTest(middleware *Middleware, args *testArgs) (*TestResult, E.E
 		rr.parent = http.DefaultTransport
 	}
 
-	rp := reverseproxy.NewReverseProxy(middleware.name, args.upstreamURL, rr)
-
-	mid, setOptErr := middleware.New(args.middlewareOpt)
-	if setOptErr != nil {
-		return nil, setOptErr
-	}
-
-	patchReverseProxy(rp, []*Middleware{mid})
+	rp := reverseproxy.NewReverseProxy("test", args.upstreamURL, rr)
+	patchReverseProxy(rp, middlewares)
 	rp.ServeHTTP(w, req)
 
 	resp := w.Result()
