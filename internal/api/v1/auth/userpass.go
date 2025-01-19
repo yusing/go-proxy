@@ -115,7 +115,8 @@ func (auth *UserPassAuth) LoginCallbackHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if err := auth.validatePassword(creds.User, creds.Pass); err != nil {
-		U.HandleErr(w, r, err, http.StatusUnauthorized)
+		U.LogError(r).Err(err).Msg("auth: invalid credentials")
+		U.RespondError(w, E.New("invalid credentials"), http.StatusUnauthorized)
 		return
 	}
 	token, err := auth.NewToken()

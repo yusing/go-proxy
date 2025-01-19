@@ -31,13 +31,19 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	mux.HandleFunc("GET", "/v1/stats", useCfg(cfg, v1.Stats))
 	mux.HandleFunc("GET", "/v1/stats/ws", useCfg(cfg, v1.StatsWS))
-	mux.HandleFunc("GET", "/v1/health/ws", useCfg(cfg, v1.HealthWS))
-	mux.HandleFunc("GET", "/v1/logs/ws", useCfg(cfg, v1.LogsWS()))
+	mux.HandleFunc("GET", "/v1/health/ws", auth.RequireAuth(useCfg(cfg, v1.HealthWS)))
+	mux.HandleFunc("GET", "/v1/logs/ws", auth.RequireAuth(useCfg(cfg, v1.LogsWS())))
 	mux.HandleFunc("GET", "/v1/favicon/{alias}", auth.RequireAuth(favicon.GetFavIcon))
 
 	defaultAuth := auth.GetDefaultAuth()
 	if defaultAuth != nil {
 		mux.HandleFunc("GET", "/v1/auth/redirect", defaultAuth.RedirectLoginPage)
+		mux.HandleFunc("GET", "/v1/auth/check", func(w http.ResponseWriter, r *http.Request) {
+			if err := defaultAuth.CheckToken(r); err != nil {
+				http.Error(w, err.Error(), http.StatusUnauthorized)
+				return
+			}
+		})
 		mux.HandleFunc("GET,POST", "/v1/auth/callback", defaultAuth.LoginCallbackHandler)
 		mux.HandleFunc("GET,POST", "/v1/auth/logout", auth.LogoutCallbackHandler(defaultAuth))
 	}
