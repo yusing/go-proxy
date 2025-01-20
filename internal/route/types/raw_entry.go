@@ -172,6 +172,10 @@ func (e *RawEntry) Finalize() {
 		}
 	}
 
+	if e.Homepage == nil {
+		e.Homepage = homepage.NewItem(e.Alias)
+	}
+
 	e.finalized = true
 }
 

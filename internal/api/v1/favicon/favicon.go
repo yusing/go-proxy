@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -17,13 +16,15 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/vincent-petithory/dataurl"
-	"github.com/yusing/go-proxy/internal"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
+	"github.com/yusing/go-proxy/internal/task"
+	"github.com/yusing/go-proxy/internal/utils"
 )
 
 type content struct {
@@ -80,17 +81,15 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 		var status int
 		var errMsg string
 
-		hp := r.RawEntry().Homepage
-		if hp != nil && hp.Icon != nil {
+		hp := r.RawEntry().Homepage.GetOverride()
+		if !hp.IsEmpty() && hp.Icon != nil {
 			switch hp.Icon.IconSource {
 			case homepage.IconSourceAbsolute:
 				icon, status, errMsg = fetchIconAbsolute(hp.Icon.Value)
 			case homepage.IconSourceRelative:
 				icon, status, errMsg = findIcon(r, req, hp.Icon.Value)
-			case homepage.IconSourceWalkXCode:
-				icon, status, errMsg = fetchWalkxcodeIcon(hp.Icon.Extra.FileType, hp.Icon.Extra.Name)
-			case homepage.IconSourceSelfhSt:
-				icon, status, errMsg = fetchSelfhStIcon(hp.Icon.Extra.FileType, hp.Icon.Extra.Name)
+			case homepage.IconSourceWalkXCode, homepage.IconSourceSelfhSt:
+				icon, status, errMsg = fetchKnownIcon(hp.Icon)
 			}
 		} else {
 			// try extract from "link[rel=icon]"
@@ -112,6 +111,24 @@ var (
 	iconCacheMu sync.RWMutex
 )
 
+func InitIconCache() {
+	err := utils.LoadJSONIfExist(common.IconCachePath, &iconCache)
+	if err != nil {
+		logging.Error().Err(err).Msg("failed to load icon cache")
+	} else {
+		logging.Info().Msgf("icon cache loaded (%d icons)", len(iconCache))
+	}
+
+	task.OnProgramExit("save_favicon_cache", func() {
+		iconCacheMu.Lock()
+		defer iconCacheMu.Unlock()
+
+		if err := utils.SaveJSON(common.IconCachePath, &iconCache, 0o644); err != nil {
+			logging.Error().Err(err).Msg("failed to save icon cache")
+		}
+	})
+}
+
 func ResetIconCache(route route.HTTPRoute) {
 	iconCacheMu.Lock()
 	defer iconCacheMu.Unlock()
@@ -122,6 +139,11 @@ func loadIconCache(key string) (icon []byte, ok bool) {
 	iconCacheMu.RLock()
 	defer iconCacheMu.RUnlock()
 	icon, ok = iconCache[key]
+	if ok {
+		logging.Debug().
+			Str("key", key).
+			Msg("icon found in cache")
+	}
 	return
 }
 
@@ -172,56 +194,30 @@ func sanitizeName(name string) string {
 	return strings.ToLower(nameSanitizer.Replace(name))
 }
 
-func fetchWalkxcodeIcon(filetype, name string) ([]byte, int, string) {
+func fetchKnownIcon(url *homepage.IconURL) ([]byte, int, string) {
 	// if icon isn't in the list, no need to fetch
-	if !internal.HasWalkxCodeIcon(name, filetype) {
+	if !url.HasIcon() {
 		logging.Debug().
-			Str("filetype", filetype).
-			Str("name", name).
-			Msg("icon not found")
-		return nil, http.StatusNotFound, "icon not found"
+			Str("value", url.String()).
+			Str("url", url.URL()).
+			Msg("no such icon")
+		return nil, http.StatusNotFound, "no such icon"
 	}
 
-	icon, ok := loadIconCache("walkxcode/" + filetype + "/" + name)
-	if ok {
-		return icon, http.StatusOK, ""
-	}
-
-	// url := homepage.DashboardIconBaseURL + filetype + "/" + name + "." + filetype
-	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/walkxcode/dashboard-icons/%s/%s.%s", filetype, name, filetype)
-	return fetchIconAbsolute(url)
-}
-
-func fetchSelfhStIcon(filetype, reference string) ([]byte, int, string) {
-	// if icon isn't in the list, no need to fetch
-	if !internal.HasSelfhstIcon(reference, filetype) {
-		logging.Debug().
-			Str("filetype", filetype).
-			Str("reference", reference).
-			Msg("icon not found")
-		return nil, http.StatusNotFound, "icon not found"
-	}
-
-	icon, ok := loadIconCache("selfh.st/" + filetype + "/" + reference)
-	if ok {
-		return icon, http.StatusOK, ""
-	}
-
-	url := fmt.Sprintf("https://cdn.jsdelivr.net/gh/selfhst/icons/%s/%s.%s", filetype, reference, filetype)
-	return fetchIconAbsolute(url)
+	return fetchIconAbsolute(url.URL())
 }
 
 func fetchIcon(filetype, filename string) (icon []byte, status int, errMsg string) {
-	icon, status, errMsg = fetchSelfhStIcon(filetype, filename)
+	icon, status, errMsg = fetchKnownIcon(homepage.NewSelfhStIconURL(filename, filetype))
 	if icon != nil {
 		return
 	}
-	icon, status, errMsg = fetchWalkxcodeIcon(filetype, filename)
+	icon, status, errMsg = fetchKnownIcon(homepage.NewWalkXCodeIconURL(filename, filetype))
 	return
 }
 
 func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
-	key := r.TargetName()
+	key := r.RawEntry().Provider + ":" + r.TargetName()
 	icon, ok := loadIconCache(key)
 	if ok {
 		if icon == nil {
@@ -239,8 +235,9 @@ func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, st
 		// fallback to parse html
 		icon, status, errMsg = findIconSlow(r, req, uri)
 	}
-	// set even if error (nil)
-	storeIconCache(key, icon)
+	if icon != nil {
+		storeIconCache(key, icon)
+	}
 	return
 }
 

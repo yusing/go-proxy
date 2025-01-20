@@ -4,19 +4,14 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/homepage"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
+	"github.com/yusing/go-proxy/internal/utils"
 )
 
 const (
-	HomepageOverrideDisplayname     = "display_name"
-	HomepageOverrideDisplayOrder    = "display_order"
-	HomepageOverrideDisplayCategory = "display_category"
-	HomepageOverrideCategoryOrder   = "category_order"
-	HomepageOverrideCategoryName    = "category_name"
-	HomepageOverrideIcon            = "icon"
-	HomepageOverrideShow            = "show"
+	HomepageOverrideItem          = "item"
+	HomepageOverrideCategoryOrder = "category_order"
+	HomepageOverrideCategoryName  = "category_name"
 )
 
 func SetHomePageOverrides(w http.ResponseWriter, r *http.Request) {
@@ -29,30 +24,27 @@ func SetHomePageOverrides(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing value", http.StatusBadRequest)
 		return
 	}
-	overrides := homepage.GetJSONConfig()
+	overrides := homepage.GetOverrideConfig()
 	switch what {
-	case HomepageOverrideDisplayname:
-		utils.RespondError(w, overrides.SetDisplayNameOverride(which, value))
-	case HomepageOverrideDisplayCategory:
-		utils.RespondError(w, overrides.SetDisplayCategoryOverride(which, value))
+	case HomepageOverrideItem:
+		var override homepage.ItemConfig
+		if err := utils.DeserializeJSON([]byte(value), &override); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		overrides.OverrideItem(which, &override)
 	case HomepageOverrideCategoryName:
-		utils.RespondError(w, overrides.SetCategoryNameOverride(which, value))
-	case HomepageOverrideIcon:
-		utils.RespondError(w, overrides.SetIconOverride(which, value))
-	case HomepageOverrideShow:
-		utils.RespondError(w, overrides.SetShowItemOverride(which, strutils.ParseBool(value)))
-	case HomepageOverrideDisplayOrder, HomepageOverrideCategoryOrder:
+		overrides.SetCategoryNameOverride(which, value)
+	case HomepageOverrideCategoryOrder:
 		v, err := strconv.Atoi(value)
 		if err != nil {
 			http.Error(w, "invalid integer", http.StatusBadRequest)
 			return
 		}
-		if what == HomepageOverrideDisplayOrder {
-			utils.RespondError(w, overrides.SetDisplayOrder(which, v))
-		} else {
-			utils.RespondError(w, overrides.SetCategoryOrder(which, v))
-		}
+		overrides.SetCategoryOrder(which, v)
 	default:
 		http.Error(w, "invalid what", http.StatusBadRequest)
+		return
 	}
+	w.WriteHeader(http.StatusOK)
 }

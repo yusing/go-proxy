@@ -12,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal"
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
+	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
@@ -32,6 +33,9 @@ func init() {
 		out = io.MultiWriter(out, v1.MemLogger())
 	}
 	logging.InitLogger(out)
+	internal.InitIconListCache()
+	homepage.InitOverridesConfig()
+	favicon.InitIconCache()
 }
 
 func main() {
@@ -97,8 +101,6 @@ func main() {
 	}
 
 	middleware.LoadComposeFiles()
-	internal.InitIconListCache()
-	homepage.InitOverridesConfig()
 
 	var cfg *config.Config
 	var err E.Error

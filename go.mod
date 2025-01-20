@@ -14,8 +14,9 @@ require (
 	github.com/gobwas/glob v0.2.3
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gotify/server/v2 v2.6.1
+	github.com/lithammer/fuzzysearch v1.1.8
 	github.com/prometheus/client_golang v1.20.5
-	github.com/puzpuzpuz/xsync/v3 v3.4.0
+	github.com/puzpuzpuz/xsync/v3 v3.4.1
 	github.com/rs/zerolog v1.33.0
 	github.com/vincent-petithory/dataurl v1.0.0
 	golang.org/x/crypto v0.32.0

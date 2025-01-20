@@ -113,6 +113,10 @@ func (h *DirWatcher) start() {
 			relPath := strings.TrimPrefix(fsEvent.Name, h.dir)
 			relPath = strings.TrimPrefix(relPath, "/")
 
+			if len(relPath) > 0 && relPath[0] == '.' { // hideden file
+				continue
+			}
+
 			msg := Event{
 				Type:      events.EventTypeFile,
 				ActorName: relPath,

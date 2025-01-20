@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/yusing/go-proxy/internal"
@@ -61,7 +62,11 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	case ListHomepageCategories:
 		U.RespondJSON(w, r, routequery.HomepageCategories())
 	case ListIcons:
-		icons, err := internal.ListAvailableIcons()
+		limit, err := strconv.Atoi(r.FormValue("limit"))
+		if err != nil {
+			limit = 0
+		}
+		icons, err := internal.SearchIcons(r.FormValue("keyword"), limit)
 		if err != nil {
 			U.RespondError(w, err)
 			return

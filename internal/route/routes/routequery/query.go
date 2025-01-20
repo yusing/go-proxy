@@ -45,7 +45,7 @@ func HomepageCategories() []string {
 	categories := make([]string, 0)
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		en := r.RawEntry()
-		if en.Homepage == nil || en.Homepage.Category == "" {
+		if en.Homepage.IsEmpty() || en.Homepage.Category == "" {
 			return
 		}
 		if _, ok := check[en.Homepage.Category]; ok {
@@ -63,13 +63,14 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		en := r.RawEntry()
 		item := en.Homepage
-		if item == nil {
-			item = new(homepage.Item)
-			item.Show = true
+
+		if item.IsEmpty() {
+			item = homepage.NewItem(alias)
 		}
 
-		if !item.IsEmpty() {
-			item.Show = true
+		if override := item.GetOverride(); override != item {
+			hpCfg.Add(override)
+			return
 		}
 
 		if !item.Show {
@@ -85,8 +86,9 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 
 		if item.Name == "" {
 			reference := r.TargetName()
-			if r.RawEntry().Container != nil {
-				reference = r.RawEntry().Container.ImageName
+			cont := r.RawEntry().Container
+			if cont != nil {
+				reference = cont.ImageName
 			}
 			name, ok := internal.GetDisplayName(reference)
 			if ok {
@@ -138,7 +140,7 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		item.AltURL = r.TargetURL().String()
-		hpCfg.Add(item.GetOverriddenItem())
+		hpCfg.Add(item)
 	})
 	return hpCfg
 }

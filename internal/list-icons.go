@@ -8,9 +8,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type GitHubContents struct { //! keep this, may reuse in future
@@ -23,25 +25,20 @@ type GitHubContents struct { //! keep this, may reuse in future
 
 type (
 	IconsMap map[string]map[string]struct{}
+	IconList []string
 	Cache    struct {
 		WalkxCode, Selfhst IconsMap
 		DisplayNames       ReferenceDisplayNameMap
+		IconList           IconList // combined into a single list
 	}
 	ReferenceDisplayNameMap map[string]string
 )
 
-func (icons *Cache) isEmpty() bool {
-	return len(icons.WalkxCode) == 0 && len(icons.Selfhst) == 0
+func (icons *Cache) needUpdate() bool {
+	return len(icons.WalkxCode) == 0 || len(icons.Selfhst) == 0 || len(icons.IconList) == 0 || len(icons.DisplayNames) == 0
 }
 
-func (icons *Cache) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]any{
-		"walkxcode": icons.WalkxCode,
-		"selfhst":   icons.Selfhst,
-	})
-}
-
-const updateInterval = 1 * time.Hour
+const updateInterval = 2 * time.Hour
 
 var (
 	iconsCache   *Cache
@@ -59,16 +56,17 @@ func InitIconListCache() {
 		WalkxCode:    make(IconsMap),
 		Selfhst:      make(IconsMap),
 		DisplayNames: make(ReferenceDisplayNameMap),
+		IconList:     []string{},
 	}
-	err := utils.LoadJSON(common.IconListCachePath, iconsCache)
-	if err != nil && !os.IsNotExist(err) {
-		logging.Fatal().Err(err).Msg("failed to load icon list cache config")
-	} else if err == nil {
-		if stats, err := os.Stat(common.IconListCachePath); err != nil {
-			logging.Fatal().Err(err).Msg("failed to load icon list cache config")
-		} else {
-			lastUpdate = stats.ModTime()
-		}
+	err := utils.LoadJSONIfExist(common.IconListCachePath, iconsCache)
+	if err != nil {
+		logging.Error().Err(err).Msg("failed to load icon list cache config")
+	} else if stats, err := os.Stat(common.IconListCachePath); err == nil {
+		lastUpdate = stats.ModTime()
+		logging.Info().Msgf("icon list cache loaded (%d icons, %d display names), last updated at %s",
+			len(iconsCache.IconList),
+			len(iconsCache.DisplayNames),
+			strutils.FormatTime(lastUpdate))
 	}
 }
 
@@ -77,7 +75,7 @@ func ListAvailableIcons() (*Cache, error) {
 	defer iconsCahceMu.Unlock()
 
 	if time.Since(lastUpdate) < updateInterval {
-		if !iconsCache.isEmpty() {
+		if !iconsCache.needUpdate() {
 			return iconsCache, nil
 		}
 	}
@@ -87,6 +85,8 @@ func ListAvailableIcons() (*Cache, error) {
 		return nil, err
 	}
 
+	logging.Info().Msg("icons list updated")
+
 	iconsCache = icons
 	lastUpdate = time.Now()
 
@@ -95,6 +95,17 @@ func ListAvailableIcons() (*Cache, error) {
 		logging.Warn().Err(err).Msg("failed to save icon list cache")
 	}
 	return icons, nil
+}
+
+func SearchIcons(keyword string, limit int) ([]string, error) {
+	icons, err := ListAvailableIcons()
+	if err != nil {
+		return nil, err
+	}
+	if keyword == "" {
+		return utils.Slice(icons.IconList, limit), nil
+	}
+	return utils.Slice(fuzzy.Find(keyword, icons.IconList), limit), nil
 }
 
 func HasWalkxCodeIcon(name string, filetype string) bool {
@@ -134,20 +145,26 @@ func GetDisplayName(reference string) (string, bool) {
 }
 
 func fetchIconData() (*Cache, error) {
-	walkxCodeIcons, err := fetchWalkxCodeIcons()
+	walkxCodeIconMap, walkxCodeIconList, err := fetchWalkxCodeIcons()
 	if err != nil {
 		return nil, err
 	}
 
-	selfhstIcons, referenceToNames, err := fetchSelfhstIcons()
+	n := 0
+	for _, items := range walkxCodeIconMap {
+		n += len(items)
+	}
+
+	selfhstIconMap, selfhstIconList, referenceToNames, err := fetchSelfhstIcons()
 	if err != nil {
 		return nil, err
 	}
 
 	return &Cache{
-		WalkxCode:    walkxCodeIcons,
-		Selfhst:      selfhstIcons,
+		WalkxCode:    walkxCodeIconMap,
+		Selfhst:      selfhstIconMap,
 		DisplayNames: referenceToNames,
+		IconList:     append(walkxCodeIconList, selfhstIconList...),
 	}, nil
 }
 
@@ -166,35 +183,37 @@ format:
 		]
 	}
 */
-func fetchWalkxCodeIcons() (IconsMap, error) {
+func fetchWalkxCodeIcons() (IconsMap, IconList, error) {
 	req, err := http.NewRequest(http.MethodGet, walkxcodeIcons, nil)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	data := make(map[string][]string)
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	icons := make(IconsMap, len(data))
+	iconList := make(IconList, 0, 2000)
 	for fileType, files := range data {
 		icons[fileType] = make(map[string]struct{}, len(files))
 		for _, icon := range files {
 			icons[fileType][icon] = struct{}{}
+			iconList = append(iconList, "@walkxcode/"+icon)
 		}
 	}
-	return icons, nil
+	return icons, iconList, nil
 }
 
 /*
@@ -211,7 +230,7 @@ format:
 			"CreatedAt": "2024-08-16 00:27:23+00:00"
 	}
 */
-func fetchSelfhstIcons() (IconsMap, ReferenceDisplayNameMap, error) {
+func fetchSelfhstIcons() (IconsMap, IconList, ReferenceDisplayNameMap, error) {
 	type SelfhStIcon struct {
 		Name      string `json:"Name"`
 		Reference string `json:"Reference"`
@@ -225,25 +244,26 @@ func fetchSelfhstIcons() (IconsMap, ReferenceDisplayNameMap, error) {
 
 	req, err := http.NewRequest(http.MethodGet, selfhstIcons, nil)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	data := make([]SelfhStIcon, 0, 2000)
 	err = json.Unmarshal(body, &data)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
+	iconList := make(IconList, 0, len(data)*3)
 	icons := make(IconsMap)
 	icons["svg"] = make(map[string]struct{}, len(data))
 	icons["png"] = make(map[string]struct{}, len(data))
@@ -254,15 +274,18 @@ func fetchSelfhstIcons() (IconsMap, ReferenceDisplayNameMap, error) {
 	for _, item := range data {
 		if item.SVG == "Yes" {
 			icons["svg"][item.Reference+".svg"] = struct{}{}
+			iconList = append(iconList, "@selfhst/"+item.Reference+".svg")
 		}
 		if item.PNG == "Yes" {
 			icons["png"][item.Reference+".png"] = struct{}{}
+			iconList = append(iconList, "@selfhst/"+item.Reference+".png")
 		}
 		if item.WebP == "Yes" {
 			icons["webp"][item.Reference+".webp"] = struct{}{}
+			iconList = append(iconList, "@selfhst/"+item.Reference+".webp")
 		}
 		referenceToNames[item.Reference] = item.Name
 	}
 
-	return icons, referenceToNames, nil
+	return icons, iconList, referenceToNames, nil
 }

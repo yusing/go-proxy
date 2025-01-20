@@ -22,6 +22,7 @@ const (
 	ConfigPath             = ConfigBasePath + "/" + ConfigFileName
 	HomepageJSONConfigPath = ConfigBasePath + "/.homepage.json"
 	IconListCachePath      = ConfigBasePath + "/.icon_list_cache.json"
+	IconCachePath          = ConfigBasePath + "/.icon_cache.json"
 
 	MiddlewareComposeBasePath = ConfigBasePath + "/middlewares"
 

@@ -49,13 +49,25 @@ func TestIconURL(t *testing.T) {
 		},
 		{
 			name:  "walkxcode",
-			input: "png/walkxcode.png",
+			input: "png/adguard-home.png",
 			wantValue: &IconURL{
-				Value:      "png/walkxcode.png",
+				Value:      "png/adguard-home.png",
 				IconSource: IconSourceWalkXCode,
 				Extra: &IconExtra{
 					FileType: "png",
-					Name:     "walkxcode",
+					Name:     "adguard-home",
+				},
+			},
+		},
+		{
+			name:  "walkxcode_alt",
+			input: "@walkxcode/adguard-home.png",
+			wantValue: &IconURL{
+				Value:      "adguard-home.png",
+				IconSource: IconSourceWalkXCode,
+				Extra: &IconExtra{
+					FileType: "png",
+					Name:     "adguard-home",
 				},
 			},
 		},
@@ -66,13 +78,13 @@ func TestIconURL(t *testing.T) {
 		},
 		{
 			name:  "selfh.st_valid",
-			input: "@selfhst/foo.png",
+			input: "@selfhst/adguard-home.png",
 			wantValue: &IconURL{
-				Value:      "/foo.png",
+				Value:      "adguard-home.png",
 				IconSource: IconSourceSelfhSt,
 				Extra: &IconExtra{
 					FileType: "png",
-					Name:     "foo",
+					Name:     "adguard-home",
 				},
 			},
 		},

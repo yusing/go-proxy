@@ -5,39 +5,45 @@ type (
 	Config   map[string]Category
 	Category []*Item
 
-	Item struct {
+	ItemConfig struct {
 		Show         bool           `json:"show"`
 		Name         string         `json:"name"` // display name
 		Icon         *IconURL       `json:"icon"`
-		URL          string         `json:"url"` // alias + domain
 		Category     string         `json:"category"`
 		Description  string         `json:"description" aliases:"desc"`
+		SortOrder    int            `json:"sort_order"`
 		WidgetConfig map[string]any `json:"widget_config" aliases:"widget"`
+		URL          string         `json:"url"` // alias + domain
+	}
+
+	Item struct {
+		*ItemConfig
 
 		Alias      string `json:"alias"` // proxy alias
 		SourceType string `json:"source_type"`
 		AltURL     string `json:"alt_url"` // original proxy target
 		Provider   string `json:"provider"`
+
+		IsUnset bool
 	}
 )
 
-func (item *Item) IsEmpty() bool {
-	return item == nil || (item.Name == "" &&
-		item.Icon == nil &&
-		item.URL == "" &&
-		item.Category == "" &&
-		item.Description == "" &&
-		len(item.WidgetConfig) == 0)
+func NewItem(alias string) *Item {
+	return &Item{
+		ItemConfig: &ItemConfig{
+			Show: true,
+		},
+		Alias:   alias,
+		IsUnset: true,
+	}
 }
 
-func (item *Item) GetOverriddenItem() *Item {
-	overrides := GetJSONConfig()
-	clone := *item
-	clone.Name = overrides.GetDisplayName(item)
-	clone.Icon = overrides.GetDisplayIcon(item)
-	clone.Category = overrides.GetCategory(item)
-	clone.Show = overrides.GetShowItem(item)
-	return &clone
+func (item *Item) IsEmpty() bool {
+	return item == nil || item.IsUnset || item.ItemConfig == nil
+}
+
+func (item *Item) GetOverride() *Item {
+	return overrideConfigInstance.GetOverride(item)
 }
 
 func NewHomePageConfig() Config {

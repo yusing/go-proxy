@@ -194,7 +194,7 @@ func (r *HTTPRoute) addToLoadBalancer(parent task.Parent) {
 		linked = l.(*HTTPRoute)
 		lb = linked.loadBalancer
 		lb.UpdateConfigIfNeeded(cfg)
-		if linked.Raw.Homepage == nil && r.Raw.Homepage != nil {
+		if linked.Raw.Homepage.IsEmpty() && !r.Raw.Homepage.IsEmpty() {
 			linked.Raw.Homepage = r.Raw.Homepage
 		}
 	} else {
