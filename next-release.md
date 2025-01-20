@@ -115,6 +115,9 @@ GoDoxy v0.8.2 expected changes
       do: error 403 Forbidden
   ```
 
+- **new** Brand new rewritten WebUI
+- **new** Support selfh.st icons: `@selfhst/<reference>.<format>` _(e.g. `@selfhst/adguard-home.webp`)_
+  - also uses the display name on https://selfh.st/icons/ as default for our dashboard!
 - **new** GoDoxy server side favicon retreiving and caching
   - deliver smooth dashboard experience by caching favicons
   - correct icon can show without setting `homepage.icon` by parsing it from app's root path "/", selecting `link[rel=icon]` from HTML as default icon

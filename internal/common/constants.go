@@ -16,12 +16,12 @@ const (
 	DotEnvPath        = ".env"
 	DotEnvExamplePath = ".env.example"
 
-	ConfigBasePath        = "config"
-	ConfigFileName        = "config.yml"
-	ConfigExampleFileName = "config.example.yml"
-	ConfigPath            = ConfigBasePath + "/" + ConfigFileName
-
-	JWTKeyPath = ConfigBasePath + "/jwt.key"
+	ConfigBasePath         = "config"
+	ConfigFileName         = "config.yml"
+	ConfigExampleFileName  = "config.example.yml"
+	ConfigPath             = ConfigBasePath + "/" + ConfigFileName
+	HomepageJSONConfigPath = ConfigBasePath + "/.homepage.json"
+	IconListCachePath      = ConfigBasePath + "/.icon_list_cache.json"
 
 	MiddlewareComposeBasePath = ConfigBasePath + "/middlewares"
 

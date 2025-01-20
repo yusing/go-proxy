@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/yusing/go-proxy/internal"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -24,6 +25,7 @@ const (
 	ListHomepageConfig     = "homepage_config"
 	ListRouteProviders     = "route_providers"
 	ListHomepageCategories = "homepage_categories"
+	ListIcons              = "icons"
 	ListTasks              = "tasks"
 )
 
@@ -58,6 +60,13 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 		U.RespondJSON(w, r, cfg.RouteProviderList())
 	case ListHomepageCategories:
 		U.RespondJSON(w, r, routequery.HomepageCategories())
+	case ListIcons:
+		icons, err := internal.ListAvailableIcons()
+		if err != nil {
+			U.RespondError(w, err)
+			return
+		}
+		U.RespondJSON(w, r, icons)
 	case ListTasks:
 		U.RespondJSON(w, r, task.DebugTaskList())
 	default:
@@ -80,7 +89,7 @@ func listRoute(which string) any {
 }
 
 func listFiles(w http.ResponseWriter, r *http.Request) {
-	files, err := utils.ListFiles(common.ConfigBasePath, 0)
+	files, err := utils.ListFiles(common.ConfigBasePath, 0, true)
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return
@@ -97,7 +106,7 @@ func listFiles(w http.ResponseWriter, r *http.Request) {
 		resp[t] = append(resp[t], file)
 	}
 
-	mids, err := utils.ListFiles(common.MiddlewareComposeBasePath, 0)
+	mids, err := utils.ListFiles(common.MiddlewareComposeBasePath, 0, true)
 	if err != nil {
 		U.HandleErr(w, r, err)
 		return

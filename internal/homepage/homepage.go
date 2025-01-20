@@ -30,6 +30,16 @@ func (item *Item) IsEmpty() bool {
 		len(item.WidgetConfig) == 0)
 }
 
+func (item *Item) GetOverriddenItem() *Item {
+	overrides := GetJSONConfig()
+	clone := *item
+	clone.Name = overrides.GetDisplayName(item)
+	clone.Icon = overrides.GetDisplayIcon(item)
+	clone.Category = overrides.GetCategory(item)
+	clone.Show = overrides.GetShowItem(item)
+	return &clone
+}
+
 func NewHomePageConfig() Config {
 	return Config(make(map[string]Category))
 }

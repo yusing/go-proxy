@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/route/entry"
 	provider "github.com/yusing/go-proxy/internal/route/provider/types"
@@ -83,12 +84,21 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		if item.Name == "" {
-			item.Name = strutils.Title(
-				strings.ReplaceAll(
-					strings.ReplaceAll(alias, "-", " "),
-					"_", " ",
-				),
-			)
+			reference := r.TargetName()
+			if r.RawEntry().Container != nil {
+				reference = r.RawEntry().Container.ImageName
+			}
+			name, ok := internal.GetDisplayName(reference)
+			if ok {
+				item.Name = name
+			} else {
+				item.Name = strutils.Title(
+					strings.ReplaceAll(
+						strings.ReplaceAll(alias, "-", " "),
+						"_", " ",
+					),
+				)
+			}
 		}
 
 		if useDefaultCategories {
@@ -128,7 +138,7 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		item.AltURL = r.TargetURL().String()
-		hpCfg.Add(item)
+		hpCfg.Add(item.GetOverriddenItem())
 	})
 	return hpCfg
 }

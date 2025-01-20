@@ -30,6 +30,24 @@ func TestIconURL(t *testing.T) {
 			},
 		},
 		{
+			name:  "relative2",
+			input: "/icon.png",
+			wantValue: &IconURL{
+				Value:      "/icon.png",
+				IconSource: IconSourceRelative,
+			},
+		},
+		{
+			name:    "relative_empty_path",
+			input:   "@target/",
+			wantErr: true,
+		},
+		{
+			name:    "relative_empty_path2",
+			input:   "/",
+			wantErr: true,
+		},
+		{
 			name:  "walkxcode",
 			input: "png/walkxcode.png",
 			wantValue: &IconURL{
@@ -40,6 +58,33 @@ func TestIconURL(t *testing.T) {
 					Name:     "walkxcode",
 				},
 			},
+		},
+		{
+			name:    "walkxcode_invalid_format",
+			input:   "foo/walkxcode.png",
+			wantErr: true,
+		},
+		{
+			name:  "selfh.st_valid",
+			input: "@selfhst/foo.png",
+			wantValue: &IconURL{
+				Value:      "/foo.png",
+				IconSource: IconSourceSelfhSt,
+				Extra: &IconExtra{
+					FileType: "png",
+					Name:     "foo",
+				},
+			},
+		},
+		{
+			name:    "selfh.st_invalid",
+			input:   "@selfhst/foo",
+			wantErr: true,
+		},
+		{
+			name:    "selfh.st_invalid_format",
+			input:   "@selfhst/foo.bar",
+			wantErr: true,
 		},
 		{
 			name:    "invalid",
