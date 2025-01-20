@@ -65,44 +65,71 @@ func (c *content) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 //   - 500 Internal Server Error: if internal error
 //   - others: depends on route handler response
 func GetFavIcon(w http.ResponseWriter, req *http.Request) {
-	alias := req.PathValue("alias")
-	if alias == "" {
-		U.RespondError(w, U.ErrMissingKey("alias"), http.StatusBadRequest)
+	url, alias := req.FormValue("url"), req.FormValue("alias")
+	if url == "" && alias == "" {
+		U.RespondError(w, U.ErrMissingKey("url or alias"), http.StatusBadRequest)
 		return
 	}
-	r, ok := routes.GetHTTPRoutes().Load(alias)
-	if !ok {
-		http.NotFound(w, req)
+	if url != "" && alias != "" {
+		U.RespondError(w, U.ErrInvalidKey("url and alias are mutually exclusive"), http.StatusBadRequest)
 		return
 	}
-	switch r := r.(type) {
-	case route.HTTPRoute:
-		var icon []byte
-		var status int
-		var errMsg string
 
-		hp := r.RawEntry().Homepage.GetOverride()
-		if !hp.IsEmpty() && hp.Icon != nil {
-			switch hp.Icon.IconSource {
-			case homepage.IconSourceAbsolute:
-				icon, status, errMsg = fetchIconAbsolute(hp.Icon.Value)
-			case homepage.IconSourceRelative:
-				icon, status, errMsg = findIcon(r, req, hp.Icon.Value)
-			case homepage.IconSourceWalkXCode, homepage.IconSourceSelfhSt:
-				icon, status, errMsg = fetchKnownIcon(hp.Icon)
-			}
-		} else {
-			// try extract from "link[rel=icon]"
-			icon, status, errMsg = findIcon(r, req, "/")
+	// try with url
+	if url != "" {
+		var iconURL homepage.IconURL
+		if err := iconURL.Parse(url); err != nil {
+			U.RespondError(w, err, http.StatusBadRequest)
+			return
 		}
-		if status != http.StatusOK {
+		icon, status, errMsg := getFavIconFromURL(&iconURL)
+		if icon == nil {
 			http.Error(w, errMsg, status)
 			return
 		}
 		U.WriteBody(w, icon)
-	default:
-		http.Error(w, "bad request", http.StatusBadRequest)
+		return
 	}
+
+	// try with route.Homepage.Icon
+	r, ok := routes.GetHTTPRoute(alias)
+	if !ok {
+		U.RespondError(w, errors.New("no such route"), http.StatusNotFound)
+		return
+	}
+	var icon []byte
+	var status int
+	var errMsg string
+
+	hp := r.RawEntry().Homepage.GetOverride()
+	if !hp.IsEmpty() && hp.Icon != nil {
+		switch hp.Icon.IconSource {
+		case homepage.IconSourceRelative:
+			icon, status, errMsg = findIcon(r, req, hp.Icon.Value)
+		default:
+			icon, status, errMsg = getFavIconFromURL(hp.Icon)
+		}
+	} else {
+		// try extract from "link[rel=icon]"
+		icon, status, errMsg = findIcon(r, req, "/")
+	}
+	if status != http.StatusOK {
+		http.Error(w, errMsg, status)
+		return
+	}
+	U.WriteBody(w, icon)
+}
+
+func getFavIconFromURL(iconURL *homepage.IconURL) ([]byte, int, string) {
+	switch iconURL.IconSource {
+	case homepage.IconSourceAbsolute:
+		return fetchIconAbsolute(iconURL.URL())
+	case homepage.IconSourceRelative:
+		return nil, http.StatusBadRequest, "unexpected relative icon"
+	case homepage.IconSourceWalkXCode, homepage.IconSourceSelfhSt:
+		return fetchKnownIcon(iconURL)
+	}
+	return nil, http.StatusBadRequest, "invalid icon source"
 }
 
 // cache key can be absolute url or route name.
