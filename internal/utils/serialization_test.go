@@ -53,11 +53,23 @@ func TestDeserializeAnonymousField(t *testing.T) {
 		Anon
 		C int
 	}
+	var s2 struct {
+		*Anon
+		C int
+	}
+	// all, anon := extractFields(reflect.TypeOf(s2))
+	// t.Fatalf("anon %v, all %v", anon, all)
 	err := Deserialize(map[string]any{"a": 1, "b": 2, "c": 3}, &s)
 	ExpectNoError(t, err)
 	ExpectEqual(t, s.A, 1)
 	ExpectEqual(t, s.B, 2)
 	ExpectEqual(t, s.C, 3)
+
+	err = Deserialize(map[string]any{"a": 1, "b": 2, "c": 3}, &s2)
+	ExpectNoError(t, err)
+	ExpectEqual(t, s2.A, 1)
+	ExpectEqual(t, s2.B, 2)
+	ExpectEqual(t, s2.C, 3)
 }
 
 func TestStringIntConvert(t *testing.T) {

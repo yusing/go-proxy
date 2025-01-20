@@ -49,12 +49,12 @@ func New(t reflect.Type) reflect.Value {
 	return reflect.New(t)
 }
 
-func extractFields(t reflect.Type) []reflect.StructField {
+func extractFields(t reflect.Type) (all, anonymous []reflect.StructField) {
 	for t.Kind() == reflect.Ptr {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
-		return nil
+		return nil, nil
 	}
 	var fields []reflect.StructField
 	for i := range t.NumField() {
@@ -63,12 +63,15 @@ func extractFields(t reflect.Type) []reflect.StructField {
 			continue
 		}
 		if field.Anonymous {
-			fields = append(fields, extractFields(field.Type)...)
+			f1, f2 := extractFields(field.Type)
+			fields = append(fields, f1...)
+			anonymous = append(anonymous, field)
+			anonymous = append(anonymous, f2...)
 		} else {
 			fields = append(fields, field)
 		}
 	}
-	return fields
+	return fields, anonymous
 }
 
 // Deserialize takes a SerializedObject and a target value, and assigns the values in the SerializedObject to the target value.
@@ -113,7 +116,12 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		needValidate := false
 		mapping := make(map[string]reflect.Value)
 		fieldName := make(map[string]string)
-		fields := extractFields(dstT)
+		fields, anonymous := extractFields(dstT)
+		for _, anon := range anonymous {
+			if field := dstV.FieldByName(anon.Name); field.Kind() == reflect.Ptr && field.IsNil() {
+				field.Set(New(anon.Type.Elem()))
+			}
+		}
 		for _, field := range fields {
 			var key string
 			if jsonTag, ok := field.Tag.Lookup("json"); ok {
@@ -413,6 +421,14 @@ func DeserializeYAMLMap[V any](data []byte) (_ functional.Map[string, V], err E.
 	return functional.NewMapFrom(m2), nil
 }
 
+func DeserializeJSON[T any](data []byte, target T) E.Error {
+	m := make(map[string]any)
+	if err := json.Unmarshal(data, &m); err != nil {
+		return E.From(err)
+	}
+	return Deserialize(m, target)
+}
+
 func LoadJSON[T any](path string, dst *T) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -427,4 +443,15 @@ func SaveJSON[T any](path string, src *T, perm os.FileMode) error {
 		return err
 	}
 	return os.WriteFile(path, data, perm)
+}
+
+func LoadJSONIfExist[T any](path string, dst *T) error {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	return LoadJSON(path, dst)
 }
