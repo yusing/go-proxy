@@ -55,7 +55,7 @@ func GetErrorPageByStatus(statusCode int) (content []byte, ok bool) {
 func loadContent() {
 	files, err := U.ListFiles(errPagesBasePath, 0)
 	if err != nil {
-		logger.Err(err).Msg("failed to list error page resources")
+		logging.Err(err).Msg("failed to list error page resources")
 		return
 	}
 	for _, file := range files {
@@ -64,7 +64,7 @@ func loadContent() {
 		}
 		content, err := os.ReadFile(file)
 		if err != nil {
-			logger.Warn().Err(err).Msgf("failed to read error page resource %s", file)
+			logging.Warn().Err(err).Msgf("failed to read error page resource %s", file)
 			continue
 		}
 		file = path.Base(file)
@@ -90,14 +90,14 @@ func watchDir() {
 				loadContent()
 			case events.ActionFileDeleted:
 				fileContentMap.Delete(filename)
-				logger.Warn().Msgf("error page resource %s deleted", filename)
+				logging.Warn().Msgf("error page resource %s deleted", filename)
 			case events.ActionFileRenamed:
-				logger.Warn().Msgf("error page resource %s deleted", filename)
+				logging.Warn().Msgf("error page resource %s deleted", filename)
 				fileContentMap.Delete(filename)
 				loadContent()
 			}
 		case err := <-errCh:
-			E.LogError("error watching error page directory", err, &logger)
+			E.LogError("error watching error page directory", err)
 		}
 	}
 }

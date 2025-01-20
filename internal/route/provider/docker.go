@@ -10,6 +10,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/route"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -36,7 +37,7 @@ func DockerProviderImpl(name, dockerHost string) (ProviderImpl, error) {
 	return &DockerProvider{
 		name,
 		dockerHost,
-		logger.With().Str("type", "docker").Str("name", name).Logger(),
+		logging.With().Str("type", "docker").Str("name", name).Logger(),
 	}, nil
 }
 

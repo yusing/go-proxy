@@ -8,6 +8,7 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -105,14 +106,14 @@ func (t *Task) Finish(reason any) {
 func (t *Task) finish(reason any) {
 	t.cancel(fmtCause(reason))
 	if !waitWithTimeout(t.childrenDone) {
-		logger.Debug().
+		logging.Debug().
 			Str("task", t.name).
 			Strs("subtasks", t.listChildren()).
 			Msg("Timeout waiting for subtasks to finish")
 	}
 	go t.runCallbacks()
 	if !waitWithTimeout(t.callbacksDone) {
-		logger.Debug().
+		logging.Debug().
 			Str("task", t.name).
 			Strs("callbacks", t.listCallbacks()).
 			Msg("Timeout waiting for callbacks to finish")
@@ -123,7 +124,7 @@ func (t *Task) finish(reason any) {
 	}
 	t.parent.subChildCount()
 	allTasks.Remove(t)
-	logger.Trace().Msg("task " + t.name + " finished")
+	logging.Trace().Msg("task " + t.name + " finished")
 }
 
 // Subtask returns a new subtask with the given name, derived from the parent's context.
@@ -155,7 +156,7 @@ func (t *Task) Subtask(name string, needFinish ...bool) *Task {
 		}()
 	}
 
-	logger.Trace().Msg("task " + child.name + " started")
+	logging.Trace().Msg("task " + child.name + " started")
 	return child
 }
 
@@ -178,7 +179,7 @@ func (t *Task) MarshalText() ([]byte, error) {
 func (t *Task) invokeWithRecover(fn func(), caller string) {
 	defer func() {
 		if err := recover(); err != nil {
-			logger.Error().
+			logging.Error().
 				Interface("err", err).
 				Msg("panic in task " + t.name + "." + caller)
 			if common.IsDebug {

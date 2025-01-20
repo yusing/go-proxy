@@ -105,8 +105,6 @@ type httpMetricLogger struct {
 	labels    *metrics.HTTPRouteMetricLabels
 }
 
-var logger = logging.With().Str("module", "reverse_proxy").Logger()
-
 // WriteHeader implements http.ResponseWriter.
 func (l *httpMetricLogger) WriteHeader(status int) {
 	l.ResponseWriter.WriteHeader(status)
@@ -174,7 +172,7 @@ func NewReverseProxy(name string, target types.URL, transport http.RoundTripper)
 		panic("nil transport")
 	}
 	rp := &ReverseProxy{
-		Logger:     logger.With().Str("name", name).Logger(),
+		Logger:     logging.With().Str("name", name).Logger(),
 		Transport:  transport,
 		TargetName: name,
 		TargetURL:  target,
@@ -213,17 +211,17 @@ func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err
 	case errors.Is(err, context.Canceled),
 		errors.Is(err, io.EOF),
 		errors.Is(err, context.DeadlineExceeded):
-		logger.Debug().Err(err).Str("url", reqURL).Msg("http proxy error")
+		logging.Debug().Err(err).Str("url", reqURL).Msg("http proxy error")
 	default:
 		var recordErr tls.RecordHeaderError
 		if errors.As(err, &recordErr) {
-			logger.Error().
+			logging.Error().
 				Str("url", reqURL).
 				Msgf(`scheme was likely misconfigured as https,
 						try setting "proxy.%s.scheme" back to "http"`, p.TargetName)
 			logging.Err(err).Msg("underlying error")
 		} else {
-			logger.Err(err).Str("url", reqURL).Msg("http proxy error")
+			logging.Err(err).Str("url", reqURL).Msg("http proxy error")
 		}
 	}
 

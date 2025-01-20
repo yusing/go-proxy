@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/utils"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -23,7 +24,7 @@ func FileProviderImpl(filename string) (ProviderImpl, error) {
 	impl := &FileProvider{
 		fileName: filename,
 		path:     path.Join(common.ConfigBasePath, filename),
-		l:        logger.With().Str("type", "file").Str("name", filename).Logger(),
+		l:        logging.With().Str("type", "file").Str("name", filename).Logger(),
 	}
 	_, err := os.Stat(impl.path)
 	if err != nil {

@@ -46,8 +46,6 @@ var (
 	watcherMapMu sync.Mutex
 
 	errShouldNotReachHere = errors.New("should not reach here")
-
-	logger = logging.With().Str("module", "idle_watcher").Logger()
 )
 
 const dockerReqTimeout = 3 * time.Second
@@ -78,7 +76,7 @@ func registerWatcher(watcherTask *task.Task, entry route.Entry, waker *waker) (*
 	}
 
 	w := &Watcher{
-		Logger: logger.With().Str("name", cfg.ContainerName).Logger(),
+		Logger: logging.With().Str("name", cfg.ContainerName).Logger(),
 		Config: cfg,
 		waker:  waker,
 		client: client,

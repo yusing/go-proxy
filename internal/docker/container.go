@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/yusing/go-proxy/internal/logging"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -128,7 +129,7 @@ func (c *Container) setPublicIP() {
 	}
 	url, err := url.Parse(c.DockerHost)
 	if err != nil {
-		logger.Err(err).Msgf("invalid docker host %q, falling back to 127.0.0.1", c.DockerHost)
+		logging.Err(err).Msgf("invalid docker host %q, falling back to 127.0.0.1", c.DockerHost)
 		c.PublicIP = "127.0.0.1"
 		return
 	}

@@ -5,6 +5,7 @@ import (
 
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -60,7 +61,7 @@ func LoadComposeFiles() {
 	errs := E.NewBuilder("middleware compile errors")
 	middlewareDefs, err := utils.ListFiles(common.MiddlewareComposeBasePath, 0)
 	if err != nil {
-		logger.Err(err).Msg("failed to list middleware definitions")
+		logging.Err(err).Msg("failed to list middleware definitions")
 		return
 	}
 	for _, defFile := range middlewareDefs {
@@ -76,7 +77,7 @@ func LoadComposeFiles() {
 				continue
 			}
 			allMiddlewares[name] = m
-			logger.Info().
+			logging.Info().
 				Str("src", path.Base(defFile)).
 				Str("name", name).
 				Msg("middleware loaded")
@@ -95,13 +96,13 @@ func LoadComposeFiles() {
 				continue
 			}
 			allMiddlewares[name] = m
-			logger.Info().
+			logging.Info().
 				Str("src", path.Base(defFile)).
 				Str("name", name).
 				Msg("middleware loaded")
 		}
 	}
 	if errs.HasError() {
-		E.LogError(errs.About(), errs.Error(), &logger)
+		E.LogError(errs.About(), errs.Error())
 	}
 }

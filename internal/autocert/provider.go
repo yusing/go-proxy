@@ -17,6 +17,7 @@ import (
 	"github.com/go-acme/lego/v4/registration"
 	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -89,7 +90,7 @@ func (p *Provider) ObtainCert() E.Error {
 		})
 		if err != nil {
 			p.legoCert = nil
-			logger.Err(err).Msg("cert renew failed, fallback to obtain")
+			logging.Err(err).Msg("cert renew failed, fallback to obtain")
 		} else {
 			p.legoCert = cert
 		}
@@ -136,7 +137,7 @@ func (p *Provider) LoadCert() E.Error {
 	p.tlsCert = &cert
 	p.certExpiries = expiries
 
-	logger.Info().Msgf("next renewal in %v", strutils.FormatDuration(time.Until(p.ShouldRenewOn())))
+	logging.Info().Msgf("next renewal in %v", strutils.FormatDuration(time.Until(p.ShouldRenewOn())))
 	return p.renewIfNeeded()
 }
 
@@ -172,7 +173,7 @@ func (p *Provider) ScheduleRenewal(parent task.Parent) {
 					continue
 				}
 				if err := p.renewIfNeeded(); err != nil {
-					E.LogWarn("cert renew failed", err, &logger)
+					E.LogWarn("cert renew failed", err)
 					lastErrOn = time.Now()
 					continue
 				}
@@ -215,7 +216,7 @@ func (p *Provider) registerACME() error {
 	}
 	if reg, err := p.client.Registration.ResolveAccountByKey(); err == nil {
 		p.user.Registration = reg
-		logger.Info().Msg("reused acme registration from private key")
+		logging.Info().Msg("reused acme registration from private key")
 		return nil
 	}
 
@@ -224,7 +225,7 @@ func (p *Provider) registerACME() error {
 		return err
 	}
 	p.user.Registration = reg
-	logger.Info().Interface("reg", reg).Msg("acme registered")
+	logging.Info().Interface("reg", reg).Msg("acme registered")
 	return nil
 }
 
@@ -270,7 +271,7 @@ func (p *Provider) certState() CertState {
 	sort.Strings(certDomains)
 
 	if !reflect.DeepEqual(certDomains, wantedDomains) {
-		logger.Info().Msgf("cert domains mismatch: %v != %v", certDomains, p.cfg.Domains)
+		logging.Info().Msgf("cert domains mismatch: %v != %v", certDomains, p.cfg.Domains)
 		return CertStateMismatch
 	}
 
@@ -284,9 +285,9 @@ func (p *Provider) renewIfNeeded() E.Error {
 
 	switch p.certState() {
 	case CertStateExpired:
-		logger.Info().Msg("certs expired, renewing")
+		logging.Info().Msg("certs expired, renewing")
 	case CertStateMismatch:
-		logger.Info().Msg("cert domains mismatch with config, renewing")
+		logging.Info().Msg("cert domains mismatch with config, renewing")
 	default:
 		return nil
 	}

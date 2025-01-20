@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
 )
@@ -28,7 +29,7 @@ func (customErrorPage) modifyResponse(resp *http.Response) error {
 	if !gphttp.IsSuccess(resp.StatusCode) && (contentType.IsHTML() || contentType.IsPlainText()) {
 		errorPage, ok := errorpage.GetErrorPageByStatus(resp.StatusCode)
 		if ok {
-			logger.Debug().Msgf("error page for status %d loaded", resp.StatusCode)
+			logging.Debug().Msgf("error page for status %d loaded", resp.StatusCode)
 			_, _ = io.Copy(io.Discard, resp.Body) // drain the original body
 			resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(errorPage))
@@ -36,7 +37,7 @@ func (customErrorPage) modifyResponse(resp *http.Response) error {
 			resp.Header.Set(gphttp.HeaderContentLength, strconv.Itoa(len(errorPage)))
 			resp.Header.Set(gphttp.HeaderContentType, "text/html; charset=utf-8")
 		} else {
-			logger.Error().Msgf("unable to load error page for status %d", resp.StatusCode)
+			logging.Error().Msgf("unable to load error page for status %d", resp.StatusCode)
 		}
 		return nil
 	}
@@ -52,7 +53,7 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) (served bo
 		filename := path[len(gphttp.StaticFilePathPrefix):]
 		file, ok := errorpage.GetStaticFile(filename)
 		if !ok {
-			logger.Error().Msg("unable to load resource " + filename)
+			logging.Error().Msg("unable to load resource " + filename)
 			return false
 		}
 		ext := filepath.Ext(filename)
@@ -64,10 +65,10 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) (served bo
 		case ".css":
 			w.Header().Set(gphttp.HeaderContentType, "text/css; charset=utf-8")
 		default:
-			logger.Error().Msgf("unexpected file type %q for %s", ext, filename)
+			logging.Error().Msgf("unexpected file type %q for %s", ext, filename)
 		}
 		if _, err := w.Write(file); err != nil {
-			logger.Err(err).Msg("unable to write resource " + filename)
+			logging.Err(err).Msg("unable to write resource " + filename)
 			http.Error(w, "Error page failure", http.StatusInternalServerError)
 		}
 		return true

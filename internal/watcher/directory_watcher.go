@@ -9,6 +9,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
@@ -40,13 +41,13 @@ func NewDirectoryWatcher(parent task.Parent, dirPath string) *DirWatcher {
 	//! subdirectories are not watched
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
-		logger.Panic().Err(err).Msg("unable to create fs watcher")
+		logging.Panic().Err(err).Msg("unable to create fs watcher")
 	}
 	if err = w.Add(dirPath); err != nil {
-		logger.Panic().Err(err).Msg("unable to create fs watcher")
+		logging.Panic().Err(err).Msg("unable to create fs watcher")
 	}
 	helper := &DirWatcher{
-		Logger: logger.With().
+		Logger: logging.With().
 			Str("type", "dir").
 			Str("path", dirPath).
 			Logger(),

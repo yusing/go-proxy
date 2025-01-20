@@ -30,7 +30,6 @@ const (
 var (
 	cfCIDRsLastUpdate time.Time
 	cfCIDRsMu         sync.Mutex
-	cfCIDRsLogger     = logger.With().Str("name", "CloudflareRealIP").Logger()
 )
 
 var CloudflareRealIP = NewMiddleware[cloudflareRealIP]()
@@ -87,7 +86,7 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 		)
 		if err != nil {
 			cfCIDRsLastUpdate = time.Now().Add(-cfCIDRsUpdateRetryInterval - cfCIDRsUpdateInterval)
-			cfCIDRsLogger.Err(err).Msg("failed to update cloudflare range, retry in " + strutils.FormatDuration(cfCIDRsUpdateRetryInterval))
+			logging.Err(err).Msg("failed to update cloudflare range, retry in " + strutils.FormatDuration(cfCIDRsUpdateRetryInterval))
 			return nil
 		}
 		if len(cfCIDRs) == 0 {
@@ -96,7 +95,7 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 	}
 
 	cfCIDRsLastUpdate = time.Now()
-	cfCIDRsLogger.Info().Msg("cloudflare CIDR range updated")
+	logging.Info().Msg("cloudflare CIDR range updated")
 	return
 }
 

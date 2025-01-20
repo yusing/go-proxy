@@ -38,7 +38,6 @@ type Config struct {
 var (
 	instance   *Config
 	cfgWatcher watcher.Watcher
-	logger     = logging.With().Str("module", "config").Logger()
 	reloadMu   sync.Mutex
 )
 
@@ -86,7 +85,7 @@ func WatchChanges() {
 		configEventFlushInterval,
 		OnConfigChange,
 		func(err E.Error) {
-			E.LogError("config reload error", err, &logger)
+			E.LogError("config reload error", err)
 		},
 	)
 	eventQueue.Start(cfgWatcher.Events(t.Context()))
@@ -97,15 +96,15 @@ func OnConfigChange(ev []events.Event) {
 	// just reload once and check the last event
 	switch ev[len(ev)-1].Action {
 	case events.ActionFileRenamed:
-		logger.Warn().Msg(cfgRenameWarn)
+		logging.Warn().Msg(cfgRenameWarn)
 		return
 	case events.ActionFileDeleted:
-		logger.Warn().Msg(cfgDeleteWarn)
+		logging.Warn().Msg(cfgDeleteWarn)
 		return
 	}
 
 	if err := Reload(); err != nil {
-		logger.Warn().Msg("using last config")
+		logging.Warn().Msg("using last config")
 		// recovered in event queue
 		panic(err)
 	}
@@ -178,25 +177,37 @@ func (cfg *Config) StartProxyProviders() {
 		})
 
 	if err := E.Join(errs...); err != nil {
-		E.LogError("route provider errors", err, &logger)
+		E.LogError("route provider errors", err)
 	}
 }
 
-func (cfg *Config) StartServers() {
-	server.StartServer(cfg.task, server.Options{
-		Name:         "proxy",
-		CertProvider: cfg.AutoCertProvider(),
-		HTTPAddr:     common.ProxyHTTPAddr,
-		HTTPSAddr:    common.ProxyHTTPSAddr,
-		Handler:      cfg.entrypoint,
-	})
-	server.StartServer(cfg.task, server.Options{
-		Name:         "api",
-		CertProvider: cfg.AutoCertProvider(),
-		HTTPAddr:     common.APIHTTPAddr,
-		Handler:      api.NewHandler(cfg),
-	})
-	if common.PrometheusEnabled {
+type StartServersOptions struct {
+	Proxy, API, Metrics bool
+}
+
+func (cfg *Config) StartServers(opts ...*StartServersOptions) {
+	if len(opts) == 0 {
+		opts = append(opts, &StartServersOptions{Proxy: true, API: true, Metrics: true})
+	}
+	opt := opts[0]
+	if opt.Proxy {
+		server.StartServer(cfg.task, server.Options{
+			Name:         "proxy",
+			CertProvider: cfg.AutoCertProvider(),
+			HTTPAddr:     common.ProxyHTTPAddr,
+			HTTPSAddr:    common.ProxyHTTPSAddr,
+			Handler:      cfg.entrypoint,
+		})
+	}
+	if opt.API {
+		server.StartServer(cfg.task, server.Options{
+			Name:         "api",
+			CertProvider: cfg.AutoCertProvider(),
+			HTTPAddr:     common.APIHTTPAddr,
+			Handler:      api.NewHandler(cfg),
+		})
+	}
+	if opt.Metrics && common.PrometheusEnabled {
 		server.StartServer(cfg.task, server.Options{
 			Name:         "metrics",
 			CertProvider: cfg.AutoCertProvider(),
@@ -211,12 +222,12 @@ func (cfg *Config) load() E.Error {
 
 	data, err := os.ReadFile(common.ConfigPath)
 	if err != nil {
-		E.LogFatal(errMsg, err, &logger)
+		E.LogFatal(errMsg, err)
 	}
 
 	model := types.DefaultConfig()
 	if err := utils.DeserializeYAML(data, model); err != nil {
-		E.LogFatal(errMsg, err, &logger)
+		E.LogFatal(errMsg, err)
 	}
 
 	// errors are non fatal below
@@ -296,6 +307,6 @@ func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
 		}
 		results.Addf("%-"+strconv.Itoa(lenLongestName)+"s %d routes", p.String(), p.NumRoutes())
 	})
-	logger.Info().Msg(results.String())
+	logging.Info().Msg(results.String())
 	return errs.Error()
 }

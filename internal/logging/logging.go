@@ -27,7 +27,6 @@ func InitLogger(out io.Writer) {
 	default:
 		timeFmt = "01-02 15:04"
 		level = zerolog.InfoLevel
-		exclude = []string{"module"}
 	}
 
 	prefixLength := len(timeFmt) + 5 // level takes 3 + 2 spaces

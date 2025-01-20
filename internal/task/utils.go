@@ -12,8 +12,6 @@ import (
 
 var ErrProgramExiting = errors.New("program exiting")
 
-var logger = logging.With().Str("module", "task").Logger()
-
 var (
 	root     = newRoot()
 	allTasks = F.NewSet[*Task]()
@@ -67,10 +65,10 @@ func GracefulShutdown(timeout time.Duration) (err error) {
 		case <-after:
 			b, err := json.Marshal(DebugTaskList())
 			if err != nil {
-				logger.Warn().Err(err).Msg("failed to marshal tasks")
+				logging.Warn().Err(err).Msg("failed to marshal tasks")
 				return context.DeadlineExceeded
 			}
-			logger.Warn().RawJSON("tasks", b).Msgf("Timeout waiting for these %d tasks to finish", allTasks.Size())
+			logging.Warn().RawJSON("tasks", b).Msgf("Timeout waiting for these %d tasks to finish", allTasks.Size())
 			return context.DeadlineExceeded
 		}
 	}

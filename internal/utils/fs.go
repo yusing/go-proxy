@@ -8,13 +8,17 @@ import (
 
 // Recursively lists all files in a directory until `maxDepth` is reached
 // Returns a slice of file paths relative to `dir`.
-func ListFiles(dir string, maxDepth int) ([]string, error) {
+func ListFiles(dir string, maxDepth int, hideHidden ...bool) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("error listing directory %s: %w", dir, err)
 	}
+	hideHiddenFiles := len(hideHidden) > 0 && hideHidden[0]
 	files := make([]string, 0)
 	for _, entry := range entries {
+		if hideHiddenFiles && entry.Name()[0] == '.' {
+			continue
+		}
 		if entry.IsDir() {
 			if maxDepth <= 0 {
 				continue

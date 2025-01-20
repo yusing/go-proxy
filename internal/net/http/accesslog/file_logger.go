@@ -6,6 +6,7 @@ import (
 	"path"
 	"sync"
 
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils"
 )
@@ -55,7 +56,7 @@ func (f *File) Close() error {
 }
 
 func (f *File) closeOnZero() {
-	defer logger.Debug().
+	defer logging.Debug().
 		Str("path", f.path).
 		Msg("access log closed")
 

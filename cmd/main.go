@@ -16,6 +16,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
@@ -25,13 +26,15 @@ import (
 
 var rawLogger = log.New(os.Stdout, "", 0)
 
-func main() {
+func init() {
 	var out io.Writer = os.Stdout
 	if common.EnableLogStreaming {
 		out = io.MultiWriter(out, v1.MemLogger())
 	}
 	logging.InitLogger(out)
+}
 
+func main() {
 	args := common.GetArgs()
 
 	switch args.Command {
@@ -94,6 +97,8 @@ func main() {
 	}
 
 	middleware.LoadComposeFiles()
+	internal.InitIconListCache()
+	homepage.InitOverridesConfig()
 
 	var cfg *config.Config
 	var err E.Error

@@ -119,7 +119,7 @@ func ConnectClient(host string) (*SharedClient, error) {
 		Client:   client,
 		key:      host,
 		refCount: U.NewRefCounter(),
-		l:        logger.With().Str("address", client.DaemonHost()).Logger(),
+		l:        logging.With().Str("address", client.DaemonHost()).Logger(),
 	}
 	c.l.Trace().Msg("client connected")
 

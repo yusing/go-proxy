@@ -43,8 +43,6 @@ type (
 	}
 )
 
-var logger = logging.With().Str("module", "accesslog").Logger()
-
 func NewAccessLogger(parent task.Parent, io AccessLogIO, cfg *Config) *AccessLogger {
 	l := &AccessLogger{
 		task: parent.Subtask("accesslog"),
@@ -133,7 +131,7 @@ func (l *AccessLogger) Flush(force bool) {
 }
 
 func (l *AccessLogger) handleErr(err error) {
-	E.LogError("failed to write access log", err, &logger)
+	E.LogError("failed to write access log", err)
 }
 
 func (l *AccessLogger) start() {
@@ -170,6 +168,6 @@ func (l *AccessLogger) write(data []byte) {
 	if err != nil {
 		l.handleErr(err)
 	} else {
-		logger.Debug().Msg("access log flushed to " + l.io.Name())
+		logging.Debug().Msg("access log flushed to " + l.io.Name())
 	}
 }

@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/yusing/go-proxy/internal/logging"
 )
 
 type (
@@ -137,6 +139,6 @@ func (f *JSONFormatter) Format(line *bytes.Buffer, req *http.Request, res *http.
 	marshaller := json.NewEncoder(line)
 	err := marshaller.Encode(entry)
 	if err != nil {
-		logger.Err(err).Msg("failed to marshal json log")
+		logging.Err(err).Msg("failed to marshal json log")
 	}
 }

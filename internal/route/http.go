@@ -9,6 +9,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
@@ -63,7 +64,7 @@ func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
 	r := &HTTPRoute{
 		ReverseProxyEntry: entry,
 		rp:                rp,
-		l: logger.With().
+		l: logging.With().
 			Str("type", entry.URL.Scheme).
 			Str("name", service).
 			Logger(),
@@ -123,7 +124,7 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 		case len(pathPatterns) == 1 && pathPatterns[0] == "/":
 			r.handler = r.rp
 		default:
-			logger.Warn().
+			logging.Warn().
 				Str("route", r.TargetName()).
 				Msg("`path_patterns` is deprecated. Use `rules` instead.")
 			mux := gphttp.NewServeMux()

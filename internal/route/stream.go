@@ -8,6 +8,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/route/entry"
 	"github.com/yusing/go-proxy/internal/route/routes"
@@ -36,7 +37,7 @@ func NewStreamRoute(entry *entry.StreamEntry) (impl, E.Error) {
 	}
 	return &StreamRoute{
 		StreamEntry: entry,
-		l: logger.With().
+		l: logging.With().
 			Str("type", string(entry.Scheme.ListeningScheme)).
 			Str("name", entry.TargetName()).
 			Logger(),

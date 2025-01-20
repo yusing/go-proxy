@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
@@ -55,7 +56,7 @@ func NewDockerWatcher(host string) DockerWatcher {
 	return DockerWatcher{
 		host:        host,
 		clientOwned: true,
-		Logger: logger.With().
+		Logger: logging.With().
 			Str("type", "docker").
 			Str("host", host).
 			Logger(),
@@ -65,7 +66,7 @@ func NewDockerWatcher(host string) DockerWatcher {
 func NewDockerWatcherWithClient(client *D.SharedClient) DockerWatcher {
 	return DockerWatcher{
 		client: client,
-		Logger: logger.With().
+		Logger: logging.With().
 			Str("type", "docker").
 			Str("host", client.DaemonHost()).
 			Logger(),
