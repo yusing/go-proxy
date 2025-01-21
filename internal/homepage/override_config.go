@@ -68,12 +68,14 @@ func (c *OverrideConfig) GetOverride(item *Item) *Item {
 		if catOverride, ok := c.CategoryName[item.Category]; ok {
 			clone := *item
 			clone.Category = catOverride
+			clone.IsUnset = false
 			return &clone
 		}
 		return item
 	} else {
 		clone := *item
 		clone.ItemConfig = itemOverride
+		clone.IsUnset = false
 		if catOverride, ok := c.CategoryName[clone.Category]; ok {
 			clone.Category = catOverride
 		}

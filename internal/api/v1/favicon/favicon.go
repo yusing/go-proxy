@@ -33,6 +33,13 @@ type content struct {
 	status int
 }
 
+type fetchResult struct {
+	icon        []byte
+	contentType string
+	statusCode  int
+	errMsg      string
+}
+
 func newContent() *content {
 	return &content{
 		header: make(http.Header),
@@ -54,6 +61,10 @@ func (c *content) WriteHeader(statusCode int) {
 
 func (c *content) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	return nil, nil, errors.New("not supported")
+}
+
+func (res *fetchResult) OK() bool {
+	return res.icon != nil
 }
 
 // GetFavIcon returns the favicon of the route
@@ -82,12 +93,13 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 			U.RespondError(w, err, http.StatusBadRequest)
 			return
 		}
-		icon, status, errMsg := getFavIconFromURL(&iconURL)
-		if icon == nil {
-			http.Error(w, errMsg, status)
+		fetchResult := getFavIconFromURL(&iconURL)
+		if !fetchResult.OK() {
+			http.Error(w, fetchResult.errMsg, fetchResult.statusCode)
 			return
 		}
-		U.WriteBody(w, icon)
+		w.Header().Set("Content-Type", fetchResult.contentType)
+		U.WriteBody(w, fetchResult.icon)
 		return
 	}
 
@@ -97,39 +109,40 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 		U.RespondError(w, errors.New("no such route"), http.StatusNotFound)
 		return
 	}
-	var icon []byte
-	var status int
-	var errMsg string
 
+	var result *fetchResult
 	hp := r.RawEntry().Homepage.GetOverride()
 	if !hp.IsEmpty() && hp.Icon != nil {
-		switch hp.Icon.IconSource {
-		case homepage.IconSourceRelative:
-			icon, status, errMsg = findIcon(r, req, hp.Icon.Value)
-		default:
-			icon, status, errMsg = getFavIconFromURL(hp.Icon)
+		if hp.Icon.IconSource == homepage.IconSourceRelative {
+			result = findIcon(r, req, hp.Icon.Value)
+		} else {
+			result = getFavIconFromURL(hp.Icon)
 		}
 	} else {
 		// try extract from "link[rel=icon]"
-		icon, status, errMsg = findIcon(r, req, "/")
+		result = findIcon(r, req, "/")
 	}
-	if status != http.StatusOK {
-		http.Error(w, errMsg, status)
+	if result.statusCode == 0 {
+		result.statusCode = http.StatusOK
+	}
+	if !result.OK() {
+		http.Error(w, result.errMsg, result.statusCode)
 		return
 	}
-	U.WriteBody(w, icon)
+	w.Header().Set("Content-Type", result.contentType)
+	U.WriteBody(w, result.icon)
 }
 
-func getFavIconFromURL(iconURL *homepage.IconURL) ([]byte, int, string) {
+func getFavIconFromURL(iconURL *homepage.IconURL) *fetchResult {
 	switch iconURL.IconSource {
 	case homepage.IconSourceAbsolute:
 		return fetchIconAbsolute(iconURL.URL())
 	case homepage.IconSourceRelative:
-		return nil, http.StatusBadRequest, "unexpected relative icon"
+		return &fetchResult{statusCode: http.StatusBadRequest, errMsg: "unexpected relative icon"}
 	case homepage.IconSourceWalkXCode, homepage.IconSourceSelfhSt:
 		return fetchKnownIcon(iconURL)
 	}
-	return nil, http.StatusBadRequest, "invalid icon source"
+	return &fetchResult{statusCode: http.StatusBadRequest, errMsg: "invalid icon source"}
 }
 
 // cache key can be absolute url or route name.
@@ -156,22 +169,34 @@ func InitIconCache() {
 	})
 }
 
+func routeKey(r route.HTTPRoute) string {
+	return r.RawEntry().Provider + ":" + r.TargetName()
+}
+
 func ResetIconCache(route route.HTTPRoute) {
 	iconCacheMu.Lock()
 	defer iconCacheMu.Unlock()
-	delete(iconCache, route.TargetName())
+	delete(iconCache, routeKey(route))
 }
 
-func loadIconCache(key string) (icon []byte, ok bool) {
+func loadIconCache(key string) *fetchResult {
 	iconCacheMu.RLock()
 	defer iconCacheMu.RUnlock()
-	icon, ok = iconCache[key]
-	if ok {
+	icon, ok := iconCache[key]
+	if ok && icon != nil {
 		logging.Debug().
 			Str("key", key).
 			Msg("icon found in cache")
+
+		var contentType string
+		if bytes.HasPrefix(icon, []byte("<svg")) {
+			contentType = "image/svg+xml"
+		} else {
+			contentType = "image/x-icon"
+		}
+		return &fetchResult{icon: icon, contentType: contentType}
 	}
-	return
+	return nil
 }
 
 func storeIconCache(key string, icon []byte) {
@@ -180,10 +205,9 @@ func storeIconCache(key string, icon []byte) {
 	iconCache[key] = icon
 }
 
-func fetchIconAbsolute(url string) ([]byte, int, string) {
-	icon, ok := loadIconCache(url)
-	if ok {
-		return icon, http.StatusOK, ""
+func fetchIconAbsolute(url string) *fetchResult {
+	if result := loadIconCache(url); result != nil {
+		return result
 	}
 
 	resp, err := U.Get(url)
@@ -194,20 +218,20 @@ func fetchIconAbsolute(url string) ([]byte, int, string) {
 		logging.Error().Err(err).
 			Str("url", url).
 			Msg("failed to get icon")
-		return nil, http.StatusBadGateway, "connection error"
+		return &fetchResult{statusCode: http.StatusBadGateway, errMsg: "connection error"}
 	}
 
 	defer resp.Body.Close()
-	icon, err = io.ReadAll(resp.Body)
+	icon, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logging.Error().Err(err).
 			Str("url", url).
 			Msg("failed to read icon")
-		return nil, http.StatusInternalServerError, "internal error"
+		return &fetchResult{statusCode: http.StatusInternalServerError, errMsg: "internal error"}
 	}
 
 	storeIconCache(url, icon)
-	return icon, http.StatusOK, ""
+	return &fetchResult{icon: icon}
 }
 
 var nameSanitizer = strings.NewReplacer(
@@ -221,54 +245,49 @@ func sanitizeName(name string) string {
 	return strings.ToLower(nameSanitizer.Replace(name))
 }
 
-func fetchKnownIcon(url *homepage.IconURL) ([]byte, int, string) {
+func fetchKnownIcon(url *homepage.IconURL) *fetchResult {
 	// if icon isn't in the list, no need to fetch
 	if !url.HasIcon() {
 		logging.Debug().
 			Str("value", url.String()).
 			Str("url", url.URL()).
 			Msg("no such icon")
-		return nil, http.StatusNotFound, "no such icon"
+		return &fetchResult{statusCode: http.StatusNotFound, errMsg: "no such icon"}
 	}
 
 	return fetchIconAbsolute(url.URL())
 }
 
-func fetchIcon(filetype, filename string) (icon []byte, status int, errMsg string) {
-	icon, status, errMsg = fetchKnownIcon(homepage.NewSelfhStIconURL(filename, filetype))
-	if icon != nil {
-		return
+func fetchIcon(filetype, filename string) *fetchResult {
+	result := fetchKnownIcon(homepage.NewSelfhStIconURL(filename, filetype))
+	if result.icon == nil {
+		return result
 	}
-	icon, status, errMsg = fetchKnownIcon(homepage.NewWalkXCodeIconURL(filename, filetype))
-	return
+	return fetchKnownIcon(homepage.NewWalkXCodeIconURL(filename, filetype))
 }
 
-func findIcon(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
-	key := r.RawEntry().Provider + ":" + r.TargetName()
-	icon, ok := loadIconCache(key)
-	if ok {
-		if icon == nil {
-			return nil, http.StatusNotFound, "icon not found"
-		}
-		return icon, http.StatusOK, ""
+func findIcon(r route.HTTPRoute, req *http.Request, uri string) *fetchResult {
+	key := routeKey(r)
+	if result := loadIconCache(key); result != nil {
+		return result
 	}
 
-	icon, status, errMsg = fetchIcon("png", sanitizeName(r.TargetName()))
+	result := fetchIcon("png", sanitizeName(r.TargetName()))
 	cont := r.RawEntry().Container
-	if icon == nil && cont != nil {
-		icon, status, errMsg = fetchIcon("png", sanitizeName(cont.ImageName))
+	if !result.OK() && cont != nil {
+		result = fetchIcon("png", sanitizeName(cont.ImageName))
 	}
-	if icon == nil {
+	if !result.OK() {
 		// fallback to parse html
-		icon, status, errMsg = findIconSlow(r, req, uri)
+		result = findIconSlow(r, req, uri)
 	}
-	if icon != nil {
-		storeIconCache(key, icon)
+	if result.OK() {
+		storeIconCache(key, result.icon)
 	}
-	return
+	return result
 }
 
-func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte, status int, errMsg string) {
+func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) *fetchResult {
 	ctx, cancel := context.WithTimeoutCause(req.Context(), 3*time.Second, errors.New("favicon request timeout"))
 	defer cancel()
 	newReq := req.WithContext(ctx)
@@ -282,7 +301,7 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 			Str("route", r.TargetName()).
 			Str("path", uri).
 			Msg("failed to parse uri")
-		return nil, http.StatusInternalServerError, "cannot parse uri"
+		return &fetchResult{statusCode: http.StatusInternalServerError, errMsg: "cannot parse uri"}
 	}
 	newReq.URL.Path = u.Path
 	newReq.URL.RawPath = u.RawPath
@@ -294,7 +313,7 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 	if c.status != http.StatusOK {
 		switch c.status {
 		case 0:
-			return nil, http.StatusBadGateway, "connection error"
+			return &fetchResult{statusCode: http.StatusBadGateway, errMsg: "connection error"}
 		default:
 			if loc := c.Header().Get("Location"); loc != "" {
 				loc = path.Clean(loc)
@@ -302,16 +321,16 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 					loc = "/" + loc
 				}
 				if loc == newReq.URL.Path {
-					return nil, http.StatusBadGateway, "circular redirect"
+					return &fetchResult{statusCode: http.StatusBadGateway, errMsg: "circular redirect"}
 				}
 				return findIconSlow(r, req, loc)
 			}
 		}
-		return nil, c.status, "upstream error: " + http.StatusText(c.status)
+		return &fetchResult{statusCode: c.status, errMsg: "upstream error: " + string(c.data)}
 	}
 	// return icon data
 	if !gphttp.GetContentType(c.header).IsHTML() {
-		return c.data, http.StatusOK, ""
+		return &fetchResult{icon: c.data, contentType: c.header.Get("Content-Type")}
 	}
 	// try extract from "link[rel=icon]" from path "/"
 	doc, err := goquery.NewDocumentFromReader(bytes.NewBuffer(c.data))
@@ -319,15 +338,15 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 		logging.Error().Err(err).
 			Str("route", r.TargetName()).
 			Msg("failed to parse html")
-		return nil, http.StatusInternalServerError, "internal error"
+		return &fetchResult{statusCode: http.StatusInternalServerError, errMsg: "internal error"}
 	}
 	ele := doc.Find("head > link[rel=icon]").First()
 	if ele.Length() == 0 {
-		return nil, http.StatusNotFound, "icon element not found"
+		return &fetchResult{statusCode: http.StatusNotFound, errMsg: "icon element not found"}
 	}
 	href := ele.AttrOr("href", "")
 	if href == "" {
-		return nil, http.StatusNotFound, "icon href not found"
+		return &fetchResult{statusCode: http.StatusNotFound, errMsg: "icon href not found"}
 	}
 	// https://en.wikipedia.org/wiki/Data_URI_scheme
 	if strings.HasPrefix(href, "data:image/") {
@@ -336,9 +355,9 @@ func findIconSlow(r route.HTTPRoute, req *http.Request, uri string) (icon []byte
 			logging.Error().Err(err).
 				Str("route", r.TargetName()).
 				Msg("failed to decode favicon")
-			return nil, http.StatusInternalServerError, "internal error"
+			return &fetchResult{statusCode: http.StatusInternalServerError, errMsg: "internal error"}
 		}
-		return dataURI.Data, http.StatusOK, ""
+		return &fetchResult{icon: dataURI.Data, contentType: dataURI.ContentType()}
 	}
 	switch {
 	case strings.HasPrefix(href, "http://"), strings.HasPrefix(href, "https://"):

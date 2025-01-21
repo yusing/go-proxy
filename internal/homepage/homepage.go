@@ -24,7 +24,7 @@ type (
 		AltURL     string `json:"alt_url"` // original proxy target
 		Provider   string `json:"provider"`
 
-		IsUnset bool
+		IsUnset bool `json:"-"`
 	}
 )
 
