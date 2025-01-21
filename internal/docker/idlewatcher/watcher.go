@@ -180,7 +180,7 @@ func (w *Watcher) wakeIfStopped() error {
 	case "running":
 		return nil
 	default:
-		panic(errShouldNotReachHere)
+		return E.Errorf("unexpected container status: %s", status)
 	}
 }
 
