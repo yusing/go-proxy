@@ -1,53 +1,62 @@
-VERSION ?= $(shell git describe --tags --abbrev=0)
-BUILD_FLAGS ?= -s -w
-BUILD_DATE ?= $(shell date -u +'%Y%m%d-%H%M')
-export VERSION
-export BUILD_FLAGS
-export CGO_ENABLED = 0
+export VERSION ?= $(shell git describe --tags --abbrev=0)
+export BUILD_DATE ?= $(shell date -u +'%Y%m%d-%H%M')
 export GOOS = linux
 
-.PHONY: all setup build test up restart logs get debug run archive repush rapid-crash debug-list-containers
+LDFLAGS = -X github.com/yusing/go-proxy/pkg.version=${VERSION}
 
-all: debug
+ifeq ($(trace), 1)
+	GODOXY_TRACE=1
+endif
 
-build:
-	scripts/build.sh
+ifeq ($(debug), 1)
+	CGO_ENABLED = 0
+	GODOXY_DEBUG = 1
+  BUILD_FLAGS = ''
+else ifeq ($(pprof), 1)
+	CGO_ENABLED = 1
+	GODEBUG=gctrace=1 inittrace=1 schedtrace=3000
+	GORACE=log_path=logs/pprof strip_path_prefix=$(shell pwd)/
+  BUILD_FLAGS = -race -gcflags=all="-N -l" -tags pprof
+	DOCKER_TAG = pprof
+else
+	CGO_ENABLED = 0
+	LDFLAGS += -s -w
+  BUILD_FLAGS = -pgo=auto -tags production
+	DOCKER_TAG = latest
+endif
+
+export CGO_ENABLED
+export GODOXY_DEBUG
+export GODOXY_TRACE
+export GODEBUG
+export GORACE
+export BUILD_FLAGS
+export DOCKER_TAG
 
 test:
 	GODOXY_TEST=1 go test ./internal/...
 
-up:
-	docker compose up -d
-
-restart:
-	docker compose restart -t 0
-
-logs:
-	docker compose logs -f
-
 get:
 	go get -u ./cmd && go mod tidy
 
-debug:
-	GODOXY_DEBUG=1 BUILD_FLAGS="" make run
+build:
+	mkdir -p bin
+	go build ${BUILD_FLAGS} -o bin/godoxy ./cmd
+	if [ $(shell id -u) -eq 0 ]; \
+		then setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
+		else sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
+	fi
 
-debug-trace:
-	GODOXY_TRACE=1 make debug
-
-profile:
-	GODEBUG=gctrace=1 make debug
-
-run: build
-	sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy
-	[ -f .env ] && godotenv -f .env bin/godoxy || bin/godoxy
+run:
+	[ -f .env ] && godotenv -f .env go run ${BUILD_FLAGS} ./cmd
 
 mtrace:
 	bin/godoxy debug-ls-mtrace > mtrace.json
 
 rapid-crash:
-	sudo docker run --restart=always --name test_crash -p 80 debian:bookworm-slim /bin/cat &&\
+	docker run --restart=always --name test_crash -p 80 debian:bookworm-slim /bin/cat &&\
 	sleep 3 &&\
-	sudo docker rm -f test_crash
+	docker rm -f test_crash
 
 debug-list-containers:
 	bash -c 'echo -e "GET /containers/json HTTP/1.0\r\n" | sudo netcat -U /var/run/docker.sock | tail -n +9 | jq'
@@ -63,14 +72,17 @@ push-docker-io:
 	BUILDER=build docker buildx build \
 		--platform linux/arm64,linux/amd64 \
 		-f Dockerfile \
-		-t docker.io/yusing/godoxy-nightly \
+		-t docker.io/yusing/godoxy-nightly:${DOCKER_TAG} \
 		-t docker.io/yusing/godoxy-nightly:${VERSION}-${BUILD_DATE} \
 		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" \
+		--build-arg BUILD_FLAGS="${BUILD_FLAGS}" \
 		--push .
 
 build-docker:
 	docker build -t godoxy-nightly \
-		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" .
+		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" \
+		--build-arg BUILD_FLAGS="${BUILD_FLAGS}" \
+		.
 
 gen-schema-single:
 	typescript-json-schema --noExtraProps --required --skipLibCheck --tsNodeRegister=true -o schemas/${OUT} schemas/${IN} ${CLASS}

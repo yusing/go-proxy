@@ -4,7 +4,7 @@ HEALTHCHECK NONE
 
 # package version does not matter
 # trunk-ignore(hadolint/DL3018)
-RUN apk add --no-cache tzdata make
+RUN apk add --no-cache tzdata make libcap-setcap
 
 WORKDIR /src
 
@@ -20,11 +20,13 @@ ENV GOCACHE=/root/.cache/go-build
 ARG VERSION
 ENV VERSION=${VERSION}
 
-COPY scripts /src/scripts
 COPY Makefile /src/
 COPY cmd /src/cmd
 COPY internal /src/internal
 COPY pkg /src/pkg
+
+ARG BUILD_FLAGS
+ENV BUILD_FLAGS=${BUILD_FLAGS}
 
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
