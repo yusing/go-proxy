@@ -67,6 +67,17 @@ func (res *fetchResult) OK() bool {
 	return res.icon != nil
 }
 
+func (res *fetchResult) ContentType() string {
+	if res.contentType == "" {
+		if bytes.HasPrefix(res.icon, []byte("<svg")) {
+			return "image/svg+xml"
+		} else {
+			return "image/x-icon"
+		}
+	}
+	return res.contentType
+}
+
 // GetFavIcon returns the favicon of the route
 //
 // Returns:
@@ -98,7 +109,7 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, fetchResult.errMsg, fetchResult.statusCode)
 			return
 		}
-		w.Header().Set("Content-Type", fetchResult.contentType)
+		w.Header().Set("Content-Type", fetchResult.ContentType())
 		U.WriteBody(w, fetchResult.icon)
 		return
 	}
@@ -129,7 +140,7 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, result.errMsg, result.statusCode)
 		return
 	}
-	w.Header().Set("Content-Type", result.contentType)
+	w.Header().Set("Content-Type", result.ContentType())
 	U.WriteBody(w, result.icon)
 }
 
@@ -188,13 +199,7 @@ func loadIconCache(key string) *fetchResult {
 			Str("key", key).
 			Msg("icon found in cache")
 
-		var contentType string
-		if bytes.HasPrefix(icon, []byte("<svg")) {
-			contentType = "image/svg+xml"
-		} else {
-			contentType = "image/x-icon"
-		}
-		return &fetchResult{icon: icon, contentType: contentType}
+		return &fetchResult{icon: icon}
 	}
 	return nil
 }
