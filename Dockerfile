@@ -17,13 +17,13 @@ RUN --mount=type=cache,target="/go/pkg/mod" \
 
 ENV GOCACHE=/root/.cache/go-build
 
-ARG VERSION
-ENV VERSION=${VERSION}
-
 COPY Makefile /src/
 COPY cmd /src/cmd
 COPY internal /src/internal
 COPY pkg /src/pkg
+
+ARG VERSION
+ENV VERSION=${VERSION}
 
 ARG BUILD_FLAGS
 ENV BUILD_FLAGS=${BUILD_FLAGS}

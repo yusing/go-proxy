@@ -5,7 +5,7 @@ export GOOS = linux
 LDFLAGS = -X github.com/yusing/go-proxy/pkg.version=${VERSION}
 
 ifeq ($(trace), 1)
-	GODOXY_TRACE=1
+	GODOXY_TRACE ?= 1
 endif
 
 ifeq ($(debug), 1)
@@ -14,16 +14,19 @@ ifeq ($(debug), 1)
   BUILD_FLAGS = ''
 else ifeq ($(pprof), 1)
 	CGO_ENABLED = 1
-	GODEBUG=gctrace=1 inittrace=1 schedtrace=3000
-	GORACE=log_path=logs/pprof strip_path_prefix=$(shell pwd)/
-  BUILD_FLAGS = -race -gcflags=all="-N -l" -tags pprof
+	GODEBUG = gctrace=1 inittrace=1 schedtrace=3000
+	GORACE = log_path=logs/pprof strip_path_prefix=$(shell pwd)/
+  BUILD_FLAGS = -race -gcflags=all='-N -l' -tags pprof
 	DOCKER_TAG = pprof
+	VERSION += -pprof
 else
 	CGO_ENABLED = 0
 	LDFLAGS += -s -w
   BUILD_FLAGS = -pgo=auto -tags production
 	DOCKER_TAG = latest
 endif
+
+BUILD_FLAGS += -ldflags='$(LDFLAGS)'
 
 export CGO_ENABLED
 export GODOXY_DEBUG
