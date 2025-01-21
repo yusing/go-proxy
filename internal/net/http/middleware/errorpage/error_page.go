@@ -19,19 +19,12 @@ import (
 const errPagesBasePath = common.ErrorPagesBasePath
 
 var (
-	setupMu        sync.Mutex
+	setupOnce      sync.Once
 	dirWatcher     W.Watcher
 	fileContentMap = F.NewMapOf[string, []byte]()
 )
 
 func setup() {
-	setupMu.Lock()
-	defer setupMu.Unlock()
-
-	if dirWatcher != nil {
-		return
-	}
-
 	t := task.RootTask("error_page", false)
 	dirWatcher = W.NewDirectoryWatcher(t, errPagesBasePath)
 	loadContent()
@@ -39,7 +32,7 @@ func setup() {
 }
 
 func GetStaticFile(filename string) ([]byte, bool) {
-	setup()
+	setupOnce.Do(setup)
 	return fileContentMap.Load(filename)
 }
 

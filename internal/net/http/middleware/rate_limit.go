@@ -49,8 +49,6 @@ func (rl *rateLimiter) newLimiter() *rate.Limiter {
 }
 
 func (rl *rateLimiter) limit(w http.ResponseWriter, r *http.Request) bool {
-	rl.mu.Lock()
-
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		rl.AddTracef("unable to parse remote address %s", r.RemoteAddr)
@@ -58,12 +56,12 @@ func (rl *rateLimiter) limit(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 
+	rl.mu.Lock()
 	limiter, ok := rl.requestMap[host]
 	if !ok {
 		limiter = rl.newLimiter()
 		rl.requestMap[host] = limiter
 	}
-
 	rl.mu.Unlock()
 
 	if limiter.Allow() {

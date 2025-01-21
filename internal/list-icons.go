@@ -42,7 +42,7 @@ const updateInterval = 2 * time.Hour
 
 var (
 	iconsCache   *Cache
-	iconsCahceMu sync.Mutex
+	iconsCahceMu sync.RWMutex
 	lastUpdate   time.Time
 )
 
@@ -71,14 +71,17 @@ func InitIconListCache() {
 }
 
 func ListAvailableIcons() (*Cache, error) {
-	iconsCahceMu.Lock()
-	defer iconsCahceMu.Unlock()
-
+	iconsCahceMu.RLock()
 	if time.Since(lastUpdate) < updateInterval {
 		if !iconsCache.needUpdate() {
+			iconsCahceMu.RUnlock()
 			return iconsCache, nil
 		}
 	}
+	iconsCahceMu.RUnlock()
+
+	iconsCahceMu.Lock()
+	defer iconsCahceMu.Unlock()
 
 	icons, err := fetchIconData()
 	if err != nil {

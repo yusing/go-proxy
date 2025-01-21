@@ -4,6 +4,7 @@ import (
 	"context"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/common"
@@ -44,8 +45,11 @@ type (
 		callbacks     map[*Callback]struct{}
 		callbacksDone chan struct{}
 
-		finished       chan struct{}
-		finishedCalled bool
+		finished chan struct{}
+		// finishedCalled == 1 Finish has been called
+		// but does not mean that the task is finished yet
+		// this is used to avoid calling Finish twice
+		finishedCalled uint32
 
 		mu sync.Mutex
 
@@ -93,13 +97,19 @@ func (t *Task) OnCancel(about string, fn func()) {
 // Finish cancel all subtasks and wait for them to finish,
 // then marks the task as finished, with the given reason (if any).
 func (t *Task) Finish(reason any) {
+	if atomic.LoadUint32(&t.finishedCalled) == 1 {
+		return
+	}
+
 	t.mu.Lock()
-	if t.finishedCalled {
+	if t.finishedCalled == 1 {
 		t.mu.Unlock()
 		return
 	}
-	t.finishedCalled = true
+
+	t.finishedCalled = 1
 	t.mu.Unlock()
+
 	t.finish(reason)
 }
 

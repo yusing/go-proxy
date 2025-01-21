@@ -19,8 +19,8 @@ type (
 		io   AccessLogIO
 
 		buf     bytes.Buffer // buffer for non-flushed log
-		bufMu   sync.Mutex   // protect buf
-		bufPool sync.Pool    // buffer pool for formatting a single log line
+		bufMu   sync.RWMutex
+		bufPool sync.Pool // buffer pool for formatting a single log line
 
 		flushThreshold int
 
@@ -123,10 +123,10 @@ func (l *AccessLogger) Flush(force bool) {
 		return
 	}
 	if force || l.buf.Len() >= l.flushThreshold {
-		l.bufMu.Lock()
+		l.bufMu.RLock()
 		l.write(l.buf.Bytes())
 		l.buf.Reset()
-		l.bufMu.Unlock()
+		l.bufMu.RUnlock()
 	}
 }
 

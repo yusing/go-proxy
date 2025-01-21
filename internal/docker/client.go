@@ -12,7 +12,6 @@ import (
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
 type (
@@ -27,7 +26,7 @@ type (
 )
 
 var (
-	clientMap   F.Map[string, *SharedClient] = F.NewMapOf[string, *SharedClient]()
+	clientMap   = make(map[string]*SharedClient, 5)
 	clientMapMu sync.Mutex
 
 	clientOptEnvHost = []client.Opt{
@@ -38,11 +37,14 @@ var (
 
 func init() {
 	task.OnProgramExit("docker_clients_cleanup", func() {
-		clientMap.RangeAllParallel(func(_ string, c *SharedClient) {
+		clientMapMu.Lock()
+		defer clientMapMu.Unlock()
+
+		for _, c := range clientMap {
 			if c.Connected() {
 				c.Client.Close()
 			}
-		})
+		}
 	})
 }
 
@@ -71,8 +73,7 @@ func ConnectClient(host string) (*SharedClient, error) {
 	clientMapMu.Lock()
 	defer clientMapMu.Unlock()
 
-	// check if client exists
-	if client, ok := clientMap.Load(host); ok {
+	if client, ok := clientMap[host]; ok {
 		client.refCount.Add()
 		return client, nil
 	}
@@ -123,11 +124,13 @@ func ConnectClient(host string) (*SharedClient, error) {
 	}
 	c.l.Trace().Msg("client connected")
 
-	clientMap.Store(host, c)
+	clientMap[host] = c
 
 	go func() {
 		<-c.refCount.Zero()
-		clientMap.Delete(c.key)
+		clientMapMu.Lock()
+		delete(clientMap, c.key)
+		clientMapMu.Unlock()
 
 		if c.Connected() {
 			c.Client.Close()

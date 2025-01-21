@@ -23,8 +23,9 @@ type logEntryRange struct {
 
 type memLogger struct {
 	bytes.Buffer
-	sync.Mutex
-	connChans F.Map[chan *logEntryRange, struct{}]
+	sync.RWMutex
+	notifyLock sync.RWMutex
+	connChans  F.Map[chan *logEntryRange, struct{}]
 }
 
 const (
@@ -72,25 +73,28 @@ func MemLogger() io.Writer {
 }
 
 func (m *memLogger) Write(p []byte) (n int, err error) {
-	m.Lock()
-
+	m.RLock()
 	if m.Len() > maxMemLogSize {
 		m.Truncate(truncateSize)
 	}
+	m.RUnlock()
 
-	pos := m.Buffer.Len()
 	n = len(p)
+	m.Lock()
+	pos := m.Len()
 	_, err = m.Buffer.Write(p)
+	m.Unlock()
+
 	if err != nil {
-		m.Unlock()
 		return
 	}
 
 	if m.connChans.Size() > 0 {
-		m.Unlock()
 		timeout := time.NewTimer(1 * time.Second)
 		defer timeout.Stop()
 
+		m.notifyLock.RLock()
+		defer m.notifyLock.RUnlock()
 		m.connChans.Range(func(ch chan *logEntryRange, _ struct{}) bool {
 			select {
 			case ch <- &logEntryRange{pos, pos + n}:
@@ -102,8 +106,6 @@ func (m *memLogger) Write(p []byte) (n int, err error) {
 		})
 		return
 	}
-
-	m.Unlock()
 	return
 }
 
@@ -120,8 +122,11 @@ func (m *memLogger) ServeHTTP(config config.ConfigInstance, w http.ResponseWrite
 	/* trunk-ignore(golangci-lint/errcheck) */
 	defer func() {
 		_ = conn.CloseNow()
+
+		m.notifyLock.Lock()
 		m.connChans.Delete(logCh)
 		close(logCh)
+		m.notifyLock.Unlock()
 	}()
 
 	if err := m.wsInitial(r.Context(), conn); err != nil {
@@ -149,10 +154,10 @@ func (m *memLogger) wsStreamLog(ctx context.Context, conn *websocket.Conn, ch <-
 		case <-ctx.Done():
 			return
 		case logRange := <-ch:
-			m.Lock()
+			m.RLock()
 			msg := m.Buffer.Bytes()[logRange.Start:logRange.End]
 			err := m.writeBytes(ctx, conn, msg)
-			m.Unlock()
+			m.RUnlock()
 			if err != nil {
 				return
 			}

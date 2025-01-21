@@ -39,6 +39,7 @@ func init() {
 }
 
 func main() {
+	initProfiling()
 	args := common.GetArgs()
 
 	switch args.Command {
