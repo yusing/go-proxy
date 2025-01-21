@@ -80,6 +80,7 @@ func (auth *OIDCProvider) TokenCookieName() string {
 
 func (auth *OIDCProvider) SetIsMiddleware(enabled bool) {
 	auth.isMiddleware = enabled
+	auth.oauthConfig.RedirectURL = ""
 }
 
 func (auth *OIDCProvider) SetAllowedUsers(users []string) {
