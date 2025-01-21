@@ -1,5 +1,7 @@
 package homepage
 
+import "github.com/yusing/go-proxy/internal/utils"
+
 type (
 	//nolint:recvcheck
 	Config   map[string]Category
@@ -27,6 +29,14 @@ type (
 		IsUnset bool `json:"-"`
 	}
 )
+
+func init() {
+	utils.RegisterDefaultValueFactory(func() *ItemConfig {
+		return &ItemConfig{
+			Show: true,
+		}
+	})
+}
 
 func NewItem(alias string) *Item {
 	return &Item{
