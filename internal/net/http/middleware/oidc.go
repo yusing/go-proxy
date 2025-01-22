@@ -20,7 +20,7 @@ var OIDC = NewMiddleware[oidcMiddleware]()
 
 func (amw *oidcMiddleware) finalize() error {
 	if !auth.IsOIDCEnabled() {
-		return E.New("OIDC not enabled but ODIC middleware is used")
+		return E.New("OIDC not enabled but OIDC middleware is used")
 	}
 	authProvider, err := auth.NewOIDCProviderFromEnv()
 	if err != nil {
