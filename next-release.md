@@ -114,10 +114,10 @@ GoDoxy v0.8.2 expected changes
       on: method POST | method PUT
       do: error 403 Forbidden
   ```
-
 - **new** Brand new rewritten WebUI
   - View logs directly from WebUI
-  - Edit dashboard item config (overrides docker labels and include file)
+  - Edit dashboard app config (e.g. icon, name, category, etc.)
+  - Toggle show / hide apps
   - Health bubbles, latency, etc. rich info on dashboard items
 - **new** Support selfh.st icons: `@selfhst/<reference>.<format>` _(e.g. `@selfhst/adguard-home.webp`)_
   - also uses the display name on https://selfh.st/icons/ as default for our dashboard!

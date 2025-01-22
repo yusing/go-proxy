@@ -77,10 +77,6 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 			return
 		}
 
-		if item.Hide || !item.Show {
-			return
-		}
-
 		item.Alias = alias
 		item.Provider = r.RawEntry().Provider
 
