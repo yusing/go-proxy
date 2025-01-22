@@ -1,66 +1,31 @@
 package favicon
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"io"
-	"net"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/vincent-petithory/dataurl"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
-	"github.com/yusing/go-proxy/internal/task"
-	"github.com/yusing/go-proxy/internal/utils"
 )
-
-type content struct {
-	header http.Header
-	data   []byte
-	status int
-}
 
 type fetchResult struct {
 	icon        []byte
 	contentType string
 	statusCode  int
 	errMsg      string
-}
-
-func newContent() *content {
-	return &content{
-		header: make(http.Header),
-	}
-}
-
-func (c *content) Header() http.Header {
-	return c.header
-}
-
-func (c *content) Write(data []byte) (int, error) {
-	c.data = append(c.data, data...)
-	return len(data), nil
-}
-
-func (c *content) WriteHeader(statusCode int) {
-	c.status = statusCode
-}
-
-func (c *content) Hijack() (net.Conn, *bufio.ReadWriter, error) {
-	return nil, nil, errors.New("not supported")
 }
 
 func (res *fetchResult) OK() bool {
@@ -154,60 +119,6 @@ func getFavIconFromURL(iconURL *homepage.IconURL) *fetchResult {
 		return fetchKnownIcon(iconURL)
 	}
 	return &fetchResult{statusCode: http.StatusBadRequest, errMsg: "invalid icon source"}
-}
-
-// cache key can be absolute url or route name.
-var (
-	iconCache   = make(map[string][]byte)
-	iconCacheMu sync.RWMutex
-)
-
-func InitIconCache() {
-	err := utils.LoadJSONIfExist(common.IconCachePath, &iconCache)
-	if err != nil {
-		logging.Error().Err(err).Msg("failed to load icon cache")
-	} else {
-		logging.Info().Msgf("icon cache loaded (%d icons)", len(iconCache))
-	}
-
-	task.OnProgramExit("save_favicon_cache", func() {
-		iconCacheMu.Lock()
-		defer iconCacheMu.Unlock()
-
-		if err := utils.SaveJSON(common.IconCachePath, &iconCache, 0o644); err != nil {
-			logging.Error().Err(err).Msg("failed to save icon cache")
-		}
-	})
-}
-
-func routeKey(r route.HTTPRoute) string {
-	return r.RawEntry().Provider + ":" + r.TargetName()
-}
-
-func ResetIconCache(route route.HTTPRoute) {
-	iconCacheMu.Lock()
-	defer iconCacheMu.Unlock()
-	delete(iconCache, routeKey(route))
-}
-
-func loadIconCache(key string) *fetchResult {
-	iconCacheMu.RLock()
-	defer iconCacheMu.RUnlock()
-	icon, ok := iconCache[key]
-	if ok && icon != nil {
-		logging.Debug().
-			Str("key", key).
-			Msg("icon found in cache")
-
-		return &fetchResult{icon: icon}
-	}
-	return nil
-}
-
-func storeIconCache(key string, icon []byte) {
-	iconCacheMu.Lock()
-	defer iconCacheMu.Unlock()
-	iconCache[key] = icon
 }
 
 func fetchIconAbsolute(url string) *fetchResult {

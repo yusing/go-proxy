@@ -40,6 +40,9 @@ func InitOverridesConfig() {
 		logging.Info().Msgf("homepage overrides config loaded, %d items", len(overrideConfigInstance.ItemOverrides))
 	}
 	task.OnProgramExit("save_homepage_json_config", func() {
+		if len(overrideConfigInstance.ItemOverrides) == 0 {
+			return
+		}
 		if err := utils.SaveJSON(common.HomepageJSONConfigPath, overrideConfigInstance, 0o644); err != nil {
 			logging.Error().Err(err).Msg("failed to save homepage overrides config")
 		}

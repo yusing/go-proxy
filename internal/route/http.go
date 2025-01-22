@@ -163,7 +163,7 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 		r.task.OnCancel("metrics_cleanup", r.rp.UnregisterMetrics)
 	}
 
-	r.task.OnCancel("reset_favicon", func() { favicon.ResetIconCache(r) })
+	r.task.OnCancel("reset_favicon", func() { favicon.PruneRouteIconCache(r) })
 	return nil
 }
 

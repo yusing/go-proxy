@@ -429,12 +429,12 @@ func DeserializeJSON[T any](data []byte, target T) E.Error {
 	return Deserialize(m, target)
 }
 
-func LoadJSON[T any](path string, dst *T) error {
+func loadSerialized[T any](path string, dst *T, deserialize func(data []byte, dst any) error) error {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, dst)
+	return deserialize(data, dst)
 }
 
 func SaveJSON[T any](path string, src *T, perm os.FileMode) error {
@@ -453,5 +453,5 @@ func LoadJSONIfExist[T any](path string, dst *T) error {
 		}
 		return err
 	}
-	return LoadJSON(path, dst)
+	return loadSerialized(path, dst, json.Unmarshal)
 }

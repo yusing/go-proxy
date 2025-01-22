@@ -6,8 +6,8 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.1
 	github.com/coder/websocket v1.8.12
 	github.com/coreos/go-oidc/v3 v3.12.0
-	github.com/docker/cli v27.5.0+incompatible
-	github.com/docker/docker v27.5.0+incompatible
+	github.com/docker/cli v27.5.1+incompatible
+	github.com/docker/docker v27.5.1+incompatible
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/go-acme/lego/v4 v4.21.0
 	github.com/go-playground/validator/v10 v10.24.0
