@@ -7,7 +7,6 @@ import (
 	"os"
 	"path"
 	"reflect"
-	"runtime"
 	"sort"
 	"time"
 
@@ -169,7 +168,7 @@ func (p *Provider) ScheduleRenewal(parent task.Parent) {
 				return
 			case <-timer.C:
 				// Retry after 1 hour on failure
-				if time.Now().Before(lastErrOn.Add(time.Hour)) {
+				if !lastErrOn.IsZero() && time.Now().Before(lastErrOn.Add(time.Hour)) {
 					continue
 				}
 				if err := p.renewIfNeeded(); err != nil {
@@ -181,9 +180,6 @@ func (p *Provider) ScheduleRenewal(parent task.Parent) {
 				lastErrOn = time.Time{}
 				renewalTime = p.ShouldRenewOn()
 				timer.Reset(time.Until(renewalTime))
-			default:
-				// Allow other tasks to run
-				runtime.Gosched()
 			}
 		}
 	}()
