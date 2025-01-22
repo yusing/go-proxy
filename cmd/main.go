@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal"
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
@@ -28,11 +29,12 @@ import (
 var rawLogger = log.New(os.Stdout, "", 0)
 
 func init() {
-	var out io.Writer = os.Stdout
+	var out io.Writer = os.Stderr
 	if common.EnableLogStreaming {
-		out = io.MultiWriter(out, v1.MemLogger())
+		out = zerolog.MultiLevelWriter(out, v1.GetMemLogger())
 	}
 	logging.InitLogger(out)
+	// logging.AddHook(v1.GetMemLogger())
 	internal.InitIconListCache()
 	homepage.InitOverridesConfig()
 	favicon.InitIconCache()

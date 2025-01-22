@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -26,16 +27,36 @@ type memLogger struct {
 	sync.RWMutex
 	notifyLock sync.RWMutex
 	connChans  F.Map[chan *logEntryRange, struct{}]
+
+	bufPool sync.Pool // used in hook mode
+}
+
+type MemLogger interface {
+	io.Writer
+	// TODO: hook does not pass in fields, looking for a workaround to do server side log rendering
+	zerolog.Hook
+}
+
+type buffer struct {
+	data []byte
 }
 
 const (
 	maxMemLogSize         = 16 * 1024
 	truncateSize          = maxMemLogSize / 2
 	initialWriteChunkSize = 4 * 1024
+	hookModeBufSize       = 256
 )
 
 var memLoggerInstance = &memLogger{
 	connChans: F.NewMapOf[chan *logEntryRange, struct{}](),
+	bufPool: sync.Pool{
+		New: func() any {
+			return &buffer{
+				data: make([]byte, 0, hookModeBufSize),
+			}
+		},
+	},
 }
 
 func init() {
@@ -68,27 +89,28 @@ func LogsWS() func(config config.ConfigInstance, w http.ResponseWriter, r *http.
 	return memLoggerInstance.ServeHTTP
 }
 
-func MemLogger() io.Writer {
+func GetMemLogger() MemLogger {
 	return memLoggerInstance
 }
 
-func (m *memLogger) Write(p []byte) (n int, err error) {
+func (m *memLogger) truncateIfNeeded(n int) {
 	m.RLock()
-	if m.Len() > maxMemLogSize {
-		m.Truncate(truncateSize)
-	}
+	needTruncate := m.Len()+n > maxMemLogSize
 	m.RUnlock()
 
-	n = len(p)
-	m.Lock()
-	pos := m.Len()
-	_, err = m.Buffer.Write(p)
-	m.Unlock()
+	if needTruncate {
+		m.Lock()
+		defer m.Unlock()
+		needTruncate = m.Len()+n > maxMemLogSize
+		if !needTruncate {
+			return
+		}
 
-	if err != nil {
-		return
+		m.Truncate(truncateSize)
 	}
+}
 
+func (m *memLogger) notifyWS(pos, n int) {
 	if m.connChans.Size() > 0 {
 		timeout := time.NewTimer(1 * time.Second)
 		defer timeout.Stop()
@@ -106,6 +128,51 @@ func (m *memLogger) Write(p []byte) (n int, err error) {
 		})
 		return
 	}
+}
+
+func (m *memLogger) writeBuf(b []byte) (pos int, err error) {
+	m.Lock()
+	defer m.Unlock()
+	pos = m.Len()
+	_, err = m.Buffer.Write(b)
+	return
+}
+
+// Run implements zerolog.Hook.
+func (m *memLogger) Run(e *zerolog.Event, level zerolog.Level, message string) {
+	bufStruct := m.bufPool.Get().(*buffer)
+	buf := bufStruct.data
+	defer func() {
+		bufStruct.data = bufStruct.data[:0]
+		m.bufPool.Put(bufStruct)
+	}()
+
+	buf = logging.FormatLogEntryHTML(level, message, buf)
+	n := len(buf)
+
+	m.truncateIfNeeded(n)
+
+	pos, err := m.writeBuf(buf)
+	if err != nil {
+		// not logging the error here, it will cause Run to be called again = infinite loop
+		return
+	}
+
+	m.notifyWS(pos, n)
+}
+
+// Write implements io.Writer.
+func (m *memLogger) Write(p []byte) (n int, err error) {
+	n = len(p)
+	m.truncateIfNeeded(n)
+
+	pos, err := m.writeBuf(p)
+	if err != nil {
+		// not logging the error here, it will cause Run to be called again = infinite loop
+		return
+	}
+
+	m.notifyWS(pos, n)
 	return
 }
 

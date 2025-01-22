@@ -2,4 +2,6 @@
 
 package main
 
-func initProfiling() {}
+func initProfiling() {
+	// no profiling in production
+}

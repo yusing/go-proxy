@@ -10,13 +10,15 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-var logger zerolog.Logger
+var (
+	logger     zerolog.Logger
+	timeFmt    string
+	level      zerolog.Level
+	prefix     string
+	prefixHTML []byte
+)
 
-func InitLogger(out io.Writer) {
-	var timeFmt string
-	var level zerolog.Level
-	var exclude []string
-
+func init() {
 	switch {
 	case common.IsTrace:
 		timeFmt = "04:05"
@@ -28,27 +30,37 @@ func InitLogger(out io.Writer) {
 		timeFmt = "01-02 15:04"
 		level = zerolog.InfoLevel
 	}
-
 	prefixLength := len(timeFmt) + 5 // level takes 3 + 2 spaces
-	prefix := strings.Repeat(" ", prefixLength)
+	prefix = strings.Repeat(" ", prefixLength)
+	// prefixHTML = []byte(strings.Repeat("&nbsp;", prefixLength))
+	prefixHTML = []byte(prefix)
 
-	logger = zerolog.New(
-		zerolog.ConsoleWriter{
-			Out:           out,
-			TimeFormat:    timeFmt,
-			FieldsExclude: exclude,
-			FormatMessage: func(msgI interface{}) string { // pad spaces for each line
-				msg := msgI.(string)
-				lines := strutils.SplitRune(msg, '\n')
-				if len(lines) == 1 {
-					return msg
-				}
-				for i := 1; i < len(lines); i++ {
-					lines[i] = prefix + lines[i]
-				}
-				return strutils.JoinRune(lines, '\n')
-			},
+	if zerolog.TraceLevel != -1 && zerolog.NoLevel != 6 {
+		panic("zerolog implementation changed")
+	}
+}
+
+func fmtMessage(msg string) string {
+	lines := strutils.SplitRune(msg, '\n')
+	if len(lines) == 1 {
+		return msg
+	}
+	for i := 1; i < len(lines); i++ {
+		lines[i] = prefix + lines[i]
+	}
+	return strutils.JoinRune(lines, '\n')
+}
+
+func InitLogger(out io.Writer) {
+	writer := zerolog.ConsoleWriter{
+		Out:        out,
+		TimeFormat: timeFmt,
+		FormatMessage: func(msgI interface{}) string { // pad spaces for each line
+			return fmtMessage(msgI.(string))
 		},
+	}
+	logger = zerolog.New(
+		writer,
 	).Level(level).With().Timestamp().Logger()
 }
 
