@@ -49,7 +49,12 @@ func Notify(msg *LogMessage) {
 	if dispatcher == nil {
 		return
 	}
-	dispatcher.logCh <- msg
+	select {
+	case <-dispatcher.task.Context().Done():
+		return
+	default:
+		dispatcher.logCh <- msg
+	}
 }
 
 func (disp *Dispatcher) RegisterProvider(cfg types.NotificationConfig) (Provider, E.Error) {
