@@ -69,11 +69,15 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		if override := item.GetOverride(); override != item {
+			if providerFilter != "" && override.Provider != providerFilter ||
+				categoryFilter != "" && override.Category != categoryFilter {
+				return
+			}
 			hpCfg.Add(override)
 			return
 		}
 
-		if !item.Show {
+		if item.Hide || !item.Show {
 			return
 		}
 
