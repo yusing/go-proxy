@@ -6,12 +6,14 @@ import (
 
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 const (
 	HomepageOverrideItem          = "item"
 	HomepageOverrideCategoryOrder = "category_order"
 	HomepageOverrideCategoryName  = "category_name"
+	HomepageOverrideItemVisible   = "item_visible"
 )
 
 func SetHomePageOverrides(w http.ResponseWriter, r *http.Request) {
@@ -33,6 +35,13 @@ func SetHomePageOverrides(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		overrides.OverrideItem(which, &override)
+	case HomepageOverrideItemVisible: // POST /v1/item_visible [a,b,c], false => hide a, b, c
+		keys := strutils.CommaSeperatedList(which)
+		if strutils.ParseBool(value) {
+			overrides.UnhideItems(keys...)
+		} else {
+			overrides.HideItems(keys...)
+		}
 	case HomepageOverrideCategoryName:
 		overrides.SetCategoryNameOverride(which, value)
 	case HomepageOverrideCategoryOrder:
