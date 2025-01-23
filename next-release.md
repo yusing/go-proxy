@@ -1,4 +1,18 @@
-GoDoxy v0.8.2 expected changes
+GoDoxy v0.9.0 expected changes
+
+- **new** Brand new rewritten WebUI
+  - View logs directly from WebUI
+  - Edit dashboard app config (e.g. icon, name, category, etc.)
+  - Toggle show / hide apps
+  - Health bubbles, latency, etc. rich info on dashboard items
+  ![{7829FA41-5733-4BAD-8183-CDF093CEC6F2}](https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f)
+  ![{29A4608C-607F-43C9-A542-15EC6B9D024E}](https://github.com/user-attachments/assets/8469cfaf-dc37-4b6e-9f29-c44eea91bb82)
+  ![{83118DF5-9D46-4D00-9CEF-C0F6C8D18C4B}](https://github.com/user-attachments/assets/856140f0-78bb-4a76-98f2-ad47544a3515)
+- **new** Support selfh.st icons: `@selfhst/<reference>.<format>` _(e.g. `@selfhst/adguard-home.webp`)_
+  - also uses the display name on https://selfh.st/icons/ as default for our dashboard!
+- **new** GoDoxy server side favicon retreiving and caching
+  - deliver smooth dashboard experience by caching favicons
+  - correct icon can show without setting `homepage.icon` by parsing it from app's root path "/", selecting `link[rel=icon]` from HTML as default icon
 
 - **Thanks [polds](https://github.com/polds)**
   Optionally allow a user to specify a “warm-up” endpoint to start the container, returning a 403 if the endpoint isn’t hit and the container has been stopped.
@@ -114,16 +128,6 @@ GoDoxy v0.8.2 expected changes
       on: method POST | method PUT
       do: error 403 Forbidden
   ```
-- **new** Brand new rewritten WebUI
-  - View logs directly from WebUI
-  - Edit dashboard app config (e.g. icon, name, category, etc.)
-  - Toggle show / hide apps
-  - Health bubbles, latency, etc. rich info on dashboard items
-- **new** Support selfh.st icons: `@selfhst/<reference>.<format>` _(e.g. `@selfhst/adguard-home.webp`)_
-  - also uses the display name on https://selfh.st/icons/ as default for our dashboard!
-- **new** GoDoxy server side favicon retreiving and caching
-  - deliver smooth dashboard experience by caching favicons
-  - correct icon can show without setting `homepage.icon` by parsing it from app's root path "/", selecting `link[rel=icon]` from HTML as default icon
 - config reload will now cause a server full restart (i.e. proxy, api, prometheus, etc), eliminating some incorrect behaviors
 - drop support of inline yaml string list without hyphen `-` prefix, e.g.
   ```yaml
