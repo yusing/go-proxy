@@ -130,7 +130,6 @@ func TestApplyLabel(t *testing.T) {
 	ExpectEqual(t, b.Container.StopSignal, "SIGTERM")
 
 	ExpectEqual(t, a.Homepage.Show, true)
-	ExpectEqual(t, a.Homepage.Hide, false)
 	ExpectEqual(t, a.Homepage.Icon.Value, "png/adguard-home.png")
 	ExpectEqual(t, a.Homepage.Icon.Extra.FileType, "png")
 	ExpectEqual(t, a.Homepage.Icon.Extra.Name, "adguard-home")

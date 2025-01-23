@@ -11,9 +11,8 @@ type oidcMiddleware struct {
 	AllowedUsers  []string `json:"allowed_users"`
 	AllowedGroups []string `json:"allowed_groups"`
 
-	auth          auth.Provider
-	authMux       *http.ServeMux
-	logoutHandler http.HandlerFunc
+	auth    auth.Provider
+	authMux *http.ServeMux
 }
 
 var OIDC = NewMiddleware[oidcMiddleware]()
@@ -41,7 +40,6 @@ func (amw *oidcMiddleware) finalize() error {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 	})
 	amw.authMux.HandleFunc("/", authProvider.RedirectLoginPage)
-	amw.logoutHandler = auth.LogoutCallbackHandler(authProvider)
 	amw.auth = authProvider
 	return nil
 }
@@ -52,7 +50,7 @@ func (amw *oidcMiddleware) before(w http.ResponseWriter, r *http.Request) (proce
 		return false
 	}
 	if r.URL.Path == auth.OIDCLogoutPath {
-		amw.logoutHandler(w, r)
+		amw.auth.LogoutCallbackHandler(w, r)
 		return false
 	}
 	return true

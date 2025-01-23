@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"time"
 
@@ -23,6 +24,7 @@ type OIDCProvider struct {
 	oauthConfig   *oauth2.Config
 	oidcProvider  *oidc.Provider
 	oidcVerifier  *oidc.IDTokenVerifier
+	oidcLogoutURL *url.URL
 	allowedUsers  []string
 	allowedGroups []string
 	isMiddleware  bool
@@ -35,9 +37,18 @@ const (
 	OIDCLogoutPath             = "/auth/logout"
 )
 
-func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allowedUsers, allowedGroups []string) (*OIDCProvider, error) {
+func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL, logoutURL string, allowedUsers, allowedGroups []string) (*OIDCProvider, error) {
 	if len(allowedUsers)+len(allowedGroups) == 0 {
 		return nil, errors.New("OIDC users, groups, or both must not be empty")
+	}
+
+	var logout *url.URL
+	var err error
+	if logoutURL != "" {
+		logout, err = url.Parse(logoutURL)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse logout URL: %w", err)
+		}
 	}
 
 	provider, err := oidc.NewProvider(context.Background(), issuerURL)
@@ -57,6 +68,7 @@ func NewOIDCProvider(issuerURL, clientID, clientSecret, redirectURL string, allo
 		oidcVerifier: provider.Verifier(&oidc.Config{
 			ClientID: clientID,
 		}),
+		oidcLogoutURL: logout,
 		allowedUsers:  allowedUsers,
 		allowedGroups: allowedGroups,
 	}, nil
@@ -69,6 +81,7 @@ func NewOIDCProviderFromEnv() (*OIDCProvider, error) {
 		common.OIDCClientID,
 		common.OIDCClientSecret,
 		common.OIDCRedirectURL,
+		common.OIDCLogoutURL,
 		common.OIDCAllowedUsers,
 		common.OIDCAllowedGroups,
 	)
@@ -220,6 +233,25 @@ func (auth *OIDCProvider) LoginCallbackHandler(w http.ResponseWriter, r *http.Re
 
 	// Redirect to home page
 	http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+}
+
+func (auth *OIDCProvider) LogoutCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	if auth.oidcLogoutURL == nil {
+		DefaultLogoutCallbackHandler(auth, w, r)
+		return
+	}
+
+	token, err := r.Cookie(auth.TokenCookieName())
+	if err != nil {
+		U.HandleErr(w, r, E.New("missing token cookie"), http.StatusBadRequest)
+		return
+	}
+	clearTokenCookie(w, r, auth.TokenCookieName())
+
+	logoutURL := *auth.oidcLogoutURL
+	logoutURL.Query().Add("id_token_hint", token.Value)
+
+	http.Redirect(w, r, logoutURL.String(), http.StatusFound)
 }
 
 // handleTestCallback handles OIDC callback in test environment.

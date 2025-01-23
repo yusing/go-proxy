@@ -115,7 +115,7 @@ func setupProvider(t *testing.T) *provider {
 	}
 }
 
-// buildRSAJWK is a helper to construct a minimal JWK for the JWKS endpoint
+// buildRSAJWK is a helper to construct a minimal JWK for the JWKS endpoint.
 func buildRSAJWK(t *testing.T, pub *rsa.PublicKey, kid string) map[string]any {
 	t.Helper()
 
@@ -257,18 +257,14 @@ func TestInitOIDC(t *testing.T) {
 		clientID      string
 		clientSecret  string
 		redirectURL   string
+		logoutURL     string
 		allowedUsers  []string
 		allowedGroups []string
 		wantErr       bool
 	}{
 		{
-			name:         "Fail - Empty configuration",
-			issuerURL:    "",
-			clientID:     "",
-			clientSecret: "",
-			redirectURL:  "",
-			allowedUsers: nil,
-			wantErr:      true,
+			name:    "Fail - Empty configuration",
+			wantErr: true,
 		},
 		{
 			name:         "Success - Valid configuration with users",
@@ -289,6 +285,17 @@ func TestInitOIDC(t *testing.T) {
 			wantErr:       false,
 		},
 		{
+			name:          "Success - Valid configuration with users, groups and logout URL",
+			issuerURL:     server.URL,
+			clientID:      "client_id",
+			clientSecret:  "client_secret",
+			redirectURL:   "https://example.com/callback",
+			logoutURL:     "https://example.com/logout",
+			allowedUsers:  []string{"user1", "user2"},
+			allowedGroups: []string{"group1", "group2"},
+			wantErr:       false,
+		},
+		{
 			name:         "Fail - No allowed users or allowed groups",
 			issuerURL:    "https://example.com",
 			clientID:     "client_id",
@@ -300,7 +307,7 @@ func TestInitOIDC(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewOIDCProvider(tt.issuerURL, tt.clientID, tt.clientSecret, tt.redirectURL, tt.allowedUsers, tt.allowedGroups)
+			_, err := NewOIDCProvider(tt.issuerURL, tt.clientID, tt.clientSecret, tt.redirectURL, tt.logoutURL, tt.allowedUsers, tt.allowedGroups)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("InitOIDC() error = %v, wantErr %v", err, tt.wantErr)
 			}

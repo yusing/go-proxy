@@ -92,6 +92,8 @@ GoDoxy v0.9.0 expected changes
   - `GODOXY_OIDC_ISSUER_URL` e.g.:
     - Pocket ID: `https://pocker-id.yourdomain.com`
     - Authentik: `https://authentik.yourdomain.com/application/o/<application_slug>/` **The ending slash is required**
+  - `GODOXY_OIDC_LOGOUT_URL` _(if your issuer supports it, e.g.)_
+    - Authentik: `https://authentik.yourdomain.com/application/o/<application_slug>/end-session`
   - `GODOXY_OIDC_CLIENT_ID`
   - `GODOXY_OIDC_CLIENT_SECRET`
   - `GODOXY_OIDC_REDIRECT_URL`

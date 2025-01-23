@@ -128,6 +128,10 @@ func (auth *UserPassAuth) LoginCallbackHandler(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusOK)
 }
 
+func (auth *UserPassAuth) LogoutCallbackHandler(w http.ResponseWriter, r *http.Request) {
+	DefaultLogoutCallbackHandler(auth, w, r)
+}
+
 func (auth *UserPassAuth) validatePassword(user, pass string) error {
 	if user != auth.username {
 		return ErrInvalidUsername.Subject(user)

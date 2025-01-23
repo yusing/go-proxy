@@ -46,7 +46,7 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 			}
 		})
 		mux.HandleFunc("GET,POST", "/v1/auth/callback", defaultAuth.LoginCallbackHandler)
-		mux.HandleFunc("GET,POST", "/v1/auth/logout", auth.LogoutCallbackHandler(defaultAuth))
+		mux.HandleFunc("GET,POST", "/v1/auth/logout", defaultAuth.LogoutCallbackHandler)
 	} else {
 		mux.HandleFunc("GET", "/v1/auth/check", func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)

@@ -62,9 +62,8 @@ func clearTokenCookie(w http.ResponseWriter, r *http.Request, name string) {
 	})
 }
 
-func LogoutCallbackHandler(auth Provider) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		clearTokenCookie(w, r, auth.TokenCookieName())
-		auth.RedirectLoginPage(w, r)
-	}
+// DefaultLogoutCallbackHandler clears the token cookie and redirects to the login page..
+func DefaultLogoutCallbackHandler(auth Provider, w http.ResponseWriter, r *http.Request) {
+	clearTokenCookie(w, r, auth.TokenCookieName())
+	auth.RedirectLoginPage(w, r)
 }
