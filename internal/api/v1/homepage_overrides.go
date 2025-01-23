@@ -1,56 +1,87 @@
 package v1
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
-	"strconv"
 
+	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/homepage"
-	"github.com/yusing/go-proxy/internal/utils"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 const (
 	HomepageOverrideItem          = "item"
+	HomepageOverrideItemsBatch    = "items_batch"
 	HomepageOverrideCategoryOrder = "category_order"
-	HomepageOverrideCategoryName  = "category_name"
 	HomepageOverrideItemVisible   = "item_visible"
 )
 
+type (
+	HomepageOverrideItemParams struct {
+		Which string              `json:"which"`
+		Value homepage.ItemConfig `json:"value"`
+	}
+	HomepageOverrideItemsBatchParams struct {
+		Value map[string]*homepage.ItemConfig `json:"value"`
+	}
+	HomepageOverrideCategoryOrderParams struct {
+		Which string `json:"which"`
+		Value int    `json:"value"`
+	}
+	HomepageOverrideItemVisibleParams struct {
+		Which []string `json:"which"`
+		Value bool     `json:"value"`
+	}
+)
+
 func SetHomePageOverrides(w http.ResponseWriter, r *http.Request) {
-	what, which, value := r.FormValue("what"), r.FormValue("which"), r.FormValue("value")
-	if what == "" || which == "" {
+	what := r.FormValue("what")
+	if what == "" {
 		http.Error(w, "missing what or which", http.StatusBadRequest)
 		return
 	}
-	if value == "" {
-		http.Error(w, "missing value", http.StatusBadRequest)
+
+	data, err := io.ReadAll(r.Body)
+	if err != nil {
+		utils.RespondError(w, err, http.StatusBadRequest)
 		return
 	}
+	r.Body.Close()
+
 	overrides := homepage.GetOverrideConfig()
 	switch what {
 	case HomepageOverrideItem:
-		var override homepage.ItemConfig
-		if err := utils.DeserializeJSON([]byte(value), &override); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+		var params HomepageOverrideItemParams
+		if err := json.Unmarshal(data, &params); err != nil {
+			utils.RespondError(w, err, http.StatusBadRequest)
 			return
 		}
-		overrides.OverrideItem(which, &override)
+		overrides.OverrideItem(params.Which, &params.Value)
+	case HomepageOverrideItemsBatch:
+		var params HomepageOverrideItemsBatchParams
+		if err := json.Unmarshal(data, &params); err != nil {
+			utils.RespondError(w, err, http.StatusBadRequest)
+			return
+		}
+		overrides.OverrideItems(params.Value)
 	case HomepageOverrideItemVisible: // POST /v1/item_visible [a,b,c], false => hide a, b, c
-		keys := strutils.CommaSeperatedList(which)
-		if strutils.ParseBool(value) {
-			overrides.UnhideItems(keys...)
-		} else {
-			overrides.HideItems(keys...)
-		}
-	case HomepageOverrideCategoryName:
-		overrides.SetCategoryNameOverride(which, value)
-	case HomepageOverrideCategoryOrder:
-		v, err := strconv.Atoi(value)
-		if err != nil {
-			http.Error(w, "invalid integer", http.StatusBadRequest)
+		var params HomepageOverrideItemVisibleParams
+		if err := json.Unmarshal(data, &params); err != nil {
+			utils.RespondError(w, err, http.StatusBadRequest)
 			return
 		}
-		overrides.SetCategoryOrder(which, v)
+		if params.Value {
+			overrides.UnhideItems(params.Which...)
+		} else {
+			overrides.HideItems(params.Which...)
+		}
+	case HomepageOverrideCategoryOrder:
+		var params HomepageOverrideCategoryOrderParams
+		if err := json.Unmarshal(data, &params); err != nil {
+			utils.RespondError(w, err, http.StatusBadRequest)
+			return
+		}
+		overrides.SetCategoryOrder(params.Which, params.Value)
 	default:
 		http.Error(w, "invalid what", http.StatusBadRequest)
 		return

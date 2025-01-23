@@ -11,8 +11,7 @@ import (
 
 type OverrideConfig struct {
 	ItemOverrides  map[string]*ItemConfig `json:"item_overrides"`
-	DisplayOrder   map[string]int         `json:"display_order"` // TODO: implement this
-	CategoryName   map[string]string      `json:"category_name"`
+	DisplayOrder   map[string]int         `json:"display_order"`  // TODO: implement this
 	CategoryOrder  map[string]int         `json:"category_order"` // TODO: implement this
 	ItemVisibility map[string]bool        `json:"item_visibility"`
 	mu             sync.RWMutex
@@ -31,7 +30,6 @@ func InitOverridesConfig() {
 	overrideConfigInstance = &OverrideConfig{
 		ItemOverrides:  make(map[string]*ItemConfig),
 		DisplayOrder:   make(map[string]int),
-		CategoryName:   make(map[string]string),
 		CategoryOrder:  make(map[string]int),
 		ItemVisibility: make(map[string]bool),
 	}
@@ -65,29 +63,26 @@ func (c *OverrideConfig) OverrideItem(alias string, override *ItemConfig) {
 	c.ItemOverrides[alias] = override
 }
 
+func (c *OverrideConfig) OverrideItems(items map[string]*ItemConfig) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for key, value := range items {
+		c.ItemOverrides[key] = value
+	}
+}
+
 func (c *OverrideConfig) GetOverride(item *Item) *Item {
-	orig := item
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	itemOverride, ok := c.ItemOverrides[item.Alias]
-	if !ok {
-		if catOverride, ok := c.CategoryName[item.Category]; ok {
-			clone := *item
-			clone.Category = catOverride
-			clone.IsUnset = false
-			item = &clone
-		}
-	} else {
+	itemOverride, hasOverride := c.ItemOverrides[item.Alias]
+	if hasOverride {
 		clone := *item
 		clone.ItemConfig = itemOverride
 		clone.IsUnset = false
-		if catOverride, ok := c.CategoryName[clone.Category]; ok {
-			clone.Category = catOverride
-		}
 		item = &clone
 	}
 	if show, ok := c.ItemVisibility[item.Alias]; ok {
-		if item == orig {
+		if !hasOverride {
 			clone := *item
 			clone.Show = show
 			item = &clone
@@ -96,12 +91,6 @@ func (c *OverrideConfig) GetOverride(item *Item) *Item {
 		}
 	}
 	return item
-}
-
-func (c *OverrideConfig) SetCategoryNameOverride(key, value string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.CategoryName[key] = value
 }
 
 func (c *OverrideConfig) SetCategoryOrder(key string, value int) {

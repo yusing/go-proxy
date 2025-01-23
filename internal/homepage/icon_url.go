@@ -158,6 +158,7 @@ func (u *IconURL) MarshalText() ([]byte, error) {
 	return []byte(u.String()), nil
 }
 
+// UnmarshalText implements encoding.TextUnmarshaler.
 func (u *IconURL) UnmarshalText(data []byte) error {
 	return u.Parse(string(data))
 }
