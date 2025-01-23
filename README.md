@@ -11,6 +11,8 @@
 
 A lightweight, easy-to-use, and [performant](https://github.com/yusing/go-proxy/wiki/Benchmarks) reverse proxy with a Web UI and dashboard.
 
+**v0.9 will be out soon, with a brand new [WebUI](next-release.md)!!! Below one is the old one**
+
 ![Screenshot](screenshots/webui.png)
 
 _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
