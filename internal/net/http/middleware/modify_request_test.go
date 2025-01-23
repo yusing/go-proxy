@@ -95,4 +95,51 @@ func TestModifyRequest(t *testing.T) {
 
 		ExpectEqual(t, result.RequestHeaders.Get("X-Test-Arg-Arg_1"), "b")
 	})
+
+	t.Run("add_prefix", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			path         string
+			expectedPath string
+			upstreamURL  string
+			addPrefix    string
+		}{
+			{
+				name:         "no prefix",
+				path:         "/foo",
+				expectedPath: "/foo",
+				upstreamURL:  "http://test.example.com",
+			},
+			{
+				name:         "slash only",
+				path:         "/",
+				expectedPath: "/",
+				upstreamURL:  "http://test.example.com",
+				addPrefix:    "/", // should not change anything
+			},
+			{
+				name:         "some prefix",
+				path:         "/test",
+				expectedPath: "/foo/test",
+				upstreamURL:  "http://test.example.com",
+				addPrefix:    "/foo",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				reqURL := types.MustParseURL("https://my.app" + tt.path)
+				upstreamURL := types.MustParseURL(tt.upstreamURL)
+
+				opts["add_prefix"] = tt.addPrefix
+				result, err := newMiddlewareTest(ModifyRequest, &testArgs{
+					middlewareOpt: opts,
+					reqURL:        reqURL,
+					upstreamURL:   upstreamURL,
+				})
+				ExpectNoError(t, err)
+				ExpectEqual(t, result.RequestHeaders.Get("X-Test-Req-Path"), tt.expectedPath)
+			})
+		}
+	})
 }

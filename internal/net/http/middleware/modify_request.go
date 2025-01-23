@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"path/filepath"
 	"strings"
 )
 
@@ -10,11 +11,12 @@ type (
 		ModifyRequestOpts
 		Tracer
 	}
-	// order: set_headers -> add_headers -> hide_headers
+	// order: add_prefix -> set_headers -> add_headers -> hide_headers
 	ModifyRequestOpts struct {
 		SetHeaders  map[string]string
 		AddHeaders  map[string]string
 		HideHeaders []string
+		AddPrefix   string
 
 		needVarSubstitution bool
 	}
@@ -30,6 +32,8 @@ func (mr *ModifyRequestOpts) finalize() {
 // before implements RequestModifier.
 func (mr *modifyRequest) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
 	mr.AddTraceRequest("before modify request", r)
+
+	mr.addPrefix(r, nil, r.URL.Path)
 	mr.modifyHeaders(r, nil, r.Header)
 	mr.AddTraceRequest("after modify request", r)
 	return true
@@ -76,4 +80,12 @@ func (mr *ModifyRequestOpts) modifyHeaders(req *http.Request, resp *http.Respons
 	for _, k := range mr.HideHeaders {
 		delete(headers, k)
 	}
+}
+
+func (mr *modifyRequest) addPrefix(r *http.Request, _ *http.Response, path string) {
+	if len(mr.AddPrefix) == 0 {
+		return
+	}
+
+	r.URL.Path = filepath.Join(mr.AddPrefix, path)
 }
