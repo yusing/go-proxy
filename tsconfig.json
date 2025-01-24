@@ -1,10 +1,16 @@
 {
   "compilerOptions": {
+    "incremental": true,
     "skipLibCheck": true,
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Node",
-    "strict": true
+    "strict": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "declaration": true
   },
-  "include": ["schemas/**/*.ts"]
+  "include": ["schemas"]
 }
