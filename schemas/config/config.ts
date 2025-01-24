@@ -1,4 +1,4 @@
-import { DomainNames } from "../types";
+import { DomainName } from "../types";
 import { AutocertConfig } from "./autocert";
 import { EntrypointConfig } from "./entrypoint";
 import { HomepageConfig } from "./homepage";
@@ -19,7 +19,7 @@ export type Config = {
    * @minItems 1
    * @examples require(".").matchDomainsExamples
    */
-  match_domains?: DomainNames;
+  match_domains?: DomainName[];
   /* Optional homepage configuration */
   homepage?: HomepageConfig;
   /**

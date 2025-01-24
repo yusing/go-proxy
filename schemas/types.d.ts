@@ -28,13 +28,13 @@ export type HTTPCookie = string & {};
 export type StatusCode = number | `${number}`;
 export type StatusCodeRange = number | `${number}` | `${number}-${number}`;
 /**
- * @items.pattern ^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$
+ * @pattern ^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$
  */
-export type DomainNames = string[];
+export type DomainName = string & {};
 /**
- * @items.pattern ^(\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$
+ * @pattern ^(\*\.)?(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$
  */
-export type DomainOrWildcards = string[];
+export type DomainOrWildcard = string & {};
 /**
  * @format hostname
  * @type string

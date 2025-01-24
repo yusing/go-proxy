@@ -1,4 +1,4 @@
-import { DomainOrWildcards as DomainsOrWildcards, Email } from "../types";
+import { DomainOrWildcard, Email } from "../types";
 
 export const AUTOCERT_PROVIDERS = [
   "local",
@@ -22,15 +22,20 @@ export interface AutocertConfigBase {
   /* ACME email */
   email: Email;
   /* ACME domains */
-  domains: DomainsOrWildcards;
+  domains: DomainOrWildcard[];
   /* ACME certificate path */
   cert_path?: string;
   /* ACME key path */
   key_path?: string;
 }
 
-export interface LocalOptions extends AutocertConfigBase {
+export interface LocalOptions {
   provider: "local";
+  /* ACME certificate path */
+  cert_path?: string;
+  /* ACME key path */
+  key_path?: string;
+  options?: {} | null;
 }
 
 export interface CloudflareOptions extends AutocertConfigBase {

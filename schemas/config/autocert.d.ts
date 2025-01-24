@@ -1,15 +1,18 @@
-import { DomainOrWildcards as DomainsOrWildcards, Email } from "../types";
+import { DomainOrWildcard, Email } from "../types";
 export declare const AUTOCERT_PROVIDERS: readonly ["local", "cloudflare", "clouddns", "duckdns", "ovh"];
 export type AutocertProvider = (typeof AUTOCERT_PROVIDERS)[number];
 export type AutocertConfig = LocalOptions | CloudflareOptions | CloudDNSOptions | DuckDNSOptions | OVHOptionsWithAppKey | OVHOptionsWithOAuth2Config;
 export interface AutocertConfigBase {
     email: Email;
-    domains: DomainsOrWildcards;
+    domains: DomainOrWildcard[];
     cert_path?: string;
     key_path?: string;
 }
-export interface LocalOptions extends AutocertConfigBase {
+export interface LocalOptions {
     provider: "local";
+    cert_path?: string;
+    key_path?: string;
+    options?: {} | null;
 }
 export interface CloudflareOptions extends AutocertConfigBase {
     provider: "cloudflare";
