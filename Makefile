@@ -87,8 +87,17 @@ build-docker:
 		--build-arg BUILD_FLAGS="${BUILD_FLAGS}" \
 		.
 
+# To generate schema
+# comment out this part from typescript-json-schema.js#L884
+#
+#	if (indexType.flags !== ts.TypeFlags.Number && !isIndexedObject) {
+#			throw new Error("Not supported: IndexSignatureDeclaration with index symbol other than a number or a string");
+#	}
+
 gen-schema-single:
-	typescript-json-schema --noExtraProps --required --skipLibCheck --tsNodeRegister=true -o schemas/${OUT} schemas/${IN} ${CLASS}
+	bun run typescript-json-schema --noExtraProps --required --skipLibCheck --tsNodeRegister=true -o schemas/${OUT} schemas/${IN} ${CLASS}
+	# minify
+	python3 -c "import json; f=open('schemas/${OUT}', 'r'); j=json.load(f); f.close(); f=open('schemas/${OUT}', 'w'); json.dump(j, f, separators=(',', ':'));"
 
 gen-schema:
 	make IN=config/config.ts \
@@ -107,6 +116,9 @@ gen-schema:
 			CLASS=DockerRoutes \
 			OUT=docker_routes.schema.json \
 			gen-schema-single
+
+update-schema-generator:
+	pnpm up -g typescript-json-schema
 
 push-github:
 	git push origin $(shell git rev-parse --abbrev-ref HEAD)

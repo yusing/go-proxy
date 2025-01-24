@@ -26,7 +26,7 @@ export type IdleWatcherConfig = {
   wake_timeout?: Duration;
   /** Stop timeout
    *
-   * @default 10s
+   * @default 30s
    */
   stop_timeout?: Duration;
   /** Stop method

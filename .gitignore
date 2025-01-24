@@ -27,3 +27,5 @@ todo.md
 mtrace.json
 .env
 test.Dockerfile
+
+node_modules/

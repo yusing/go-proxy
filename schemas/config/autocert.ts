@@ -47,7 +47,6 @@ export interface CloudDNSOptions extends AutocertConfigBase {
   };
 }
 
-
 export interface DuckDNSOptions extends AutocertConfigBase {
   provider: "duckdns";
   options: {

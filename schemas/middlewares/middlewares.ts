@@ -2,11 +2,13 @@ import * as types from "../types";
 
 export type MiddlewareComposeObjectRef = `${string}@file`;
 
-export type KeyOptMapping<T extends { use: string }> = {
-  [key in T["use"]]: Omit<T, "use">;
-} | { use: MiddlewareComposeObjectRef };
+export type KeyOptMapping<T extends { use: string }> =
+  | {
+      [key in T["use"]]: Omit<T, "use">;
+    }
+  | { use: MiddlewareComposeObjectRef };
 
-export type MiddlewaresMap = (
+export type MiddlewaresMap =
   | KeyOptMapping<CustomErrorPage>
   | KeyOptMapping<RedirectHTTP>
   | KeyOptMapping<SetXForwarded>
@@ -18,10 +20,9 @@ export type MiddlewaresMap = (
   | KeyOptMapping<OIDC>
   | KeyOptMapping<RateLimit>
   | KeyOptMapping<RealIP>
-  | { [key in MiddlewareComposeObjectRef]: types.NullOrEmptyMap }
-);
+  | { [key in MiddlewareComposeObjectRef]: types.NullOrEmptyMap };
 
-export type MiddlewareComposeMap = (
+export type MiddlewareComposeMap =
   | CustomErrorPage
   | RedirectHTTP
   | SetXForwarded
@@ -32,11 +33,16 @@ export type MiddlewareComposeMap = (
   | ModifyResponse
   | OIDC
   | RateLimit
-  | RealIP
-);
+  | RealIP;
 
 export type CustomErrorPage = {
-  use: "error_page" | "errorPage" | "ErrorPage" | "custom_error_page" | "customErrorPage" | "CustomErrorPage";
+  use:
+    | "error_page"
+    | "errorPage"
+    | "ErrorPage"
+    | "custom_error_page"
+    | "customErrorPage"
+    | "CustomErrorPage";
 };
 
 export type RedirectHTTP = {
@@ -81,7 +87,12 @@ export type CloudflareRealIP = {
 };
 
 export type ModifyRequest = {
-  use: "request" | "Request" | "modify_request" | "modifyRequest" | "ModifyRequest";
+  use:
+    | "request"
+    | "Request"
+    | "modify_request"
+    | "modifyRequest"
+    | "ModifyRequest";
   /** Set HTTP headers */
   set_headers?: { [key: types.HTTPHeader]: string };
   /** Add HTTP headers */
@@ -91,7 +102,12 @@ export type ModifyRequest = {
 };
 
 export type ModifyResponse = {
-  use: "response" | "Response" | "modify_response" | "modifyResponse" | "ModifyResponse";
+  use:
+    | "response"
+    | "Response"
+    | "modify_response"
+    | "modifyResponse"
+    | "ModifyResponse";
   /** Set HTTP headers */
   set_headers?: { [key: types.HTTPHeader]: string };
   /** Add HTTP headers */

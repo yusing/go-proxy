@@ -13,9 +13,8 @@ export type Providers = {
    *
    * @minProperties 1
    * @examples require(".").dockerExamples
-   * @items.pattern ^((\w+://)[^\s]+)|\$DOCKER_HOST$
    */
-  docker?: { [name: string]: URL };
+  docker?: { [name: string]: URL | "$DOCKER_HOST" };
   /** List of notification providers
    *
    * @minItems 1

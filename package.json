@@ -1,0 +1,24 @@
+{
+	"name": "godoxy-schemas",
+	"version": "0.9.0",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/yusing/go-proxy"
+	},
+	"files": [
+		"schemas/",
+		"README.md",
+		"LICENSE"
+	],
+	"devDependencies": {
+		"prettier": "^3.4.2",
+		"typescript-json-schema": "^0.65.1"
+	},
+	"displayName": "GoDoxy Types",
+	"packageManager": "bun@1.2.0",
+	"publisher": "yusing",
+	"scripts": {
+		"gen-schema": "make gen-schema",
+		"format:write": "prettier --write \"schemas/**/*.ts\" --cache"
+	}
+}
