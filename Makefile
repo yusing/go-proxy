@@ -100,6 +100,7 @@ gen-schema-single:
 	python3 -c "import json; f=open('schemas/${OUT}', 'r'); j=json.load(f); f.close(); f=open('schemas/${OUT}', 'w'); json.dump(j, f, separators=(',', ':'));"
 
 gen-schema:
+	bun --bun tsc
 	make IN=config/config.ts \
 			CLASS=Config \
 			OUT=config.schema.json \

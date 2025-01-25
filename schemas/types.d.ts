@@ -1,8 +1,7 @@
 /**
  * @type "null"
  */
-export interface Null {
-}
+export type Null = null;
 export type Nullable<T> = T | Null;
 export type NullOrEmptyMap = {} | Null;
 export declare const HTTP_METHODS: readonly ["GET", "POST", "PUT", "PATCH", "DELETE", "CONNECT", "HEAD", "OPTIONS", "TRACE"];

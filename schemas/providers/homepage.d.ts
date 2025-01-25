@@ -17,6 +17,11 @@ export type HomepageConfig = {
         [key: string]: any;
     };
 };
-export type WalkxcodeIcon = `${"png" | "svg" | "webp"}/${string}/${string}.${string}`;
+/** Walkxcode icon
+ *
+ * @pattern ^(png|svg|webp)\/[\w\d\-_]+\.\1
+ * @type string
+ */
+export type WalkxcodeIcon = string & {};
 export type ExternalIcon = `@${"selfhst" | "walkxcode"}/${string}.${string}`;
 export type TargetRelativeIconPath = `@target/${string}` | `/${string}`;

@@ -25,11 +25,12 @@ export type HomepageConfig = {
   };
 };
 
-/* Walkxcode icon */
-export type WalkxcodeIcon = `${
-  | "png"
-  | "svg"
-  | "webp"}/${string}/${string}.${string}`;
+/** Walkxcode icon
+ *
+ * @pattern ^(png|svg|webp)\/[\w\d\-_]+\.\1
+ * @type string
+ */
+export type WalkxcodeIcon = string & {};
 
 /* Walkxcode / selfh.st icon */
 export type ExternalIcon = `@${"selfhst" | "walkxcode"}/${string}.${string}`;

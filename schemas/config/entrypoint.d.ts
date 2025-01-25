@@ -5,7 +5,7 @@ export type EntrypointConfig = {
      *
      * @examples require(".").middlewaresExamples
      */
-    middlewares: MiddlewareCompose;
+    middlewares?: MiddlewareCompose;
     /** Entrypoint access log configuration
      *
      * @examples require(".").accessLogExamples

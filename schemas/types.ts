@@ -1,7 +1,7 @@
 /**
  * @type "null"
  */
-export interface Null {}
+export type Null = null;
 export type Nullable<T> = T | Null;
 export type NullOrEmptyMap = {} | Null;
 

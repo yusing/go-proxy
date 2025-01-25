@@ -1,26 +1,44 @@
 import * as types from "../types";
 
-export type MiddlewareComposeObjectRef = `${string}@file`;
+export type KeyOptMapping<T extends { use: string }> = {
+  [key in T["use"]]?: Omit<T, "use">;
+};
 
-export type KeyOptMapping<T extends { use: string }> =
-  | {
-      [key in T["use"]]: Omit<T, "use">;
-    }
-  | { use: MiddlewareComposeObjectRef };
+export const ALL_MIDDLEWARES = [
+  "ErrorPage",
+  "RedirectHTTP",
+  "SetXForwarded",
+  "HideXForwarded",
+  "CIDRWhitelist",
+  "CloudflareRealIP",
+  "ModifyRequest",
+  "ModifyResponse",
+  "OIDC",
+  "RateLimit",
+  "RealIP",
+] as const;
+
+/**
+ * @type object
+ * @patternProperties {"^.*@file$": {"type": "null"}}
+ */
+export type MiddlewareFileRef = {
+  [key: `${string}@file`]: null;
+};
 
 export type MiddlewaresMap =
-  | KeyOptMapping<CustomErrorPage>
-  | KeyOptMapping<RedirectHTTP>
-  | KeyOptMapping<SetXForwarded>
-  | KeyOptMapping<HideXForwarded>
-  | KeyOptMapping<CIDRWhitelist>
-  | KeyOptMapping<CloudflareRealIP>
-  | KeyOptMapping<ModifyRequest>
-  | KeyOptMapping<ModifyResponse>
-  | KeyOptMapping<OIDC>
-  | KeyOptMapping<RateLimit>
-  | KeyOptMapping<RealIP>
-  | { [key in MiddlewareComposeObjectRef]: types.NullOrEmptyMap };
+  | (KeyOptMapping<CustomErrorPage> &
+      KeyOptMapping<RedirectHTTP> &
+      KeyOptMapping<SetXForwarded> &
+      KeyOptMapping<HideXForwarded> &
+      KeyOptMapping<CIDRWhitelist> &
+      KeyOptMapping<CloudflareRealIP> &
+      KeyOptMapping<ModifyRequest> &
+      KeyOptMapping<ModifyResponse> &
+      KeyOptMapping<OIDC> &
+      KeyOptMapping<RateLimit> &
+      KeyOptMapping<RealIP>)
+  | MiddlewareFileRef;
 
 export type MiddlewareComposeMap =
   | CustomErrorPage
