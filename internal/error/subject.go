@@ -10,6 +10,8 @@ import (
 type withSubject struct {
 	Subjects []string `json:"subjects"`
 	Err      error    `json:"err"`
+
+	pendingSubject string
 }
 
 const subjectSep = " > "
@@ -30,17 +32,26 @@ func PrependSubject(subject string, err error) error {
 	case Error:
 		return err.Subject(subject)
 	}
-	return &withSubject{[]string{subject}, err}
+	return &withSubject{[]string{subject}, err, ""}
 }
 
 func (err *withSubject) Prepend(subject string) *withSubject {
+	if subject == "" {
+		return err
+	}
+
 	clone := *err
-	if subject != "" {
-		switch subject[0] {
-		case '[', '(', '{':
-			clone.Subjects[len(clone.Subjects)-1] += subject
-		default:
-			clone.Subjects = append(clone.Subjects, subject)
+	switch subject[0] {
+	case '[', '(', '{':
+		// since prepend is called in depth-first order,
+		// the subject of the index is not yet seen
+		// add it when the next subject is seen
+		clone.pendingSubject += subject
+	default:
+		clone.Subjects = append(clone.Subjects, subject)
+		if clone.pendingSubject != "" {
+			clone.Subjects[len(clone.Subjects)-1] = subject + clone.pendingSubject
+			clone.pendingSubject = ""
 		}
 	}
 	return &clone
