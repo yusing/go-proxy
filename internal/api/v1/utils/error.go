@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
@@ -30,8 +31,16 @@ func RespondError(w http.ResponseWriter, err error, code ...int) {
 	if len(code) == 0 {
 		code = []int{http.StatusBadRequest}
 	}
-	// strip ANSI color codes added from Error.WithSubject
-	http.Error(w, ansi.StripANSI(err.Error()), code[0])
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	buf := make([]byte, 0, 100)
+	errMsg := err.Error()
+	buf, err = logging.FormatMessageToHTMLBytes(errMsg, buf)
+	if err != nil {
+		http.Error(w, ansi.StripANSI(errMsg), code[0])
+		return
+	}
+	w.WriteHeader(code[0])
+	_, _ = w.Write(buf)
 }
 
 func ErrMissingKey(k string) error {
