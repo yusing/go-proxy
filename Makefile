@@ -11,12 +11,12 @@ endif
 ifeq ($(debug), 1)
 	CGO_ENABLED = 0
 	GODOXY_DEBUG = 1
-  BUILD_FLAGS = ''
+  BUILD_FLAGS = -tags production
 else ifeq ($(pprof), 1)
 	CGO_ENABLED = 1
 	GODEBUG = gctrace=1 inittrace=1 schedtrace=3000
 	GORACE = log_path=logs/pprof strip_path_prefix=$(shell pwd)/
-  BUILD_FLAGS = -race -gcflags=all='-N -l' -tags pprof
+	BUILD_FLAGS = -race -gcflags=all='-N -l' -tags pprof
 	DOCKER_TAG = pprof
 	VERSION += -pprof
 else
