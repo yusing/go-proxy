@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	. "github.com/yusing/go-proxy/internal/utils/testing"
+	"gopkg.in/yaml.v3"
 )
 
 func TestDeserialize(t *testing.T) {
@@ -187,6 +188,20 @@ func TestStringToSlice(t *testing.T) {
 	})
 }
 
+func BenchmarkStringToSlice(b *testing.B) {
+	for range b.N {
+		dst := make([]int, 0)
+		_, _ = ConvertString("- 1\n- 2\n- 3", reflect.ValueOf(&dst))
+	}
+}
+
+func BenchmarkStringToSliceYAML(b *testing.B) {
+	for range b.N {
+		dst := make([]int, 0)
+		_ = yaml.Unmarshal([]byte("- 1\n- 2\n- 3"), &dst)
+	}
+}
+
 func TestStringToMap(t *testing.T) {
 	t.Run("yaml-like", func(t *testing.T) {
 		dst := make(map[string]string)
@@ -195,6 +210,20 @@ func TestStringToMap(t *testing.T) {
 		ExpectNoError(t, err)
 		ExpectDeepEqual(t, dst, map[string]string{"a": "b", "c": "d"})
 	})
+}
+
+func BenchmarkStringToMap(b *testing.B) {
+	for range b.N {
+		dst := make(map[string]string)
+		_, _ = ConvertString("  a: b\n  c: d", reflect.ValueOf(&dst))
+	}
+}
+
+func BenchmarkStringToMapYAML(b *testing.B) {
+	for range b.N {
+		dst := make(map[string]string)
+		_ = yaml.Unmarshal([]byte("  a: b\n  c: d"), &dst)
+	}
 }
 
 func TestStringToStruct(t *testing.T) {
@@ -211,4 +240,24 @@ func TestStringToStruct(t *testing.T) {
 			B int
 		}{"a", 123})
 	})
+}
+
+func BenchmarkStringToStruct(b *testing.B) {
+	for range b.N {
+		dst := struct {
+			A string `json:"a"`
+			B int    `json:"b"`
+		}{}
+		_, _ = ConvertString("  a: a\n  b: 123", reflect.ValueOf(&dst))
+	}
+}
+
+func BenchmarkStringToStructYAML(b *testing.B) {
+	for range b.N {
+		dst := struct {
+			A string `yaml:"a"`
+			B int    `yaml:"b"`
+		}{}
+		_ = yaml.Unmarshal([]byte("  a: a\n  b: 123"), &dst)
+	}
 }

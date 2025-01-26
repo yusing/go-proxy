@@ -111,3 +111,11 @@ func TestFinishMultipleCalls(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func BenchmarkTasks(b *testing.B) {
+	for range b.N {
+		task := testTask()
+		task.Subtask("", true).Finish(nil)
+		task.Finish(nil)
+	}
+}

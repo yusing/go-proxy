@@ -204,8 +204,13 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		}
 		if hasValidateTag {
 			errs.Add(ValidateWithFieldTags(dstV.Interface()))
-		} else if validator, ok := dstV.Addr().Interface().(CustomValidator); ok {
-			errs.Add(validator.Validate())
+		} else {
+			if dstV.CanAddr() {
+				dstV = dstV.Addr()
+			}
+			if validator, ok := dstV.Interface().(CustomValidator); ok {
+				errs.Add(validator.Validate())
+			}
 		}
 		return errs.Error()
 	case reflect.Map:
@@ -222,7 +227,10 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 				errs.Add(err.Subject(k))
 			}
 		}
-		if validator, ok := dstV.Addr().Interface().(CustomValidator); ok {
+		if dstV.CanAddr() {
+			dstV = dstV.Addr()
+		}
+		if validator, ok := dstV.Interface().(CustomValidator); ok {
 			errs.Add(validator.Validate())
 		}
 		return errs.Error()

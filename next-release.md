@@ -5,6 +5,7 @@ GoDoxy v0.9.0 expected changes
   - Edit dashboard app config (e.g. icon, name, category, etc.)
   - Toggle show / hide apps
   - Health bubbles, latency, etc. rich info on dashboard items
+  - UI config editor
   ![{7829FA41-5733-4BAD-8183-CDF093CEC6F2}](https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f)
   ![{29A4608C-607F-43C9-A542-15EC6B9D024E}](https://github.com/user-attachments/assets/8469cfaf-dc37-4b6e-9f29-c44eea91bb82)
   ![{83118DF5-9D46-4D00-9CEF-C0F6C8D18C4B}](https://github.com/user-attachments/assets/856140f0-78bb-4a76-98f2-ad47544a3515)
@@ -99,14 +100,19 @@ GoDoxy v0.9.0 expected changes
   - `GODOXY_OIDC_REDIRECT_URL`
   - `GODOXY_OIDC_SCOPES` _(optional)_
   - `GODOXY_OIDC_ALLOWED_USERS`
+  - `GODOXY_OIDC_ALLOWED_GROUPS` _(optional)_
 
 - Use OpenID Connect to authenticate GoDoxy's WebUI and all your services (SSO)
+
   ```yaml
-    # default
+  # default
   proxy.app.middlewares.oidc:
 
   # override allowed users
   proxy.app.middlewares.oidc.allowed_users: user1, user2
+
+  # override allowed groups
+  proxy.app.middlewares.oidc.allowed_groups: group1, group2
   ```
 
 - Caddyfile like rules

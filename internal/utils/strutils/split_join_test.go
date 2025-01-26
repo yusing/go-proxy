@@ -36,3 +36,27 @@ func TestSplit(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkSplitRune(b *testing.B) {
+	for range b.N {
+		SplitRune(alphaNumeric, ',')
+	}
+}
+
+func BenchmarkSplitRuneStdlib(b *testing.B) {
+	for range b.N {
+		strings.Split(alphaNumeric, ",")
+	}
+}
+
+func BenchmarkJoinRune(b *testing.B) {
+	for range b.N {
+		JoinRune(SplitRune(alphaNumeric, ','), ',')
+	}
+}
+
+func BenchmarkJoinRuneStdlib(b *testing.B) {
+	for range b.N {
+		strings.Join(SplitRune(alphaNumeric, ','), ",")
+	}
+}
