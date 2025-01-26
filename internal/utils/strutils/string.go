@@ -25,7 +25,17 @@ func Title(s string) string {
 }
 
 func ToLowerNoSnake(s string) string {
-	return strings.ToLower(strings.ReplaceAll(s, "_", ""))
+	var buf strings.Builder
+	for _, r := range s {
+		if r == '_' {
+			continue
+		}
+		if r >= 'A' && r <= 'Z' {
+			r += 'a' - 'A'
+		}
+		buf.WriteRune(r)
+	}
+	return buf.String()
 }
 
 //nolint:intrange
