@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/x509"
 	"os"
+	"regexp"
 
 	"github.com/go-acme/lego/v4/certcrypto"
 	"github.com/go-acme/lego/v4/lego"
@@ -13,62 +14,88 @@ import (
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
-
-	"github.com/yusing/go-proxy/internal/config/types"
 )
 
-type Config types.AutoCertConfig
+type (
+	AutocertConfig struct {
+		Email       string      `json:"email,omitempty"`
+		Domains     []string    `json:"domains,omitempty"`
+		CertPath    string      `json:"cert_path,omitempty"`
+		KeyPath     string      `json:"key_path,omitempty"`
+		ACMEKeyPath string      `json:"acme_key_path,omitempty"`
+		Provider    string      `json:"provider,omitempty"`
+		Options     ProviderOpt `json:"options,omitempty"`
+	}
+	ProviderOpt map[string]any
+)
 
 var (
 	ErrMissingDomain   = E.New("missing field 'domains'")
 	ErrMissingEmail    = E.New("missing field 'email'")
 	ErrMissingProvider = E.New("missing field 'provider'")
+	ErrInvalidDomain   = E.New("invalid domain")
 	ErrUnknownProvider = E.New("unknown provider")
 )
 
-func NewConfig(cfg *types.AutoCertConfig) *Config {
+var domainOrWildcardRE = regexp.MustCompile(`^\*?([^.]+\.)+[^.]+$`)
+
+// Validate implements the utils.CustomValidator interface.
+func (cfg *AutocertConfig) Validate() E.Error {
 	if cfg == nil {
-		cfg = new(types.AutoCertConfig)
+		return nil
 	}
+
+	if cfg.Provider == "" {
+		cfg.Provider = ProviderLocal
+		return nil
+	}
+
+	b := E.NewBuilder("autocert errors")
+	if cfg.Provider != ProviderLocal {
+		if len(cfg.Domains) == 0 {
+			b.Add(ErrMissingDomain)
+		}
+		if cfg.Email == "" {
+			b.Add(ErrMissingEmail)
+		}
+		for i, d := range cfg.Domains {
+			if !domainOrWildcardRE.MatchString(d) {
+				b.Add(ErrInvalidDomain.Subjectf("domains[%d]", i))
+			}
+		}
+		// check if provider is implemented
+		providerConstructor, ok := providersGenMap[cfg.Provider]
+		if !ok {
+			b.Add(ErrUnknownProvider.
+				Subject(cfg.Provider).
+				Withf(strutils.DoYouMean(utils.NearestField(cfg.Provider, providersGenMap))))
+		} else {
+			_, err := providerConstructor(cfg.Options)
+			if err != nil {
+				b.Add(err)
+			}
+		}
+	}
+	return b.Error()
+}
+
+func (cfg *AutocertConfig) GetProvider() (*Provider, E.Error) {
+	if cfg == nil {
+		cfg = new(AutocertConfig)
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
 	if cfg.CertPath == "" {
 		cfg.CertPath = CertFileDefault
 	}
 	if cfg.KeyPath == "" {
 		cfg.KeyPath = KeyFileDefault
 	}
-	if cfg.Provider == "" {
-		cfg.Provider = ProviderLocal
-	}
 	if cfg.ACMEKeyPath == "" {
 		cfg.ACMEKeyPath = ACMEKeyFileDefault
-	}
-	return (*Config)(cfg)
-}
-
-func (cfg *Config) GetProvider() (*Provider, E.Error) {
-	b := E.NewBuilder("autocert errors")
-
-	if cfg.Provider != ProviderLocal {
-		if len(cfg.Domains) == 0 {
-			b.Add(ErrMissingDomain)
-		}
-		if cfg.Provider == "" {
-			b.Add(ErrMissingProvider)
-		}
-		if cfg.Email == "" {
-			b.Add(ErrMissingEmail)
-		}
-		// check if provider is implemented
-		_, ok := providersGenMap[cfg.Provider]
-		if !ok {
-			b.Add(ErrUnknownProvider.
-				Subject(cfg.Provider).
-				Withf(strutils.DoYouMean(utils.NearestField(cfg.Provider, providersGenMap))))
-		}
-	}
-
-	if b.HasError() {
-		return nil, b.Error()
 	}
 
 	var privKey *ecdsa.PrivateKey
@@ -103,7 +130,7 @@ func (cfg *Config) GetProvider() (*Provider, E.Error) {
 	}, nil
 }
 
-func (cfg *Config) loadACMEKey() (*ecdsa.PrivateKey, error) {
+func (cfg *AutocertConfig) loadACMEKey() (*ecdsa.PrivateKey, error) {
 	data, err := os.ReadFile(cfg.ACMEKeyPath)
 	if err != nil {
 		return nil, err
@@ -111,7 +138,7 @@ func (cfg *Config) loadACMEKey() (*ecdsa.PrivateKey, error) {
 	return x509.ParseECPrivateKey(data)
 }
 
-func (cfg *Config) saveACMEKey(key *ecdsa.PrivateKey) error {
+func (cfg *AutocertConfig) saveACMEKey(key *ecdsa.PrivateKey) error {
 	data, err := x509.MarshalECPrivateKey(key)
 	if err != nil {
 		return err

@@ -57,7 +57,7 @@ func HomepageCategories() []string {
 	return categories
 }
 
-func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter string) homepage.Config {
+func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter string) homepage.Categories {
 	hpCfg := homepage.NewHomePageConfig()
 
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {

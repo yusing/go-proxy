@@ -19,6 +19,13 @@ func Errorf(format string, args ...any) Error {
 	return &baseError{fmt.Errorf(format, args...)}
 }
 
+func Wrap(err error, message ...string) Error {
+	if len(message) == 0 || message[0] == "" {
+		return From(err)
+	}
+	return Errorf("%w: %s", err, message[0])
+}
+
 func From(err error) Error {
 	if err == nil {
 		return nil

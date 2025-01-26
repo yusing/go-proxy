@@ -53,10 +53,6 @@ func GetOverrideConfig() *OverrideConfig {
 	return overrideConfigInstance
 }
 
-func (c *OverrideConfig) UnmarshalJSON(data []byte) error {
-	return utils.DeserializeJSON(data, c)
-}
-
 func (c *OverrideConfig) OverrideItem(alias string, override *ItemConfig) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

@@ -1,11 +1,13 @@
 package homepage
 
-import "github.com/yusing/go-proxy/internal/utils"
+import (
+	"github.com/yusing/go-proxy/internal/utils"
+)
 
 type (
 	//nolint:recvcheck
-	Config   map[string]Category
-	Category []*Item
+	Categories map[string]Category
+	Category   []*Item
 
 	ItemConfig struct {
 		Show         bool           `json:"show"`
@@ -48,6 +50,10 @@ func NewItem(alias string) *Item {
 	}
 }
 
+func NewHomePageConfig() Categories {
+	return Categories(make(map[string]Category))
+}
+
 func (item *Item) IsEmpty() bool {
 	return item == nil || item.IsUnset || item.ItemConfig == nil
 }
@@ -56,15 +62,11 @@ func (item *Item) GetOverride() *Item {
 	return overrideConfigInstance.GetOverride(item)
 }
 
-func NewHomePageConfig() Config {
-	return Config(make(map[string]Category))
+func (c *Categories) Clear() {
+	*c = make(Categories)
 }
 
-func (c *Config) Clear() {
-	*c = make(Config)
-}
-
-func (c Config) Add(item *Item) {
+func (c Categories) Add(item *Item) {
 	if c[item.Category] == nil {
 		c[item.Category] = make(Category, 0)
 	}

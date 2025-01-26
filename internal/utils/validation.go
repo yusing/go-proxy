@@ -9,6 +9,10 @@ var validate = validator.New()
 
 var ErrValidationError = E.New("validation error")
 
+type CustomValidator interface {
+	Validate() E.Error
+}
+
 func Validator() *validator.Validate {
 	return validate
 }

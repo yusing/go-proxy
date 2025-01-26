@@ -35,6 +35,14 @@ func ExpectNoError(t *testing.T, err error) {
 	}
 }
 
+func ExpectHasError(t *testing.T, err error) {
+	t.Helper()
+	if errors.Is(err, nil) {
+		t.Error("expected err not nil")
+		t.FailNow()
+	}
+}
+
 func ExpectError(t *testing.T, expected error, err error) {
 	t.Helper()
 	if !errors.Is(err, expected) {

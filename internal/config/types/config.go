@@ -2,8 +2,12 @@ package types
 
 import (
 	"context"
+	"regexp"
 
+	"github.com/go-playground/validator/v10"
+	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
+	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/utils"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -11,23 +15,22 @@ import (
 
 type (
 	Config struct {
-		AutoCert        *AutoCertConfig `json:"autocert" validate:"omitempty"`
-		Entrypoint      Entrypoint      `json:"entrypoint"`
-		Providers       Providers       `json:"providers"`
-		MatchDomains    []string        `json:"match_domains" validate:"dive,fqdn"`
-		Homepage        HomepageConfig  `json:"homepage"`
-		TimeoutShutdown int             `json:"timeout_shutdown" validate:"gte=0"`
+		AutoCert        *autocert.AutocertConfig `json:"autocert"`
+		Entrypoint      Entrypoint               `json:"entrypoint"`
+		Providers       Providers                `json:"providers"`
+		MatchDomains    []string                 `json:"match_domains" validate:"domain_name"`
+		Homepage        HomepageConfig           `json:"homepage"`
+		TimeoutShutdown int                      `json:"timeout_shutdown" validate:"gte=0"`
 	}
 	Providers struct {
-		Files        []string             `json:"include" validate:"dive,filepath"`
-		Docker       map[string]string    `json:"docker" validate:"dive,unix_addr|url"`
-		Notification []NotificationConfig `json:"notification"`
+		Files        []string                   `json:"include" validate:"dive,filepath"`
+		Docker       map[string]string          `json:"docker" validate:"dive,unix_addr|url"`
+		Notification []notif.NotificationConfig `json:"notification"`
 	}
 	Entrypoint struct {
 		Middlewares []map[string]any  `json:"middlewares"`
 		AccessLog   *accesslog.Config `json:"access_log" validate:"omitempty"`
 	}
-	NotificationConfig map[string]any
 
 	ConfigInstance interface {
 		Value() *Config
@@ -52,6 +55,17 @@ func Validate(data []byte) E.Error {
 	return utils.DeserializeYAML(data, &model)
 }
 
+var matchDomainsRegex = regexp.MustCompile(`^[^\.]?([\w\d\-_]\.?)+[^\.]?$`)
+
 func init() {
 	utils.RegisterDefaultValueFactory(DefaultConfig)
+	utils.MustRegisterValidation("domain_name", func(fl validator.FieldLevel) bool {
+		domains := fl.Field().Interface().([]string)
+		for _, domain := range domains {
+			if !matchDomainsRegex.MatchString(domain) {
+				return false
+			}
+		}
+		return true
+	})
 }

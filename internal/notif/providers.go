@@ -2,22 +2,24 @@ package notif
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
-	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
 	Provider interface {
-		Name() string
-		URL() string
-		Method() string
-		Token() string
-		MIMEType() string
+		utils.CustomValidator
+
+		GetName() string
+		GetURL() string
+		GetToken() string
+		GetMethod() string
+		GetMIMEType() string
+
 		MakeBody(logMsg *LogMessage) (io.Reader, error)
 
 		makeRespError(resp *http.Response) error
@@ -31,47 +33,29 @@ const (
 	ProviderWebhook = "webhook"
 )
 
-var Providers = map[string]ProviderCreateFunc{
-	ProviderGotify:  newNotifProvider[*GotifyClient],
-	ProviderWebhook: newNotifProvider[*Webhook],
-}
-
-func newNotifProvider[T Provider](cfg map[string]any) (Provider, E.Error) {
-	var client T
-	err := U.Deserialize(cfg, &client)
-	if err != nil {
-		return nil, err.Subject(client.Name())
-	}
-	return client, nil
-}
-
-func formatError(p Provider, err error) error {
-	return fmt.Errorf("%s error: %w", p.Name(), err)
-}
-
 func notifyProvider(ctx context.Context, provider Provider, msg *LogMessage) error {
 	body, err := provider.MakeBody(msg)
 	if err != nil {
-		return formatError(provider, err)
+		return E.PrependSubject(provider.GetName(), err)
 	}
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
-		provider.URL(),
+		provider.GetURL(),
 		body,
 	)
 	if err != nil {
-		return formatError(provider, err)
+		return E.PrependSubject(provider.GetName(), err)
 	}
 
-	req.Header.Set("Content-Type", provider.MIMEType())
-	if provider.Token() != "" {
-		req.Header.Set("Authorization", "Bearer "+provider.Token())
+	req.Header.Set("Content-Type", provider.GetMIMEType())
+	if provider.GetToken() != "" {
+		req.Header.Set("Authorization", "Bearer "+provider.GetToken())
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return formatError(provider, err)
+		return E.PrependSubject(provider.GetName(), err)
 	}
 
 	defer resp.Body.Close()

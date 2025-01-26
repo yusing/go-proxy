@@ -13,37 +13,24 @@ import (
 
 type (
 	GotifyClient struct {
-		N   string `json:"name" validate:"required"`
-		U   string `json:"url" validate:"url"`
-		Tok string `json:"token" validate:"required"`
+		ProviderBase
 	}
 	GotifyMessage model.MessageExternal
 )
 
 const gotifyMsgEndpoint = "/message"
 
-// Name implements Provider.
-func (client *GotifyClient) Name() string {
-	return client.N
+func (client *GotifyClient) GetURL() string {
+	return client.URL + gotifyMsgEndpoint
 }
 
-// Method implements Provider.
-func (client *GotifyClient) Method() string {
+// GetMethod implements Provider.
+func (client *GotifyClient) GetMethod() string {
 	return http.MethodPost
 }
 
-// URL implements Provider.
-func (client *GotifyClient) URL() string {
-	return client.U + gotifyMsgEndpoint
-}
-
-// Token implements Provider.
-func (client *GotifyClient) Token() string {
-	return client.Tok
-}
-
-// MIMEType implements Provider.
-func (client *GotifyClient) MIMEType() string {
+// GetMIMEType implements Provider.
+func (client *GotifyClient) GetMIMEType() string {
 	return "application/json"
 }
 

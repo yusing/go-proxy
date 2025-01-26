@@ -2,13 +2,10 @@ package notif
 
 import (
 	"github.com/rs/zerolog"
-	"github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
-	"github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type (
@@ -26,12 +23,6 @@ type (
 )
 
 var dispatcher *Dispatcher
-
-var (
-	ErrMissingNotifProvider     = E.New("missing notification provider")
-	ErrInvalidNotifProviderType = E.New("invalid notification provider type")
-	ErrUnknownNotifProvider     = E.New("unknown notification provider")
-)
 
 const dispatchErr = "notification dispatch error"
 
@@ -57,29 +48,8 @@ func Notify(msg *LogMessage) {
 	}
 }
 
-func (disp *Dispatcher) RegisterProvider(cfg types.NotificationConfig) (Provider, E.Error) {
-	providerName, ok := cfg["provider"]
-	if !ok {
-		return nil, ErrMissingNotifProvider
-	}
-	switch providerName := providerName.(type) {
-	case string:
-		delete(cfg, "provider")
-		createFunc, ok := Providers[providerName]
-		if !ok {
-			return nil, ErrUnknownNotifProvider.
-				Subject(providerName).
-				Withf(strutils.DoYouMean(utils.NearestField(providerName, Providers)))
-		}
-
-		provider, err := createFunc(cfg)
-		if err == nil {
-			disp.providers.Add(provider)
-		}
-		return provider, err
-	default:
-		return nil, ErrInvalidNotifProviderType.Subjectf("%T", providerName)
-	}
+func (disp *Dispatcher) RegisterProvider(cfg *NotificationConfig) {
+	disp.providers.Add(cfg.Provider)
 }
 
 func (disp *Dispatcher) start() {
@@ -110,7 +80,7 @@ func (disp *Dispatcher) dispatch(msg *LogMessage) {
 	errs := E.NewBuilder(dispatchErr)
 	disp.providers.RangeAllParallel(func(p Provider) {
 		if err := notifyProvider(task.Context(), p, msg); err != nil {
-			errs.Add(E.PrependSubject(p.Name(), err))
+			errs.Add(E.PrependSubject(p.GetName(), err))
 		}
 	})
 	if errs.HasError() {

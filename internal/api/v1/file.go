@@ -75,6 +75,38 @@ func GetFileContent(w http.ResponseWriter, r *http.Request) {
 	U.WriteBody(w, content)
 }
 
+func validateFile(fileType FileType, content []byte) error {
+	switch fileType {
+	case FileTypeConfig:
+		return config.Validate(content)
+	case FileTypeMiddleware:
+		errs := E.NewBuilder("middleware errors")
+		middleware.BuildMiddlewaresFromYAML("", content, errs)
+		return errs.Error()
+	}
+	return provider.Validate(content)
+}
+
+func ValidateFile(w http.ResponseWriter, r *http.Request) {
+	fileType := FileType(r.PathValue("type"))
+	if !fileType.IsValid() {
+		U.RespondError(w, U.ErrInvalidKey("type"), http.StatusBadRequest)
+		return
+	}
+	content, err := io.ReadAll(r.Body)
+	if err != nil {
+		U.HandleErr(w, r, err)
+		return
+	}
+	r.Body.Close()
+	err = validateFile(fileType, content)
+	if err != nil {
+		U.RespondError(w, err, http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
 func SetFileContent(w http.ResponseWriter, r *http.Request) {
 	fileType, filename, err := getArgs(r)
 	if err != nil {
@@ -87,19 +119,7 @@ func SetFileContent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var valErr E.Error
-	switch fileType {
-	case FileTypeConfig:
-		valErr = config.Validate(content)
-	case FileTypeMiddleware:
-		errs := E.NewBuilder("middleware errors")
-		middleware.BuildMiddlewaresFromYAML(filename, content, errs)
-		valErr = errs.Error()
-	default:
-		valErr = provider.Validate(content)
-	}
-
-	if valErr != nil {
+	if valErr := validateFile(fileType, content); valErr != nil {
 		U.RespondError(w, valErr, http.StatusBadRequest)
 		return
 	}

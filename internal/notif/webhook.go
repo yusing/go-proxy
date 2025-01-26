@@ -8,19 +8,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/go-playground/validator/v10"
-	"github.com/yusing/go-proxy/internal/utils"
+	E "github.com/yusing/go-proxy/internal/error"
 )
 
 type Webhook struct {
-	N        string `json:"name" validate:"required"`
-	U        string `json:"url" validate:"url"`
-	Template string `json:"template" validate:"omitempty,oneof=discord"`
-	Payload  string `json:"payload" validate:"jsonIfTemplateNotUsed"`
-	Tok      string `json:"token"`
-	Meth     string `json:"method" validate:"oneof=GET POST PUT"`
-	MIMETyp  string `json:"mime_type"`
-	ColorM   string `json:"color_mode" validate:"oneof=hex dec"`
+	ProviderBase
+	Template  string `json:"template"`
+	Payload   string `json:"payload"`
+	Method    string `json:"method"`
+	MIMEType  string `json:"mime_type"`
+	ColorMode string `json:"color_mode"`
 }
 
 //go:embed templates/discord.json
@@ -30,60 +27,65 @@ var webhookTemplates = map[string]string{
 	"discord": discordPayload,
 }
 
-func DefaultValue() *Webhook {
-	return &Webhook{
-		Meth:    "POST",
-		ColorM:  "hex",
-		MIMETyp: "application/json",
+func (webhook *Webhook) Validate() E.Error {
+	if err := webhook.ProviderBase.Validate(); err != nil && !err.Is(ErrMissingToken) {
+		return err
 	}
-}
 
-func jsonIfTemplateNotUsed(fl validator.FieldLevel) bool {
-	template := fl.Parent().FieldByName("Template").String()
-	if template != "" {
-		return true
-	}
-	payload := fl.Field().String()
-	return json.Valid([]byte(payload))
-}
-
-func init() {
-	utils.RegisterDefaultValueFactory(DefaultValue)
-	utils.MustRegisterValidation("jsonIfTemplateNotUsed", jsonIfTemplateNotUsed)
-}
-
-// Name implements Provider.
-func (webhook *Webhook) Name() string {
-	return webhook.N
-}
-
-// Method implements Provider.
-func (webhook *Webhook) Method() string {
-	return webhook.Meth
-}
-
-// URL implements Provider.
-func (webhook *Webhook) URL() string {
-	return webhook.U
-}
-
-// Token implements Provider.
-func (webhook *Webhook) Token() string {
-	return webhook.Tok
-}
-
-// MIMEType implements Provider.
-func (webhook *Webhook) MIMEType() string {
-	return webhook.MIMETyp
-}
-
-func (webhook *Webhook) ColorMode() string {
-	switch webhook.Template {
-	case "discord":
-		return "dec"
+	switch webhook.MIMEType {
+	case "":
+		webhook.MIMEType = "application/json"
+	case "application/json", "application/x-www-form-urlencoded", "text/plain":
 	default:
-		return webhook.ColorM
+		return E.New("invalid mime_type, expect empty, 'application/json', 'application/x-www-form-urlencoded' or 'text/plain'")
 	}
+
+	switch webhook.Template {
+	case "":
+		if webhook.MIMEType == "application/json" && !json.Valid([]byte(webhook.Payload)) {
+			return E.New("invalid payload, expect valid JSON")
+		}
+		if webhook.Payload == "" {
+			return E.New("invalid payload, expect non-empty")
+		}
+	case "discord":
+		webhook.ColorMode = "dec"
+		webhook.Method = http.MethodPost
+		webhook.MIMEType = "application/json"
+		if webhook.Payload == "" {
+			webhook.Payload = discordPayload
+		}
+	default:
+		return E.New("invalid template, expect empty or 'discord'")
+	}
+
+	switch webhook.Method {
+	case "":
+		webhook.Method = http.MethodPost
+	case http.MethodGet, http.MethodPost, http.MethodPut:
+	default:
+		return E.New("invalid method, expect empty, 'GET', 'POST' or 'PUT'")
+	}
+
+	switch webhook.ColorMode {
+	case "":
+		webhook.ColorMode = "hex"
+	case "hex", "dec":
+	default:
+		return E.New("invalid color_mode, expect empty, 'hex' or 'dec'")
+	}
+
+	return nil
+}
+
+// GetMethod implements Provider.
+func (webhook *Webhook) GetMethod() string {
+	return webhook.Method
+}
+
+// GetMIMEType implements Provider.
+func (webhook *Webhook) GetMIMEType() string {
+	return webhook.MIMEType
 }
 
 // makeRespError implements Provider.
@@ -108,7 +110,7 @@ func (webhook *Webhook) MakeBody(logMsg *LogMessage) (io.Reader, error) {
 		return nil, err
 	}
 	var color string
-	if webhook.ColorMode() == "hex" {
+	if webhook.ColorMode == "hex" {
 		color = logMsg.Color.HexString()
 	} else {
 		color = logMsg.Color.DecString()

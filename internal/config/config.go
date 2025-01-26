@@ -234,7 +234,7 @@ func (cfg *Config) load() E.Error {
 	errs := E.NewBuilder(errMsg)
 	errs.Add(cfg.entrypoint.SetMiddlewares(model.Entrypoint.Middlewares))
 	errs.Add(cfg.entrypoint.SetAccessLogger(cfg.task, model.Entrypoint.AccessLog))
-	errs.Add(cfg.initNotification(model.Providers.Notification))
+	cfg.initNotification(model.Providers.Notification)
 	errs.Add(cfg.initAutoCert(model.AutoCert))
 	errs.Add(cfg.loadRouteProviders(&model.Providers))
 
@@ -249,28 +249,22 @@ func (cfg *Config) load() E.Error {
 	return errs.Error()
 }
 
-func (cfg *Config) initNotification(notifCfg []types.NotificationConfig) (err E.Error) {
+func (cfg *Config) initNotification(notifCfg []notif.NotificationConfig) {
 	if len(notifCfg) == 0 {
 		return
 	}
 	dispatcher := notif.StartNotifDispatcher(cfg.task)
-	errs := E.NewBuilder("notification providers load errors")
-	for i, notifier := range notifCfg {
-		_, err := dispatcher.RegisterProvider(notifier)
-		if err == nil {
-			continue
-		}
-		errs.Add(err.Subjectf("[%d]", i))
+	for _, notifier := range notifCfg {
+		dispatcher.RegisterProvider(&notifier)
 	}
-	return errs.Error()
 }
 
-func (cfg *Config) initAutoCert(autocertCfg *types.AutoCertConfig) (err E.Error) {
+func (cfg *Config) initAutoCert(autocertCfg *autocert.AutocertConfig) (err E.Error) {
 	if cfg.autocertProvider != nil {
 		return
 	}
 
-	cfg.autocertProvider, err = autocert.NewConfig(autocertCfg).GetProvider()
+	cfg.autocertProvider, err = autocertCfg.GetProvider()
 	return
 }
 
