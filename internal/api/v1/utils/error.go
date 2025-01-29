@@ -1,10 +1,10 @@
 package utils
 
 import (
+	"encoding/json"
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
@@ -31,14 +31,13 @@ func RespondError(w http.ResponseWriter, err error, code ...int) {
 	if len(code) == 0 {
 		code = []int{http.StatusBadRequest}
 	}
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	buf := make([]byte, 0, 100)
-	errMsg := err.Error()
-	buf, err = logging.FormatMessageToHTMLBytes(errMsg, buf)
-	if err != nil {
-		http.Error(w, ansi.StripANSI(errMsg), code[0])
+	buf, err := json.Marshal(err)
+	if err != nil { // just in case
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		http.Error(w, ansi.StripANSI(err.Error()), code[0])
 		return
 	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code[0])
 	_, _ = w.Write(buf)
 }

@@ -1,6 +1,7 @@
 package err
 
 import (
+	"encoding/json"
 	"strings"
 
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
@@ -8,8 +9,8 @@ import (
 
 //nolint:errname
 type withSubject struct {
-	Subjects []string `json:"subjects"`
-	Err      error    `json:"err"`
+	Subjects []string
+	Err      error
 
 	pendingSubject string
 }
@@ -74,7 +75,7 @@ func (err *withSubject) Error() string {
 	for _, s := range err.Subjects {
 		size += len(s)
 	}
-	sb.Grow(size + 2 + n*len(subjectSep) + len(errStr))
+	sb.Grow(size + 2 + n*len(subjectSep) + len(errStr) + len(highlight("")))
 
 	for i := n - 1; i > 0; i-- {
 		sb.WriteString(err.Subjects[i])
@@ -84,4 +85,21 @@ func (err *withSubject) Error() string {
 	sb.WriteString(": ")
 	sb.WriteString(errStr)
 	return sb.String()
+}
+
+// MarshalJSON implements the json.Marshaler interface.
+func (err *withSubject) MarshalJSON() ([]byte, error) {
+	subjects := make([]string, len(err.Subjects))
+	for i, s := range err.Subjects {
+		subjects[len(err.Subjects)-i-1] = s
+	}
+	reversed := struct {
+		Subjects []string `json:"subjects"`
+		Err      error    `json:"err"`
+	}{
+		Subjects: subjects,
+		Err:      err.Err,
+	}
+
+	return json.Marshal(reversed)
 }
