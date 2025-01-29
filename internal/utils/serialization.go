@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"reflect"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -96,6 +97,39 @@ func ValidateWithFieldTags(s any) E.Error {
 	return errs.Error()
 }
 
+func dive(dst reflect.Value) (v reflect.Value, t reflect.Type, err E.Error) {
+	dstT := dst.Type()
+	for {
+		switch dst.Kind() {
+		case reflect.Pointer, reflect.Interface:
+			if dst.IsNil() {
+				if !dst.CanSet() {
+					err = E.Errorf("dive: dst is %w and is not settable", ErrNilValue)
+					return
+				}
+				dst.Set(New(dstT.Elem()))
+			}
+			dst = dst.Elem()
+			dstT = dst.Type()
+		case reflect.Struct:
+			return dst, dstT, nil
+		default:
+			if dst.IsNil() {
+				switch dst.Kind() {
+				case reflect.Map:
+					dst.Set(reflect.MakeMap(dstT))
+				case reflect.Slice:
+					dst.Set(reflect.MakeSlice(dstT, 0, 0))
+				default:
+					err = E.Errorf("deserialize: %w for dst %s", ErrInvalidType, dstT.String())
+					return
+				}
+			}
+			return dst, dstT, nil
+		}
+	}
+}
+
 // Deserialize takes a SerializedObject and a target value, and assigns the values in the SerializedObject to the target value.
 // Deserialize ignores case differences between the field names in the SerializedObject and the target.
 //
@@ -109,7 +143,7 @@ func ValidateWithFieldTags(s any) E.Error {
 // If the target value is a map[string]any the SerializedObject will be deserialized into the map.
 //
 // The function returns an error if the target value is not a struct or a map[string]any, or if there is an error during deserialization.
-func Deserialize(src SerializedObject, dst any) E.Error {
+func Deserialize(src SerializedObject, dst any) (err E.Error) {
 	dstV := reflect.ValueOf(dst)
 	dstT := dstV.Type()
 
@@ -118,38 +152,20 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 			dstV.Set(reflect.Zero(dstT))
 			return nil
 		}
-		return E.Errorf("deserialize: src is %w and dst is not settable", ErrNilValue)
+		return E.Errorf("deserialize: src is %w and dst is not settable\n%s", ErrNilValue, debug.Stack())
 	}
 
 	if dstT.Implements(mapUnmarshalerType) {
-		for dstV.IsNil() {
-			switch dstT.Kind() {
-			case reflect.Struct:
-				dstV.Set(New(dstT))
-			case reflect.Map:
-				dstV.Set(reflect.MakeMap(dstT))
-			case reflect.Slice:
-				dstV.Set(reflect.MakeSlice(dstT, 0, 0))
-			case reflect.Ptr:
-				dstV.Set(reflect.New(dstT.Elem()))
-			default:
-				return E.Errorf("deserialize: %w for dst %s", ErrInvalidType, dstT.String())
-			}
-			dstV = dstV.Elem()
+		dstV, _, err = dive(dstV)
+		if err != nil {
+			return err
 		}
-		return dstV.Interface().(MapUnmarshaller).UnmarshalMap(src)
+		return dstV.Addr().Interface().(MapUnmarshaller).UnmarshalMap(src)
 	}
 
-	for dstT.Kind() == reflect.Ptr {
-		if dstV.IsNil() {
-			if dstV.CanSet() {
-				dstV.Set(New(dstT.Elem()))
-			} else {
-				return E.Errorf("deserialize: dst is %w and not settable", ErrNilValue)
-			}
-		}
-		dstV = dstV.Elem()
-		dstT = dstV.Type()
+	dstV, dstT, err = dive(dstV)
+	if err != nil {
+		return err
 	}
 
 	// convert data fields to lower no-snake
@@ -159,7 +175,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 	errs := E.NewBuilder("deserialize error")
 
 	switch dstV.Kind() {
-	case reflect.Struct:
+	case reflect.Struct, reflect.Interface:
 		hasValidateTag := false
 		mapping := make(map[string]reflect.Value)
 		fields, anonymous := extractFields(dstT)
@@ -235,7 +251,7 @@ func Deserialize(src SerializedObject, dst any) E.Error {
 		}
 		return errs.Error()
 	default:
-		return ErrUnsupportedConversion.Subject("mapping to " + dstT.String())
+		return ErrUnsupportedConversion.Subject("mapping to " + dstT.String() + " ")
 	}
 }
 
@@ -335,11 +351,11 @@ func Convert(src reflect.Value, dst reflect.Value) E.Error {
 		sliceErrs := E.NewBuilder("slice conversion errors")
 		newSlice := reflect.MakeSlice(dstT, src.Len(), src.Len())
 		i := 0
-		for _, v := range src.Seq2() {
+		for j, v := range src.Seq2() {
 			tmp := New(dstT.Elem()).Elem()
 			err := Convert(v, tmp)
 			if err != nil {
-				sliceErrs.Add(err.Subjectf("[%d]", i))
+				sliceErrs.Add(err.Subjectf("[%d]", j))
 				continue
 			}
 			newSlice.Index(i).Set(tmp)
@@ -446,7 +462,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 	return true, Convert(reflect.ValueOf(tmp), dst)
 }
 
-func DeserializeYAML[T any](data []byte, target T) E.Error {
+func DeserializeYAML[T any](data []byte, target *T) E.Error {
 	m := make(map[string]any)
 	if err := yaml.Unmarshal(data, m); err != nil {
 		return E.From(err)

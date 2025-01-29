@@ -314,7 +314,7 @@ func providerGenerator[CT any, PT challenge.Provider](
 ) ProviderGenerator {
 	return func(opt ProviderOpt) (challenge.Provider, E.Error) {
 		cfg := defaultCfg()
-		err := U.Deserialize(opt, cfg)
+		err := U.Deserialize(opt, &cfg)
 		if err != nil {
 			return nil, err
 		}
