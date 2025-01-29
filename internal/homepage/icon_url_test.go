@@ -116,6 +116,7 @@ func TestIconURL(t *testing.T) {
 			if tc.wantErr {
 				ExpectError(t, ErrInvalidIconURL, err)
 			} else {
+				tc.wantValue.FullValue = tc.input
 				ExpectNoError(t, err)
 				ExpectDeepEqual(t, u, tc.wantValue)
 			}

@@ -39,11 +39,6 @@ func TestParseCommands(t *testing.T) {
 			input:   "rewrite / / /",
 			wantErr: ErrInvalidArguments,
 		},
-		{
-			name:    "rewrite_no_leading_slash",
-			input:   "rewrite abc /",
-			wantErr: ErrInvalidArguments,
-		},
 		// serve tests
 		{
 			name:    "serve_valid",

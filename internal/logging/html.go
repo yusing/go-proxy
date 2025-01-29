@@ -133,6 +133,7 @@ func escapeAndAppend(s string, buf *[]byte) {
 			*buf = append(*buf, "&#9;"...)
 		case '\n':
 			*buf = append(*buf, "<br>"...)
+			*buf = append(*buf, prefixHTML...)
 		default:
 			*buf = append(*buf, s[i])
 		}

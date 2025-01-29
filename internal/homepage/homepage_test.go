@@ -7,25 +7,30 @@ import (
 )
 
 func TestOverrideItem(t *testing.T) {
-	// a := &Item{
-	// 	Show:  false,
-	// 	Alias: "foo",
-	// 	Name:  "Foo",
-	// 	Icon: &IconURL{
-	// 		Value:      "/favicon.ico",
-	// 		IconSource: IconSourceRelative,
-	// 	},
-	// 	Category: "App",
-	// }
-	// overrides := GetJSONConfig()
-	// overrides.SetShowItemOverride(a.Alias, true)
-	// overrides.SetDisplayNameOverride(a.Alias, "Bar")
-	// overrides.SetDisplayCategoryOverride(a.Alias, "Test")
-	// ExpectNoError(t, overrides.SetIconOverride(a.Alias, "@walkxcode/example.png"))
-
-	// overridden := a.GetOverriddenItem()
-	// ExpectTrue(t, overridden.Show)
-	// ExpectEqual(t, overridden.Name, "Bar")
-	// ExpectEqual(t, overridden.Category, "Test")
-	// ExpectEqual(t, overridden.Icon.String(), "png/example.png")
+	InitOverridesConfig()
+	a := &Item{
+		Alias: "foo",
+		ItemConfig: &ItemConfig{
+			Show: false,
+			Name: "Foo",
+			Icon: &IconURL{
+				Value:      "/favicon.ico",
+				IconSource: IconSourceRelative,
+			},
+			Category: "App",
+		},
+	}
+	override := &ItemConfig{
+		Show:     true,
+		Name:     "Bar",
+		Category: "Test",
+		Icon: &IconURL{
+			Value:      "@walkxcode/example.png",
+			IconSource: IconSourceWalkXCode,
+		},
+	}
+	overrides := GetOverrideConfig()
+	overrides.OverrideItem(a.Alias, override)
+	overridden := a.GetOverride()
+	ExpectDeepEqual(t, overridden.ItemConfig, override)
 }
