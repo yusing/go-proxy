@@ -145,7 +145,7 @@ var checkers = map[string]struct {
 				/path/to
 				/path/to/*`,
 			args: map[string]string{
-				"path": "the request path, must start with /",
+				"path": "the request path",
 			},
 		},
 		validate: validateURLPath,

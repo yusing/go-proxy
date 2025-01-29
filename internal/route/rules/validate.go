@@ -96,9 +96,6 @@ func validateURLPath(args []string) (any, E.Error) {
 	if trailingSlash {
 		p += "/"
 	}
-	if p[0] != '/' {
-		return nil, ErrInvalidArguments.Withf("must start with /")
-	}
 	return p, nil
 }
 
