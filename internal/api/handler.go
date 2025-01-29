@@ -29,7 +29,6 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.GetFileContent))
 	mux.HandleFunc("POST,PUT", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.SetFileContent))
 	mux.HandleFunc("POST", "/v1/file/validate/{type}", auth.RequireAuth(v1.ValidateFile))
-	mux.HandleFunc("GET", "/v1/schema/{filename...}", v1.GetSchemaFile)
 	mux.HandleFunc("GET", "/v1/stats", useCfg(cfg, v1.Stats))
 	mux.HandleFunc("GET", "/v1/stats/ws", useCfg(cfg, v1.StatsWS))
 	mux.HandleFunc("GET", "/v1/health/ws", auth.RequireAuth(useCfg(cfg, v1.HealthWS)))
