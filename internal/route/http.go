@@ -44,11 +44,15 @@ type (
 // var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
 func NewHTTPRoute(entry *entry.ReverseProxyEntry) (impl, E.Error) {
-	var trans *http.Transport
-	if entry.Raw.NoTLSVerify {
+	trans := gphttp.DefaultTransport
+	httpConfig := entry.Raw.HTTPConfig
+
+	if httpConfig.NoTLSVerify {
 		trans = gphttp.DefaultTransportNoTLS
-	} else {
-		trans = gphttp.DefaultTransport
+	}
+	if httpConfig.ResponseHeaderTimeout > 0 {
+		trans = trans.Clone()
+		trans.ResponseHeaderTimeout = httpConfig.ResponseHeaderTimeout
 	}
 
 	service := entry.TargetName()

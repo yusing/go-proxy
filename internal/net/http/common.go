@@ -20,7 +20,7 @@ var (
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 		DisableCompression:    true, // Prevent double compression
-		ResponseHeaderTimeout: 30 * time.Second,
+		ResponseHeaderTimeout: 60 * time.Second,
 		WriteBufferSize:       16 * 1024, // 16KB
 		ReadBufferSize:        16 * 1024, // 16KB
 	}

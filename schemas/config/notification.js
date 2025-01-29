@@ -1,5 +1,5 @@
 export const NOTIFICATION_PROVIDERS = ["webhook", "gotify"];
-export const WEBHOOK_TEMPLATES = ["discord"];
+export const WEBHOOK_TEMPLATES = ["", "discord"];
 export const WEBHOOK_METHODS = ["POST", "GET", "PUT"];
 export const WEBHOOK_MIME_TYPES = [
     "application/json",

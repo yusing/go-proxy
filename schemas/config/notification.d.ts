@@ -9,7 +9,7 @@ export interface GotifyConfig extends NotificationConfig {
     provider: "gotify";
     token: string;
 }
-export declare const WEBHOOK_TEMPLATES: readonly ["discord"];
+export declare const WEBHOOK_TEMPLATES: readonly ["", "discord"];
 export declare const WEBHOOK_METHODS: readonly ["POST", "GET", "PUT"];
 export declare const WEBHOOK_MIME_TYPES: readonly ["application/json", "application/x-www-form-urlencoded", "text/plain"];
 export declare const WEBHOOK_COLOR_MODES: readonly ["hex", "dec"];

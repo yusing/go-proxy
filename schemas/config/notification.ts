@@ -17,7 +17,7 @@ export interface GotifyConfig extends NotificationConfig {
   token: string;
 }
 
-export const WEBHOOK_TEMPLATES = ["discord"] as const;
+export const WEBHOOK_TEMPLATES = ["", "discord"] as const;
 export const WEBHOOK_METHODS = ["POST", "GET", "PUT"] as const;
 export const WEBHOOK_MIME_TYPES = [
   "application/json",

@@ -96,7 +96,7 @@ export type CIDRWhitelist = {
 };
 
 export type CloudflareRealIP = {
-  use: "cloudflare_real_ip" | "cloudflareRealIp" | "cloudflare_real_ip";
+  use: "cloudflare_real_ip" | "cloudflareRealIp" | "CloudflareRealIP";
   /** Recursively resolve the IP
    *
    * @default false

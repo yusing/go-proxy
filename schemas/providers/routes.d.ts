@@ -1,7 +1,7 @@
 import { AccessLogConfig } from "../config/access_log";
 import { accessLogExamples } from "../config/entrypoint";
 import { MiddlewaresMap } from "../middlewares/middlewares";
-import { Hostname, IPv4, IPv6, PathPattern, Port, StreamPort } from "../types";
+import { Duration, Hostname, IPv4, IPv6, PathPattern, Port, StreamPort } from "../types";
 import { HealthcheckConfig } from "./healthcheck";
 import { HomepageConfig } from "./homepage";
 import { LoadBalanceConfig } from "./loadbalance";
@@ -38,6 +38,11 @@ export type ReverseProxyRoute = {
      * @default false
      */
     no_tls_verify?: boolean;
+    /** Response header timeout
+     *
+     * @default 60s
+     */
+    response_header_timeout?: Duration;
     /** Path patterns (only patterns that match will be proxied).
      *
      * See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux

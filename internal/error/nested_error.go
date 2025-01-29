@@ -76,9 +76,7 @@ func (err *nestedError) Error() string {
 	if err.Err != nil {
 		lines = append(lines, makeLine(err.Err.Error(), 0))
 	}
-	if extras := makeLines(err.Extras, 1); len(extras) > 0 {
-		lines = append(lines, extras...)
-	}
+	lines = append(lines, makeLines(err.Extras, 1)...)
 	return strutils.JoinLines(lines)
 }
 
@@ -104,9 +102,7 @@ func makeLines(errs []error, level int) []string {
 			if err.Err != nil {
 				lines = append(lines, makeLine(err.Err.Error(), level))
 			}
-			if extras := makeLines(err.Extras, level+1); len(extras) > 0 {
-				lines = append(lines, extras...)
-			}
+			lines = append(lines, makeLines(err.Extras, level+1)...)
 		default:
 			lines = append(lines, makeLine(err.Error(), level))
 		}

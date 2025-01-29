@@ -25,11 +25,12 @@ type (
 
 		// raw entry object before validation
 		// loaded from docker labels or yaml file
-		Alias        string                     `json:"alias"`
-		Scheme       string                     `json:"scheme,omitempty"`
-		Host         string                     `json:"host,omitempty"`
-		Port         string                     `json:"port,omitempty"`
-		NoTLSVerify  bool                       `json:"no_tls_verify,omitempty"`
+		Alias  string `json:"alias"`
+		Scheme string `json:"scheme,omitempty"`
+		Host   string `json:"host,omitempty"`
+		Port   string `json:"port,omitempty"`
+
+		HTTPConfig
 		PathPatterns []string                   `json:"path_patterns,omitempty"`
 		Rules        rules.Rules                `json:"rules,omitempty" validate:"omitempty,unique=Name"`
 		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
