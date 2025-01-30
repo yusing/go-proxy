@@ -45,9 +45,11 @@ get:
 build:
 	mkdir -p bin
 	go build ${BUILD_FLAGS} -o bin/godoxy ./cmd
-	if [ $(shell id -u) -eq 0 ]; \
-		then setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
-		else sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
+	if which setcap; then \
+		if [ $(shell id -u) -eq 0 ]; \
+			then setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
+			else sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
+		fi \
 	fi
 
 run:

@@ -1,10 +1,11 @@
+# trunk-ignore-all(checkov/CKV_DOCKER_3)
 # Stage 1: Builder
 FROM golang:1.23.5-alpine AS builder
 HEALTHCHECK NONE
 
 # package version does not matter
 # trunk-ignore(hadolint/DL3018)
-RUN apk add --no-cache tzdata make libcap-setcap
+RUN apk add --no-cache make
 
 WORKDIR /src
 
@@ -35,25 +36,31 @@ RUN --mount=type=cache,target="/go/pkg/mod" \
     mv bin/godoxy /app/godoxy
 
 # Stage 2: Final image
-FROM scratch
+FROM alpine:3
 
 LABEL maintainer="yusing@6uo.me"
 LABEL proxy.exclude=1
 
-# copy timezone data
-COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+# trunk-ignore(hadolint/DL3018)
+RUN apk add --no-cache tzdata ca-certificates runuser libcap-setcap socat
 
 # copy binary
 COPY --from=builder /app /app
 
+# copy startup script
+COPY scripts/docker-start.sh /app/docker-start.sh
+
+RUN chmod +x /app/docker-start.sh
+
 # copy example config
 COPY config.example.yml /app/config/config.yml
 
-# copy certs
-COPY --from=builder /etc/ssl/certs /etc/ssl/certs
-
-ENV DOCKER_HOST=unix:///var/run/docker.sock
+ENV SOCKET_FORK=/app/forked.sock
+ENV DOCKER_HOST=unix://${SOCKET_FORK}
 ENV GODOXY_DEBUG=0
+
+ENV PUID=1002
+ENV PGID=1002
 
 EXPOSE 80
 EXPOSE 8888
@@ -61,4 +68,4 @@ EXPOSE 443
 
 WORKDIR /app
 
-CMD ["/app/godoxy"]
+ENTRYPOINT [ "/app/docker-start.sh" ]

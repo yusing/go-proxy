@@ -124,30 +124,30 @@ func (c *Container) setPublicIP() {
 		return
 	}
 	if strings.HasPrefix(c.DockerHost, "unix://") {
-		c.PublicIP = "127.0.0.1"
+		c.PublicIP = "localhost"
 		return
 	}
 	url, err := url.Parse(c.DockerHost)
 	if err != nil {
-		logging.Err(err).Msgf("invalid docker host %q, falling back to 127.0.0.1", c.DockerHost)
-		c.PublicIP = "127.0.0.1"
+		logging.Err(err).Msgf("invalid docker host %q, falling back to localhost", c.DockerHost)
+		c.PublicIP = "localhost"
 		return
 	}
 	c.PublicIP = url.Hostname()
 }
 
 func (c *Container) setPrivateIP(helper containerHelper) {
-	if !strings.HasPrefix(c.DockerHost, "unix://") {
-		return
-	}
-	if helper.NetworkSettings == nil {
-		return
-	}
-	for _, v := range helper.NetworkSettings.Networks {
-		if v.IPAddress == "" {
-			continue
-		}
-		c.PrivateIP = v.IPAddress
-		return
-	}
+	// if !strings.HasPrefix(c.DockerHost, "unix://") {
+	// 	return
+	// }
+	// if helper.NetworkSettings == nil {
+	// 	return
+	// }
+	// for _, v := range helper.NetworkSettings.Networks {
+	// 	if v.IPAddress == "" {
+	// 		continue
+	// 	}
+	// 	c.PrivateIP = v.IPAddress
+	// 	return
+	// }
 }

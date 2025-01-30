@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"bytes"
 	"crypto/tls"
+	"io"
 	"net"
 	"net/http"
 
@@ -26,3 +28,15 @@ var (
 	Post = httpClient.Post
 	Head = httpClient.Head
 )
+
+func FetchAPI(method, endpoint string, body []byte) (*http.Response, error) {
+	var bodyReader io.Reader
+	if body != nil {
+		bodyReader = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, "http://localhost"+common.APIHTTPAddr+endpoint, bodyReader)
+	if err != nil {
+		return nil, err
+	}
+	return httpClient.Do(req)
+}

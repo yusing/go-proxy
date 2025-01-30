@@ -10,6 +10,13 @@ const (
 	KeepAlive         = 60 * time.Second
 )
 
+const (
+	ProxyHTTPAddr   = ":80"
+	ProxyHTTPSAddr  = ":443"
+	APIHTTPAddr     = ":8080"
+	MetricsHTTPAddr = ":8081"
+)
+
 // file, folder structure
 
 const (

@@ -23,26 +23,7 @@ var (
 	EnableLogStreaming = GetEnvBool("LOG_STREAMING", true)
 	DebugMemLogger     = GetEnvBool("DEBUG_MEM_LOGGER", false) && EnableLogStreaming
 
-	ProxyHTTPAddr,
-	ProxyHTTPHost,
-	ProxyHTTPPort,
-	ProxyHTTPURL = GetAddrEnv("HTTP_ADDR", ":80", "http")
-
-	ProxyHTTPSAddr,
-	ProxyHTTPSHost,
-	ProxyHTTPSPort,
-	ProxyHTTPSURL = GetAddrEnv("HTTPS_ADDR", ":443", "https")
-
-	APIHTTPAddr,
-	APIHTTPHost,
-	APIHTTPPort,
-	APIHTTPURL = GetAddrEnv("API_ADDR", "127.0.0.1:8888", "http")
-
-	MetricsHTTPAddr,
-	MetricsHTTPHost,
-	MetricsHTTPPort,
-	MetricsHTTPURL = GetAddrEnv("PROMETHEUS_ADDR", "", "http")
-	PrometheusEnabled = MetricsHTTPURL != ""
+	PrometheusEnabled = GetEnvBool("PROMETHEUS_ENABLED", true)
 
 	APIJWTSecret   = decodeJWTKey(GetEnvString("API_JWT_SECRET", ""))
 	APIJWTTokenTTL = GetDurationEnv("API_JWT_TOKEN_TTL", time.Hour)

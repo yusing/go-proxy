@@ -2,19 +2,17 @@ package query
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 )
 
 func ReloadServer() E.Error {
-	resp, err := U.Post(common.APIHTTPURL+"/v1/reload", "", nil)
+	resp, err := U.FetchAPI(http.MethodPost, "/v1/reload", nil)
 	if err != nil {
 		return E.From(err)
 	}
@@ -32,7 +30,7 @@ func ReloadServer() E.Error {
 }
 
 func List[T any](what string) (_ T, outErr E.Error) {
-	resp, err := U.Get(fmt.Sprintf("%s/v1/list/%s", common.APIHTTPURL, what))
+	resp, err := U.FetchAPI(http.MethodGet, "/v1/list/"+what, nil)
 	if err != nil {
 		outErr = E.From(err)
 		return

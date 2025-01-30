@@ -116,6 +116,11 @@ func (e *RawEntry) Finalize() {
 		}
 	}
 
+	switch e.Host {
+	case "localhost", "127.0.0.1", "[::1]":
+		e.Host = "host.docker.internal"
+	}
+
 	if e.Scheme == "" && isDocker {
 		switch {
 		case e.Host == cont.PublicIP && cont.PublicPortMapping[pp].Type == "udp":

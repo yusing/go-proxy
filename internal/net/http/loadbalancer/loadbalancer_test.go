@@ -4,14 +4,13 @@ import (
 	"testing"
 
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
-	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
 func TestRebalance(t *testing.T) {
 	t.Parallel()
 	t.Run("zero", func(t *testing.T) {
-		lb := New(new(loadbalance.Config))
+		lb := New(new(types.Config))
 		for range 10 {
 			lb.AddServer(types.TestNewServer(0))
 		}
@@ -19,7 +18,7 @@ func TestRebalance(t *testing.T) {
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})
 	t.Run("less", func(t *testing.T) {
-		lb := New(new(loadbalance.Config))
+		lb := New(new(types.Config))
 		lb.AddServer(types.TestNewServer(float64(maxWeight) * .1))
 		lb.AddServer(types.TestNewServer(float64(maxWeight) * .2))
 		lb.AddServer(types.TestNewServer(float64(maxWeight) * .3))
@@ -30,7 +29,7 @@ func TestRebalance(t *testing.T) {
 		ExpectEqual(t, lb.sumWeight, maxWeight)
 	})
 	t.Run("more", func(t *testing.T) {
-		lb := New(new(loadbalance.Config))
+		lb := New(new(types.Config))
 		lb.AddServer(types.TestNewServer(float64(maxWeight) * .1))
 		lb.AddServer(types.TestNewServer(float64(maxWeight) * .2))
 		lb.AddServer(types.TestNewServer(float64(maxWeight) * .3))
