@@ -127,11 +127,18 @@ func main() {
 		return
 	}
 
+	cfg.Start(&config.StartServersOptions{
+		Proxy:   true,
+		Metrics: true,
+	})
 	if err := auth.Initialize(); err != nil {
 		logging.Fatal().Err(err).Msg("failed to initialize authentication")
 	}
+	// API Handler needs to start after auth is initialized.
+	cfg.StartServers(&config.StartServersOptions{
+		API: true,
+	})
 
-	cfg.Start()
 	config.WatchChanges()
 
 	sig := make(chan os.Signal, 1)

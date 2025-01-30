@@ -150,10 +150,10 @@ func (cfg *Config) Context() context.Context {
 	return cfg.task.Context()
 }
 
-func (cfg *Config) Start() {
+func (cfg *Config) Start(opts ...*StartServersOptions) {
 	cfg.StartAutoCert()
 	cfg.StartProxyProviders()
-	cfg.StartServers()
+	cfg.StartServers(opts...)
 }
 
 func (cfg *Config) StartAutoCert() {
@@ -187,7 +187,7 @@ type StartServersOptions struct {
 
 func (cfg *Config) StartServers(opts ...*StartServersOptions) {
 	if len(opts) == 0 {
-		opts = append(opts, &StartServersOptions{Proxy: true, API: true, Metrics: true})
+		opts = append(opts, &StartServersOptions{})
 	}
 	opt := opts[0]
 	if opt.Proxy {

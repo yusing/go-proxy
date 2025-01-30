@@ -2,6 +2,8 @@ package middleware
 
 import (
 	"net/http"
+	"sync"
+	"sync/atomic"
 
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	E "github.com/yusing/go-proxy/internal/error"
@@ -13,6 +15,9 @@ type oidcMiddleware struct {
 
 	auth    auth.Provider
 	authMux *http.ServeMux
+
+	isInitialized int32
+	initMu        sync.Mutex
 }
 
 var OIDC = NewMiddleware[oidcMiddleware]()
@@ -21,6 +26,29 @@ func (amw *oidcMiddleware) finalize() error {
 	if !auth.IsOIDCEnabled() {
 		return E.New("OIDC not enabled but OIDC middleware is used")
 	}
+	return nil
+}
+
+func (amw *oidcMiddleware) init() error {
+	if atomic.LoadInt32(&amw.isInitialized) == 1 {
+		return nil
+	}
+
+	return amw.initSlow()
+}
+
+func (amw *oidcMiddleware) initSlow() error {
+	amw.initMu.Lock()
+	if amw.isInitialized == 1 {
+		amw.initMu.Unlock()
+		return nil
+	}
+
+	defer func() {
+		amw.isInitialized = 1
+		amw.initMu.Unlock()
+	}()
+
 	authProvider, err := auth.NewOIDCProviderFromEnv()
 	if err != nil {
 		return err
@@ -45,6 +73,12 @@ func (amw *oidcMiddleware) finalize() error {
 }
 
 func (amw *oidcMiddleware) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
+	if err := amw.init(); err != nil {
+		// no need to log here, main OIDC may already failed and logged
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return false
+	}
+
 	if err := amw.auth.CheckToken(r); err != nil {
 		amw.authMux.ServeHTTP(w, r)
 		return false
