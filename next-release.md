@@ -106,16 +106,25 @@ GoDoxy v0.9.0 expected changes
 
   ```yaml
   # default
-  proxy.app.middlewares.oidc:
+  labels:
+    proxy.app.middlewares.oidc:
 
-  # override allowed users
-  proxy.app.middlewares.oidc.allowed_users: user1, user2
+  # with overridden allowed users
+  labels:
+    proxy.app.middlewares.oidc.allowed_users: user1, user2
 
-  # override allowed groups
-  proxy.app.middlewares.oidc.allowed_groups: group1, group2
+  # with overridden allowed groups
+  labels:
+    proxy.app.middlewares.oidc.allowed_groups: group1, group2
+
+  # with both overridden (can use inline YAML string for less typing)
+  labels:
+    proxy.app.middlewares.oidc: |
+      allowed_users: [user1, user2]
+      allowed_groups: [group1, group2]
   ```
 
-- Caddyfile like rules
+- Caddyfile like rules (experimental)
 
   ```yaml
   proxy.goaccess.rules: |
@@ -157,7 +166,11 @@ GoDoxy v0.9.0 expected changes
   bar: # in the same file or different file
     - use: foo@file
   ```
-
+- changed default `ResponseHeaderTimeout` to `60s`
+- allow customizing `ResponseHeaderTimeout` for each app, e.g.
+  ```yaml
+  proxy.<app>.response_header_timeout: 3m
+  ```
 - Fixes
   - bug: cert renewal failure no longer causes renew schdueler to stuck forever
   - bug: access log writes to closed file after config reload
