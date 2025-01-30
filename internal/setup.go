@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	branch          = common.GetEnvString("BRANCH", "v0.8")
+	branch          = common.GetEnvString("BRANCH", "v0.9")
 	baseURL         = "https://github.com/yusing/go-proxy/raw/" + branch
 	requiredConfigs = []Config{
 		{common.ConfigBasePath, true, false, ""},

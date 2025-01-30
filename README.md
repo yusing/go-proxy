@@ -11,9 +11,7 @@
 
 A lightweight, easy-to-use, and [performant](https://github.com/yusing/go-proxy/wiki/Benchmarks) reverse proxy with a Web UI and dashboard.
 
-**v0.9 will be out soon, with a brand new [WebUI](next-release.md)!!! Below one is the old one**
-
-![Screenshot](screenshots/webui.png)
+![Screenshot](https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f)
 
 _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
@@ -45,6 +43,7 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 - Auto hot-reload on container state / config file changes
 - **idlesleeper**: stop containers on idle, wake it up on traffic _(optional, see [screenshots](#idlesleeper))_
 - HTTP(s) reserve proxy
+- OpenID Connect support
 - [HTTP middleware support](https://github.com/yusing/go-proxy/wiki/Middlewares)
 - [Custom error pages support](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
 - TCP and UDP port forwarding
@@ -79,7 +78,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
     docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
     ```
 
-3.  _(Optional)_ setup WebUI login
+3.  _(Optional)_ setup WebUI login (skip if you use OIDC)
 
     - set random JWT secret
 
@@ -99,9 +98,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 5.  Start the container `docker compose up -d`
 
-6.  You may now do some extra configuration
-    - With text editor (e.g. Visual Studio Code)
-    - With Web UI via `https://gp.y.z`
+6.  You may now do some extra configuration on WebUI `https://gp.y.z`
 
 [🔼Back to top](#table-of-content)
 
@@ -109,15 +106,15 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
 
-   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/config.example.yml -O config/config.yml`
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/config.example.yml -O config/config.yml`
 
 2. Grab `.env.example` into `.env`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/.env.example -O .env`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/.env.example -O .env`
 
 3. Grab `compose.example.yml` into `compose.yml`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.8/compose.example.yml -O compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/compose.example.yml -O compose.yml`
 
 ### Folder structrue
 
