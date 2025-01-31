@@ -15,7 +15,6 @@ import (
 	"github.com/yusing/go-proxy/internal/entrypoint"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/http/server"
 	"github.com/yusing/go-proxy/internal/notif"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
@@ -182,7 +181,7 @@ func (cfg *Config) StartProxyProviders() {
 }
 
 type StartServersOptions struct {
-	Proxy, API, Metrics bool
+	Proxy, API bool
 }
 
 func (cfg *Config) StartServers(opts ...*StartServersOptions) {
@@ -205,14 +204,6 @@ func (cfg *Config) StartServers(opts ...*StartServersOptions) {
 			CertProvider: cfg.AutoCertProvider(),
 			HTTPAddr:     common.APIHTTPAddr,
 			Handler:      api.NewHandler(cfg),
-		})
-	}
-	if opt.Metrics && common.PrometheusEnabled {
-		server.StartServer(cfg.task, server.Options{
-			Name:         "metrics",
-			CertProvider: cfg.AutoCertProvider(),
-			HTTPAddr:     common.MetricsHTTPAddr,
-			Handler:      metrics.NewHandler(),
 		})
 	}
 }

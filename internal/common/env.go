@@ -38,11 +38,7 @@ var (
 	APIHTTPPort,
 	APIHTTPURL = GetAddrEnv("API_ADDR", "127.0.0.1:8888", "http")
 
-	MetricsHTTPAddr,
-	MetricsHTTPHost,
-	MetricsHTTPPort,
-	MetricsHTTPURL = GetAddrEnv("PROMETHEUS_ADDR", "", "http")
-	PrometheusEnabled = MetricsHTTPURL != ""
+	PrometheusEnabled = GetEnvBool("PROMETHEUS_ENABLED", false)
 
 	APIJWTSecret   = decodeJWTKey(GetEnvString("API_JWT_SECRET", ""))
 	APIJWTTokenTTL = GetDurationEnv("API_JWT_TOKEN_TTL", time.Hour)
