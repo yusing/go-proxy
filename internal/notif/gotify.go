@@ -24,16 +24,6 @@ func (client *GotifyClient) GetURL() string {
 	return client.URL + gotifyMsgEndpoint
 }
 
-// GetMethod implements Provider.
-func (client *GotifyClient) GetMethod() string {
-	return http.MethodPost
-}
-
-// GetMIMEType implements Provider.
-func (client *GotifyClient) GetMIMEType() string {
-	return "application/json"
-}
-
 // MakeBody implements Provider.
 func (client *GotifyClient) MakeBody(logMsg *LogMessage) (io.Reader, error) {
 	var priority int

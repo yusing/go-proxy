@@ -1,6 +1,7 @@
 package notif
 
 import (
+	"net/http"
 	"net/url"
 	"strings"
 
@@ -44,4 +45,12 @@ func (base *ProviderBase) GetURL() string {
 
 func (base *ProviderBase) GetToken() string {
 	return base.Token
+}
+
+func (base *ProviderBase) GetMethod() string {
+	return http.MethodPost
+}
+
+func (base *ProviderBase) GetMIMEType() string {
+	return "application/json"
 }
