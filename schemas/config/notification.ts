@@ -1,6 +1,6 @@
 import { URL } from "../types";
 
-export const NOTIFICATION_PROVIDERS = ["webhook", "gotify"] as const;
+export const NOTIFICATION_PROVIDERS = ["webhook", "gotify", "ntfy"] as const;
 
 export type NotificationProvider = (typeof NOTIFICATION_PROVIDERS)[number];
 
@@ -17,12 +17,23 @@ export interface GotifyConfig extends NotificationConfig {
   token: string;
 }
 
+export const NTFY_MSG_STYLES = ["markdown", "plain"];
+export type NtfyStyle = (typeof NTFY_MSG_STYLES)[number];
+
+export interface NtfyConfig extends NotificationConfig {
+  provider: "ntfy";
+  topic: string;
+  token?: string;
+  style?: NtfyStyle;
+}
+
 export const WEBHOOK_TEMPLATES = ["", "discord"] as const;
 export const WEBHOOK_METHODS = ["POST", "GET", "PUT"] as const;
 export const WEBHOOK_MIME_TYPES = [
   "application/json",
   "application/x-www-form-urlencoded",
   "text/plain",
+  "text/markdown",
 ] as const;
 export const WEBHOOK_COLOR_MODES = ["hex", "dec"] as const;
 

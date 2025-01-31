@@ -1,6 +1,7 @@
 package notif
 
 import (
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -53,4 +54,16 @@ func (base *ProviderBase) GetMethod() string {
 
 func (base *ProviderBase) GetMIMEType() string {
 	return "application/json"
+}
+
+func (base *ProviderBase) SetHeaders(logMsg *LogMessage, headers http.Header) {
+	// no-op by default
+}
+
+func (base *ProviderBase) makeRespError(resp *http.Response) error {
+	body, err := io.ReadAll(resp.Body)
+	if err == nil {
+		return E.Errorf("%s status %d: %s", base.Name, resp.StatusCode, body)
+	}
+	return E.Errorf("%s status %d", base.Name, resp.StatusCode)
 }

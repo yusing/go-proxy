@@ -217,14 +217,14 @@ func (mon *monitor) checkUpdateHealth() error {
 			notif.Notify(&notif.LogMessage{
 				Title:  "✅ Service is up ✅",
 				Extras: extras,
-				Color:  notif.Green,
+				Color:  notif.ColorSuccess,
 			})
 		} else {
 			logger.Warn().Msg("service went down")
 			notif.Notify(&notif.LogMessage{
 				Title:  "❌ Service went down ❌",
 				Extras: extras,
-				Color:  notif.Red,
+				Color:  notif.ColorError,
 			})
 		}
 	}

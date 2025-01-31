@@ -92,12 +92,12 @@ func (webhook *Webhook) GetMIMEType() string {
 func (webhook *Webhook) makeRespError(resp *http.Response) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("webhook status %d, failed to read body: %w", resp.StatusCode, err)
+		return fmt.Errorf("%s status %d, failed to read body: %w", webhook.Name, resp.StatusCode, err)
 	}
 	if len(body) > 0 {
-		return fmt.Errorf("webhook status %d: %s", resp.StatusCode, body)
+		return fmt.Errorf("%s status %d: %s", webhook.Name, resp.StatusCode, body)
 	}
-	return fmt.Errorf("webhook status %d", resp.StatusCode)
+	return fmt.Errorf("%s status %d", webhook.Name, resp.StatusCode)
 }
 
 func (webhook *Webhook) MakeBody(logMsg *LogMessage) (io.Reader, error) {
