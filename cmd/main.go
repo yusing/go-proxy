@@ -128,8 +128,7 @@ func main() {
 	}
 
 	cfg.Start(&config.StartServersOptions{
-		Proxy:   true,
-		Metrics: true,
+		Proxy: true,
 	})
 	if err := auth.Initialize(); err != nil {
 		logging.Fatal().Err(err).Msg("failed to initialize authentication")
