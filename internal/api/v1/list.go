@@ -71,6 +71,9 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 			U.RespondError(w, err)
 			return
 		}
+		if icons == nil {
+			icons = []string{}
+		}
 		U.RespondJSON(w, r, icons)
 	case ListTasks:
 		U.RespondJSON(w, r, task.DebugTaskList())
