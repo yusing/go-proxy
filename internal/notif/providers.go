@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"time"
 
 	E "github.com/yusing/go-proxy/internal/error"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -40,6 +41,10 @@ func notifyProvider(ctx context.Context, provider Provider, msg *LogMessage) err
 	if err != nil {
 		return E.PrependSubject(provider.GetName(), err)
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+
 	req, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodPost,
