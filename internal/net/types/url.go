@@ -2,13 +2,16 @@ package types
 
 import (
 	urlPkg "net/url"
+
+	"github.com/yusing/go-proxy/internal/utils"
 )
 
 type URL struct {
-	*urlPkg.URL
+	_ utils.NoCopy
+	urlPkg.URL
 }
 
-func MustParseURL(url string) URL {
+func MustParseURL(url string) *URL {
 	u, err := ParseURL(url)
 	if err != nil {
 		panic(err)
@@ -16,40 +19,37 @@ func MustParseURL(url string) URL {
 	return u
 }
 
-func ParseURL(url string) (URL, error) {
-	u, err := urlPkg.Parse(url)
+func ParseURL(url string) (u *URL, err error) {
+	return u, u.Parse(url)
+}
+
+func NewURL(url *urlPkg.URL) *URL {
+	return &URL{URL: *url}
+}
+
+func (u *URL) Parse(url string) error {
+	uu, err := urlPkg.Parse(url)
 	if err != nil {
-		return URL{}, err
+		return err
 	}
-	return URL{URL: u}, nil
+	u.URL = *uu
+	return nil
 }
 
-func NewURL(url *urlPkg.URL) URL {
-	return URL{url}
-}
-
-func (u URL) Nil() bool {
-	return u.URL == nil
-}
-
-func (u URL) String() string {
-	if u.URL == nil {
+func (u *URL) String() string {
+	if u == nil {
 		return "nil"
 	}
 	return u.URL.String()
 }
 
-func (u URL) MarshalJSON() (text []byte, err error) {
-	if u.URL == nil {
+func (u *URL) MarshalJSON() (text []byte, err error) {
+	if u == nil {
 		return []byte("null"), nil
 	}
 	return []byte("\"" + u.URL.String() + "\""), nil
 }
 
-func (u URL) Equals(other *URL) bool {
-	return u.URL == other.URL || u.String() == other.String()
-}
-
-func (u URL) JoinPath(path string) URL {
-	return URL{u.URL.JoinPath(path)}
+func (u *URL) Equals(other *URL) bool {
+	return u.String() == other.String()
 }
