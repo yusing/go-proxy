@@ -1,5 +1,5 @@
 import { URI, URL } from "../types";
-import { GotifyConfig, WebhookConfig } from "./notification";
+import { GotifyConfig, NtfyConfig, WebhookConfig } from "./notification";
 
 export type Providers = {
   /** List of route definition files to include
@@ -20,7 +20,7 @@ export type Providers = {
    * @minItems 1
    * @examples require(".").notificationExamples
    */
-  notification?: (WebhookConfig | GotifyConfig)[];
+  notification?: (WebhookConfig | GotifyConfig | NtfyConfig)[];
 };
 
 export const includeExamples = ["file1.yml", "file2.yml"] as const;

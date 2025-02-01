@@ -21,6 +21,7 @@ type (
 		GetMIMEType() string
 
 		MakeBody(logMsg *LogMessage) (io.Reader, error)
+		SetHeaders(logMsg *LogMessage, headers http.Header)
 
 		makeRespError(resp *http.Response) error
 	}
@@ -30,6 +31,7 @@ type (
 
 const (
 	ProviderGotify  = "gotify"
+	ProviderNtfy    = "ntfy"
 	ProviderWebhook = "webhook"
 )
 
@@ -52,6 +54,7 @@ func notifyProvider(ctx context.Context, provider Provider, msg *LogMessage) err
 	if provider.GetToken() != "" {
 		req.Header.Set("Authorization", "Bearer "+provider.GetToken())
 	}
+	provider.SetHeaders(msg, req.Header)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

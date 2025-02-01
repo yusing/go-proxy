@@ -61,7 +61,7 @@ func (client *GotifyClient) makeRespError(resp *http.Response) error {
 	var errm model.Error
 	err := json.NewDecoder(resp.Body).Decode(&errm)
 	if err != nil {
-		return fmt.Errorf(ProviderGotify+" status %d, but failed to decode err response: %w", resp.StatusCode, err)
+		return fmt.Errorf("%s status %d, but failed to decode err response: %w", client.Name, resp.StatusCode, err)
 	}
-	return fmt.Errorf(ProviderGotify+" status %d %s: %s", resp.StatusCode, errm.Error, errm.ErrorDescription)
+	return fmt.Errorf("%s status %d %s: %s", client.Name, resp.StatusCode, errm.Error, errm.ErrorDescription)
 }

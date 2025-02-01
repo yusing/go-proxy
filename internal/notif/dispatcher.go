@@ -14,10 +14,15 @@ type (
 		logCh     chan *LogMessage
 		providers F.Set[Provider]
 	}
+	LogField struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
+	LogFields  []LogField
 	LogMessage struct {
 		Level  zerolog.Level
 		Title  string
-		Extras map[string]any
+		Extras LogFields
 		Color  Color
 	}
 )
@@ -46,6 +51,10 @@ func Notify(msg *LogMessage) {
 	default:
 		dispatcher.logCh <- msg
 	}
+}
+
+func (f *LogFields) Add(name, value string) {
+	*f = append(*f, LogField{Name: name, Value: value})
 }
 
 func (disp *Dispatcher) RegisterProvider(cfg *NotificationConfig) {

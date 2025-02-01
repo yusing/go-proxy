@@ -5,9 +5,9 @@ import "fmt"
 type Color uint
 
 const (
-	Red   Color = 0xff0000
-	Green Color = 0x00ff00
-	Blue  Color = 0x0000ff
+	ColorError   Color = 0xff0000
+	ColorSuccess Color = 0x00ff00
+	ColorInfo    Color = 0x0000ff
 )
 
 func (c Color) HexString() string {

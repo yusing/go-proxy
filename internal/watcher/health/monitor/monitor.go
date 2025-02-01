@@ -198,33 +198,33 @@ func (mon *monitor) checkUpdateHealth() error {
 		status = health.StatusUnhealthy
 	}
 	if result.Healthy != (mon.status.Swap(status) == health.StatusHealthy) {
-		extras := map[string]any{
-			"Service Name": mon.service,
-			"Time":         strutils.FormatTime(time.Now()),
+		extras := notif.LogFields{
+			{Name: "Service Name", Value: mon.service},
+			{Name: "Time", Value: strutils.FormatTime(time.Now())},
 		}
 		if !result.Healthy {
-			extras["Last Seen"] = strutils.FormatLastSeen(GetLastSeen(mon.service))
+			extras.Add("Last Seen", strutils.FormatLastSeen(GetLastSeen(mon.service)))
 		}
 		if !mon.url.Load().Nil() {
-			extras["Service URL"] = mon.url.Load().String()
+			extras.Add("Service URL", mon.url.Load().String())
 		}
 		if result.Detail != "" {
-			extras["Detail"] = result.Detail
+			extras.Add("Detail", result.Detail)
 		}
 		if result.Healthy {
 			logger.Info().Msg("service is up")
-			extras["Ping"] = fmt.Sprintf("%d ms", result.Latency.Milliseconds())
+			extras.Add("Ping", fmt.Sprintf("%d ms", result.Latency.Milliseconds()))
 			notif.Notify(&notif.LogMessage{
 				Title:  "✅ Service is up ✅",
 				Extras: extras,
-				Color:  notif.Green,
+				Color:  notif.ColorSuccess,
 			})
 		} else {
 			logger.Warn().Msg("service went down")
 			notif.Notify(&notif.LogMessage{
 				Title:  "❌ Service went down ❌",
 				Extras: extras,
-				Color:  notif.Red,
+				Color:  notif.ColorError,
 			})
 		}
 	}

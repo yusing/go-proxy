@@ -38,6 +38,8 @@ func (cfg *NotificationConfig) UnmarshalMap(m map[string]any) (err E.Error) {
 		cfg.Provider = &Webhook{}
 	case ProviderGotify:
 		cfg.Provider = &GotifyClient{}
+	case ProviderNtfy:
+		cfg.Provider = &Ntfy{}
 	default:
 		return ErrUnknownNotifProvider.
 			Subject(cfg.ProviderName).
