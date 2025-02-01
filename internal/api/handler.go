@@ -9,6 +9,7 @@ import (
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -40,6 +41,7 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())
+		logging.Info().Msg("prometheus metrics enabled")
 	}
 
 	defaultAuth := auth.GetDefaultAuth()
