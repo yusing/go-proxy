@@ -3,7 +3,6 @@ package route
 import (
 	"net/http"
 
-	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
@@ -30,13 +29,10 @@ type (
 		HealthMon health.HealthMonitor `json:"health,omitempty"`
 
 		loadBalancer *loadbalancer.LoadBalancer
-		server       loadbalancer.Server
 		handler      http.Handler
 		rp           *reverseproxy.ReverseProxy
 
 		task *task.Task
-
-		l zerolog.Logger
 	}
 )
 
@@ -67,10 +63,6 @@ func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
 	r := &ReveseProxyRoute{
 		Route: base,
 		rp:    rp,
-		l: logging.With().
-			Str("type", string(base.Scheme)).
-			Str("name", service).
-			Logger(),
 	}
 	return r, nil
 }
@@ -125,7 +117,7 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 		default:
 			logging.Warn().
 				Str("route", r.TargetName()).
-				Msg("`path_patterns` is deprecated. Use `rules` instead.")
+				Msg("`path_patterns` for reverse proxy is deprecated. Use `rules` instead.")
 			mux := gphttp.NewServeMux()
 			patErrs := E.NewBuilder("invalid path pattern(s)")
 			for _, p := range pathPatterns {
@@ -145,8 +137,14 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 
 	if r.HealthMon != nil {
 		if err := r.HealthMon.Start(r.task); err != nil {
-			E.LogWarn("health monitor error", err, &r.l)
+			return err
 		}
+	}
+
+	if common.PrometheusEnabled {
+		metricsLogger := metricslogger.NewMetricsLogger(r.TargetName())
+		r.handler = metricsLogger.GetHandler(r.handler)
+		r.task.OnCancel("reset_metrics", metricsLogger.ResetMetrics)
 	}
 
 	if r.UseLoadBalance() {
@@ -156,12 +154,6 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 		r.task.OnCancel("entrypoint_remove_route", func() {
 			routes.DeleteHTTPRoute(r.TargetName())
 		})
-	}
-
-	if common.PrometheusEnabled {
-		metricsLogger := metricslogger.NewMetricsLogger(r.TargetName())
-		r.handler = metricsLogger.GetHandler(r.handler)
-		r.task.OnCancel("reset_metrics", metricsLogger.ResetMetrics)
 	}
 
 	r.task.OnCancel("reset_favicon", func() { favicon.PruneRouteIconCache(r) })
@@ -200,9 +192,7 @@ func (r *ReveseProxyRoute) addToLoadBalancer(parent task.Parent) {
 		}
 	} else {
 		lb = loadbalancer.New(cfg)
-		if err := lb.Start(parent); err != nil {
-			panic(err) // should always return nil
-		}
+		_ = lb.Start(parent) // always return nil
 		linked = &ReveseProxyRoute{
 			Route: &Route{
 				Alias:    cfg.Link,
@@ -215,9 +205,10 @@ func (r *ReveseProxyRoute) addToLoadBalancer(parent task.Parent) {
 		routes.SetHTTPRoute(cfg.Link, linked)
 	}
 	r.loadBalancer = lb
-	r.server = loadbalance.NewServer(r.task.Name(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
-	lb.AddServer(r.server)
+
+	server := loadbalance.NewServer(r.task.Name(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
+	lb.AddServer(server)
 	r.task.OnCancel("lb_remove_server", func() {
-		lb.RemoveServer(r.server)
+		lb.RemoveServer(server)
 	})
 }
