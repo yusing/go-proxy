@@ -17,11 +17,10 @@ type (
 		NumUnknown   uint16 `json:"unknown"`
 	}
 	ProviderStats struct {
-		Total       uint16             `json:"total"`
-		RPs         RouteStats         `json:"reverse_proxies"`
-		FileServers RouteStats         `json:"file_servers"`
-		Streams     RouteStats         `json:"streams"`
-		Type        types.ProviderType `json:"type"`
+		Total   uint16             `json:"total"`
+		RPs     RouteStats         `json:"reverse_proxies"`
+		Streams RouteStats         `json:"streams"`
+		Type    types.ProviderType `json:"type"`
 	}
 )
 
@@ -56,22 +55,19 @@ func (stats *RouteStats) AddOther(other RouteStats) {
 }
 
 func (p *Provider) Statistics() ProviderStats {
-	var rps, fileServers, streams RouteStats
+	var rps, streams RouteStats
 	for _, r := range p.routes {
 		switch r.Type() {
-		case route.RouteTypeReverseProxy:
+		case route.RouteTypeHTTP:
 			rps.Add(r)
 		case route.RouteTypeStream:
 			streams.Add(r)
-		default:
-			fileServers.Add(r)
 		}
 	}
 	return ProviderStats{
-		Total:       rps.Total + streams.Total,
-		RPs:         rps,
-		FileServers: fileServers,
-		Streams:     streams,
-		Type:        p.t,
+		Total:   rps.Total + streams.Total,
+		RPs:     rps,
+		Streams: streams,
+		Type:    p.t,
 	}
 }

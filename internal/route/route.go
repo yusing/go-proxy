@@ -140,13 +140,12 @@ func (r *Route) TargetURL() *net.URL {
 
 func (r *Route) Type() types.RouteType {
 	switch r.Scheme {
-	case types.SchemeHTTP, types.SchemeHTTPS:
-		return types.RouteTypeReverseProxy
+	case types.SchemeHTTP, types.SchemeHTTPS, types.SchemeFileServer:
+		return types.RouteTypeHTTP
 	case types.SchemeTCP, types.SchemeUDP:
 		return types.RouteTypeStream
-	default:
-		return types.RouteTypeFileServer
 	}
+	panic(fmt.Errorf("unexpected scheme %s for alias %s", r.Scheme, r.Alias))
 }
 
 func (r *Route) HealthMonitor() health.HealthMonitor {

@@ -147,11 +147,11 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 func RoutesByAlias(typeFilter ...route.RouteType) map[string]route.Route {
 	rts := make(map[string]route.Route)
 	if len(typeFilter) == 0 || typeFilter[0] == "" {
-		typeFilter = []route.RouteType{route.RouteTypeReverseProxy, route.RouteTypeStream}
+		typeFilter = []route.RouteType{route.RouteTypeHTTP, route.RouteTypeStream}
 	}
 	for _, t := range typeFilter {
 		switch t {
-		case route.RouteTypeReverseProxy:
+		case route.RouteTypeHTTP:
 			routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 				rts[alias] = r
 			})
