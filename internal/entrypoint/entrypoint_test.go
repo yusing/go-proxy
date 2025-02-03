@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	r  route.HTTPRoute
+	r  route.ReveseProxyRoute
 	ep = NewEntrypoint()
 )
 

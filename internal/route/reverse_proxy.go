@@ -23,7 +23,7 @@ import (
 )
 
 type (
-	HTTPRoute struct {
+	ReveseProxyRoute struct {
 		*Route
 
 		HealthMon health.HealthMonitor `json:"health,omitempty"`
@@ -41,7 +41,7 @@ type (
 
 // var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
-func NewHTTPRoute(base *Route) (*HTTPRoute, E.Error) {
+func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
 	trans := gphttp.DefaultTransport
 	httpConfig := base.HTTPConfig
 
@@ -63,7 +63,7 @@ func NewHTTPRoute(base *Route) (*HTTPRoute, E.Error) {
 		}
 	}
 
-	r := &HTTPRoute{
+	r := &ReveseProxyRoute{
 		Route: base,
 		rp:    rp,
 		l: logging.With().
@@ -74,12 +74,12 @@ func NewHTTPRoute(base *Route) (*HTTPRoute, E.Error) {
 	return r, nil
 }
 
-func (r *HTTPRoute) String() string {
+func (r *ReveseProxyRoute) String() string {
 	return r.TargetName()
 }
 
 // Start implements task.TaskStarter.
-func (r *HTTPRoute) Start(parent task.Parent) E.Error {
+func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 	r.task = parent.Subtask("http."+r.TargetName(), false)
 
 	switch {
@@ -166,30 +166,30 @@ func (r *HTTPRoute) Start(parent task.Parent) E.Error {
 }
 
 // Task implements task.TaskStarter.
-func (r *HTTPRoute) Task() *task.Task {
+func (r *ReveseProxyRoute) Task() *task.Task {
 	return r.task
 }
 
 // Finish implements task.TaskFinisher.
-func (r *HTTPRoute) Finish(reason any) {
+func (r *ReveseProxyRoute) Finish(reason any) {
 	r.task.Finish(reason)
 }
 
-func (r *HTTPRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *ReveseProxyRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	r.handler.ServeHTTP(w, req)
 }
 
-func (r *HTTPRoute) HealthMonitor() health.HealthMonitor {
+func (r *ReveseProxyRoute) HealthMonitor() health.HealthMonitor {
 	return r.HealthMon
 }
 
-func (r *HTTPRoute) addToLoadBalancer(parent task.Parent) {
+func (r *ReveseProxyRoute) addToLoadBalancer(parent task.Parent) {
 	var lb *loadbalancer.LoadBalancer
 	cfg := r.LoadBalance
 	l, ok := routes.GetHTTPRoute(cfg.Link)
-	var linked *HTTPRoute
+	var linked *ReveseProxyRoute
 	if ok {
-		linked = l.(*HTTPRoute)
+		linked = l.(*ReveseProxyRoute)
 		lb = linked.loadBalancer
 		lb.UpdateConfigIfNeeded(cfg)
 		if linked.Homepage.IsEmpty() && !r.Homepage.IsEmpty() {
@@ -200,7 +200,7 @@ func (r *HTTPRoute) addToLoadBalancer(parent task.Parent) {
 		if err := lb.Start(parent); err != nil {
 			panic(err) // should always return nil
 		}
-		linked = &HTTPRoute{
+		linked = &ReveseProxyRoute{
 			Route: &Route{
 				Alias:    cfg.Link,
 				Homepage: r.Homepage,

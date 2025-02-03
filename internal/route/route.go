@@ -102,7 +102,7 @@ func (r *Route) Start(parent task.Parent) (err E.Error) {
 	case types.SchemeFileServer:
 		r.impl, err = NewFileServer(r)
 	case types.SchemeHTTP, types.SchemeHTTPS:
-		r.impl, err = NewHTTPRoute(r)
+		r.impl, err = NewReverseProxyRoute(r)
 	case types.SchemeTCP, types.SchemeUDP:
 		r.impl, err = NewStreamRoute(r)
 	default:
