@@ -103,7 +103,6 @@ func OnConfigChange(ev []events.Event) {
 	}
 
 	if err := Reload(); err != nil {
-		logging.Warn().Msg("using last config")
 		// recovered in event queue
 		panic(err)
 	}
@@ -118,7 +117,7 @@ func Reload() E.Error {
 	err := newCfg.load()
 	if err != nil {
 		newCfg.task.Finish(err)
-		return err
+		return E.New("using last config").With(err)
 	}
 
 	// cancel all current subtasks -> wait
