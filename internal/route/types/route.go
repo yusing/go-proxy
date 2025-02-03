@@ -23,6 +23,8 @@ type (
 		TargetURL() *net.URL
 		HealthMonitor() health.HealthMonitor
 
+		Started() bool
+
 		IdlewatcherConfig() *idlewatcher.Config
 		HealthCheckConfig() *health.HealthCheckConfig
 		LoadBalanceConfig() *loadbalance.Config

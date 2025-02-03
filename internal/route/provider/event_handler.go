@@ -65,12 +65,10 @@ func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) 
 			handler.Remove(oldr)
 		case handler.matchAny(events, newr):
 			handler.Update(parent, oldr, newr)
-		case newr.ShouldNotServe():
-			handler.Remove(oldr)
 		}
 	}
 	for k, newr := range newRoutes {
-		if _, ok := oldRoutes[k]; !(ok || newr.ShouldNotServe()) {
+		if _, ok := oldRoutes[k]; !ok {
 			handler.Add(parent, newr)
 		}
 	}

@@ -8,7 +8,6 @@ import (
 
 	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/task"
@@ -83,10 +82,6 @@ func (p *Provider) MarshalText() ([]byte, error) {
 }
 
 func (p *Provider) startRoute(parent task.Parent, r *route.Route) E.Error {
-	if r.ShouldNotServe() {
-		logging.Debug().Str("alias", r.Alias).Str("provider", p.ShortName()).Msg("route excluded")
-		return nil
-	}
 	err := r.Start(parent)
 	if err != nil {
 		return err.Subject(r.Alias)
@@ -155,7 +150,6 @@ func (p *Provider) loadRoutes() (routes route.Routes, err E.Error) {
 		}
 		if r.ShouldExclude() {
 			delete(routes, alias)
-			continue
 		}
 	}
 	return routes, errs.Error()

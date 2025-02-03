@@ -368,7 +368,7 @@ func TestImplicitExcludeDatabase(t *testing.T) {
 			},
 		})["a"]
 		ExpectTrue(t, ok)
-		ExpectTrue(t, r.ShouldNotServe())
+		ExpectTrue(t, r.ShouldExclude())
 	})
 	t.Run("exposed port detection", func(t *testing.T) {
 		r, ok := makeRoutes(&types.Container{
@@ -378,6 +378,6 @@ func TestImplicitExcludeDatabase(t *testing.T) {
 			},
 		})["a"]
 		ExpectTrue(t, ok)
-		ExpectTrue(t, r.ShouldNotServe())
+		ExpectTrue(t, r.ShouldExclude())
 	})
 }

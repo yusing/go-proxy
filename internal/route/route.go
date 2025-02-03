@@ -8,7 +8,6 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/homepage"
-	"github.com/yusing/go-proxy/internal/logging"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -67,10 +66,6 @@ func (r *Route) Validate() E.Error {
 	}
 	r.isValidated = true
 
-	if r.ShouldNotServe() {
-		return nil
-	}
-
 	errs := E.NewBuilder("entry validation failed")
 
 	switch r.Scheme {
@@ -85,7 +80,7 @@ func (r *Route) Validate() E.Error {
 		r.lURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Listening))
 		fallthrough
 	default:
-		if r.Port.Proxy == 0 && !r.UseIdleWatcher() {
+		if r.Port.Proxy == 0 && !r.IsDocker() {
 			errs.Adds("missing proxy port")
 		}
 		if r.LoadBalance != nil && r.LoadBalance.Link == "" {
@@ -124,6 +119,11 @@ func (r *Route) Finish(reason any) {
 		return
 	}
 	r.impl.Finish(reason)
+	r.impl = nil
+}
+
+func (r *Route) Started() bool {
+	return r.impl != nil
 }
 
 func (r *Route) ProviderName() string {
@@ -190,7 +190,8 @@ func (r *Route) ShouldExclude() bool {
 		case r.Container.IsExcluded:
 			return true
 		case r.IsZeroPort() && !r.UseIdleWatcher():
-			logging.Debug().Str("container", r.Container.ContainerName).Msg("route excluded")
+			return true
+		case r.Container.IsDatabase && !r.Container.IsExplicit:
 			return true
 		case strings.HasPrefix(r.Container.ContainerName, "buildx_"):
 			return true
@@ -200,13 +201,6 @@ func (r *Route) ShouldExclude() bool {
 	}
 	if strings.HasPrefix(r.Alias, "x-") ||
 		strings.HasSuffix(r.Alias, "-old") {
-		return true
-	}
-	return false
-}
-
-func (r *Route) ShouldNotServe() bool {
-	if r.Container != nil && r.Container.IsDatabase && !r.Container.IsExplicit {
 		return true
 	}
 	return false
