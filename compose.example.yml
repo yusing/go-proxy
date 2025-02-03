@@ -28,15 +28,13 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./config:/app/config
+      - ./logs:/app/logs
       - ./error_pages:/app/error_pages
 
-      # (Optional) choose one of below to enable https
-      # 1. use existing certificate
+      # To use autocert, certs will be stored in "./certs".
+      # You can also use a docker volume to store it
+      - ./certs:/app/certs
 
+      # remove "./certs:/app/certs" and uncomment below to use existing certificate
       # - /path/to/certs/cert.crt:/app/certs/cert.crt
       # - /path/to/certs/priv.key:/app/certs/priv.key
-
-      # 2. use autocert, certs will be stored in ./certs
-      #    you can also use a docker volume to store it
-
-      # - ./certs:/app/certs

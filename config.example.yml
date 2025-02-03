@@ -1,78 +1,42 @@
 # Autocert (choose one below and uncomment to enable)
 #
 # 1. use existing cert
-#
+
 # autocert:
 #   provider: local
-#
-#   cert_path: certs/cert.crt         # optional, uncomment only if you need to change it
-#   key_path: certs/priv.key          # optional, uncomment only if you need to change it
-#
+
 # 2. cloudflare
-#
 # autocert:
 #   provider: cloudflare
-#   email: abc@gmail.com                            # ACME Email
-#   domains:                                        # a list of domains for cert registration
-#     - "*.y.z"                                     # remember to use double quotes to surround wildcard domain
+#   email: abc@gmail.com # ACME Email
+#   domains: # a list of domains for cert registration
+#     - "*.domain.com"
+#     - "domain.com"
 #   options:
-#     auth_token: c1234565789-abcdefghijklmnopqrst  # your zone API token
-#
-# 3. other providers, check docs/dns_providers.md for more
+#     auth_token: c1234565789-abcdefghijklmnopqrst # your zone API token
+
+# 3. other providers, see https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers#supported-dns-01-providers
 
 entrypoint:
-  middlewares:
-    # this part blocks all non-LAN HTTP traffic
-    # remove if you don't want this
-    - use: CIDRWhitelist
-      allow:
-        - "127.0.0.1"
-        - "10.0.0.0/8"
-        - "172.16.0.0/12"
-        - "192.168.0.0/16"
-      status: 403
-      message: "Forbidden"
-    # end of CIDRWhitelist
+  # Below define an example of middleware config
+  # 1. block non local IP connections
+  # 2. redirect HTTP to HTTPS
+  #
+  # middlewares:
+  #   - use: CIDRWhitelist
+  #     allow:
+  #       - "127.0.0.1"
+  #       - "10.0.0.0/8"
+  #       - "172.16.0.0/12"
+  #       - "192.168.0.0/16"
+  #     status: 403
+  #     message: "Forbidden"
+  #   - use: RedirectHTTP
 
-    # this part redirects HTTP to HTTPS
-    # remove if you don't want this
-    - use: RedirectHTTP
-
-  # access_log:
-  #   buffer_size: 1024
-  #   path: /var/log/example.log
-  #   filters:
-  #     status_codes:
-  #       values:
-  #         - 200-299
-  #         - 101
-  #     method:
-  #       values:
-  #         - GET
-  #     host:
-  #       values:
-  #         - example.y.z
-  #     headers:
-  #       negative: true
-  #       values:
-  #         - foo=bar
-  #         - baz
-  #     cidr:
-  #       values:
-  #         - 192.168.10.0/24
-  #   fields:
-  #     headers:
-  #       default: keep
-  #       config:
-  #         foo: redact
-  #     query:
-  #       default: drop
-  #       config:
-  #         foo: keep
-  #     cookies:
-  #       default: redact
-  #       config:
-  #         foo: keep
+  # below enables access log
+  access_log:
+    format: combined
+    path: /app/logs/entrypoint.log
 
 providers:
   # include files are standalone yaml files under `config/` directory
@@ -84,6 +48,7 @@ providers:
   docker:
     # $DOCKER_HOST implies environment variable `DOCKER_HOST` or unix:///var/run/docker.sock by default
     local: $DOCKER_HOST
+
     # explicit only mode
     # only containers with explicit aliases will be proxied
     # add "!" after provider name to enable explicit only mode
@@ -106,28 +71,10 @@ providers:
   #   - name: discord
   #     provider: webhook
   #     url: https://discord.com/api/webhooks/...
-  #     template: discord
-  #     # payload: | # discord template implies the following
-  #     #   {
-  #     #     "embeds": [
-  #     #       {
-  #     #         "title": $title,
-  #     #         "fields": $fields,
-  #     #         "color": "$color"
-  #     #       }
-  #     #     ]
-  #     #   }
-# if match_domains not defined
-# any host = alias+[any domain] will match
-# i.e. https://app1.y.z       will match alias app1 for any domain y.z
-#  but https://app1.node1.y.z will only match alias "app.node1"
-#
-# if match_domains defined
-# only host = alias+[one of match_domains] will match
-# i.e. match_domains = [node1.my.app, my.site]
-# https://app1.my.app, https://app1.my.net, etc. will not match even if app1 exists
-# only https://*.node1.my.app and https://*.my.site will match
-#
+  #     template: discord # this means use payload template from internal/notif/templates/discord.json
+
+# Check https://github.com/yusing/go-proxy/wiki/Certificates-and-domain-matching#domain-matching
+# for explaination of `match_domains`
 #
 # match_domains:
 #   - my.site
