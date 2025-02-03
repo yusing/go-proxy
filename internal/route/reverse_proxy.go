@@ -15,6 +15,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
 	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	metricslogger "github.com/yusing/go-proxy/internal/net/http/middleware/metrics_logger"
 	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	"github.com/yusing/go-proxy/internal/task"
@@ -158,7 +159,9 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 	}
 
 	if common.PrometheusEnabled {
-		r.task.OnCancel("metrics_cleanup", r.rp.UnregisterMetrics)
+		metricsLogger := metricslogger.NewMetricsLogger(r.TargetName())
+		r.handler = metricsLogger.GetHandler(r.handler)
+		r.task.OnCancel("reset_metrics", metricsLogger.ResetMetrics)
 	}
 
 	r.task.OnCancel("reset_favicon", func() { favicon.PruneRouteIconCache(r) })

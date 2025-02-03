@@ -23,12 +23,9 @@ import (
 	"net/url"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/rs/zerolog"
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/metrics"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/net/types"
@@ -99,37 +96,6 @@ type ReverseProxy struct {
 	TargetURL  *types.URL
 }
 
-type httpMetricLogger struct {
-	http.ResponseWriter
-	timestamp time.Time
-	labels    *metrics.HTTPRouteMetricLabels
-}
-
-// WriteHeader implements http.ResponseWriter.
-func (l *httpMetricLogger) WriteHeader(status int) {
-	l.ResponseWriter.WriteHeader(status)
-	duration := time.Since(l.timestamp)
-	go func() {
-		m := metrics.GetRouteMetrics()
-		m.HTTPReqTotal.Inc()
-		m.HTTPReqElapsed.With(l.labels).Set(float64(duration.Milliseconds()))
-
-		// ignore 1xx
-		switch {
-		case status >= 500:
-			m.HTTP5xx.With(l.labels).Inc()
-		case status >= 400:
-			m.HTTP4xx.With(l.labels).Inc()
-		case status >= 200:
-			m.HTTP2xx3xx.With(l.labels).Inc()
-		}
-	}()
-}
-
-func (l *httpMetricLogger) Unwrap() http.ResponseWriter {
-	return l.ResponseWriter
-}
-
 func singleJoiningSlash(a, b string) string {
 	aslash := strings.HasSuffix(a, "/")
 	bslash := strings.HasPrefix(b, "/")
@@ -179,10 +145,6 @@ func NewReverseProxy(name string, target *types.URL, transport http.RoundTripper
 	}
 	rp.HandlerFunc = rp.handler
 	return rp
-}
-
-func (p *ReverseProxy) UnregisterMetrics() {
-	metrics.GetRouteMetrics().UnregisterService(p.TargetName)
 }
 
 func (p *ReverseProxy) rewriteRequestURL(req *http.Request) {
@@ -255,28 +217,6 @@ func (p *ReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
-	visitorIP, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		visitorIP = req.RemoteAddr
-	}
-
-	if common.PrometheusEnabled {
-		t := time.Now()
-		// req.RemoteAddr had been modified by middleware (if any)
-		lbls := &metrics.HTTPRouteMetricLabels{
-			Service: p.TargetName,
-			Method:  req.Method,
-			Host:    req.Host,
-			Visitor: visitorIP,
-			Path:    req.URL.Path,
-		}
-		rw = &httpMetricLogger{
-			ResponseWriter: rw,
-			timestamp:      t,
-			labels:         lbls,
-		}
-	}
-
 	transport := p.Transport
 
 	ctx := req.Context()
@@ -360,7 +300,11 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	// separated list and fold multiple headers into one.
 	prior, ok := outreq.Header[gphttp.HeaderXForwardedFor]
 	omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
-	xff := visitorIP
+
+	xff, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		xff = req.RemoteAddr
+	}
 	if len(prior) > 0 {
 		xff = strings.Join(prior, ", ") + ", " + xff
 	}
