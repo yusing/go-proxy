@@ -124,7 +124,7 @@ func Reload() E.Error {
 	// -> replace config -> start new subtasks
 	instance.task.Finish("config changed")
 	instance = newCfg
-	instance.Start()
+	instance.Start(StartAllServers)
 	return nil
 }
 
@@ -182,6 +182,8 @@ func (cfg *Config) StartProxyProviders() {
 type StartServersOptions struct {
 	Proxy, API bool
 }
+
+var StartAllServers = &StartServersOptions{true, true}
 
 func (cfg *Config) StartServers(opts ...*StartServersOptions) {
 	if len(opts) == 0 {
