@@ -11,7 +11,7 @@ export const STREAM_SCHEMES = ["tcp", "udp"] as const;
 export type ProxyScheme = (typeof PROXY_SCHEMES)[number];
 export type StreamScheme = (typeof STREAM_SCHEMES)[number];
 
-export type Route = ReverseProxyRoute | StreamRoute;
+export type Route = ReverseProxyRoute | FileServerRoute | StreamRoute;
 export type Routes = {
   [key: string]: Route;
 };
@@ -69,6 +69,33 @@ export type ReverseProxyRoute = {
   access_log?: AccessLogConfig;
 };
 
+export type FileServerRoute = {
+  /** Alias (subdomain or FDN)
+   * @minLength 1
+   */
+  alias?: string;
+  scheme: "fileserver";
+  /* File server root path */
+  root: string;
+  /** Path patterns (only patterns that match will be proxied).
+   *
+   * See https://pkg.go.dev/net/http#hdr-Patterns-ServeMux
+   */
+  path_patterns?: PathPattern[];
+  /** Middlewares */
+  middlewares?: MiddlewaresMap;
+  /** Homepage config
+   *
+   * @examples require(".").homepageExamples
+   */
+  homepage?: HomepageConfig;
+  /** Access log config
+   *
+   * @examples require(".").accessLogExamples
+   */
+  access_log?: AccessLogConfig;
+}
+
 export type StreamRoute = {
   /** Alias (subdomain or FDN)
    * @minLength 1
@@ -78,7 +105,7 @@ export type StreamRoute = {
    *
    * @default tcp
    */
-  scheme: StreamScheme;
+  scheme?: StreamScheme;
   /** Stream host
    *
    * @default localhost

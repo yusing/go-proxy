@@ -17,7 +17,7 @@ import (
 
 type (
 	Provider struct {
-		ProviderImpl `json:"-"`
+		ProviderImpl
 
 		t      types.ProviderType
 		routes route.Routes
