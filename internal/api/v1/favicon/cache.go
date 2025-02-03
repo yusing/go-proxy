@@ -78,7 +78,7 @@ func pruneExpiredIconCache() {
 }
 
 func routeKey(r route.HTTPRoute) string {
-	return r.RawEntry().Provider + ":" + r.TargetName()
+	return r.ProviderName() + ":" + r.TargetName()
 }
 
 func PruneRouteIconCache(route route.HTTPRoute) {

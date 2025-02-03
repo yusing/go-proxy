@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/yusing/go-proxy/internal/net/types"
+	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
@@ -19,7 +19,7 @@ type JSONRepresentation struct {
 	Latency  time.Duration
 	LastSeen time.Time
 	Detail   string
-	URL      types.URL
+	URL      *net.URL
 	Extra    map[string]any
 }
 

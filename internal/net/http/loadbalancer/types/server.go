@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
-	"github.com/yusing/go-proxy/internal/net/types"
+	net "github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -15,7 +15,7 @@ type (
 		_ U.NoCopy
 
 		name   string
-		url    types.URL
+		url    *net.URL
 		weight Weight
 
 		http.Handler `json:"-"`
@@ -26,7 +26,7 @@ type (
 		http.Handler
 		health.HealthMonitor
 		Name() string
-		URL() types.URL
+		URL() *net.URL
 		Weight() Weight
 		SetWeight(weight Weight)
 		TryWake() error
@@ -37,7 +37,7 @@ type (
 
 var NewServerPool = F.NewMap[Pool]
 
-func NewServer(name string, url types.URL, weight Weight, handler http.Handler, healthMon health.HealthMonitor) Server {
+func NewServer(name string, url *net.URL, weight Weight, handler http.Handler, healthMon health.HealthMonitor) Server {
 	srv := &server{
 		name:          name,
 		url:           url,
@@ -59,7 +59,7 @@ func (srv *server) Name() string {
 	return srv.name
 }
 
-func (srv *server) URL() types.URL {
+func (srv *server) URL() *net.URL {
 	return srv.url
 }
 

@@ -94,7 +94,7 @@ var commands = map[string]struct {
 		},
 		validate: validateURL,
 		build: func(args any) CommandHandler {
-			target := args.(types.URL).String()
+			target := args.(*types.URL).String()
 			return ReturningCommand(func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 			})
@@ -159,7 +159,7 @@ var commands = map[string]struct {
 		},
 		validate: validateAbsoluteURL,
 		build: func(args any) CommandHandler {
-			target := args.(types.URL)
+			target := args.(*types.URL)
 			if target.Scheme == "" {
 				target.Scheme = "http"
 			}

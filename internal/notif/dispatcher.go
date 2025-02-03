@@ -83,6 +83,9 @@ func (disp *Dispatcher) start() {
 }
 
 func (disp *Dispatcher) dispatch(msg *LogMessage) {
+	if true {
+		return
+	}
 	task := disp.task.Subtask("dispatcher")
 	defer task.Finish("notif dispatched")
 

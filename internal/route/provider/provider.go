@@ -8,7 +8,8 @@ import (
 
 	"github.com/rs/zerolog"
 	E "github.com/yusing/go-proxy/internal/error"
-	R "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/task"
 	W "github.com/yusing/go-proxy/internal/watcher"
@@ -20,7 +21,7 @@ type (
 		ProviderImpl `json:"-"`
 
 		t      types.ProviderType
-		routes R.Routes
+		routes route.Routes
 
 		watcher W.Watcher
 	}
@@ -28,7 +29,7 @@ type (
 		fmt.Stringer
 		ShortName() string
 		IsExplicitOnly() bool
-		loadRoutesImpl() (R.Routes, E.Error)
+		loadRoutesImpl() (route.Routes, E.Error)
 		NewWatcher() W.Watcher
 		Logger() *zerolog.Logger
 	}
@@ -41,10 +42,7 @@ const (
 var ErrEmptyProviderName = errors.New("empty provider name")
 
 func newProvider(t types.ProviderType) *Provider {
-	return &Provider{
-		t:      t,
-		routes: R.NewRoutes(),
-	}
+	return &Provider{t: t}
 }
 
 func NewFileProvider(filename string) (p *Provider, err error) {
@@ -84,13 +82,15 @@ func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
+func (p *Provider) startRoute(parent task.Parent, r *route.Route) E.Error {
+	if r.ShouldNotServe() {
+		logging.Debug().Str("alias", r.Alias).Str("provider", p.ShortName()).Msg("route excluded")
+		return nil
+	}
 	err := r.Start(parent)
 	if err != nil {
-		return err.Subject(r.Entry.Alias)
+		return err.Subject(r.Alias)
 	}
-
-	p.routes.Store(r.Entry.Alias, r)
 	return nil
 }
 
@@ -98,11 +98,10 @@ func (p *Provider) startRoute(parent task.Parent, r *R.Route) E.Error {
 func (p *Provider) Start(parent task.Parent) E.Error {
 	t := parent.Subtask("provider."+p.String(), false)
 
-	// routes and event queue will stop on config reload
-	errs := p.routes.CollectErrorsParallel(
-		func(alias string, r *R.Route) error {
-			return p.startRoute(t, r)
-		})
+	errs := E.NewBuilder("routes error")
+	for _, r := range p.routes {
+		errs.Add(p.startRoute(t, r))
+	}
 
 	eventQueue := events.NewEventQueue(
 		t.Subtask("event_queue", false),
@@ -119,32 +118,54 @@ func (p *Provider) Start(parent task.Parent) E.Error {
 	)
 	eventQueue.Start(p.watcher.Events(t.Context()))
 
-	if err := E.Join(errs...); err != nil {
+	if err := errs.Error(); err != nil {
 		return err.Subject(p.String())
 	}
 	return nil
 }
 
-func (p *Provider) RangeRoutes(do func(string, *R.Route)) {
-	p.routes.RangeAll(do)
+func (p *Provider) RangeRoutes(do func(string, *route.Route)) {
+	for alias, r := range p.routes {
+		do(alias, r)
+	}
 }
 
-func (p *Provider) GetRoute(alias string) (*R.Route, bool) {
-	return p.routes.Load(alias)
+func (p *Provider) GetRoute(alias string) (r *route.Route, ok bool) {
+	r, ok = p.routes[alias]
+	return
 }
 
-func (p *Provider) LoadRoutes() E.Error {
-	var err E.Error
-	p.routes, err = p.loadRoutesImpl()
-	if p.routes.Size() > 0 {
-		return err
+func (p *Provider) loadRoutes() (routes route.Routes, err E.Error) {
+	routes, err = p.loadRoutesImpl()
+	if err != nil && len(routes) == 0 {
+		return nil, err
 	}
-	if err == nil {
-		return nil
+	errs := E.NewBuilder("routes error")
+	errs.Add(err)
+	// check for exclusion
+	// set alias and provider, then validate
+	for alias, r := range routes {
+		r.Alias = alias
+		r.Provider = p.ShortName()
+		r.Finalize()
+		if err := r.Validate(); err != nil {
+			errs.Add(err.Subject(alias))
+			delete(routes, alias)
+			continue
+		}
+		if r.ShouldExclude() {
+			delete(routes, alias)
+			continue
+		}
 	}
-	return err
+	return routes, errs.Error()
+}
+
+func (p *Provider) LoadRoutes() (err E.Error) {
+	p.routes, err = p.loadRoutes()
+	return
 }
 
 func (p *Provider) NumRoutes() int {
-	return p.routes.Size()
+	return len(p.routes)
 }

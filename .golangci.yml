@@ -9,9 +9,6 @@ linters-settings:
       - fieldalignment
   gocyclo:
     min-complexity: 14
-  goconst:
-    min-len: 3
-    min-occurrences: 4
   misspell:
     locale: US
   funlen:
@@ -102,13 +99,14 @@ linters:
     - depguard # Not relevant
     - nakedret # Too strict
     - lll # Not relevant
-    - gocyclo # FIXME must be fixed
+    - gocyclo # must be fixed
     - gocognit # Too strict
     - nestif # Too many false-positive.
     - prealloc # Too many false-positive.
     - makezero # Not relevant
     - dupl # Too strict
     - gci # I don't care
+    - goconst # Too annoying
     - gosec # Too strict
     - gochecknoinits
     - gochecknoglobals

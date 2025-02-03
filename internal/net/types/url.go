@@ -19,7 +19,8 @@ func MustParseURL(url string) *URL {
 	return u
 }
 
-func ParseURL(url string) (u *URL, err error) {
+func ParseURL(url string) (*URL, error) {
+	u := &URL{}
 	return u, u.Parse(url)
 }
 

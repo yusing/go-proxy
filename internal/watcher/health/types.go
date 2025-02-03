@@ -30,8 +30,8 @@ type (
 	}
 	HealthChecker interface {
 		CheckHealth() (result *HealthCheckResult, err error)
-		URL() types.URL
+		URL() *types.URL
 		Config() *HealthCheckConfig
-		UpdateURL(url types.URL)
+		UpdateURL(url *types.URL)
 	}
 )

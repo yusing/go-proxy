@@ -20,7 +20,7 @@ func TestParseDockerLabels(t *testing.T) {
 	labels := make(map[string]string)
 	ExpectNoError(t, yaml.Unmarshal(testDockerLabelsYAML, &labels))
 
-	routes, err := provider.entriesFromContainerLabels(
+	routes, err := provider.routesFromContainerLabels(
 		docker.FromDocker(&types.Container{
 			Names:  []string{"container"},
 			Labels: labels,
@@ -31,6 +31,6 @@ func TestParseDockerLabels(t *testing.T) {
 		}, "/var/run/docker.sock"),
 	)
 	ExpectNoError(t, err)
-	ExpectTrue(t, routes.Has("app"))
-	ExpectTrue(t, routes.Has("app1"))
+	ExpectTrue(t, routes.Contains("app"))
+	ExpectTrue(t, routes.Contains("app1"))
 }

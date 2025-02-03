@@ -8,16 +8,22 @@ type Scheme string
 
 var ErrInvalidScheme = E.New("invalid scheme")
 
-func NewScheme(s string) (Scheme, error) {
+const (
+	SchemeHTTP       Scheme = "http"
+	SchemeHTTPS      Scheme = "https"
+	SchemeTCP        Scheme = "tcp"
+	SchemeUDP        Scheme = "udp"
+	SchemeFileServer Scheme = "fileserver"
+)
+
+func (s Scheme) Validate() E.Error {
 	switch s {
-	case "http", "https", "tcp", "udp":
-		return Scheme(s), nil
+	case SchemeHTTP, SchemeHTTPS,
+		SchemeTCP, SchemeUDP, SchemeFileServer:
+		return nil
 	}
-	return "", ErrInvalidScheme.Subject(s)
+	return ErrInvalidScheme.Subject(string(s))
 }
 
-func (s Scheme) IsHTTP() bool   { return s == "http" }
-func (s Scheme) IsHTTPS() bool  { return s == "https" }
-func (s Scheme) IsTCP() bool    { return s == "tcp" }
-func (s Scheme) IsUDP() bool    { return s == "udp" }
-func (s Scheme) IsStream() bool { return s.IsTCP() || s.IsUDP() }
+func (s Scheme) IsReverseProxy() bool { return s == SchemeHTTP || s == SchemeHTTPS }
+func (s Scheme) IsStream() bool       { return s == SchemeTCP || s == SchemeUDP }

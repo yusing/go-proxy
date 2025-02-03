@@ -79,11 +79,11 @@ type TestResult struct {
 
 type testArgs struct {
 	middlewareOpt OptionsRaw
-	upstreamURL   types.URL
+	upstreamURL   *types.URL
 
 	realRoundTrip bool
 
-	reqURL    types.URL
+	reqURL    *types.URL
 	reqMethod string
 	headers   http.Header
 	body      []byte
@@ -94,13 +94,13 @@ type testArgs struct {
 }
 
 func (args *testArgs) setDefaults() {
-	if args.reqURL.Nil() {
+	if args.reqURL == nil {
 		args.reqURL = E.Must(types.ParseURL("https://example.com"))
 	}
 	if args.reqMethod == "" {
 		args.reqMethod = http.MethodGet
 	}
-	if args.upstreamURL.Nil() {
+	if args.upstreamURL == nil {
 		args.upstreamURL = E.Must(types.ParseURL("https://10.0.0.1:8443")) // dummy url, no actual effect
 	}
 	if args.respHeaders == nil {

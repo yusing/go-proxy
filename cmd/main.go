@@ -120,7 +120,7 @@ func main() {
 		printJSON(cfg.Value())
 		return
 	case common.CommandDebugListEntries:
-		printJSON(cfg.DumpEntries())
+		printJSON(cfg.DumpRoutes())
 		return
 	case common.CommandDebugListProviders:
 		printJSON(cfg.DumpRouteProviders())

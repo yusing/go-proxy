@@ -50,8 +50,8 @@ var (
 
 const dockerReqTimeout = 3 * time.Second
 
-func registerWatcher(watcherTask *task.Task, entry route.Entry, waker *waker) (*Watcher, error) {
-	cfg := entry.IdlewatcherConfig()
+func registerWatcher(watcherTask *task.Task, route route.Route, waker *waker) (*Watcher, error) {
+	cfg := route.IdlewatcherConfig()
 
 	if cfg.IdleTimeout == 0 {
 		panic(errShouldNotReachHere)

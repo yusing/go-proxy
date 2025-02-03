@@ -4,7 +4,6 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
-	"github.com/yusing/go-proxy/internal/route/entry"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher"
@@ -31,10 +30,10 @@ func (p *Provider) newEventHandler() *EventHandler {
 
 func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) {
 	oldRoutes := handler.provider.routes
-	newRoutes, err := handler.provider.loadRoutesImpl()
+	newRoutes, err := handler.provider.loadRoutes()
 	if err != nil {
 		handler.errs.Add(err)
-		if newRoutes.Size() == 0 {
+		if len(newRoutes) == 0 {
 			return
 		}
 	}
@@ -47,34 +46,34 @@ func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) 
 		E.LogDebug(eventsLog.About(), eventsLog.Error(), handler.provider.Logger())
 
 		oldRoutesLog := E.NewBuilder("old routes")
-		oldRoutes.RangeAllParallel(func(k string, r *route.Route) {
+		for k := range oldRoutes {
 			oldRoutesLog.Adds(k)
-		})
+		}
 		E.LogDebug(oldRoutesLog.About(), oldRoutesLog.Error(), handler.provider.Logger())
 
 		newRoutesLog := E.NewBuilder("new routes")
-		newRoutes.RangeAllParallel(func(k string, r *route.Route) {
+		for k := range newRoutes {
 			newRoutesLog.Adds(k)
-		})
+		}
 		E.LogDebug(newRoutesLog.About(), newRoutesLog.Error(), handler.provider.Logger())
 	}
 
-	oldRoutes.RangeAll(func(k string, oldr *route.Route) {
-		newr, ok := newRoutes.Load(k)
+	for k, oldr := range oldRoutes {
+		newr, ok := newRoutes[k]
 		switch {
 		case !ok:
 			handler.Remove(oldr)
 		case handler.matchAny(events, newr):
 			handler.Update(parent, oldr, newr)
-		case entry.ShouldNotServe(newr):
+		case newr.ShouldNotServe():
 			handler.Remove(oldr)
 		}
-	})
-	newRoutes.RangeAll(func(k string, newr *route.Route) {
-		if !(oldRoutes.Has(k) || entry.ShouldNotServe(newr)) {
+	}
+	for k, newr := range newRoutes {
+		if _, ok := oldRoutes[k]; !(ok || newr.ShouldNotServe()) {
 			handler.Add(parent, newr)
 		}
-	})
+	}
 }
 
 func (handler *EventHandler) matchAny(events []watcher.Event, route *route.Route) bool {
@@ -89,8 +88,8 @@ func (handler *EventHandler) matchAny(events []watcher.Event, route *route.Route
 func (handler *EventHandler) match(event watcher.Event, route *route.Route) bool {
 	switch handler.provider.GetType() {
 	case types.ProviderTypeDocker:
-		return route.Entry.Container.ContainerID == event.ActorID ||
-			route.Entry.Container.ContainerName == event.ActorName
+		return route.Container.ContainerID == event.ActorID ||
+			route.Container.ContainerName == event.ActorName
 	case types.ProviderTypeFile:
 		return true
 	}
@@ -103,14 +102,14 @@ func (handler *EventHandler) Add(parent task.Parent, route *route.Route) {
 	if err != nil {
 		handler.errs.Add(err.Subject("add"))
 	} else {
-		handler.added.Adds(route.Entry.Alias)
+		handler.added.Adds(route.Alias)
 	}
 }
 
 func (handler *EventHandler) Remove(route *route.Route) {
 	route.Finish("route removed")
-	handler.provider.routes.Delete(route.Entry.Alias)
-	handler.removed.Adds(route.Entry.Alias)
+	delete(handler.provider.routes, route.Alias)
+	handler.removed.Adds(route.Alias)
 }
 
 func (handler *EventHandler) Update(parent task.Parent, oldRoute *route.Route, newRoute *route.Route) {
@@ -119,7 +118,7 @@ func (handler *EventHandler) Update(parent task.Parent, oldRoute *route.Route, n
 	if err != nil {
 		handler.errs.Add(err.Subject("update"))
 	} else {
-		handler.updated.Adds(newRoute.Entry.Alias)
+		handler.updated.Adds(newRoute.Alias)
 	}
 }
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/homepage"
-	"github.com/yusing/go-proxy/internal/route/entry"
 	provider "github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
@@ -44,15 +43,15 @@ func HomepageCategories() []string {
 	check := make(map[string]struct{})
 	categories := make([]string, 0)
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
-		en := r.RawEntry()
-		if en.Homepage.IsEmpty() || en.Homepage.Category == "" {
+		homepage := r.HomepageConfig()
+		if homepage.IsEmpty() || homepage.Category == "" {
 			return
 		}
-		if _, ok := check[en.Homepage.Category]; ok {
+		if _, ok := check[homepage.Category]; ok {
 			return
 		}
-		check[en.Homepage.Category] = struct{}{}
-		categories = append(categories, en.Homepage.Category)
+		check[homepage.Category] = struct{}{}
+		categories = append(categories, homepage.Category)
 	})
 	return categories
 }
@@ -61,8 +60,7 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 	hpCfg := homepage.NewHomePageConfig()
 
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
-		en := r.RawEntry()
-		item := en.Homepage
+		item := r.HomepageConfig()
 
 		if item.IsEmpty() {
 			item = homepage.NewItem(alias)
@@ -78,7 +76,7 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		item.Alias = alias
-		item.Provider = r.RawEntry().Provider
+		item.Provider = r.ProviderName()
 
 		if providerFilter != "" && item.Provider != providerFilter {
 			return
@@ -86,7 +84,7 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 
 		if item.Name == "" {
 			reference := r.TargetName()
-			cont := r.RawEntry().Container
+			cont := r.ContainerInfo()
 			if cont != nil {
 				reference = cont.ImageName
 			}
@@ -104,8 +102,9 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		if useDefaultCategories {
-			if en.Container != nil && item.Category == "" {
-				if category, ok := homepage.PredefinedCategories[en.Container.ImageName]; ok {
+			container := r.ContainerInfo()
+			if container != nil && item.Category == "" {
+				if category, ok := homepage.PredefinedCategories[container.ImageName]; ok {
 					item.Category = category
 				}
 			}
@@ -122,12 +121,12 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 		}
 
 		switch {
-		case entry.IsDocker(r):
+		case r.IsDocker():
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
 			item.SourceType = string(provider.ProviderTypeDocker)
-		case entry.UseLoadBalance(r):
+		case r.UseLoadBalance():
 			if item.Category == "" {
 				item.Category = "Load-balanced"
 			}

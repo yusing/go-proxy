@@ -96,7 +96,7 @@ type ReverseProxy struct {
 	HandlerFunc http.HandlerFunc
 
 	TargetName string
-	TargetURL  types.URL
+	TargetURL  *types.URL
 }
 
 type httpMetricLogger struct {
@@ -167,7 +167,7 @@ func joinURLPath(a, b *url.URL) (path, rawpath string) {
 // URLs to the scheme, host, and base path provided in target. If the
 // target's path is "/base" and the incoming request was for "/dir",
 // the target request will be for /base/dir.
-func NewReverseProxy(name string, target types.URL, transport http.RoundTripper) *ReverseProxy {
+func NewReverseProxy(name string, target *types.URL, transport http.RoundTripper) *ReverseProxy {
 	if transport == nil {
 		panic("nil transport")
 	}
@@ -189,7 +189,7 @@ func (p *ReverseProxy) rewriteRequestURL(req *http.Request) {
 	targetQuery := p.TargetURL.RawQuery
 	req.URL.Scheme = p.TargetURL.Scheme
 	req.URL.Host = p.TargetURL.Host
-	req.URL.Path, req.URL.RawPath = joinURLPath(p.TargetURL.URL, req.URL)
+	req.URL.Path, req.URL.RawPath = joinURLPath(&p.TargetURL.URL, req.URL)
 	if targetQuery == "" || req.URL.RawQuery == "" {
 		req.URL.RawQuery = targetQuery + req.URL.RawQuery
 	} else {

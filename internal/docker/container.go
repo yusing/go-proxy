@@ -12,7 +12,7 @@ import (
 )
 
 type (
-	PortMapping = map[string]types.Port
+	PortMapping = map[int]types.Port
 	Container   struct {
 		_ U.NoCopy
 
