@@ -75,8 +75,10 @@ func (err *nestedError) Error() string {
 	lines := make([]string, 0, 1+len(err.Extras))
 	if err.Err != nil {
 		lines = append(lines, makeLine(err.Err.Error(), 0))
+		lines = append(lines, makeLines(err.Extras, 1)...)
+	} else {
+		lines = append(lines, makeLines(err.Extras, 0)...)
 	}
-	lines = append(lines, makeLines(err.Extras, 1)...)
 	return strutils.JoinLines(lines)
 }
 
