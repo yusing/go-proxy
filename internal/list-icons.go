@@ -52,6 +52,9 @@ const (
 )
 
 func InitIconListCache() {
+	iconsCahceMu.Lock()
+	defer iconsCahceMu.Unlock()
+
 	iconsCache = &Cache{
 		WalkxCode:    make(IconsMap),
 		Selfhst:      make(IconsMap),

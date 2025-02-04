@@ -29,6 +29,9 @@ const (
 )
 
 func InitIconCache() {
+	iconCacheMu.Lock()
+	defer iconCacheMu.Unlock()
+
 	err := utils.LoadJSONIfExist(common.IconCachePath, &iconCache)
 	if err != nil {
 		logging.Error().Err(err).Msg("failed to load icon cache")

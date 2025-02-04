@@ -17,15 +17,17 @@ type OverrideConfig struct {
 	mu             sync.RWMutex
 }
 
-var overrideConfigInstance *OverrideConfig
+var overrideConfigInstance = &OverrideConfig{
+	ItemOverrides:  make(map[string]*ItemConfig),
+	DisplayOrder:   make(map[string]int),
+	CategoryOrder:  make(map[string]int),
+	ItemVisibility: make(map[string]bool),
+}
 
 func InitOverridesConfig() {
-	overrideConfigInstance = &OverrideConfig{
-		ItemOverrides:  make(map[string]*ItemConfig),
-		DisplayOrder:   make(map[string]int),
-		CategoryOrder:  make(map[string]int),
-		ItemVisibility: make(map[string]bool),
-	}
+	overrideConfigInstance.mu.Lock()
+	defer overrideConfigInstance.mu.Unlock()
+
 	err := utils.LoadJSONIfExist(common.HomepageJSONConfigPath, overrideConfigInstance)
 	if err != nil {
 		logging.Error().Err(err).Msg("failed to load homepage overrides config")
