@@ -94,8 +94,11 @@ func (p *Provider) Start(parent task.Parent) E.Error {
 	t := parent.Subtask("provider."+p.String(), false)
 
 	errs := E.NewBuilder("routes error")
-	for _, r := range p.routes {
-		errs.Add(p.startRoute(t, r))
+	for alias, r := range p.routes {
+		if err := p.startRoute(t, r); err != nil {
+			errs.Add(err)
+			delete(p.routes, alias)
+		}
 	}
 
 	eventQueue := events.NewEventQueue(
@@ -133,7 +136,7 @@ func (p *Provider) GetRoute(alias string) (r *route.Route, ok bool) {
 func (p *Provider) loadRoutes() (routes route.Routes, err E.Error) {
 	routes, err = p.loadRoutesImpl()
 	if err != nil && len(routes) == 0 {
-		return nil, err
+		return route.Routes{}, err
 	}
 	errs := E.NewBuilder("routes error")
 	errs.Add(err)
