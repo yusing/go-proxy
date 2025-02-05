@@ -1,19 +1,25 @@
+<div align="center">
+
 # GoDoxy
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
+![GitHub last commit](https://img.shields.io/github/last-commit/yusing/go-proxy)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
+[![](https://dcbadge.limes.pink/api/server/umReR62nRd?style=flat)](https://discord.gg/umReR62nRd)
+
+輕量、易用、 [高效能](https://github.com/yusing/go-proxy/wiki/Benchmarks)，且帶有主頁和配置面板的反向代理
+
+完整文檔請查閱 **[Wiki](https://github.com/yusing/go-proxy/wiki)**（暫未有中文翻譯）
+
+<!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![](https://dcbadge.limes.pink/api/server/umReR62nRd)](https://discord.gg/umReR62nRd)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy) -->
 
-[English Documentation](README.md)
+<a href="README.md">EN</a> | **中文**
 
-一個輕量級、易於使用且[高效能](https://github.com/yusing/go-proxy/wiki/Benchmarks)的反向代理，具有網頁介面和儀表板。
+<img src="https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f" style="max-width: 650">
 
-![截圖](screenshots/webui.png)
-
-_加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
+</div>
 
 ## 目錄
 
@@ -22,9 +28,8 @@ _加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
 - [GoDoxy](#godoxy)
   - [目錄](#目錄)
   - [主要特點](#主要特點)
-  - [入門指南](#入門指南)
-    - [前置需求](#前置需求)
-    - [安裝](#安裝)
+  - [前置需求](#前置需求)
+  - [安裝](#安裝)
     - [手動安裝](#手動安裝)
     - [資料夾結構](#資料夾結構)
     - [在 VSCode 中使用 JSON Schema](#在-vscode-中使用-json-schema)
@@ -43,6 +48,7 @@ _加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
 - 容器狀態/配置文件變更時自動熱重載
 - **閒置休眠**：在閒置時停止容器，有流量時喚醒（_可選，參見[截圖](#閒置休眠)_）
 - HTTP(s) 反向代理
+- OpenID Connect 支持
 - [HTTP 中介軟體支援](https://github.com/yusing/go-proxy/wiki/Middlewares)
 - [自訂錯誤頁面支援](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
 - TCP 和 UDP 埠轉發
@@ -52,18 +58,14 @@ _加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
 
 [🔼回到頂部](#目錄)
 
-## 入門指南
-
-完整文檔請參見 **[Wiki](https://github.com/yusing/go-proxy/wiki)**
-
-### 前置需求
+## 前置需求
 
 設置 DNS 記錄指向運行 `GoDoxy` 的機器，例如：
 
 - A 記錄：`*.y.z` -> `10.0.10.1`
 - AAAA 記錄：`*.y.z` -> `::ffff:a00:a01`
 
-### 安裝
+## 安裝
 
 1.  拉取最新的 Docker 映像
 
@@ -97,9 +99,7 @@ _加入我們的 [Discord](https://discord.gg/umReR62nRd) 獲取幫助和討論_
 
 5.  啟動容器 `docker compose up -d`
 
-6.  現在您可以進行額外的配置
-    - 使用文字編輯器（如 Visual Studio Code）
-    - 通過網頁介面 `https://gp.y.z`
+6.  大功告成!可前往WebUI `https://gp.domain.com` 進行額外的配置
 
 [🔼回到頂部](#目錄)
 

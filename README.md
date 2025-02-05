@@ -1,19 +1,25 @@
+<div align="center">
+
 # GoDoxy
 
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
+![GitHub last commit](https://img.shields.io/github/last-commit/yusing/go-proxy)
 [![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
+[![](https://dcbadge.limes.pink/api/server/umReR62nRd?style=flat)](https://discord.gg/umReR62nRd)
+
+A lightweight, simple, and [performant](https://github.com/yusing/go-proxy/wiki/Benchmarks) reverse proxy with WebUI.
+
+For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wiki)**
+
+**EN** | <a href="README_CHT.md">中文</a>
+
+<!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![](https://dcbadge.limes.pink/api/server/umReR62nRd)](https://discord.gg/umReR62nRd)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy) -->
 
-[繁體中文文檔請看此](README_CHT.md)
+<img src="https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f" style="max-width: 650">
 
-A lightweight, easy-to-use, and [performant](https://github.com/yusing/go-proxy/wiki/Benchmarks) reverse proxy with a Web UI and dashboard.
-
-![Screenshot](https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f)
-
-_Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
+</div>
 
 ## Table of content
 
@@ -22,9 +28,8 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 - [GoDoxy](#godoxy)
   - [Table of content](#table-of-content)
   - [Key Features](#key-features)
-  - [Getting Started](#getting-started)
-    - [Prerequisites](#prerequisites)
-    - [Setup](#setup)
+  - [Prerequisites](#prerequisites)
+  - [Setup](#setup)
     - [Manual Setup](#manual-setup)
     - [Folder structrue](#folder-structrue)
     - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
@@ -53,18 +58,14 @@ _Join our [Discord](https://discord.gg/umReR62nRd) for help and discussions_
 
 [🔼Back to top](#table-of-content)
 
-## Getting Started
-
-For full documentation, **[See Wiki](https://github.com/yusing/go-proxy/wiki)**
-
-### Prerequisites
+## Prerequisites
 
 Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 - A Record: `*.y.z` -> `10.0.10.1`
 - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
 
-### Setup
+## Setup
 
 1.  Pull the latest docker images
 
@@ -98,7 +99,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 5.  Start the container `docker compose up -d`
 
-6.  You may now do some extra configuration on WebUI `https://gp.y.z`
+6.  You may now do some extra configuration on WebUI `https://godoxy.domain.com`
 
 [🔼Back to top](#table-of-content)
 
