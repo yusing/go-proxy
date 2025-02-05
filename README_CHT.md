@@ -79,27 +79,11 @@
     docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
     ```
 
-3.  _（可選）_ 設置網頁介面登入
+3.  _（可選）_ 設置其他 Docker 節點的 `docker-socket-proxy`（參見 [多 Docker 節點設置](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)），然後在 `config.yml` 中添加它們
 
-    - 設置隨機 JWT 密鑰
+4.  啟動容器 `docker compose up -d`
 
-      ```shell
-      sed -i "s|API_JWT_SECRET=.*|API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
-      ```
-
-    - 更改網頁介面認證的使用者名稱和密碼
-      ```shell
-      USERNAME=admin
-      PASSWORD=some-password
-      sed -i "s|API_USERNAME=.*|API_USERNAME=${USERNAME}|g" .env
-      sed -i "s|API_PASSWORD=.*|API_PASSWORD=${PASSWORD}|g" .env
-      ```
-
-4.  _（可選）_ 設置其他 Docker 節點的 `docker-socket-proxy`（參見 [多 Docker 節點設置](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)），然後在 `config.yml` 中添加它們
-
-5.  啟動容器 `docker compose up -d`
-
-6.  大功告成!可前往WebUI `https://gp.domain.com` 進行額外的配置
+5.  大功告成!可前往WebUI `https://gp.domain.com` 進行額外的配置
 
 [🔼回到頂部](#目錄)
 
