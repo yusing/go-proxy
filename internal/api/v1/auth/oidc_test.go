@@ -14,7 +14,6 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/yusing/go-proxy/internal/common"
-	E "github.com/yusing/go-proxy/internal/error"
 	"golang.org/x/oauth2"
 
 	. "github.com/yusing/go-proxy/internal/utils/testing"
@@ -227,7 +226,7 @@ func TestOIDCCallbackHandler(t *testing.T) {
 			}
 
 			if tt.wantStatus == http.StatusTemporaryRedirect {
-				setCookie := E.Must(http.ParseSetCookie(w.Header().Get("Set-Cookie")))
+				setCookie := Must(http.ParseSetCookie(w.Header().Get("Set-Cookie")))
 				ExpectEqual(t, setCookie.Name, defaultAuth.TokenCookieName())
 				ExpectTrue(t, setCookie.Value != "")
 				ExpectEqual(t, setCookie.Path, "/")

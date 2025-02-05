@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/task"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
@@ -30,7 +29,7 @@ const (
 
 var (
 	testTask = task.RootTask("test", false)
-	testURL  = E.Must(url.Parse("http://" + host + uri))
+	testURL  = Must(url.Parse("http://" + host + uri))
 	req      = &http.Request{
 		RemoteAddr: remote,
 		Method:     method,

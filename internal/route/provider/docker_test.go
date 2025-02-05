@@ -9,7 +9,6 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/yusing/go-proxy/internal/common"
 	D "github.com/yusing/go-proxy/internal/docker"
-	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
 	T "github.com/yusing/go-proxy/internal/route/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
@@ -31,7 +30,7 @@ func makeRoutes(cont *types.Container, dockerHostIP ...string) route.Routes {
 		host = client.DefaultDockerHost
 	}
 	p.name = "test"
-	routes := E.Must(p.routesFromContainerLabels(D.FromDocker(cont, host)))
+	routes := Must(p.routesFromContainerLabels(D.FromDocker(cont, host)))
 	for _, r := range routes {
 		r.Finalize()
 	}
@@ -252,7 +251,7 @@ func TestDisableHealthCheck(t *testing.T) {
 	}
 	r, ok := makeRoutes(c)["a"]
 	ExpectTrue(t, ok)
-	ExpectEqual(t, r.HealthCheck, nil)
+	ExpectFalse(t, r.UseHealthCheck())
 }
 
 func TestPublicIPLocalhost(t *testing.T) {
@@ -348,7 +347,7 @@ func TestStreamDefaultValues(t *testing.T) {
 }
 
 func TestExplicitExclude(t *testing.T) {
-	_, ok := makeRoutes(&types.Container{
+	r, ok := makeRoutes(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
 			D.LabelAliases:          "a",
@@ -356,7 +355,8 @@ func TestExplicitExclude(t *testing.T) {
 			"proxy.a.no_tls_verify": "true",
 		},
 	}, "")["a"]
-	ExpectFalse(t, ok)
+	ExpectTrue(t, ok)
+	ExpectTrue(t, r.ShouldExclude())
 }
 
 func TestImplicitExcludeDatabase(t *testing.T) {
