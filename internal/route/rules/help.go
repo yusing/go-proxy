@@ -20,9 +20,8 @@ func (h *Help) String() string {
 	sb.WriteString(h.command)
 	sb.WriteString(" ")
 	for arg := range h.args {
-		sb.WriteRune('<')
-		sb.WriteString(arg)
-		sb.WriteString("> ")
+		sb.WriteString(strings.ToUpper(arg))
+		sb.WriteRune(' ')
 	}
 	if h.description != "" {
 		sb.WriteString("\n\t")
@@ -32,7 +31,7 @@ func (h *Help) String() string {
 	sb.WriteRune('\n')
 	for arg, desc := range h.args {
 		sb.WriteRune('\t')
-		sb.WriteString(arg)
+		sb.WriteString(strings.ToUpper(arg))
 		sb.WriteString(": ")
 		sb.WriteString(desc)
 		sb.WriteRune('\n')

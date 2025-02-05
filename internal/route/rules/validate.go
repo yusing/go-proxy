@@ -36,6 +36,18 @@ func toStrTuple(args []string) (any, E.Error) {
 	return &StrTuple{args[0], args[1]}, nil
 }
 
+// toKVOptionalV returns *StrTuple that value is optional.
+func toKVOptionalV(args []string) (any, E.Error) {
+	switch len(args) {
+	case 1:
+		return &StrTuple{args[0], ""}, nil
+	case 2:
+		return &StrTuple{args[0], args[1]}, nil
+	default:
+		return nil, ErrExpectKVOptionalV
+	}
+}
+
 // validateURL returns types.URL with the URL validated.
 func validateURL(args []string) (any, E.Error) {
 	if len(args) != 1 {

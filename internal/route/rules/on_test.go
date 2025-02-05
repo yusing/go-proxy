@@ -15,25 +15,50 @@ func TestParseOn(t *testing.T) {
 	}{
 		// header
 		{
-			name:    "header_valid",
+			name:    "header_valid_kv",
 			input:   "header Connection Upgrade",
 			wantErr: nil,
 		},
 		{
-			name:    "header_invalid",
+			name:    "header_valid_k",
 			input:   "header Connection",
-			wantErr: ErrInvalidArguments,
+			wantErr: nil,
+		},
+		{
+			name:    "header_missing_arg",
+			input:   "header",
+			wantErr: ErrExpectKVOptionalV,
 		},
 		// query
 		{
-			name:    "query_valid",
+			name:    "query_valid_kv",
 			input:   "query key value",
 			wantErr: nil,
 		},
 		{
-			name:    "query_invalid",
+			name:    "query_valid_k",
 			input:   "query key",
-			wantErr: ErrInvalidArguments,
+			wantErr: nil,
+		},
+		{
+			name:    "query_missing_arg",
+			input:   "query",
+			wantErr: ErrExpectKVOptionalV,
+		},
+		{
+			name:    "cookie_valid_kv",
+			input:   "cookie key value",
+			wantErr: nil,
+		},
+		{
+			name:    "cookie_valid_k",
+			input:   "cookie key",
+			wantErr: nil,
+		},
+		{
+			name:    "cookie_missing_arg",
+			input:   "cookie",
+			wantErr: ErrExpectKVOptionalV,
 		},
 		// method
 		{
@@ -43,8 +68,13 @@ func TestParseOn(t *testing.T) {
 		},
 		{
 			name:    "method_invalid",
-			input:   "method",
+			input:   "method invalid",
 			wantErr: ErrInvalidArguments,
+		},
+		{
+			name:    "method_missing_arg",
+			input:   "method",
+			wantErr: ErrExpectOneArg,
 		},
 		// path
 		{
@@ -53,9 +83,9 @@ func TestParseOn(t *testing.T) {
 			wantErr: nil,
 		},
 		{
-			name:    "path_invalid",
+			name:    "path_missing_arg",
 			input:   "path",
-			wantErr: ErrInvalidArguments,
+			wantErr: ErrExpectOneArg,
 		},
 		// remote
 		{
@@ -65,8 +95,13 @@ func TestParseOn(t *testing.T) {
 		},
 		{
 			name:    "remote_invalid",
-			input:   "remote",
+			input:   "remote abcd",
 			wantErr: ErrInvalidArguments,
+		},
+		{
+			name:    "remote_missing_arg",
+			input:   "remote",
+			wantErr: ErrExpectOneArg,
 		},
 		{
 			name:    "unknown_target",
