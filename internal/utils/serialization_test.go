@@ -186,6 +186,13 @@ func TestStringToSlice(t *testing.T) {
 		ExpectNoError(t, err)
 		ExpectDeepEqual(t, dst, []string{"a", "b", "c"})
 	})
+	t.Run("single-line-yaml-like", func(t *testing.T) {
+		dst := make([]string, 0)
+		convertible, err := ConvertString("- a", reflect.ValueOf(&dst))
+		ExpectTrue(t, convertible)
+		ExpectNoError(t, err)
+		ExpectDeepEqual(t, dst, []string{"a"})
+	})
 }
 
 func BenchmarkStringToSlice(b *testing.B) {
