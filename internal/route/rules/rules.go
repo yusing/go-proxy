@@ -39,7 +39,7 @@ type (
 		one match means this line is matched.
 	*/
 	Rule struct {
-		Name string  `json:"name" validate:"required"`
+		Name string  `json:"name"`
 		On   RuleOn  `json:"on"`
 		Do   Command `json:"do"`
 	}
