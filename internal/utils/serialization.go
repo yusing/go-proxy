@@ -428,7 +428,7 @@ func ConvertString(src string, dst reflect.Value) (convertible bool, convErr E.E
 		src = strings.TrimSpace(src)
 		isMultiline := strings.ContainsRune(src, '\n')
 		// one liner is comma separated list
-		if !isMultiline {
+		if !isMultiline && src[0] != '-' {
 			values := strutils.CommaSeperatedList(src)
 			dst.Set(reflect.MakeSlice(dst.Type(), len(values), len(values)))
 			errs := E.NewBuilder("invalid slice values")
