@@ -34,15 +34,25 @@ var checkers = map[string]struct {
 		help: Help{
 			command: OnHeader,
 			args: map[string]string{
-				"key":   "the header key",
-				"value": "the header value",
+				"key":     "the header key",
+				"[value]": "the header value",
 			},
 		},
-		validate: toStrTuple,
+		validate: toKVOptionalV,
 		builder: func(args any) CheckFunc {
 			k, v := args.(*StrTuple).Unpack()
+			if v == "" {
+				return func(cached Cache, r *http.Request) bool {
+					return len(r.Header[k]) > 0
+				}
+			}
 			return func(cached Cache, r *http.Request) bool {
-				return r.Header.Get(k) == v
+				for _, vv := range r.Header[k] {
+					if v == vv {
+						return true
+					}
+				}
+				return false
 			}
 		},
 	},
@@ -50,13 +60,18 @@ var checkers = map[string]struct {
 		help: Help{
 			command: OnQuery,
 			args: map[string]string{
-				"key":   "the query key",
-				"value": "the query value",
+				"key":     "the query key",
+				"[value]": "the query value",
 			},
 		},
-		validate: toStrTuple,
+		validate: toKVOptionalV,
 		builder: func(args any) CheckFunc {
 			k, v := args.(*StrTuple).Unpack()
+			if v == "" {
+				return func(cached Cache, r *http.Request) bool {
+					return len(cached.GetQueries(r)[k]) > 0
+				}
+			}
 			return func(cached Cache, r *http.Request) bool {
 				queries := cached.GetQueries(r)[k]
 				for _, query := range queries {
@@ -72,13 +87,24 @@ var checkers = map[string]struct {
 		help: Help{
 			command: OnCookie,
 			args: map[string]string{
-				"key":   "the cookie key",
-				"value": "the cookie value",
+				"key":     "the cookie key",
+				"[value]": "the cookie value",
 			},
 		},
-		validate: toStrTuple,
+		validate: toKVOptionalV,
 		builder: func(args any) CheckFunc {
 			k, v := args.(*StrTuple).Unpack()
+			if v == "" {
+				return func(cached Cache, r *http.Request) bool {
+					cookies := cached.GetCookies(r)
+					for _, cookie := range cookies {
+						if cookie.Name == k {
+							return true
+						}
+					}
+					return false
+				}
+			}
 			return func(cached Cache, r *http.Request) bool {
 				cookies := cached.GetCookies(r)
 				for _, cookie := range cookies {
@@ -95,13 +121,18 @@ var checkers = map[string]struct {
 		help: Help{
 			command: OnForm,
 			args: map[string]string{
-				"key":   "the form key",
-				"value": "the form value",
+				"key":     "the form key",
+				"[value]": "the form value",
 			},
 		},
-		validate: toStrTuple,
+		validate: toKVOptionalV,
 		builder: func(args any) CheckFunc {
 			k, v := args.(*StrTuple).Unpack()
+			if v == "" {
+				return func(cached Cache, r *http.Request) bool {
+					return r.FormValue(k) != ""
+				}
+			}
 			return func(cached Cache, r *http.Request) bool {
 				return r.FormValue(k) == v
 			}
@@ -111,13 +142,18 @@ var checkers = map[string]struct {
 		help: Help{
 			command: OnPostForm,
 			args: map[string]string{
-				"key":   "the form key",
-				"value": "the form value",
+				"key":     "the form key",
+				"[value]": "the form value",
 			},
 		},
-		validate: toStrTuple,
+		validate: toKVOptionalV,
 		builder: func(args any) CheckFunc {
 			k, v := args.(*StrTuple).Unpack()
+			if v == "" {
+				return func(cached Cache, r *http.Request) bool {
+					return r.PostFormValue(k) != ""
+				}
+			}
 			return func(cached Cache, r *http.Request) bool {
 				return r.PostFormValue(k) == v
 			}
