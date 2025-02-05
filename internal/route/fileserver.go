@@ -2,6 +2,8 @@ package route
 
 import (
 	"net/http"
+	"path"
+	"path/filepath"
 
 	"github.com/yusing/go-proxy/internal/common"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -34,7 +36,14 @@ func handler(root string) http.Handler {
 }
 
 func NewFileServer(base *Route) (*FileServer, E.Error) {
-	s := &FileServer{Route: base, handler: handler(base.Root)}
+	s := &FileServer{Route: base}
+
+	s.Root = filepath.Clean(s.Root)
+	if !path.IsAbs(s.Root) {
+		return nil, E.Errorf("root must be absolute")
+	}
+
+	s.handler = handler(s.Root)
 
 	if len(s.Middlewares) > 0 {
 		mid, err := middleware.BuildMiddlewareFromMap(s.Alias, s.Middlewares)
@@ -91,7 +100,9 @@ func (s *FileServer) Start(parent task.Parent) E.Error {
 
 	if s.UseHealthCheck() {
 		s.Health = monitor.NewFileServerHealthMonitor(s.TargetName(), s.HealthCheck, s.Root)
-		s.Health.Start(s.task)
+		if err := s.Health.Start(s.task); err != nil {
+			return err
+		}
 	}
 
 	routes.SetHTTPRoute(s.TargetName(), s)
