@@ -79,27 +79,11 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
     docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
     ```
 
-3.  _(Optional)_ setup WebUI login (skip if you use OIDC)
+3.  _(Optional)_ setup `docker-socket-proxy` other docker nodes (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) then add them inside `config.yml`
 
-    - set random JWT secret
+4.  Start the container `docker compose up -d`
 
-      ```shell
-      sed -i "s|API_JWT_SECRET=.*|API_JWT_SECRET=$(openssl rand -base64 32)|g" .env
-      ```
-
-    - change username and password for WebUI authentication
-      ```shell
-      USERNAME=admin
-      PASSWORD=some-password
-      sed -i "s|API_USERNAME=.*|API_USERNAME=${USERNAME}|g" .env
-      sed -i "s|API_PASSWORD=.*|API_PASSWORD=${PASSWORD}|g" .env
-      ```
-
-4.  _(Optional)_ setup `docker-socket-proxy` other docker nodes (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) then add them inside `config.yml`
-
-5.  Start the container `docker compose up -d`
-
-6.  You may now do some extra configuration on WebUI `https://godoxy.domain.com`
+5.  You may now do some extra configuration on WebUI `https://godoxy.domain.com`
 
 [🔼Back to top](#table-of-content)
 
