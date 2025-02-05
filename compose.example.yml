@@ -12,9 +12,10 @@ services:
     labels:
       proxy.aliases: godoxy
       proxy.godoxy.port: 3000
-      # proxy.godoxy.middlewares.cidr_whitelist.status: 403
-      # proxy.godoxy.middlewares.cidr_whitelist.message: IP not allowed
-      # proxy.godoxy.middlewares.cidr_whitelist.allow: |
+      # proxy.godoxy.middlewares.cidr_whitelist: |
+      #   status: 403
+      #   message: IP not allowed
+      #   allow:
       #     - 127.0.0.1
       #     - 10.0.0.0/8
       #     - 192.168.0.0/16
