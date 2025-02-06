@@ -8,6 +8,7 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/homepage"
+	"github.com/yusing/go-proxy/internal/logging"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -60,17 +61,18 @@ func (r Routes) Contains(alias string) bool {
 	return ok
 }
 
-func (r *Route) Validate() E.Error {
+func (r *Route) Validate() (err E.Error) {
 	if r.isValidated {
 		return nil
 	}
 	r.isValidated = true
+	r.Finalize()
 
 	errs := E.NewBuilder("entry validation failed")
 
 	switch r.Scheme {
 	case types.SchemeFileServer:
-		return nil
+		r.impl, err = NewFileServer(r)
 	case types.SchemeHTTP, types.SchemeHTTPS:
 		if r.Port.Listening != 0 {
 			errs.Addf("unexpected listening port for %s scheme", r.Scheme)
@@ -94,10 +96,10 @@ func (r *Route) Validate() E.Error {
 		errs.Adds("healthCheck.disable cannot be true when loadbalancer or idlewatcher is enabled")
 	}
 
-	return errs.Error()
-}
+	if errs.HasError() {
+		return errs.Error()
+	}
 
-func (r *Route) Start(parent task.Parent) (err E.Error) {
 	switch r.Scheme {
 	case types.SchemeFileServer:
 		r.impl, err = NewFileServer(r)
@@ -108,8 +110,13 @@ func (r *Route) Start(parent task.Parent) (err E.Error) {
 	default:
 		panic(fmt.Errorf("unexpected scheme %s for alias %s", r.Scheme, r.Alias))
 	}
-	if err != nil {
-		return err
+
+	return err
+}
+
+func (r *Route) Start(parent task.Parent) (err E.Error) {
+	if r.impl == nil {
+		return E.New("route not initialized")
 	}
 	return r.impl.Start(parent)
 }
@@ -187,19 +194,25 @@ func (r *Route) ShouldExclude() bool {
 	if r.Container != nil {
 		switch {
 		case r.Container.IsExcluded:
+			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: explicitly excluded")
 			return true
 		case r.IsZeroPort() && !r.UseIdleWatcher():
+			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: zero port and no idle watcher")
 			return true
 		case r.Container.IsDatabase && !r.Container.IsExplicit:
+			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: database")
 			return true
 		case strings.HasPrefix(r.Container.ContainerName, "buildx_"):
+			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: buildx prefix")
 			return true
 		}
 	} else if r.IsZeroPort() {
+		logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: zero port")
 		return true
 	}
 	if strings.HasPrefix(r.Alias, "x-") ||
 		strings.HasSuffix(r.Alias, "-old") {
+		logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: alias")
 		return true
 	}
 	return false
@@ -224,36 +237,35 @@ func (r *Route) UseAccessLog() bool {
 func (r *Route) Finalize() {
 	isDocker := r.Container != nil
 	cont := r.Container
-	if !isDocker {
-		cont = docker.DummyContainer
-	}
 
 	if r.Host == "" {
 		switch {
+		case !isDocker:
+			r.Host = "localhost"
 		case cont.PrivateIP != "":
 			r.Host = cont.PrivateIP
 		case cont.PublicIP != "":
 			r.Host = cont.PublicIP
-		case !isDocker:
-			r.Host = "localhost"
 		}
 	}
 
 	lp, pp := r.Port.Listening, r.Port.Proxy
 
-	if port, ok := common.ServiceNamePortMapTCP[cont.ImageName]; ok {
-		if pp == 0 {
-			pp = port
-		}
-		if r.Scheme == "" {
-			r.Scheme = "tcp"
-		}
-	} else if port, ok := common.ImageNamePortMap[cont.ImageName]; ok {
-		if pp == 0 {
-			pp = port
-		}
-		if r.Scheme == "" {
-			r.Scheme = "http"
+	if isDocker {
+		if port, ok := common.ServiceNamePortMapTCP[cont.ImageName]; ok {
+			if pp == 0 {
+				pp = port
+			}
+			if r.Scheme == "" {
+				r.Scheme = "tcp"
+			}
+		} else if port, ok := common.ImageNamePortMap[cont.ImageName]; ok {
+			if pp == 0 {
+				pp = port
+			}
+			if r.Scheme == "" {
+				r.Scheme = "http"
+			}
 		}
 	}
 
@@ -271,25 +283,27 @@ func (r *Route) Finalize() {
 		}
 	}
 
-	// replace private port with public port if using public IP.
-	if r.Host == cont.PublicIP {
-		if p, ok := cont.PrivatePortMapping[pp]; ok {
-			pp = int(p.PublicPort)
+	if isDocker {
+		// replace private port with public port if using public IP.
+		if r.Host == cont.PublicIP {
+			if p, ok := cont.PrivatePortMapping[pp]; ok {
+				pp = int(p.PublicPort)
+			}
 		}
-	}
-	// replace public port with private port if using private IP.
-	if r.Host == cont.PrivateIP {
-		if p, ok := cont.PublicPortMapping[pp]; ok {
-			pp = int(p.PrivatePort)
+		// replace public port with private port if using private IP.
+		if r.Host == cont.PrivateIP {
+			if p, ok := cont.PublicPortMapping[pp]; ok {
+				pp = int(p.PrivatePort)
+			}
 		}
-	}
 
-	if r.Scheme == "" && isDocker {
-		switch {
-		case r.Host == cont.PublicIP && cont.PublicPortMapping[pp].Type == "udp":
-			r.Scheme = "udp"
-		case r.Host == cont.PrivateIP && cont.PrivatePortMapping[pp].Type == "udp":
-			r.Scheme = "udp"
+		if r.Scheme == "" {
+			switch {
+			case r.Host == cont.PublicIP && cont.PublicPortMapping[pp].Type == "udp":
+				r.Scheme = "udp"
+			case r.Host == cont.PrivateIP && cont.PrivatePortMapping[pp].Type == "udp":
+				r.Scheme = "udp"
+			}
 		}
 	}
 
@@ -319,7 +333,7 @@ func (r *Route) Finalize() {
 		}
 	}
 
-	if cont.IdleTimeout != "" {
+	if isDocker && cont.IdleTimeout != "" {
 		if cont.WakeTimeout == "" {
 			cont.WakeTimeout = common.WakeTimeoutDefault
 		}

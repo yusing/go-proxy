@@ -145,7 +145,6 @@ func (p *Provider) loadRoutes() (routes route.Routes, err E.Error) {
 	for alias, r := range routes {
 		r.Alias = alias
 		r.Provider = p.ShortName()
-		r.Finalize()
 		if err := r.Validate(); err != nil {
 			errs.Add(err.Subject(alias))
 			delete(routes, alias)

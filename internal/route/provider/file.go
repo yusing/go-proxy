@@ -65,7 +65,7 @@ func (p *FileProvider) loadRoutesImpl() (route.Routes, E.Error) {
 		return nil, E.Wrap(err)
 	}
 	routes, err := validate(data)
-	if err != nil {
+	if err != nil && len(routes) == 0 {
 		return nil, E.Wrap(err)
 	}
 	return routes, nil
