@@ -84,8 +84,10 @@ func (p *Provider) MarshalText() ([]byte, error) {
 func (p *Provider) startRoute(parent task.Parent, r *route.Route) E.Error {
 	err := r.Start(parent)
 	if err != nil {
+		delete(p.routes, r.Alias)
 		return err.Subject(r.Alias)
 	}
+	p.routes[r.Alias] = r
 	return nil
 }
 
@@ -94,11 +96,8 @@ func (p *Provider) Start(parent task.Parent) E.Error {
 	t := parent.Subtask("provider."+p.String(), false)
 
 	errs := E.NewBuilder("routes error")
-	for alias, r := range p.routes {
-		if err := p.startRoute(t, r); err != nil {
-			errs.Add(err)
-			delete(p.routes, alias)
-		}
+	for _, r := range p.routes {
+		errs.Add(p.startRoute(t, r))
 	}
 
 	eventQueue := events.NewEventQueue(
