@@ -40,7 +40,7 @@ func NewFileServer(base *Route) (*FileServer, E.Error) {
 
 	s.Root = filepath.Clean(s.Root)
 	if !path.IsAbs(s.Root) {
-		return nil, E.Errorf("root must be absolute")
+		return nil, E.New("`root` must be an absolute path")
 	}
 
 	s.handler = handler(s.Root)
