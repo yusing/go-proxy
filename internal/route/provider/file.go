@@ -68,7 +68,7 @@ func (p *FileProvider) loadRoutesImpl() (route.Routes, E.Error) {
 	if err != nil && len(routes) == 0 {
 		return nil, E.Wrap(err)
 	}
-	return routes, nil
+	return routes, E.Wrap(err)
 }
 
 func (p *FileProvider) NewWatcher() W.Watcher {
