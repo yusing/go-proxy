@@ -38,32 +38,32 @@ const (
 
 // TODO: support stream
 
-func newWaker(parent task.Parent, entry route.Entry, rp *reverseproxy.ReverseProxy, stream net.Stream) (Waker, E.Error) {
-	hcCfg := entry.RawEntry().HealthCheck
+func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReverseProxy, stream net.Stream) (Waker, E.Error) {
+	hcCfg := route.HealthCheckConfig()
 	hcCfg.Timeout = idleWakerCheckTimeout
 
 	waker := &waker{
 		rp:     rp,
 		stream: stream,
 	}
-	task := parent.Subtask("idlewatcher." + entry.TargetName())
-	watcher, err := registerWatcher(task, entry, waker)
+	task := parent.Subtask("idlewatcher." + route.TargetName())
+	watcher, err := registerWatcher(task, route, waker)
 	if err != nil {
 		return nil, E.Errorf("register watcher: %w", err)
 	}
 
 	switch {
 	case rp != nil:
-		waker.hc = monitor.NewHTTPHealthChecker(entry.TargetURL(), hcCfg)
+		waker.hc = monitor.NewHTTPHealthChecker(route.TargetURL(), hcCfg)
 	case stream != nil:
-		waker.hc = monitor.NewRawHealthChecker(entry.TargetURL(), hcCfg)
+		waker.hc = monitor.NewRawHealthChecker(route.TargetURL(), hcCfg)
 	default:
 		panic("both nil")
 	}
 
 	if common.PrometheusEnabled {
 		m := metrics.GetServiceMetrics()
-		fqn := parent.Name() + "/" + entry.TargetName()
+		fqn := parent.Name() + "/" + route.TargetName()
 		waker.metric = m.HealthStatus.With(metrics.HealthMetricLabels(fqn))
 		waker.metric.Set(float64(watcher.Status()))
 	}
@@ -71,12 +71,12 @@ func newWaker(parent task.Parent, entry route.Entry, rp *reverseproxy.ReversePro
 }
 
 // lifetime should follow route provider.
-func NewHTTPWaker(parent task.Parent, entry route.Entry, rp *reverseproxy.ReverseProxy) (Waker, E.Error) {
-	return newWaker(parent, entry, rp, nil)
+func NewHTTPWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReverseProxy) (Waker, E.Error) {
+	return newWaker(parent, route, rp, nil)
 }
 
-func NewStreamWaker(parent task.Parent, entry route.Entry, stream net.Stream) (Waker, E.Error) {
-	return newWaker(parent, entry, nil, stream)
+func NewStreamWaker(parent task.Parent, route route.Route, stream net.Stream) (Waker, E.Error) {
+	return newWaker(parent, route, nil, stream)
 }
 
 // Start implements health.HealthMonitor.
@@ -155,7 +155,7 @@ func (w *Watcher) getStatusUpdateReady() health.Status {
 
 // MarshalJSON implements health.HealthMonitor.
 func (w *Watcher) MarshalJSON() ([]byte, error) {
-	var url net.URL
+	var url *net.URL
 	if w.hc.URL().Port() != "0" {
 		url = w.hc.URL()
 	}

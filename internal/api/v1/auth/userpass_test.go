@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	E "github.com/yusing/go-proxy/internal/error"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -17,7 +16,7 @@ import (
 func newMockUserPassAuth() *UserPassAuth {
 	return &UserPassAuth{
 		username: "username",
-		pwdHash:  E.Must(bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)),
+		pwdHash:  Must(bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost)),
 		secret:   []byte("abcdefghijklmnopqrstuvwxyz"),
 		tokenTTL: time.Hour,
 	}
@@ -97,13 +96,13 @@ func TestUserPassLoginCallbackHandler(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := &http.Request{
 			Host: "app.example.com",
-			Body: io.NopCloser(bytes.NewReader(E.Must(json.Marshal(tt.creds)))),
+			Body: io.NopCloser(bytes.NewReader(Must(json.Marshal(tt.creds)))),
 		}
 		auth.LoginCallbackHandler(w, req)
 		if tt.wantErr {
 			ExpectEqual(t, w.Code, http.StatusUnauthorized)
 		} else {
-			setCookie := E.Must(http.ParseSetCookie(w.Header().Get("Set-Cookie")))
+			setCookie := Must(http.ParseSetCookie(w.Header().Get("Set-Cookie")))
 			ExpectTrue(t, setCookie.Name == auth.TokenCookieName())
 			ExpectTrue(t, setCookie.Value != "")
 			ExpectEqual(t, setCookie.Domain, "example.com")

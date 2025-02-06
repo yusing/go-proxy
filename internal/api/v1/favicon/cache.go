@@ -29,6 +29,9 @@ const (
 )
 
 func InitIconCache() {
+	iconCacheMu.Lock()
+	defer iconCacheMu.Unlock()
+
 	err := utils.LoadJSONIfExist(common.IconCachePath, &iconCache)
 	if err != nil {
 		logging.Error().Err(err).Msg("failed to load icon cache")
@@ -78,7 +81,7 @@ func pruneExpiredIconCache() {
 }
 
 func routeKey(r route.HTTPRoute) string {
-	return r.RawEntry().Provider + ":" + r.TargetName()
+	return r.ProviderName() + ":" + r.TargetName()
 }
 
 func PruneRouteIconCache(route route.HTTPRoute) {

@@ -33,16 +33,13 @@ func FileProviderImpl(filename string) (ProviderImpl, error) {
 	return impl, nil
 }
 
-func validate(provider string, data []byte) (route.Routes, E.Error) {
-	entries, err := utils.DeserializeYAMLMap[*route.RawEntry](data)
-	if err != nil {
-		return route.NewRoutes(), err
-	}
-	return route.FromEntries(provider, entries)
+func validate(data []byte) (routes route.Routes, err E.Error) {
+	err = utils.DeserializeYAML(data, &routes)
+	return
 }
 
 func Validate(data []byte) (err E.Error) {
-	_, err = validate("", data)
+	_, err = validate(data)
 	return
 }
 
@@ -63,14 +60,15 @@ func (p *FileProvider) Logger() *zerolog.Logger {
 }
 
 func (p *FileProvider) loadRoutesImpl() (route.Routes, E.Error) {
-	routes := route.NewRoutes()
-
 	data, err := os.ReadFile(p.path)
 	if err != nil {
-		return routes, E.From(err)
+		return nil, E.Wrap(err)
 	}
-
-	return validate(p.ShortName(), data)
+	routes, err := validate(data)
+	if err != nil && len(routes) == 0 {
+		return nil, E.Wrap(err)
+	}
+	return routes, E.Wrap(err)
 }
 
 func (p *FileProvider) NewWatcher() W.Watcher {

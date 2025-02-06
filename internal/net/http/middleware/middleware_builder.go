@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 
 	E "github.com/yusing/go-proxy/internal/error"
 	"gopkg.in/yaml.v3"
@@ -39,6 +40,43 @@ func BuildMiddlewaresFromYAML(source string, data []byte, eb *E.Builder) map[str
 	return middlewares
 }
 
+func compileMiddlewares(middlewaresMap map[string]OptionsRaw) ([]*Middleware, E.Error) {
+	middlewares := make([]*Middleware, 0, len(middlewaresMap))
+
+	errs := E.NewBuilder("middlewares compile error")
+	invalidOpts := E.NewBuilder("options compile error")
+
+	for name, opts := range middlewaresMap {
+		m, err := Get(name)
+		if err != nil {
+			errs.Add(err)
+			continue
+		}
+
+		m, err = m.New(opts)
+		if err != nil {
+			invalidOpts.Add(err.Subject(name))
+			continue
+		}
+		middlewares = append(middlewares, m)
+	}
+
+	if invalidOpts.HasError() {
+		errs.Add(invalidOpts.Error())
+	}
+	sort.Sort(ByPriority(middlewares))
+	return middlewares, errs.Error()
+}
+
+func BuildMiddlewareFromMap(name string, middlewaresMap map[string]OptionsRaw) (*Middleware, E.Error) {
+	compiled, err := compileMiddlewares(middlewaresMap)
+	if err != nil {
+		return nil, err
+	}
+	return NewMiddlewareChain(name, compiled), nil
+}
+
+// TODO: check conflict or duplicates.
 func BuildMiddlewareFromChainRaw(name string, defs []map[string]any) (*Middleware, E.Error) {
 	chainErr := E.NewBuilder("")
 	chain := make([]*Middleware, 0, len(defs))

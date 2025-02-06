@@ -7,37 +7,55 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-type Port int
+type Port struct {
+	Listening int `json:"listening"`
+	Proxy     int `json:"proxy"`
+}
 
-var ErrPortOutOfRange = E.New("port out of range")
+var (
+	ErrInvalidPortSyntax = E.New("invalid port syntax, expect [listening_port:]target_port")
+	ErrPortOutOfRange    = E.New("port out of range")
+)
 
-func ValidatePort[String ~string](v String) (Port, error) {
-	p, err := strutils.Atoi(string(v))
+// Parse implements strutils.Parser.
+func (p *Port) Parse(v string) (err error) {
+	parts := strutils.SplitRune(v, ':')
+	switch len(parts) {
+	case 1:
+		p.Listening = 0
+		p.Proxy, err = strconv.Atoi(v)
+	case 2:
+		var err2 error
+		p.Listening, err = strconv.Atoi(parts[0])
+		p.Proxy, err2 = strconv.Atoi(parts[1])
+		err = E.Join(err, err2)
+	default:
+		return ErrInvalidPortSyntax.Subject(v)
+	}
+
 	if err != nil {
-		return ErrPort, err
+		return err
 	}
-	return ValidatePortInt(p)
-}
 
-func ValidatePortInt[Int int | uint16](v Int) (Port, error) {
-	p := Port(v)
-	if !p.inBound() {
-		return ErrPort, ErrPortOutOfRange.Subject(strconv.Itoa(int(p)))
+	if p.Listening < MinPort || p.Listening > MaxPort {
+		return ErrPortOutOfRange.Subjectf("%d", p.Listening)
 	}
-	return p, nil
+
+	if p.Proxy < MinPort || p.Proxy > MaxPort {
+		return ErrPortOutOfRange.Subjectf("%d", p.Proxy)
+	}
+
+	return nil
 }
 
-func (p Port) inBound() bool {
-	return p >= MinPort && p <= MaxPort
-}
-
-func (p Port) String() string {
-	return strconv.Itoa(int(p))
+func (p *Port) String() string {
+	if p.Listening == 0 {
+		return strconv.Itoa(p.Proxy)
+	}
+	return strconv.Itoa(p.Listening) + ":" + strconv.Itoa(p.Proxy)
 }
 
 const (
 	MinPort = 0
 	MaxPort = 65535
-	ErrPort = Port(-1)
-	NoPort  = Port(0)
 )

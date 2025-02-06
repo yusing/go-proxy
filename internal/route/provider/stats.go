@@ -56,14 +56,14 @@ func (stats *RouteStats) AddOther(other RouteStats) {
 
 func (p *Provider) Statistics() ProviderStats {
 	var rps, streams RouteStats
-	p.routes.RangeAll(func(_ string, r *R.Route) {
-		switch r.Type {
-		case route.RouteTypeReverseProxy:
+	for _, r := range p.routes {
+		switch r.Type() {
+		case route.RouteTypeHTTP:
 			rps.Add(r)
 		case route.RouteTypeStream:
 			streams.Add(r)
 		}
-	})
+	}
 	return ProviderStats{
 		Total:   rps.Total + streams.Total,
 		RPs:     rps,

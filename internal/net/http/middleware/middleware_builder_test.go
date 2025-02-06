@@ -16,7 +16,7 @@ func TestBuild(t *testing.T) {
 	errs := E.NewBuilder("")
 	middlewares := BuildMiddlewaresFromYAML("", testMiddlewareCompose, errs)
 	ExpectNoError(t, errs.Error())
-	E.Must(json.MarshalIndent(middlewares, "", "  "))
+	Must(json.MarshalIndent(middlewares, "", "  "))
 	// t.Log(string(data))
 	// TODO: test
 }

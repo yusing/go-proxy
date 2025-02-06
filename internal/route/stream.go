@@ -10,8 +10,8 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	net "github.com/yusing/go-proxy/internal/net/types"
-	"github.com/yusing/go-proxy/internal/route/entry"
 	"github.com/yusing/go-proxy/internal/route/routes"
+	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
@@ -19,7 +19,7 @@ import (
 
 // TODO: support stream load balance.
 type StreamRoute struct {
-	*entry.StreamEntry
+	*Route
 
 	net.Stream `json:"-"`
 
@@ -30,16 +30,13 @@ type StreamRoute struct {
 	l zerolog.Logger
 }
 
-func NewStreamRoute(entry *entry.StreamEntry) (impl, E.Error) {
+func NewStreamRoute(base *Route) (route.Route, E.Error) {
 	// TODO: support non-coherent scheme
-	if !entry.Scheme.IsCoherent() {
-		return nil, E.Errorf("unsupported scheme: %v -> %v", entry.Scheme.ListeningScheme, entry.Scheme.ProxyScheme)
-	}
 	return &StreamRoute{
-		StreamEntry: entry,
+		Route: base,
 		l: logging.With().
-			Str("type", string(entry.Scheme.ListeningScheme)).
-			Str("name", entry.TargetName()).
+			Str("type", string(base.Scheme)).
+			Str("name", base.TargetName()).
 			Logger(),
 	}, nil
 }
@@ -50,10 +47,6 @@ func (r *StreamRoute) String() string {
 
 // Start implements task.TaskStarter.
 func (r *StreamRoute) Start(parent task.Parent) E.Error {
-	if entry.ShouldNotServe(r) {
-		return nil
-	}
-
 	r.task = parent.Subtask("stream." + r.TargetName())
 	r.Stream = NewStream(r)
 	parent.OnCancel("finish", func() {
@@ -61,25 +54,25 @@ func (r *StreamRoute) Start(parent task.Parent) E.Error {
 	})
 
 	switch {
-	case entry.UseIdleWatcher(r):
-		waker, err := idlewatcher.NewStreamWaker(parent, r.StreamEntry, r.Stream)
+	case r.UseIdleWatcher():
+		waker, err := idlewatcher.NewStreamWaker(parent, r, r.Stream)
 		if err != nil {
 			r.task.Finish(err)
 			return err
 		}
 		r.Stream = waker
 		r.HealthMon = waker
-	case entry.UseHealthCheck(r):
-		if entry.IsDocker(r) {
-			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
+	case r.UseHealthCheck():
+		if r.IsDocker() {
+			client, err := docker.ConnectClient(r.IdlewatcherConfig().DockerHost)
 			if err == nil {
-				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.Raw.HealthCheck)
-				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.Raw.HealthCheck, fallback)
+				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.HealthCheck)
+				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.IdlewatcherConfig().ContainerID, r.TargetName(), r.HealthCheck, fallback)
 				r.task.OnCancel("close_docker_client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
-			r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.Raw.HealthCheck)
+			r.HealthMon = monitor.NewRawHealthMonitor(r.TargetURL(), r.HealthCheck)
 		}
 	}
 
@@ -88,9 +81,7 @@ func (r *StreamRoute) Start(parent task.Parent) E.Error {
 		return E.From(err)
 	}
 
-	r.l.Info().
-		Int("port", int(r.Port.ListeningPort)).
-		Msg("listening")
+	r.l.Info().Int("port", r.Port.Listening).Msg("listening")
 
 	if r.HealthMon != nil {
 		if err := r.HealthMon.Start(r.task); err != nil {

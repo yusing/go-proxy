@@ -87,7 +87,7 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var result *fetchResult
-	hp := r.RawEntry().Homepage.GetOverride()
+	hp := r.HomepageConfig().GetOverride()
 	if !hp.IsEmpty() && hp.Icon != nil {
 		if hp.Icon.IconSource == homepage.IconSourceRelative {
 			result = findIcon(r, req, hp.Icon.Value)
@@ -189,7 +189,7 @@ func findIcon(r route.HTTPRoute, req *http.Request, uri string) *fetchResult {
 	}
 
 	result := fetchIcon("png", sanitizeName(r.TargetName()))
-	cont := r.RawEntry().Container
+	cont := r.ContainerInfo()
 	if !result.OK() && cont != nil {
 		result = fetchIcon("png", sanitizeName(cont.ImageName))
 	}

@@ -16,7 +16,10 @@ func init() {
 	}
 }
 
-func IgnoreError[Result any](r Result, _ error) Result {
+func Must[Result any](r Result, err error) Result {
+	if err != nil {
+		panic(err)
+	}
 	return r
 }
 

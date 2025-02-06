@@ -1,16 +1,15 @@
 package config
 
 import (
-	route "github.com/yusing/go-proxy/internal/route"
+	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider"
-	"github.com/yusing/go-proxy/internal/route/types"
 )
 
-func (cfg *Config) DumpEntries() map[string]*types.RawEntry {
-	entries := make(map[string]*types.RawEntry)
+func (cfg *Config) DumpRoutes() map[string]*route.Route {
+	entries := make(map[string]*route.Route)
 	cfg.providers.RangeAll(func(_ string, p *provider.Provider) {
 		p.RangeRoutes(func(alias string, r *route.Route) {
-			entries[alias] = r.Entry
+			entries[alias] = r
 		})
 	})
 	return entries

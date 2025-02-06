@@ -40,13 +40,6 @@ func From(err error) Error {
 	return &baseError{err}
 }
 
-func Must[T any](v T, err error) T {
-	if err != nil {
-		LogPanic("must failed", err)
-	}
-	return v
-}
-
 func Join(errors ...error) Error {
 	n := 0
 	for _, err := range errors {

@@ -44,7 +44,7 @@ func (c containerHelper) getPublicPortMapping() PortMapping {
 		if v.PublicPort == 0 {
 			continue
 		}
-		res[strutils.PortString(v.PublicPort)] = v
+		res[int(v.PublicPort)] = v
 	}
 	return res
 }
@@ -52,7 +52,7 @@ func (c containerHelper) getPublicPortMapping() PortMapping {
 func (c containerHelper) getPrivatePortMapping() PortMapping {
 	res := make(PortMapping)
 	for _, v := range c.Ports {
-		res[strutils.PortString(v.PrivatePort)] = v
+		res[int(v.PrivatePort)] = v
 	}
 	return res
 }
@@ -66,14 +66,6 @@ var databaseMPs = map[string]struct{}{
 	"/var/lib/rabbitmq":        {},
 }
 
-var databasePrivPorts = map[uint16]struct{}{
-	5432:  {}, // postgres
-	3306:  {}, // mysql, mariadb
-	6379:  {}, // redis
-	11211: {}, // memcached
-	27017: {}, // mongodb
-}
-
 func (c containerHelper) isDatabase() bool {
 	for _, m := range c.Mounts {
 		if _, ok := databaseMPs[m.Destination]; ok {
@@ -82,7 +74,9 @@ func (c containerHelper) isDatabase() bool {
 	}
 
 	for _, v := range c.Ports {
-		if _, ok := databasePrivPorts[v.PrivatePort]; ok {
+		switch v.PrivatePort {
+		// postgres, mysql or mariadb, redis, memcached, mongodb
+		case 5432, 3306, 6379, 11211, 27017:
 			return true
 		}
 	}

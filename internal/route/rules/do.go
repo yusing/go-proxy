@@ -30,7 +30,8 @@ const (
 	CommandSet              = "set"
 	CommandAdd              = "add"
 	CommandRemove           = "remove"
-	CommandBypass           = "bypass"
+	CommandPass             = "pass"
+	CommandPassAlt          = "bypass"
 )
 
 var commands = map[string]struct {
@@ -94,7 +95,7 @@ var commands = map[string]struct {
 		},
 		validate: validateURL,
 		build: func(args any) CommandHandler {
-			target := args.(types.URL).String()
+			target := args.(*types.URL).String()
 			return ReturningCommand(func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, target, http.StatusTemporaryRedirect)
 			})
@@ -159,7 +160,7 @@ var commands = map[string]struct {
 		},
 		validate: validateAbsoluteURL,
 		build: func(args any) CommandHandler {
-			target := args.(types.URL)
+			target := args.(*types.URL)
 			if target.Scheme == "" {
 				target.Scheme = "http"
 			}
@@ -231,7 +232,7 @@ func (cmd *Command) Parse(v string) error {
 			return err
 		}
 
-		if directive == CommandBypass {
+		if directive == CommandPass || directive == CommandPassAlt {
 			if len(args) != 0 {
 				return ErrInvalidArguments.Subject(directive)
 			}

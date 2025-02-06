@@ -31,6 +31,13 @@ var (
 	ErrUnknownField          = E.New("unknown field")
 )
 
+var (
+	tagDeserialize = "deserialize" // `deserialize:"-"` to exclude from deserialization
+	tagJSON        = "json"        // share between Deserialize and json.Marshal
+	tagValidate    = "validate"    // uses go-playground/validator
+	tagAliases     = "aliases"     // declare aliases for fields
+)
+
 var mapUnmarshalerType = reflect.TypeFor[MapUnmarshaller]()
 
 var defaultValues = functional.NewMapOf[reflect.Type, func() any]()
@@ -67,6 +74,9 @@ func extractFields(t reflect.Type) (all, anonymous []reflect.StructField) {
 		if !field.IsExported() {
 			continue
 		}
+		if field.Tag.Get(tagDeserialize) == "-" {
+			continue
+		}
 		if field.Anonymous {
 			f1, f2 := extractFields(field.Type)
 			fields = append(fields, f1...)
@@ -95,6 +105,33 @@ func ValidateWithFieldTags(s any) E.Error {
 		}
 	}
 	return errs.Error()
+}
+
+func ValidateWithCustomValidator(v reflect.Value) E.Error {
+	isStruct := false
+	for {
+		switch v.Kind() {
+		case reflect.Pointer, reflect.Interface:
+			if v.IsNil() {
+				return E.Errorf("validate: v is %w", ErrNilValue)
+			}
+			if validate, ok := v.Interface().(CustomValidator); ok {
+				return validate.Validate()
+			}
+			if isStruct {
+				return nil
+			}
+			v = v.Elem()
+		case reflect.Struct:
+			if !v.CanAddr() {
+				return nil
+			}
+			v = v.Addr()
+			isStruct = true
+		default:
+			return nil
+		}
+	}
 }
 
 func dive(dst reflect.Value) (v reflect.Value, t reflect.Type, err E.Error) {
@@ -186,7 +223,7 @@ func Deserialize(src SerializedObject, dst any) (err E.Error) {
 		}
 		for _, field := range fields {
 			var key string
-			if jsonTag, ok := field.Tag.Lookup("json"); ok {
+			if jsonTag, ok := field.Tag.Lookup(tagJSON); ok {
 				if jsonTag == "-" {
 					continue
 				}
@@ -198,10 +235,10 @@ func Deserialize(src SerializedObject, dst any) (err E.Error) {
 			mapping[key] = dstV.FieldByName(field.Name)
 
 			if !hasValidateTag {
-				_, hasValidateTag = field.Tag.Lookup("validate")
+				_, hasValidateTag = field.Tag.Lookup(tagValidate)
 			}
 
-			aliases, ok := field.Tag.Lookup("aliases")
+			aliases, ok := field.Tag.Lookup(tagAliases)
 			if ok {
 				for _, alias := range strutils.CommaSeperatedList(aliases) {
 					mapping[alias] = dstV.FieldByName(field.Name)
@@ -220,34 +257,28 @@ func Deserialize(src SerializedObject, dst any) (err E.Error) {
 		}
 		if hasValidateTag {
 			errs.Add(ValidateWithFieldTags(dstV.Interface()))
-		} else {
-			if dstV.CanAddr() {
-				dstV = dstV.Addr()
-			}
-			if validator, ok := dstV.Interface().(CustomValidator); ok {
-				errs.Add(validator.Validate())
-			}
+		}
+		if err := ValidateWithCustomValidator(dstV); err != nil {
+			errs.Add(err)
 		}
 		return errs.Error()
 	case reflect.Map:
-		if dstV.IsNil() {
-			dstV.Set(reflect.MakeMap(dstT))
-		}
-		for k := range src {
+		for k, v := range src {
 			mapVT := dstT.Elem()
 			tmp := New(mapVT).Elem()
-			err := Convert(reflect.ValueOf(src[k]), tmp)
-			if err == nil {
-				dstV.SetMapIndex(reflect.ValueOf(k), tmp)
-			} else {
+			err := Convert(reflect.ValueOf(v), tmp)
+			if err != nil {
 				errs.Add(err.Subject(k))
+				continue
+			}
+			if err := ValidateWithCustomValidator(tmp.Addr()); err != nil {
+				errs.Add(err.Subject(k))
+			} else {
+				dstV.SetMapIndex(reflect.ValueOf(k), tmp)
 			}
 		}
-		if dstV.CanAddr() {
-			dstV = dstV.Addr()
-		}
-		if validator, ok := dstV.Interface().(CustomValidator); ok {
-			errs.Add(validator.Validate())
+		if err := ValidateWithCustomValidator(dstV); err != nil {
+			errs.Add(err)
 		}
 		return errs.Error()
 	default:

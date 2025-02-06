@@ -196,34 +196,6 @@ func (m *Middleware) ServeHTTP(next http.HandlerFunc, w http.ResponseWriter, r *
 	next(w, r)
 }
 
-// TODO: check conflict or duplicates.
-func compileMiddlewares(middlewaresMap map[string]OptionsRaw) ([]*Middleware, E.Error) {
-	middlewares := make([]*Middleware, 0, len(middlewaresMap))
-
-	errs := E.NewBuilder("middlewares compile error")
-	invalidOpts := E.NewBuilder("options compile error")
-
-	for name, opts := range middlewaresMap {
-		m, err := Get(name)
-		if err != nil {
-			errs.Add(err)
-			continue
-		}
-
-		m, err = m.New(opts)
-		if err != nil {
-			invalidOpts.Add(err.Subject(name))
-			continue
-		}
-		middlewares = append(middlewares, m)
-	}
-
-	if invalidOpts.HasError() {
-		errs.Add(invalidOpts.Error())
-	}
-	return middlewares, errs.Error()
-}
-
 func PatchReverseProxy(rp *ReverseProxy, middlewaresMap map[string]OptionsRaw) (err E.Error) {
 	var middlewares []*Middleware
 	middlewares, err = compileMiddlewares(middlewaresMap)

@@ -5,6 +5,7 @@ export GOOS = linux
 LDFLAGS = -X github.com/yusing/go-proxy/pkg.version=${VERSION}
 
 ifeq ($(trace), 1)
+	debug = 1
 	GODOXY_TRACE ?= 1
 endif
 

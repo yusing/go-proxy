@@ -26,7 +26,7 @@ var pinger = &http.Client{
 	},
 }
 
-func NewHTTPHealthMonitor(url types.URL, config *health.HealthCheckConfig) *HTTPHealthMonitor {
+func NewHTTPHealthMonitor(url *types.URL, config *health.HealthCheckConfig) *HTTPHealthMonitor {
 	mon := new(HTTPHealthMonitor)
 	mon.monitor = newMonitor(url, config, mon.CheckHealth)
 	if config.UseGet {
@@ -37,7 +37,7 @@ func NewHTTPHealthMonitor(url types.URL, config *health.HealthCheckConfig) *HTTP
 	return mon
 }
 
-func NewHTTPHealthChecker(url types.URL, config *health.HealthCheckConfig) health.HealthChecker {
+func NewHTTPHealthChecker(url *types.URL, config *health.HealthCheckConfig) health.HealthChecker {
 	return NewHTTPHealthMonitor(url, config)
 }
 

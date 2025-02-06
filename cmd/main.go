@@ -35,9 +35,6 @@ func init() {
 	}
 	logging.InitLogger(out)
 	// logging.AddHook(v1.GetMemLogger())
-	internal.InitIconListCache()
-	homepage.InitOverridesConfig()
-	favicon.InitIconCache()
 }
 
 func main() {
@@ -120,12 +117,16 @@ func main() {
 		printJSON(cfg.Value())
 		return
 	case common.CommandDebugListEntries:
-		printJSON(cfg.DumpEntries())
+		printJSON(cfg.DumpRoutes())
 		return
 	case common.CommandDebugListProviders:
 		printJSON(cfg.DumpRouteProviders())
 		return
 	}
+
+	go internal.InitIconListCache()
+	go homepage.InitOverridesConfig()
+	go favicon.InitIconCache()
 
 	cfg.Start(&config.StartServersOptions{
 		Proxy: true,

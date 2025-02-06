@@ -65,6 +65,8 @@ export type ModifyRequest = {
     };
     /** Hide HTTP headers */
     hide_headers?: types.HTTPHeader[];
+    /** Add prefix to request URL */
+    add_prefix?: string;
 };
 export type ModifyResponse = {
     use: "response" | "Response" | "modify_response" | "modifyResponse" | "ModifyResponse";

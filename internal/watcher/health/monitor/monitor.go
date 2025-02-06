@@ -23,7 +23,7 @@ type (
 	monitor         struct {
 		service string
 		config  *health.HealthCheckConfig
-		url     atomic.Value[types.URL]
+		url     atomic.Value[*types.URL]
 
 		status     atomic.Value[health.Status]
 		lastResult *health.HealthCheckResult
@@ -39,7 +39,7 @@ type (
 
 var ErrNegativeInterval = errors.New("negative interval")
 
-func newMonitor(url types.URL, config *health.HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
+func newMonitor(url *types.URL, config *health.HealthCheckConfig, healthCheckFunc HealthCheckFunc) *monitor {
 	mon := &monitor{
 		config:      config,
 		checkHealth: healthCheckFunc,
@@ -118,12 +118,12 @@ func (mon *monitor) Finish(reason any) {
 }
 
 // UpdateURL implements HealthChecker.
-func (mon *monitor) UpdateURL(url types.URL) {
+func (mon *monitor) UpdateURL(url *types.URL) {
 	mon.url.Store(url)
 }
 
 // URL implements HealthChecker.
-func (mon *monitor) URL() types.URL {
+func (mon *monitor) URL() *types.URL {
 	return mon.url.Load()
 }
 
@@ -205,7 +205,7 @@ func (mon *monitor) checkUpdateHealth() error {
 		if !result.Healthy {
 			extras.Add("Last Seen", strutils.FormatLastSeen(GetLastSeen(mon.service)))
 		}
-		if !mon.url.Load().Nil() {
+		if mon.url.Load() != nil {
 			extras.Add("Service URL", mon.url.Load().String())
 		}
 		if result.Detail != "" {

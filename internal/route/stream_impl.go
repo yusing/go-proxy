@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/net/types"
-	T "github.com/yusing/go-proxy/internal/route/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 )
 
@@ -45,25 +44,25 @@ func (stream *Stream) Setup() error {
 
 	ctx := stream.task.Context()
 
-	switch stream.Scheme.ListeningScheme {
+	switch stream.Scheme {
 	case "tcp":
-		stream.targetAddr, err = net.ResolveTCPAddr("tcp", stream.URL.Host)
+		stream.targetAddr, err = net.ResolveTCPAddr("tcp", stream.ProxyURL.Host)
 		if err != nil {
 			return err
 		}
-		tcpListener, err := lcfg.Listen(ctx, "tcp", stream.ListenURL.Host)
+		tcpListener, err := lcfg.Listen(ctx, "tcp", stream.LisURL.Host)
 		if err != nil {
 			return err
 		}
 		// in case ListeningPort was zero, get the actual port
-		stream.Port.ListeningPort = T.Port(tcpListener.Addr().(*net.TCPAddr).Port)
+		stream.Port.Listening = tcpListener.Addr().(*net.TCPAddr).Port
 		stream.listener = types.NetListener(tcpListener)
 	case "udp":
-		stream.targetAddr, err = net.ResolveUDPAddr("udp", stream.URL.Host)
+		stream.targetAddr, err = net.ResolveUDPAddr("udp", stream.ProxyURL.Host)
 		if err != nil {
 			return err
 		}
-		udpListener, err := lcfg.ListenPacket(ctx, "udp", stream.ListenURL.Host)
+		udpListener, err := lcfg.ListenPacket(ctx, "udp", stream.LisURL.Host)
 		if err != nil {
 			return err
 		}
@@ -72,7 +71,7 @@ func (stream *Stream) Setup() error {
 			udpListener.Close()
 			return errors.New("udp listener is not *net.UDPConn")
 		}
-		stream.Port.ListeningPort = T.Port(udpConn.LocalAddr().(*net.UDPAddr).Port)
+		stream.Port.Listening = udpConn.LocalAddr().(*net.UDPAddr).Port
 		stream.listener = NewUDPForwarder(ctx, udpConn, stream.targetAddr)
 	default:
 		panic("should not reach here")

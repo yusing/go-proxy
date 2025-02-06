@@ -3,7 +3,6 @@ package provider
 import (
 	"fmt"
 	"strconv"
-	"strings"
 
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog"
@@ -62,15 +61,13 @@ func (p *DockerProvider) NewWatcher() watcher.Watcher {
 }
 
 func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
-	routes := route.NewRoutes()
-	entries := route.NewProxyEntries()
-
 	containers, err := docker.ListContainers(p.dockerHost)
 	if err != nil {
-		return routes, E.From(err)
+		return nil, E.From(err)
 	}
 
 	errs := E.NewBuilder("")
+	routes := make(route.Routes)
 
 	for _, c := range containers {
 		container := docker.FromDocker(&c, p.dockerHost)
@@ -78,47 +75,35 @@ func (p *DockerProvider) loadRoutesImpl() (route.Routes, E.Error) {
 			continue
 		}
 
-		newEntries, err := p.entriesFromContainerLabels(container)
+		newEntries, err := p.routesFromContainerLabels(container)
 		if err != nil {
 			errs.Add(err.Subject(container.ContainerName))
 		}
-		// although err is not nil
-		// there may be some valid entries in `en`
-		dups := entries.MergeFrom(newEntries)
-		// add the duplicate proxy entries to the error
-		dups.RangeAll(func(k string, v *route.RawEntry) {
-			errs.Addf("duplicated alias %s", k)
-		})
+		for k, v := range newEntries {
+			if routes.Contains(k) {
+				errs.Addf("duplicated alias %s", k)
+			} else {
+				routes[k] = v
+			}
+		}
 	}
-
-	routes, err = route.FromEntries(p.ShortName(), entries)
-	errs.Add(err)
 
 	return routes, errs.Error()
 }
 
-func (p *DockerProvider) shouldIgnore(container *docker.Container) bool {
-	return container.IsExcluded ||
-		!container.IsExplicit && p.IsExplicitOnly() ||
-		!container.IsExplicit && container.IsDatabase ||
-		strings.HasSuffix(container.ContainerName, "-old")
-}
-
 // Returns a list of proxy entries for a container.
 // Always non-nil.
-func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container) (entries route.RawEntries, _ E.Error) {
-	entries = route.NewProxyEntries()
-
-	if p.shouldIgnore(container) {
-		return
+func (p *DockerProvider) routesFromContainerLabels(container *docker.Container) (route.Routes, E.Error) {
+	if !container.IsExplicit && p.IsExplicitOnly() {
+		return nil, nil
 	}
+
+	routes := make(route.Routes, len(container.Aliases))
 
 	// init entries map for all aliases
 	for _, a := range container.Aliases {
-		entries.Store(a, &route.RawEntry{
-			Alias:     a,
-			Container: container,
-		})
+		routes[a] = &route.Route{}
+		routes[a].Metadata.Container = container
 	}
 
 	errs := E.NewBuilder("label errors")
@@ -170,32 +155,29 @@ func (p *DockerProvider) entriesFromContainerLabels(container *docker.Container)
 		}
 
 		// init entry if not exist
-		en, ok := entries.Load(alias)
+		r, ok := routes[alias]
 		if !ok {
-			en = &route.RawEntry{
-				Alias:     alias,
-				Container: container,
-			}
-			entries.Store(alias, en)
+			r = &route.Route{}
+			r.Metadata.Container = container
+			routes[alias] = r
 		}
 
 		// deserialize map into entry object
-		err := U.Deserialize(entryMap, en)
+		err := U.Deserialize(entryMap, r)
 		if err != nil {
 			errs.Add(err.Subject(alias))
 		} else {
-			entries.Store(alias, en)
+			routes[alias] = r
 		}
 	}
 	if wildcardProps != nil {
-		entries.Range(func(alias string, re *route.RawEntry) bool {
+		for _, re := range routes {
 			if err := U.Deserialize(wildcardProps, re); err != nil {
 				errs.Add(err.Subject(docker.WildcardAlias))
-				return false
+				break
 			}
-			return true
-		})
+		}
 	}
 
-	return entries, errs.Error()
+	return routes, errs.Error()
 }
