@@ -8,7 +8,6 @@ import (
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/homepage"
-	"github.com/yusing/go-proxy/internal/logging"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -199,25 +198,19 @@ func (r *Route) ShouldExclude() bool {
 	if r.Container != nil {
 		switch {
 		case r.Container.IsExcluded:
-			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: explicitly excluded")
 			return true
 		case r.IsZeroPort() && !r.UseIdleWatcher():
-			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: zero port and no idle watcher")
 			return true
 		case r.Container.IsDatabase && !r.Container.IsExplicit:
-			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: database")
 			return true
 		case strings.HasPrefix(r.Container.ContainerName, "buildx_"):
-			logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: buildx prefix")
 			return true
 		}
 	} else if r.IsZeroPort() {
-		logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: zero port")
 		return true
 	}
 	if strings.HasPrefix(r.Alias, "x-") ||
 		strings.HasSuffix(r.Alias, "-old") {
-		logging.Debug().Str("container", r.Container.ContainerName).Msg("container excluded: alias")
 		return true
 	}
 	return false
