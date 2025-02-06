@@ -117,6 +117,8 @@ export type ModifyRequest = {
   add_headers?: { [key: types.HTTPHeader]: string };
   /** Hide HTTP headers */
   hide_headers?: types.HTTPHeader[];
+  /** Add prefix to request URL */
+  add_prefix?: string;
 };
 
 export type ModifyResponse = {
