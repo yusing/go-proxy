@@ -212,7 +212,7 @@ func TestOnCorrectness(t *testing.T) {
 		},
 		{
 			name:    "basic_auth_correct",
-			checker: "basic_auth user " + string(E.Must(bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost))),
+			checker: "basic_auth user " + string(Must(bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost))),
 			input: &http.Request{
 				Header: http.Header{
 					"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte("user:password"))}, // "user:password"
@@ -222,7 +222,7 @@ func TestOnCorrectness(t *testing.T) {
 		},
 		{
 			name:    "basic_auth_incorrect",
-			checker: "basic_auth user " + string(E.Must(bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost))),
+			checker: "basic_auth user " + string(Must(bcrypt.GenerateFromPassword([]byte("password"), bcrypt.DefaultCost))),
 			input: &http.Request{
 				Header: http.Header{
 					"Authorization": {"Basic " + base64.StdEncoding.EncodeToString([]byte("user:incorrect"))}, // "user:wrong"
