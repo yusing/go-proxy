@@ -32,7 +32,6 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
   - [Setup](#setup)
     - [Manual Setup](#manual-setup)
     - [Folder structrue](#folder-structrue)
-    - [Use JSON Schema in VSCode](#use-json-schema-in-vscode)
   - [Screenshots](#screenshots)
     - [idlesleeper](#idlesleeper)
   - [Build it yourself](#build-it-yourself)
@@ -117,12 +116,6 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 │   └── provider2.yml
 └── .env
 ```
-
-### Use JSON Schema in VSCode
-
-Copy [`.vscode/settings.example.json`](.vscode/settings.example.json) to `.vscode/settings.json` and modify it to fit your needs
-
-[🔼Back to top](#table-of-content)
 
 ## Screenshots
 

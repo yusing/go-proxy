@@ -32,7 +32,6 @@
   - [安裝](#安裝)
     - [手動安裝](#手動安裝)
     - [資料夾結構](#資料夾結構)
-    - [在 VSCode 中使用 JSON Schema](#在-vscode-中使用-json-schema)
   - [截圖](#截圖)
     - [閒置休眠](#閒置休眠)
   - [自行編譯](#自行編譯)
@@ -117,12 +116,6 @@
 │   └── provider2.yml
 └── .env
 ```
-
-### 在 VSCode 中使用 JSON Schema
-
-複製 [`.vscode/settings.example.json`](.vscode/settings.example.json) 到 `.vscode/settings.json` 並根據需要修改
-
-[🔼回到頂部](#目錄)
 
 ## 截圖
 
