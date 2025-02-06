@@ -51,7 +51,7 @@ func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
 	}
 
 	service := base.TargetName()
-	rp := reverseproxy.NewReverseProxy(service, base.pURL, trans)
+	rp := reverseproxy.NewReverseProxy(service, base.ProxyURL, trans)
 
 	if len(base.Middlewares) > 0 {
 		err := middleware.PatchReverseProxy(rp, base.Middlewares)
@@ -86,10 +86,10 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 		r.HealthMon = waker
 	case r.UseHealthCheck():
 		if r.IsDocker() {
-			client, err := docker.ConnectClient(r.idlewatcher.DockerHost)
+			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
 			if err == nil {
 				fallback := monitor.NewHTTPHealthChecker(r.rp.TargetURL, r.HealthCheck)
-				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.idlewatcher.ContainerID, r.TargetName(), r.HealthCheck, fallback)
+				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.HealthCheck, fallback)
 				r.task.OnCancel("close_docker_client", client.Close)
 			}
 		}

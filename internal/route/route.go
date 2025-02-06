@@ -42,13 +42,18 @@ type (
 		Homepage     *homepage.Item             `json:"homepage,omitempty"`
 		AccessLog    *accesslog.Config          `json:"access_log,omitempty"`
 
+		Metadata `deserialize:"-"`
+	}
+
+	Metadata struct {
 		/* Docker only */
 		Container *docker.Container `json:"container,omitempty"`
 		Provider  string            `json:"provider,omitempty"`
 
 		// private fields
-		lURL, pURL  *net.URL // listening url and proxy url
-		idlewatcher *idlewatcher.Config
+		LisURL      *net.URL            `json:"lurl,omitempty"`
+		ProxyURL    *net.URL            `json:"purl,omitempty"`
+		Idlewatcher *idlewatcher.Config `json:"idlewatcher,omitempty"`
 
 		impl        types.Route
 		isValidated bool
@@ -79,7 +84,7 @@ func (r *Route) Validate() (err E.Error) {
 		}
 		fallthrough
 	case types.SchemeTCP, types.SchemeUDP:
-		r.lURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Listening))
+		r.LisURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Listening))
 		fallthrough
 	default:
 		if r.Port.Proxy == 0 && !r.IsDocker() {
@@ -88,8 +93,8 @@ func (r *Route) Validate() (err E.Error) {
 		if r.LoadBalance != nil && r.LoadBalance.Link == "" {
 			r.LoadBalance = nil
 		}
-		r.pURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Proxy))
-		r.idlewatcher = E.Collect(errs, idlewatcher.ValidateConfig, r.Container)
+		r.ProxyURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Proxy))
+		r.Idlewatcher = E.Collect(errs, idlewatcher.ValidateConfig, r.Container)
 	}
 
 	if !r.UseHealthCheck() && (r.UseLoadBalance() || r.UseIdleWatcher()) {
@@ -142,7 +147,7 @@ func (r *Route) TargetName() string {
 }
 
 func (r *Route) TargetURL() *net.URL {
-	return r.pURL
+	return r.ProxyURL
 }
 
 func (r *Route) Type() types.RouteType {
@@ -160,7 +165,7 @@ func (r *Route) HealthMonitor() health.HealthMonitor {
 }
 
 func (r *Route) IdlewatcherConfig() *idlewatcher.Config {
-	return r.idlewatcher
+	return r.Idlewatcher
 }
 
 func (r *Route) HealthCheckConfig() *health.HealthCheckConfig {
@@ -223,7 +228,7 @@ func (r *Route) UseLoadBalance() bool {
 }
 
 func (r *Route) UseIdleWatcher() bool {
-	return r.idlewatcher != nil && r.idlewatcher.IdleTimeout > 0
+	return r.Idlewatcher != nil && r.Idlewatcher.IdleTimeout > 0
 }
 
 func (r *Route) UseHealthCheck() bool {

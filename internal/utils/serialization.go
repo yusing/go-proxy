@@ -31,6 +31,13 @@ var (
 	ErrUnknownField          = E.New("unknown field")
 )
 
+var (
+	tagDeserialize = "deserialize" // `deserialize:"-"` to exclude from deserialization
+	tagJSON        = "json"        // share between Deserialize and json.Marshal
+	tagValidate    = "validate"    // uses go-playground/validator
+	tagAliases     = "aliases"     // declare aliases for fields
+)
+
 var mapUnmarshalerType = reflect.TypeFor[MapUnmarshaller]()
 
 var defaultValues = functional.NewMapOf[reflect.Type, func() any]()
@@ -65,6 +72,9 @@ func extractFields(t reflect.Type) (all, anonymous []reflect.StructField) {
 	for i := range n {
 		field := t.Field(i)
 		if !field.IsExported() {
+			continue
+		}
+		if field.Tag.Get(tagDeserialize) == "-" {
 			continue
 		}
 		if field.Anonymous {
@@ -213,7 +223,7 @@ func Deserialize(src SerializedObject, dst any) (err E.Error) {
 		}
 		for _, field := range fields {
 			var key string
-			if jsonTag, ok := field.Tag.Lookup("json"); ok {
+			if jsonTag, ok := field.Tag.Lookup(tagJSON); ok {
 				if jsonTag == "-" {
 					continue
 				}
@@ -225,10 +235,10 @@ func Deserialize(src SerializedObject, dst any) (err E.Error) {
 			mapping[key] = dstV.FieldByName(field.Name)
 
 			if !hasValidateTag {
-				_, hasValidateTag = field.Tag.Lookup("validate")
+				_, hasValidateTag = field.Tag.Lookup(tagValidate)
 			}
 
-			aliases, ok := field.Tag.Lookup("aliases")
+			aliases, ok := field.Tag.Lookup(tagAliases)
 			if ok {
 				for _, alias := range strutils.CommaSeperatedList(aliases) {
 					mapping[alias] = dstV.FieldByName(field.Name)
