@@ -30,7 +30,8 @@ const (
 	CommandSet              = "set"
 	CommandAdd              = "add"
 	CommandRemove           = "remove"
-	CommandBypass           = "bypass"
+	CommandPass             = "pass"
+	CommandPassAlt          = "bypass"
 )
 
 var commands = map[string]struct {
@@ -231,7 +232,7 @@ func (cmd *Command) Parse(v string) error {
 			return err
 		}
 
-		if directive == CommandBypass {
+		if directive == CommandPass || directive == CommandPassAlt {
 			if len(args) != 0 {
 				return ErrInvalidArguments.Subject(directive)
 			}
