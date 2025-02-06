@@ -42,6 +42,9 @@ func StartNotifDispatcher(parent task.Parent) *Dispatcher {
 }
 
 func Notify(msg *LogMessage) {
+	if dispatcher == nil {
+		return
+	}
 	select {
 	case <-dispatcher.task.Context().Done():
 		return
