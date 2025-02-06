@@ -77,6 +77,9 @@ func (r *Route) Validate() (err E.Error) {
 	switch r.Scheme {
 	case types.SchemeFileServer:
 		r.impl, err = NewFileServer(r)
+		if err != nil {
+			errs.Add(err)
+		}
 	case types.SchemeHTTP, types.SchemeHTTPS:
 		if r.Port.Listening != 0 {
 			errs.Addf("unexpected listening port for %s scheme", r.Scheme)
