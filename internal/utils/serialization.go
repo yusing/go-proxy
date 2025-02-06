@@ -97,6 +97,33 @@ func ValidateWithFieldTags(s any) E.Error {
 	return errs.Error()
 }
 
+func ValidateWithCustomValidator(v reflect.Value) E.Error {
+	isStruct := false
+	for {
+		switch v.Kind() {
+		case reflect.Pointer, reflect.Interface:
+			if v.IsNil() {
+				return E.Errorf("validate: v is %w", ErrNilValue)
+			}
+			if validate, ok := v.Interface().(CustomValidator); ok {
+				return validate.Validate()
+			}
+			if isStruct {
+				return nil
+			}
+			v = v.Elem()
+		case reflect.Struct:
+			if !v.CanAddr() {
+				return nil
+			}
+			v = v.Addr()
+			isStruct = true
+		default:
+			return nil
+		}
+	}
+}
+
 func dive(dst reflect.Value) (v reflect.Value, t reflect.Type, err E.Error) {
 	dstT := dst.Type()
 	for {
@@ -220,34 +247,28 @@ func Deserialize(src SerializedObject, dst any) (err E.Error) {
 		}
 		if hasValidateTag {
 			errs.Add(ValidateWithFieldTags(dstV.Interface()))
-		} else {
-			if dstV.CanAddr() {
-				dstV = dstV.Addr()
-			}
-			if validator, ok := dstV.Interface().(CustomValidator); ok {
-				errs.Add(validator.Validate())
-			}
+		}
+		if err := ValidateWithCustomValidator(dstV); err != nil {
+			errs.Add(err)
 		}
 		return errs.Error()
 	case reflect.Map:
-		if dstV.IsNil() {
-			dstV.Set(reflect.MakeMap(dstT))
-		}
-		for k := range src {
+		for k, v := range src {
 			mapVT := dstT.Elem()
 			tmp := New(mapVT).Elem()
-			err := Convert(reflect.ValueOf(src[k]), tmp)
-			if err == nil {
-				dstV.SetMapIndex(reflect.ValueOf(k), tmp)
-			} else {
+			err := Convert(reflect.ValueOf(v), tmp)
+			if err != nil {
 				errs.Add(err.Subject(k))
+				continue
+			}
+			if err := ValidateWithCustomValidator(tmp.Addr()); err != nil {
+				errs.Add(err.Subject(k))
+			} else {
+				dstV.SetMapIndex(reflect.ValueOf(k), tmp)
 			}
 		}
-		if dstV.CanAddr() {
-			dstV = dstV.Addr()
-		}
-		if validator, ok := dstV.Interface().(CustomValidator); ok {
-			errs.Add(validator.Validate())
+		if err := ValidateWithCustomValidator(dstV); err != nil {
+			errs.Add(err)
 		}
 		return errs.Error()
 	default:
