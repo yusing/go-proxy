@@ -66,6 +66,8 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 ## Setup
 
+**NOTE:** GoDoxy is designed to be (and only works when) running in `host` network mode, do not change it. To change listening ports, modify `.env`.
+
 1.  Pull the latest docker images
 
     ```shell
