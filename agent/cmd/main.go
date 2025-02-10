@@ -31,8 +31,8 @@ func printNewClientHelp() {
 		},
 	})
 
-	logging.Info().Msgf("On main server, run:\n\ndocker exec godoxy /app/run add-agent '%s'\n\n", host)
-	logging.Info().Msgf("Then add this host (%s) to main server config like below:\n\n", host)
+	logging.Info().Msgf("On main server, run:\n\ndocker exec godoxy /app/run add-agent '%s'\n", host)
+	logging.Info().Msgf("Then add this host (%s) to main server config like below:\n", host)
 	logging.Info().Msg(string(cfgYAML))
 }
 

@@ -8,6 +8,8 @@ import (
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/disk"
 	"github.com/shirou/gopsutil/v4/mem"
+	"github.com/shirou/gopsutil/v4/net"
+	"github.com/shirou/gopsutil/v4/sensors"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -16,6 +18,8 @@ type (
 		CPUAverage float64
 		Memory     *mem.VirtualMemoryStat
 		Disk       *disk.UsageStat
+		Network    *net.IOCountersStat
+		Sensors    []sensors.TemperatureStat
 	}
 )
 
@@ -28,8 +32,15 @@ func GetSystemInfo(ctx context.Context) (*SystemInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	diskInfo, err := disk.Usage("/")
+	if err != nil {
+		return nil, err
+	}
+	networkInfo, err := net.IOCounters(false)
+	if err != nil {
+		return nil, err
+	}
+	sensors, err := sensors.SensorsTemperatures()
 	if err != nil {
 		return nil, err
 	}
@@ -38,6 +49,8 @@ func GetSystemInfo(ctx context.Context) (*SystemInfo, error) {
 		CPUAverage: cpuAverage[0],
 		Memory:     memoryInfo,
 		Disk:       diskInfo,
+		Network:    &networkInfo[0],
+		Sensors:    sensors,
 	}, nil
 }
 
@@ -58,5 +71,10 @@ func (info *SystemInfo) MarshalJSON() ([]byte, error) {
 			"free":         strutils.FormatByteSize(info.Disk.Free),
 			"fs_type":      info.Disk.Fstype,
 		},
+		"network": map[string]interface{}{
+			"bytes_sent": strutils.FormatByteSize(info.Network.BytesSent),
+			"bytes_recv": strutils.FormatByteSize(info.Network.BytesRecv),
+		},
+		"sensors": info.Sensors,
 	})
 }
