@@ -1,8 +1,8 @@
 ## GoDoxy v0.10.0
 
-### Agent Mode
+### GoDoxy-Agent
 
-listen only on Agent API server, authenticate with mTLS. Maintain secure connection between GoDoxy main and GoDoxy agent server
+listen only on Agent API server, authenticate and encrypt connection with mTLS. Maintain secure connection between GoDoxy main and GoDoxy agent server
 
 Main benefits:
 
@@ -15,10 +15,10 @@ Main benefits:
       # ports: # this part is not needed on agent server
       #  - 6789
   ```
-- Secure: no one can connect to it except GoDoxy main server because of mTLS
+- Secure: no one can connect to it except GoDoxy main server because of mTLS, plus connection is encrypted
 - Fetch info from agent server, e.g. CPU usage, Memory usage, container list, container logs, etc... (to be ready for beszel and dockge like features in WebUI)
 
-### How to setup
+#### How to setup
 
 1. Agent server generates CA cert, SSL certificate and Client certificate on first run.
 2. Follow the output on screen to run `godoxy new-agent <ip>:<port> ...` on GoDoxy main server to store generated certs
