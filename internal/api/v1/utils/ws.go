@@ -22,7 +22,7 @@ func InitiateWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 
 	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
 
-	if len(cfg.Value().MatchDomains) == 0 {
+	if cfg == nil || len(cfg.Value().MatchDomains) == 0 {
 		warnNoMatchDomainOnce.Do(warnNoMatchDomains)
 		originPats = []string{"*"}
 	} else {

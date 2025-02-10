@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/docker/docker/api/types"
+	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/logging"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -21,13 +22,14 @@ type (
 		ContainerID   string `json:"container_id"`
 		ImageName     string `json:"image_name"`
 
+		Agent *agent.AgentConfig `json:"agent"`
+
 		Labels map[string]string `json:"-"`
 
 		PublicPortMapping  PortMapping `json:"public_ports"`  // non-zero publicPort:types.Port
 		PrivatePortMapping PortMapping `json:"private_ports"` // privatePort:types.Port
-		PublicIP           string      `json:"public_ip"`
-		PrivateIP          string      `json:"private_ip"`
-		NetworkMode        string      `json:"network_mode"`
+		PublicHostname     string      `json:"public_hostname"`
+		PrivateHostname    string      `json:"private_hostname"`
 
 		Aliases       []string `json:"aliases"`
 		IsExcluded    bool     `json:"is_excluded"`
@@ -51,7 +53,8 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 	for lbl := range c.Labels {
 		if strings.HasPrefix(lbl, NSProxy+".") {
 			isExplicit = true
-			break
+		} else {
+			delete(c.Labels, lbl)
 		}
 	}
 	res = &Container{
@@ -64,7 +67,6 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 
 		PublicPortMapping:  helper.getPublicPortMapping(),
 		PrivatePortMapping: helper.getPrivatePortMapping(),
-		NetworkMode:        c.HostConfig.NetworkMode,
 
 		Aliases:       helper.getAliases(),
 		IsExcluded:    strutils.ParseBool(helper.getDeleteLabel(LabelExclude)),
@@ -78,8 +80,13 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 		StartEndpoint: helper.getDeleteLabel(LabelStartEndpoint),
 		Running:       c.Status == "running" || c.State == "running",
 	}
-	res.setPrivateIP(helper)
-	res.setPublicIP()
+
+	if agent.IsDockerHostAgent(dockerHost) {
+		res.Agent, _ = agent.GetAgentFromDockerHost(dockerHost)
+	}
+
+	res.setPrivateHostname(helper)
+	res.setPublicHostname()
 	return
 }
 
@@ -115,29 +122,28 @@ func FromJSON(json types.ContainerJSON, dockerHost string) *Container {
 			Networks: json.NetworkSettings.Networks,
 		},
 	}, dockerHost)
-	cont.NetworkMode = string(json.HostConfig.NetworkMode)
 	return cont
 }
 
-func (c *Container) setPublicIP() {
+func (c *Container) setPublicHostname() {
 	if !c.Running {
 		return
 	}
 	if strings.HasPrefix(c.DockerHost, "unix://") {
-		c.PublicIP = "127.0.0.1"
+		c.PublicHostname = "127.0.0.1"
 		return
 	}
 	url, err := url.Parse(c.DockerHost)
 	if err != nil {
 		logging.Err(err).Msgf("invalid docker host %q, falling back to 127.0.0.1", c.DockerHost)
-		c.PublicIP = "127.0.0.1"
+		c.PublicHostname = "127.0.0.1"
 		return
 	}
-	c.PublicIP = url.Hostname()
+	c.PublicHostname = url.Hostname()
 }
 
-func (c *Container) setPrivateIP(helper containerHelper) {
-	if !strings.HasPrefix(c.DockerHost, "unix://") {
+func (c *Container) setPrivateHostname(helper containerHelper) {
+	if !strings.HasPrefix(c.DockerHost, "unix://") && c.Agent == nil {
 		return
 	}
 	if helper.NetworkSettings == nil {
@@ -147,7 +153,7 @@ func (c *Container) setPrivateIP(helper containerHelper) {
 		if v.IPAddress == "" {
 			continue
 		}
-		c.PrivateIP = v.IPAddress
+		c.PrivateHostname = v.IPAddress
 		return
 	}
 }

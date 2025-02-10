@@ -86,6 +86,10 @@ func GetEnvBool(key string, defaultValue bool) bool {
 	return GetEnv(key, defaultValue, strconv.ParseBool)
 }
 
+func GetEnvInt(key string, defaultValue int) int {
+	return GetEnv(key, defaultValue, strconv.Atoi)
+}
+
 func GetAddrEnv(key, defaultValue, scheme string) (addr, host, port, fullURL string) {
 	addr = GetEnvString(key, defaultValue)
 	if addr == "" {

@@ -66,9 +66,3 @@ func Collect[T any, Err error, Arg any, Func func(Arg) (T, Err)](eb *Builder, fn
 	eb.Add(err)
 	return result
 }
-
-func Collect2[T any, Err error, Arg1 any, Arg2 any, Func func(Arg1, Arg2) (T, Err)](eb *Builder, fn Func, arg1 Arg1, arg2 Arg2) T {
-	result, err := fn(arg1, arg2)
-	eb.Add(err)
-	return result
-}

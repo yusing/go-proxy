@@ -7,28 +7,28 @@ import (
 	"time"
 )
 
-var (
-	defaultDialer = net.Dialer{
-		Timeout: 60 * time.Second,
-	}
-	DefaultTransport = &http.Transport{
+var DefaultDialer = net.Dialer{
+	Timeout: 5 * time.Second,
+}
+
+func NewTransport() *http.Transport {
+	return &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
-		DialContext:           defaultDialer.DialContext,
+		DialContext:           DefaultDialer.DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConnsPerHost:   100,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
-		DisableCompression:    true, // Prevent double compression
+		// DisableCompression:    true, // Prevent double compression
 		ResponseHeaderTimeout: 60 * time.Second,
 		WriteBufferSize:       16 * 1024, // 16KB
 		ReadBufferSize:        16 * 1024, // 16KB
 	}
-	DefaultTransportNoTLS = func() *http.Transport {
-		clone := DefaultTransport.Clone()
-		clone.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
-		return clone
-	}()
-)
+}
 
-const StaticFilePathPrefix = "/$gperrorpage/"
+func NewTransportWithTLSConfig(tlsConfig *tls.Config) *http.Transport {
+	tr := NewTransport()
+	tr.TLSClientConfig = tlsConfig
+	return tr
+}

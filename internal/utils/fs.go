@@ -34,3 +34,15 @@ func ListFiles(dir string, maxDepth int, hideHidden ...bool) ([]string, error) {
 	}
 	return files, nil
 }
+
+// FileExists checks if a file exists.
+//
+// If the file does not exist, it returns false and nil,
+// otherwise it returns true and any error that is not os.ErrNotExist.
+func FileExists(file string) (bool, error) {
+	_, err := os.Stat(file)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return true, err
+}

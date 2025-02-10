@@ -164,7 +164,7 @@ var commands = map[string]struct {
 			if target.Scheme == "" {
 				target.Scheme = "http"
 			}
-			rp := reverseproxy.NewReverseProxy("", target, gphttp.DefaultTransport)
+			rp := reverseproxy.NewReverseProxy("", target, gphttp.NewTransport())
 			return ReturningCommand(rp.ServeHTTP)
 		},
 	},

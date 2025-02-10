@@ -125,7 +125,11 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 			if item.Category == "" {
 				item.Category = "Docker"
 			}
-			item.SourceType = string(provider.ProviderTypeDocker)
+			if r.IsAgent() {
+				item.SourceType = string(provider.ProviderTypeAgent)
+			} else {
+				item.SourceType = string(provider.ProviderTypeDocker)
+			}
 		case r.UseLoadBalance():
 			if item.Category == "" {
 				item.Category = "Load-balanced"

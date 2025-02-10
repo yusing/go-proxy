@@ -2,12 +2,14 @@ package docker
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 
 	"github.com/docker/cli/cli/connhelper"
 	"github.com/docker/docker/client"
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
@@ -81,32 +83,44 @@ func ConnectClient(host string) (*SharedClient, error) {
 	// create client
 	var opt []client.Opt
 
-	switch host {
-	case "":
-		return nil, errors.New("empty docker host")
-	case common.DockerHostFromEnv:
-		opt = clientOptEnvHost
-	default:
-		helper, err := connhelper.GetConnectionHelper(host)
-		if err != nil {
-			logging.Panic().Err(err).Msg("failed to get connection helper")
+	if agent.IsDockerHostAgent(host) {
+		cfg, ok := agent.GetAgentFromDockerHost(host)
+		if !ok {
+			return nil, fmt.Errorf("agent not found for host: %s", host)
 		}
-		if helper != nil {
-			httpClient := &http.Client{
-				Transport: &http.Transport{
-					DialContext: helper.Dialer,
-				},
+		opt = []client.Opt{
+			client.WithHost(agent.DockerHost),
+			client.WithHTTPClient(cfg.NewHTTPClient()),
+			client.WithAPIVersionNegotiation(),
+		}
+	} else {
+		switch host {
+		case "":
+			return nil, errors.New("empty docker host")
+		case common.DockerHostFromEnv:
+			opt = clientOptEnvHost
+		default:
+			helper, err := connhelper.GetConnectionHelper(host)
+			if err != nil {
+				logging.Panic().Err(err).Msg("failed to get connection helper")
 			}
-			opt = []client.Opt{
-				client.WithHTTPClient(httpClient),
-				client.WithHost(helper.Host),
-				client.WithAPIVersionNegotiation(),
-				client.WithDialContext(helper.Dialer),
-			}
-		} else {
-			opt = []client.Opt{
-				client.WithHost(host),
-				client.WithAPIVersionNegotiation(),
+			if helper != nil {
+				httpClient := &http.Client{
+					Transport: &http.Transport{
+						DialContext: helper.Dialer,
+					},
+				}
+				opt = []client.Opt{
+					client.WithHTTPClient(httpClient),
+					client.WithHost(helper.Host),
+					client.WithAPIVersionNegotiation(),
+					client.WithDialContext(helper.Dialer),
+				}
+			} else {
+				opt = []client.Opt{
+					client.WithHost(host),
+					client.WithAPIVersionNegotiation(),
+				}
 			}
 		}
 	}

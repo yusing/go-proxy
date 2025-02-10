@@ -287,6 +287,9 @@ func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
 			lenLongestName = len(p.String())
 		}
 	}
+	for _, agent := range providers.Agents {
+		cfg.providers.Store(agent.Name(), proxy.NewAgentProvider(&agent))
+	}
 	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
 		if err := p.LoadRoutes(); err != nil {
 			errs.Add(err.Subject(p.String()))

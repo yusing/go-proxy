@@ -1,4 +1,4 @@
-package v1
+package memlogger
 
 import (
 	"bytes"
@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
-	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -31,11 +30,7 @@ type memLogger struct {
 	bufPool sync.Pool // used in hook mode
 }
 
-type MemLogger interface {
-	io.Writer
-	// TODO: hook does not pass in fields, looking for a workaround to do server side log rendering
-	zerolog.Hook
-}
+type MemLogger io.Writer
 
 type buffer struct {
 	data []byte
@@ -85,8 +80,10 @@ func init() {
 	}
 }
 
-func LogsWS() func(config config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
-	return memLoggerInstance.ServeHTTP
+func LogsWS(config config.ConfigInstance) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		memLoggerInstance.ServeHTTP(config, w, r)
+	}
 }
 
 func GetMemLogger() MemLogger {
@@ -136,29 +133,6 @@ func (m *memLogger) writeBuf(b []byte) (pos int, err error) {
 	pos = m.Len()
 	_, err = m.Buffer.Write(b)
 	return
-}
-
-// Run implements zerolog.Hook.
-func (m *memLogger) Run(e *zerolog.Event, level zerolog.Level, message string) {
-	bufStruct := m.bufPool.Get().(*buffer)
-	buf := bufStruct.data
-	defer func() {
-		bufStruct.data = bufStruct.data[:0]
-		m.bufPool.Put(bufStruct)
-	}()
-
-	buf = logging.FormatLogEntryHTML(level, message, buf)
-	n := len(buf)
-
-	m.truncateIfNeeded(n)
-
-	pos, err := m.writeBuf(buf)
-	if err != nil {
-		// not logging the error here, it will cause Run to be called again = infinite loop
-		return
-	}
-
-	m.notifyWS(pos, n)
 }
 
 // Write implements io.Writer.

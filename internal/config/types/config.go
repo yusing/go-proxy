@@ -5,6 +5,7 @@ import (
 	"regexp"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
 	"github.com/yusing/go-proxy/internal/notif"
@@ -23,9 +24,10 @@ type (
 		TimeoutShutdown int                      `json:"timeout_shutdown" validate:"gte=0"`
 	}
 	Providers struct {
-		Files        []string                   `json:"include" validate:"dive,filepath"`
-		Docker       map[string]string          `json:"docker" validate:"dive,unix_addr|url"`
-		Notification []notif.NotificationConfig `json:"notification"`
+		Files        []string                   `json:"include" yaml:"include,omitempty" validate:"dive,filepath"`
+		Docker       map[string]string          `json:"docker" yaml:"docker,omitempty" validate:"dive,unix_addr|url"`
+		Agents       []agent.AgentConfig        `json:"agents" yaml:"agents,omitempty"`
+		Notification []notif.NotificationConfig `json:"notification" yaml:"notification,omitempty"`
 	}
 	Entrypoint struct {
 		Middlewares []map[string]any  `json:"middlewares"`

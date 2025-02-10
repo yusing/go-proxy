@@ -1,8 +1,11 @@
 package route
 
 import (
+	"crypto/tls"
 	"net/http"
 
+	"github.com/yusing/go-proxy/agent/pkg/agent"
+	"github.com/yusing/go-proxy/agent/pkg/agentproxy"
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
@@ -38,25 +41,46 @@ type (
 
 // var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
+// TODO: fix this for agent
 func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
-	trans := gphttp.DefaultTransport
 	httpConfig := base.HTTPConfig
+	proxyURL := base.ProxyURL
 
-	if httpConfig.NoTLSVerify {
-		trans = gphttp.DefaultTransportNoTLS
-	}
-	if httpConfig.ResponseHeaderTimeout > 0 {
-		trans = trans.Clone()
-		trans.ResponseHeaderTimeout = httpConfig.ResponseHeaderTimeout
+	trans := gphttp.NewTransport()
+	a := base.Agent()
+	if a != nil {
+		trans = a.Transport()
+		proxyURL = agent.HTTPProxyURL
+	} else {
+		if httpConfig.NoTLSVerify {
+			trans.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		}
+		if httpConfig.ResponseHeaderTimeout > 0 {
+			trans.ResponseHeaderTimeout = httpConfig.ResponseHeaderTimeout
+		}
 	}
 
 	service := base.TargetName()
-	rp := reverseproxy.NewReverseProxy(service, base.ProxyURL, trans)
+	rp := reverseproxy.NewReverseProxy(service, proxyURL, trans)
 
 	if len(base.Middlewares) > 0 {
 		err := middleware.PatchReverseProxy(rp, base.Middlewares)
 		if err != nil {
 			return nil, err
+		}
+	}
+
+	if a != nil {
+		headers := &agentproxy.AgentProxyHeaders{
+			Host:                  base.ProxyURL.Host,
+			IsHTTPS:               base.ProxyURL.Scheme == "https",
+			SkipTLSVerify:         httpConfig.NoTLSVerify,
+			ResponseHeaderTimeout: int(httpConfig.ResponseHeaderTimeout.Seconds()),
+		}
+		ori := rp.HandlerFunc
+		rp.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+			agentproxy.SetAgentProxyHeaders(r, headers)
+			ori(w, r)
 		}
 	}
 
@@ -88,13 +112,13 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 		if r.IsDocker() {
 			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
 			if err == nil {
-				fallback := monitor.NewHTTPHealthChecker(r.rp.TargetURL, r.HealthCheck)
+				fallback := r.newHealthMonitor()
 				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.HealthCheck, fallback)
 				r.task.OnCancel("close_docker_client", client.Close)
 			}
 		}
 		if r.HealthMon == nil {
-			r.HealthMon = monitor.NewHTTPHealthMonitor(r.rp.TargetURL, r.HealthCheck)
+			r.HealthMon = r.newHealthMonitor()
 		}
 	}
 
@@ -176,6 +200,17 @@ func (r *ReveseProxyRoute) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 func (r *ReveseProxyRoute) HealthMonitor() health.HealthMonitor {
 	return r.HealthMon
+}
+
+func (r *ReveseProxyRoute) newHealthMonitor() interface {
+	health.HealthMonitor
+	health.HealthChecker
+} {
+	if a := r.Agent(); a != nil {
+		target := monitor.AgentCheckHealthTargetFromURL(r.ProxyURL)
+		return monitor.NewAgentRouteMonitor(a, r.HealthCheck, target)
+	}
+	return monitor.NewHTTPHealthMonitor(r.ProxyURL, r.HealthCheck)
 }
 
 func (r *ReveseProxyRoute) addToLoadBalancer(parent task.Parent) {

@@ -29,7 +29,7 @@ const (
 
 var ErrAliasRefIndexOutOfRange = E.New("index out of range")
 
-func DockerProviderImpl(name, dockerHost string) (ProviderImpl, error) {
+func DockerProviderImpl(name, dockerHost string) ProviderImpl {
 	if dockerHost == common.DockerHostFromEnv {
 		dockerHost = common.GetEnvString("DOCKER_HOST", client.DefaultDockerHost)
 	}
@@ -37,7 +37,7 @@ func DockerProviderImpl(name, dockerHost string) (ProviderImpl, error) {
 		name,
 		dockerHost,
 		logging.With().Str("type", "docker").Str("name", name).Logger(),
-	}, nil
+	}
 }
 
 func (p *DockerProvider) String() string {

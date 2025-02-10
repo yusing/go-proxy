@@ -99,7 +99,7 @@ func (s *FileServer) Start(parent task.Parent) E.Error {
 	}
 
 	if s.UseHealthCheck() {
-		s.Health = monitor.NewFileServerHealthMonitor(s.TargetName(), s.HealthCheck, s.Root)
+		s.Health = monitor.NewFileServerHealthMonitor(s.HealthCheck, s.Root)
 		if err := s.Health.Start(s.task); err != nil {
 			return err
 		}

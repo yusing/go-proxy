@@ -9,7 +9,7 @@ var (
 		"3000": true,
 	}
 
-	ServiceNamePortMapTCP = map[string]int{
+	ImageNamePortMapTCP = map[string]int{
 		"mssql":            1433,
 		"mysql":            3306,
 		"mariadb":          3306,
@@ -19,27 +19,9 @@ var (
 		"memcached":        11211,
 		"mongo":            27017,
 		"minecraft-server": 25565,
-
-		"ssh":  22,
-		"ftp":  21,
-		"smtp": 25,
-		"dns":  53,
-		"pop3": 110,
-		"imap": 143,
 	}
 
-	ImageNamePortMap = func() (m map[string]int) {
-		m = make(map[string]int, len(ServiceNamePortMapTCP)+len(imageNamePortMap))
-		for k, v := range ServiceNamePortMapTCP {
-			m[k] = v
-		}
-		for k, v := range imageNamePortMap {
-			m[k] = v
-		}
-		return
-	}()
-
-	imageNamePortMap = map[string]int{
+	ImageNamePortMapHTTP = map[string]int{
 		"adguardhome":         3000,
 		"bazarr":              6767,
 		"calibre-web":         8083,

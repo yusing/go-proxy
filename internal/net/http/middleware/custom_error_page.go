@@ -17,6 +17,8 @@ type customErrorPage struct{}
 
 var CustomErrorPage = NewMiddleware[customErrorPage]()
 
+const StaticFilePathPrefix = "/$gperrorpage/"
+
 // before implements RequestModifier.
 func (customErrorPage) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
 	return !ServeStaticErrorPageFile(w, r)
@@ -49,8 +51,8 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) (served bo
 	if path != "" && path[0] != '/' {
 		path = "/" + path
 	}
-	if strings.HasPrefix(path, gphttp.StaticFilePathPrefix) {
-		filename := path[len(gphttp.StaticFilePathPrefix):]
+	if strings.HasPrefix(path, StaticFilePathPrefix) {
+		filename := path[len(StaticFilePathPrefix):]
 		file, ok := errorpage.GetStaticFile(filename)
 		if !ok {
 			logging.Error().Msg("unable to load resource " + filename)

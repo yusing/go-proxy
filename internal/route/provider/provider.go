@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/agent/pkg/agent"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
@@ -64,12 +65,20 @@ func NewDockerProvider(name string, dockerHost string) (p *Provider, err error) 
 	}
 
 	p = newProvider(types.ProviderTypeDocker)
-	p.ProviderImpl, err = DockerProviderImpl(name, dockerHost)
-	if err != nil {
-		return nil, err
-	}
+	p.ProviderImpl = DockerProviderImpl(name, dockerHost)
 	p.watcher = p.NewWatcher()
 	return
+}
+
+func NewAgentProvider(cfg *agent.AgentConfig) *Provider {
+	p := newProvider(types.ProviderTypeAgent)
+	agent := &AgentProvider{
+		AgentConfig: cfg,
+		docker:      DockerProviderImpl(cfg.Name(), cfg.FakeDockerHost()),
+	}
+	p.ProviderImpl = agent
+	p.watcher = p.NewWatcher()
+	return p
 }
 
 func (p *Provider) GetType() types.ProviderType {

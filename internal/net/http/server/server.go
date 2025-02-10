@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"time"
 
@@ -45,7 +46,7 @@ func StartServer(parent task.Parent, opt Options) (s *Server) {
 func NewServer(opt Options) (s *Server) {
 	var httpSer, httpsSer *http.Server
 
-	logger := logging.With().Str("module", "server").Str("name", opt.Name).Logger()
+	logger := logging.With().Str("server", opt.Name).Logger()
 
 	certAvailable := false
 	if opt.CertProvider != nil {
@@ -55,7 +56,7 @@ func NewServer(opt Options) (s *Server) {
 
 	out := io.Discard
 	if common.IsDebug {
-		out = logging.GetLogger()
+		out = logger
 	}
 
 	if opt.HTTPAddr != "" {
@@ -107,7 +108,13 @@ func (s *Server) Start(parent task.Parent) {
 
 	if s.https != nil {
 		go func() {
-			s.handleErr("https", s.https.ListenAndServeTLS(s.CertProvider.GetCertPath(), s.CertProvider.GetKeyPath()))
+			l, err := net.Listen("tcp", s.https.Addr)
+			if err != nil {
+				s.handleErr("https", err)
+				return
+			}
+			defer l.Close()
+			s.handleErr("https", s.https.Serve(tls.NewListener(l, s.https.TLSConfig)))
 		}()
 		s.httpsStarted = true
 		s.l.Info().Str("addr", s.https.Addr).Msgf("server started")

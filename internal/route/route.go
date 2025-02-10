@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/homepage"
@@ -159,6 +160,17 @@ func (r *Route) Type() types.RouteType {
 	panic(fmt.Errorf("unexpected scheme %s for alias %s", r.Scheme, r.Alias))
 }
 
+func (r *Route) Agent() *agent.AgentConfig {
+	if r.Container == nil {
+		return nil
+	}
+	return r.Container.Agent
+}
+
+func (r *Route) IsAgent() bool {
+	return r.Container != nil && r.Container.Agent != nil
+}
+
 func (r *Route) HealthMonitor() health.HealthMonitor {
 	return r.impl.HealthMonitor()
 }
@@ -240,24 +252,24 @@ func (r *Route) Finalize() {
 		switch {
 		case !isDocker:
 			r.Host = "localhost"
-		case cont.PrivateIP != "":
-			r.Host = cont.PrivateIP
-		case cont.PublicIP != "":
-			r.Host = cont.PublicIP
+		case cont.PrivateHostname != "":
+			r.Host = cont.PrivateHostname
+		case cont.PublicHostname != "":
+			r.Host = cont.PublicHostname
 		}
 	}
 
 	lp, pp := r.Port.Listening, r.Port.Proxy
 
 	if isDocker {
-		if port, ok := common.ServiceNamePortMapTCP[cont.ImageName]; ok {
+		if port, ok := common.ImageNamePortMapTCP[cont.ImageName]; ok {
 			if pp == 0 {
 				pp = port
 			}
 			if r.Scheme == "" {
 				r.Scheme = "tcp"
 			}
-		} else if port, ok := common.ImageNamePortMap[cont.ImageName]; ok {
+		} else if port, ok := common.ImageNamePortMapHTTP[cont.ImageName]; ok {
 			if pp == 0 {
 				pp = port
 			}
@@ -268,39 +280,34 @@ func (r *Route) Finalize() {
 	}
 
 	if pp == 0 {
-		switch {
-		case r.Scheme == "https":
-			pp = 443
-		case !isDocker:
-			pp = 80
-		default:
+		if isDocker {
 			pp = lowestPort(cont.PrivatePortMapping)
 			if pp == 0 {
 				pp = lowestPort(cont.PublicPortMapping)
 			}
+		} else if r.Scheme == "https" {
+			pp = 443
+		} else {
+			pp = 80
 		}
 	}
 
 	if isDocker {
 		// replace private port with public port if using public IP.
-		if r.Host == cont.PublicIP {
+		if r.Host == cont.PublicHostname {
 			if p, ok := cont.PrivatePortMapping[pp]; ok {
 				pp = int(p.PublicPort)
+				if r.Scheme == "" && p.Type == "udp" {
+					r.Scheme = "udp"
+				}
 			}
-		}
-		// replace public port with private port if using private IP.
-		if r.Host == cont.PrivateIP {
+		} else {
+			// replace public port with private port if using private IP.
 			if p, ok := cont.PublicPortMapping[pp]; ok {
 				pp = int(p.PrivatePort)
-			}
-		}
-
-		if r.Scheme == "" {
-			switch {
-			case r.Host == cont.PublicIP && cont.PublicPortMapping[pp].Type == "udp":
-				r.Scheme = "udp"
-			case r.Host == cont.PrivateIP && cont.PrivatePortMapping[pp].Type == "udp":
-				r.Scheme = "udp"
+				if r.Scheme == "" && p.Type == "udp" {
+					r.Scheme = "udp"
+				}
 			}
 		}
 	}
@@ -322,13 +329,10 @@ func (r *Route) Finalize() {
 		r.HealthCheck = health.DefaultHealthConfig
 	}
 
+	// set or keep at least default
 	if !r.HealthCheck.Disable {
-		if r.HealthCheck.Interval == 0 {
-			r.HealthCheck.Interval = common.HealthCheckIntervalDefault
-		}
-		if r.HealthCheck.Timeout == 0 {
-			r.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
-		}
+		r.HealthCheck.Interval |= common.HealthCheckIntervalDefault
+		r.HealthCheck.Timeout |= common.HealthCheckTimeoutDefault
 	}
 
 	if isDocker && cont.IdleTimeout != "" {

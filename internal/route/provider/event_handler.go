@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
@@ -38,25 +37,25 @@ func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) 
 		}
 	}
 
-	if common.IsDebug {
-		eventsLog := E.NewBuilder("events")
-		for _, event := range events {
-			eventsLog.Addf("event %s, actor: name=%s, id=%s", event.Action, event.ActorName, event.ActorID)
-		}
-		E.LogDebug(eventsLog.About(), eventsLog.Error(), handler.provider.Logger())
+	// if common.IsDebug {
+	// 	eventsLog := E.NewBuilder("events")
+	// 	for _, event := range events {
+	// 		eventsLog.Addf("event %s, actor: name=%s, id=%s", event.Action, event.ActorName, event.ActorID)
+	// 	}
+	// 	E.LogDebug(eventsLog.About(), eventsLog.Error(), handler.provider.Logger())
 
-		oldRoutesLog := E.NewBuilder("old routes")
-		for k := range oldRoutes {
-			oldRoutesLog.Adds(k)
-		}
-		E.LogDebug(oldRoutesLog.About(), oldRoutesLog.Error(), handler.provider.Logger())
+	// 	oldRoutesLog := E.NewBuilder("old routes")
+	// 	for k := range oldRoutes {
+	// 		oldRoutesLog.Adds(k)
+	// 	}
+	// 	E.LogDebug(oldRoutesLog.About(), oldRoutesLog.Error(), handler.provider.Logger())
 
-		newRoutesLog := E.NewBuilder("new routes")
-		for k := range newRoutes {
-			newRoutesLog.Adds(k)
-		}
-		E.LogDebug(newRoutesLog.About(), newRoutesLog.Error(), handler.provider.Logger())
-	}
+	// 	newRoutesLog := E.NewBuilder("new routes")
+	// 	for k := range newRoutes {
+	// 		newRoutesLog.Adds(k)
+	// 	}
+	// 	E.LogDebug(newRoutesLog.About(), newRoutesLog.Error(), handler.provider.Logger())
+	// }
 
 	for k, oldr := range oldRoutes {
 		newr, ok := newRoutes[k]
@@ -85,7 +84,7 @@ func (handler *EventHandler) matchAny(events []watcher.Event, route *route.Route
 
 func (handler *EventHandler) match(event watcher.Event, route *route.Route) bool {
 	switch handler.provider.GetType() {
-	case types.ProviderTypeDocker:
+	case types.ProviderTypeDocker, types.ProviderTypeAgent:
 		return route.Container.ContainerID == event.ActorID ||
 			route.Container.ContainerName == event.ActorName
 	case types.ProviderTypeFile:

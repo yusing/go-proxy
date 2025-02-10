@@ -234,7 +234,8 @@ func TestOnCorrectness(t *testing.T) {
 
 	tests = append(tests, genCorrectnessTestCases("header", func(k, v string) *http.Request {
 		return &http.Request{
-			Header: http.Header{k: []string{v}}}
+			Header: http.Header{k: []string{v}},
+		}
 	})...)
 	tests = append(tests, genCorrectnessTestCases("query", func(k, v string) *http.Request {
 		return &http.Request{

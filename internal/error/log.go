@@ -2,6 +2,7 @@ package err
 
 import (
 	"github.com/rs/zerolog"
+	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
 )
 
@@ -14,6 +15,9 @@ func getLogger(logger ...*zerolog.Logger) *zerolog.Logger {
 
 //go:inline
 func LogFatal(msg string, err error, logger ...*zerolog.Logger) {
+	if common.IsDebug {
+		LogPanic(msg, err, logger...)
+	}
 	getLogger(logger...).Fatal().Msg(err.Error())
 }
 

@@ -30,6 +30,8 @@ const (
 	ComposeExampleFileName = "compose.example.yml"
 
 	ErrorPagesBasePath = "error_pages"
+
+	AgentCertsBasePath = "certs"
 )
 
 var RequiredDirectories = []string{

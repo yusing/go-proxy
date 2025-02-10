@@ -5,13 +5,9 @@ import (
 	"io"
 	"log"
 	"os"
-	"os/signal"
-	"syscall"
-	"time"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal"
-	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/api/v1/query"
@@ -20,9 +16,10 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/logging/memlogger"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
-	"github.com/yusing/go-proxy/internal/task"
+	"github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/pkg"
 )
 
@@ -31,19 +28,21 @@ var rawLogger = log.New(os.Stdout, "", 0)
 func init() {
 	var out io.Writer = os.Stderr
 	if common.EnableLogStreaming {
-		out = zerolog.MultiLevelWriter(out, v1.GetMemLogger())
+		out = zerolog.MultiLevelWriter(out, memlogger.GetMemLogger())
 	}
 	logging.InitLogger(out)
-	// logging.AddHook(v1.GetMemLogger())
 }
 
 func main() {
 	initProfiling()
-	args := common.GetArgs()
+	args := pkg.GetArgs(common.MainServerCommandValidator{})
 
 	switch args.Command {
 	case common.CommandSetup:
-		internal.Setup()
+		Setup()
+		return
+	case common.CommandNewAgent:
+		NewAgent(args.Args)
 		return
 	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {
@@ -141,17 +140,7 @@ func main() {
 
 	config.WatchChanges()
 
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT)
-	signal.Notify(sig, syscall.SIGTERM)
-	signal.Notify(sig, syscall.SIGHUP)
-
-	// wait for signal
-	<-sig
-
-	// gracefully shutdown
-	logging.Info().Msg("shutting down")
-	_ = task.GracefulShutdown(time.Second * time.Duration(cfg.Value().TimeoutShutdown))
+	utils.WaitExit(cfg.Value().TimeoutShutdown)
 }
 
 func prepareDirectory(dir string) {
