@@ -30,3 +30,6 @@ test.Dockerfile
 
 node_modules/
 tsconfig.tsbuildinfo
+
+!agent.compose.yml
+!agent/pkg/**

@@ -59,10 +59,20 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
 
 ## Prerequisites
 
-Setup DNS Records point to machine which runs `GoDoxy`, e.g.
+1. Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 - A Record: `*.y.z` -> `10.0.10.1`
 - AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+
+2. Create shell alias:
+
+   ```shell
+   # for main server
+   alias godoxy="docker exec godoxy /app/godoxy"
+
+   # for agent server
+   alias godoxy-agent="docker exec godoxy-agent /app/godoxy-agent"
+   ```
 
 ## Setup
 

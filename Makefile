@@ -4,16 +4,27 @@ export GOOS = linux
 
 LDFLAGS = -X github.com/yusing/go-proxy/pkg.version=${VERSION}
 
+
+ifeq ($(agent), 1)
+	NAME = godoxy-agent
+	CMD_PATH = ./agent/cmd
+else
+	NAME = godoxy
+	CMD_PATH = ./cmd
+endif
+
 ifeq ($(trace), 1)
-	debug = 1
-	GODOXY_TRACE ?= 1
+		debug = 1
+		GODOXY_TRACE ?= 1
 endif
 
 ifeq ($(debug), 1)
 	CGO_ENABLED = 0
 	GODOXY_DEBUG = 1
-  BUILD_FLAGS = -tags production
-else ifeq ($(pprof), 1)
+	BUILD_FLAGS ?= -tags production
+endif
+
+ifeq ($(pprof), 1)
 	CGO_ENABLED = 1
 	GODEBUG = gctrace=1 inittrace=1 schedtrace=3000
 	GORACE = log_path=logs/pprof strip_path_prefix=$(shell pwd)/
@@ -23,12 +34,14 @@ else ifeq ($(pprof), 1)
 else
 	CGO_ENABLED = 0
 	LDFLAGS += -s -w
-  BUILD_FLAGS = -pgo=auto -tags production
+	BUILD_FLAGS = -pgo=auto -tags production
 	DOCKER_TAG = latest
 endif
 
 BUILD_FLAGS += -ldflags='$(LDFLAGS)'
 
+export NAME
+export CMD_PATH
 export CGO_ENABLED
 export GODOXY_DEBUG
 export GODOXY_TRACE
@@ -45,14 +58,14 @@ get:
 
 build:
 	mkdir -p bin
-	go build ${BUILD_FLAGS} -o bin/godoxy ./cmd
+	go build ${BUILD_FLAGS} -o bin/${NAME} ${CMD_PATH}
 	if [ $(shell id -u) -eq 0 ]; \
-		then setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
-		else sudo setcap CAP_NET_BIND_SERVICE=+eip bin/godoxy; \
+		then setcap CAP_NET_BIND_SERVICE=+eip bin/${NAME}; \
+		else sudo setcap CAP_NET_BIND_SERVICE=+eip bin/${NAME}; \
 	fi
 
 run:
-	[ -f .env ] && godotenv -f .env go run ${BUILD_FLAGS} ./cmd
+	[ -f .env ] && godotenv -f .env go run ${BUILD_FLAGS} ${CMD_PATH}
 
 mtrace:
 	bin/godoxy debug-ls-mtrace > mtrace.json
@@ -76,17 +89,24 @@ push-docker-io:
 	BUILDER=build docker buildx build \
 		--platform linux/arm64,linux/amd64 \
 		-f Dockerfile \
-		-t docker.io/yusing/godoxy-nightly:${DOCKER_TAG} \
-		-t docker.io/yusing/godoxy-nightly:${VERSION}-${BUILD_DATE} \
+		-t docker.io/yusing/${NAME}-nightly:${DOCKER_TAG} \
+		-t docker.io/yusing/${NAME}-nightly:${VERSION}-${BUILD_DATE} \
 		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" \
 		--build-arg BUILD_FLAGS="${BUILD_FLAGS}" \
+		--build-arg MAKE_ARGS="agent=${agent}" \
 		--push .
 
 build-docker:
-	docker build -t godoxy-nightly \
+	docker build -t ${NAME}-nightly \
 		--build-arg VERSION="${VERSION}-nightly-${BUILD_DATE}" \
 		--build-arg BUILD_FLAGS="${BUILD_FLAGS}" \
+		--build-arg MAKE_ARGS="agent=${agent}" \
 		.
+
+create-docker-entrypoint:
+	printf '#!/bin/sh\n/app/${NAME}\n' > bin/entrypoint.sh
+	chmod +x bin/entrypoint.sh
+
 
 # To generate schema
 # comment out this part from typescript-json-schema.js#L884

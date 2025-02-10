@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM golang:1.23.5-alpine AS builder
+FROM golang:1.23.6-alpine AS builder
 HEALTHCHECK NONE
 
 # package version does not matter
@@ -21,18 +21,19 @@ COPY Makefile /src/
 COPY cmd /src/cmd
 COPY internal /src/internal
 COPY pkg /src/pkg
+COPY agent /src/agent
 
 ARG VERSION
 ENV VERSION=${VERSION}
 
-ARG BUILD_FLAGS
-ENV BUILD_FLAGS=${BUILD_FLAGS}
+ARG MAKE_ARGS
+ENV MAKE_ARGS=${MAKE_ARGS}
 
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
-    make build && \
-    mkdir -p /app/error_pages /app/certs && \
-    mv bin/godoxy /app/godoxy
+    make ${MAKE_ARGS} build create-docker-entrypoint && \
+    mv bin /app/ && \
+    mkdir -p /app/error_pages /app/certs
 
 # Stage 2: Final image
 FROM scratch
@@ -53,12 +54,7 @@ COPY config.example.yml /app/config/config.yml
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
 
 ENV DOCKER_HOST=unix:///var/run/docker.sock
-ENV GODOXY_DEBUG=0
-
-EXPOSE 80
-EXPOSE 8888
-EXPOSE 443
 
 WORKDIR /app
 
-CMD ["/app/godoxy"]
+CMD ["/app/entrypoint.sh"]

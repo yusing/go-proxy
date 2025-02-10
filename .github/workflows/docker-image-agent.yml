@@ -1,0 +1,12 @@
+name: Docker Image CI (agent)
+
+on:
+  push:
+    tags: ["*"]
+
+jobs:
+  call-main-workflow:
+    uses: ./.github/workflows/docker-image.yml
+    with:
+      make_args: "agent=1"
+      image_name: ${{ github.repository }}-agent
