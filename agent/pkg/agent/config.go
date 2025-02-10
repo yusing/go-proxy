@@ -192,7 +192,7 @@ func (cfg *AgentConfig) String() string {
 	return "agent@" + cfg.Name()
 }
 
-func (cfg *AgentConfig) MarshalText() ([]byte, error) {
+func (cfg *AgentConfig) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]string{
 		"name": cfg.Name(),
 		"addr": cfg.Addr,
