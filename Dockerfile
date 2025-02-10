@@ -31,7 +31,7 @@ ENV MAKE_ARGS=${MAKE_ARGS}
 
 RUN --mount=type=cache,target="/go/pkg/mod" \
     --mount=type=cache,target="/root/.cache/go-build" \
-    make ${MAKE_ARGS} build create-docker-entrypoint && \
+    make ${MAKE_ARGS} build link-binary && \
     mv bin /app/ && \
     mkdir -p /app/error_pages /app/certs
 
@@ -57,4 +57,4 @@ ENV DOCKER_HOST=unix:///var/run/docker.sock
 
 WORKDIR /app
 
-CMD ["/app/entrypoint.sh"]
+CMD ["/app/run"]

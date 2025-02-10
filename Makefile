@@ -103,9 +103,8 @@ build-docker:
 		--build-arg MAKE_ARGS="agent=${agent}" \
 		.
 
-create-docker-entrypoint:
-	printf '#!/bin/sh\n/app/${NAME}\n' > bin/entrypoint.sh
-	chmod +x bin/entrypoint.sh
+link-binary:
+	ln -s /app/${NAME} bin/run
 
 
 # To generate schema
