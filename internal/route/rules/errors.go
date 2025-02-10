@@ -11,8 +11,8 @@ var (
 	ErrInvalidCommandSequence = E.New("invalid command sequence")
 	ErrInvalidSetTarget       = E.New("invalid `rule.set` target")
 
-	ErrExpectNoArg       = E.New("expect no arg")
-	ErrExpectOneArg      = E.New("expect 1 arg")
-	ErrExpectTwoArgs     = E.New("expect 2 args")
-	ErrExpectKVOptionalV = E.New("expect 'key' or 'key value'")
+	ErrExpectNoArg       = E.Wrap(ErrInvalidArguments, "expect no arg")
+	ErrExpectOneArg      = E.Wrap(ErrInvalidArguments, "expect 1 arg")
+	ErrExpectTwoArgs     = E.Wrap(ErrInvalidArguments, "expect 2 args")
+	ErrExpectKVOptionalV = E.Wrap(ErrInvalidArguments, "expect 'key' or 'key value'")
 )

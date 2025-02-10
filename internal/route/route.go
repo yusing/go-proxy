@@ -89,9 +89,6 @@ func (r *Route) Validate() (err E.Error) {
 		r.LisURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Listening))
 		fallthrough
 	default:
-		if r.Port.Proxy == 0 && !r.IsDocker() {
-			errs.Adds("missing proxy port")
-		}
 		if r.LoadBalance != nil && r.LoadBalance.Link == "" {
 			r.LoadBalance = nil
 		}

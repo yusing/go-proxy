@@ -29,6 +29,7 @@ func makeRoutes(cont *types.Container, dockerHostIP ...string) route.Routes {
 	} else {
 		host = client.DefaultDockerHost
 	}
+	cont.ID = "test"
 	p.name = "test"
 	routes := Must(p.routesFromContainerLabels(D.FromDocker(cont, host)))
 	for _, r := range routes {
@@ -55,37 +56,35 @@ func TestApplyLabel(t *testing.T) {
 		"GET /static",
 	}
 	middlewaresExpect := map[string]map[string]any{
-		"middleware1": {
-			"prop1": "value1",
-			"prop2": "value2",
-		},
-		"middleware2": {
-			"prop3": "value3",
-			"prop4": "value4",
+		"request": {
+			"set_headers": map[string]any{
+				"X-Header": "value1",
+			},
+			"add_headers": map[string]any{
+				"X-Header2": "value2",
+			},
 		},
 	}
 	entries := makeRoutes(&types.Container{
 		Names: dummyNames,
 		Labels: map[string]string{
-			D.LabelAliases:                          "a,b",
-			D.LabelIdleTimeout:                      "",
-			D.LabelStopMethod:                       common.StopMethodDefault,
-			D.LabelStopSignal:                       "SIGTERM",
-			D.LabelStopTimeout:                      common.StopTimeoutDefault,
-			D.LabelWakeTimeout:                      common.WakeTimeoutDefault,
-			"proxy.*.no_tls_verify":                 "true",
-			"proxy.*.scheme":                        "https",
-			"proxy.*.host":                          "app",
-			"proxy.*.port":                          "4567",
-			"proxy.a.path_patterns":                 pathPatterns,
-			"proxy.a.middlewares.middleware1.prop1": "value1",
-			"proxy.a.middlewares.middleware1.prop2": "value2",
-			"proxy.a.middlewares.middleware2.prop3": "value3",
-			"proxy.a.middlewares.middleware2.prop4": "value4",
-			"proxy.a.homepage.show":                 "true",
-			"proxy.a.homepage.icon":                 "png/adguard-home.png",
-			"proxy.a.healthcheck.path":              "/ping",
-			"proxy.a.healthcheck.interval":          "10s",
+			D.LabelAliases:          "a,b",
+			D.LabelIdleTimeout:      "",
+			D.LabelStopMethod:       common.StopMethodDefault,
+			D.LabelStopSignal:       "SIGTERM",
+			D.LabelStopTimeout:      common.StopTimeoutDefault,
+			D.LabelWakeTimeout:      common.WakeTimeoutDefault,
+			"proxy.*.no_tls_verify": "true",
+			"proxy.*.scheme":        "https",
+			"proxy.*.host":          "app",
+			"proxy.*.port":          "4567",
+			"proxy.a.path_patterns": pathPatterns,
+			"proxy.a.middlewares.request.set_headers.X-Header":  "value1",
+			"proxy.a.middlewares.request.add_headers.X-Header2": "value2",
+			"proxy.a.homepage.show":                             "true",
+			"proxy.a.homepage.icon":                             "png/adguard-home.png",
+			"proxy.a.healthcheck.path":                          "/ping",
+			"proxy.a.healthcheck.interval":                      "10s",
 		},
 	})
 
@@ -198,6 +197,7 @@ func TestApplyLabelWithRefIndexError(t *testing.T) {
 		Labels: map[string]string{
 			D.LabelAliases:    "a,b",
 			"proxy.#1.host":   "localhost",
+			"proxy.*.port":    "4444",
 			"proxy.#4.scheme": "https",
 		},
 	}, "")
