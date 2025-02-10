@@ -9,4 +9,4 @@ jobs:
     uses: ./.github/workflows/docker-image.yml
     with:
       make_args: "agent=1"
-      image_name: ${{ github.repository }}-agent
+      image_name: ${{ github.repository_owner }}/godoxy-agent

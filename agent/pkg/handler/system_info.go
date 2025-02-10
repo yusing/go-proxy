@@ -10,7 +10,7 @@ import (
 func SystemInfo(w http.ResponseWriter, r *http.Request) {
 	info, err := metrics.GetSystemInfo(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		utils.HandleErr(w, r, err)
 		return
 	}
 	utils.RespondJSON(w, r, info)

@@ -13,6 +13,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/certs"
+	"github.com/yusing/go-proxy/agent/pkg/env"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -131,13 +132,15 @@ func (cfg *AgentConfig) load() E.Error {
 	defer cancel()
 
 	// check agent version
-	version, _, err := cfg.Fetch(ctx, EndpointVersion)
-	if err != nil {
-		return E.Wrap(err)
-	}
+	if !env.AgentSkipVersionCheck {
+		version, _, err := cfg.Fetch(ctx, EndpointVersion)
+		if err != nil {
+			return E.Wrap(err)
+		}
 
-	if string(version) != pkg.GetVersion() {
-		return E.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
+		if string(version) != pkg.GetVersion() {
+			return E.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
+		}
 	}
 
 	// get agent name

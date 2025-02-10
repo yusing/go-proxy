@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/certs"
@@ -44,20 +45,29 @@ func printNewClientHelp(ca *tls.Certificate) {
 		E.LogFatal("marshal certs error", err)
 	}
 
-	fmt.Printf("Add this host (%s) to main server config like below:\n", host)
+	fmt.Printf("On main server, run:\nnew-agent '%s' '%s'\n", host, base64.StdEncoding.EncodeToString(certsData))
+	fmt.Printf("Then add this host (%s) to main server config like below:\n", host)
 	fmt.Println(string(cfgYAML))
-	fmt.Printf("On main server, run:\ngodoxy new-agent '%s' '%s'\n", host, base64.StdEncoding.EncodeToString(certsData))
 }
 
 func machineIP() string {
-	addrs, err := net.InterfaceAddrs()
+	interfaces, err := net.Interfaces()
 	if err != nil {
 		return "<machine-ip>"
 	}
-	for _, addr := range addrs {
-		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
-			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String()
+	for _, in := range interfaces {
+		addrs, err := in.Addrs()
+		if err != nil {
+			continue
+		}
+		if !strings.HasPrefix(in.Name, "eth") && !strings.HasPrefix(in.Name, "en") {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+				if ipnet.IP.To4() != nil {
+					return ipnet.IP.String()
+				}
 			}
 		}
 	}
@@ -79,6 +89,14 @@ func main() {
 
 	logging.Info().Msgf("GoDoxy Agent version %s", pkg.GetVersion())
 	logging.Info().Msgf("Agent name: %s", env.AgentName)
+	logging.Info().Msgf("Agent port: %d", env.AgentPort)
+
+	logging.Info().Msg("\nTips:")
+	logging.Info().Msg("1. To change the agent name, you can set the AGENT_NAME environment variable.")
+	logging.Info().Msg("2. To change the agent port, you can set the AGENT_PORT environment variable.")
+	logging.Info().Msg("3. To skip the version check, you can set the AGENT_SKIP_VERSION_CHECK environment variable.")
+	logging.Info().Msgf("4. Create shell alias on main server: `alias new-agent='docker run --rm -v ./certs:/app/certs ghcr.io/yusing/godoxy /app/run new-agent'`")
+	logging.Info().Msgf("5. Create shell alias on agent server: `alias new-client='docker compose exec agent /app/run new-client'`\n")
 
 	if isNew {
 		logging.Info().Msg("Initialization complete.")

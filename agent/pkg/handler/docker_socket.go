@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -23,7 +24,7 @@ func DockerSocketHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := dockerDialerCallback(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			utils.HandleErr(w, r, err)
 			return
 		}
 		defer conn.Close()
@@ -45,13 +46,13 @@ func DockerSocketHandler() http.HandlerFunc {
 		}()
 
 		if err := r.Write(conn); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			utils.HandleErr(w, r, err)
 			return
 		}
 
 		resp, err := http.ReadResponse(bufio.NewReader(conn), r)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			utils.HandleErr(w, r, err)
 			return
 		}
 		defer resp.Body.Close()
