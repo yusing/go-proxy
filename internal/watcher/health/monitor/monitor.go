@@ -164,6 +164,12 @@ func (mon *monitor) String() string {
 // MarshalJSON implements json.Marshaler of HealthMonitor.
 func (mon *monitor) MarshalJSON() ([]byte, error) {
 	res := mon.lastResult
+	if res == nil {
+		res = &health.HealthCheckResult{
+			Healthy: true,
+		}
+	}
+
 	return (&JSONRepresentation{
 		Name:     mon.service,
 		Config:   mon.config,
