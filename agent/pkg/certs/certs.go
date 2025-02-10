@@ -134,12 +134,12 @@ func InitCerts() (ca *tls.Certificate, srv *tls.Certificate, isNew bool, err err
 		return nil, nil, false, err
 	}
 
-	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	caCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, nil, false, err
 	}
 
-	ca = &cert
+	ca = &caCert
 
 	// Generate a new private key for the server certificate
 	serverKey, err := rsa.GenerateKey(rand.Reader, 4096)
@@ -161,12 +161,12 @@ func InitCerts() (ca *tls.Certificate, srv *tls.Certificate, isNew bool, err err
 		return nil, nil, false, err
 	}
 
-	cert, err = tls.X509KeyPair(certPEM, keyPEM)
+	agentCert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
 		return nil, nil, false, err
 	}
 
-	srv = &cert
+	srv = &agentCert
 
 	return ca, srv, true, nil
 }

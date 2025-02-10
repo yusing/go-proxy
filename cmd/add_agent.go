@@ -32,7 +32,11 @@ func AddAgent(args []string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		logging.Fatal().Int("status", resp.StatusCode).Msg("failed to add agent")
+		msg, err := io.ReadAll(resp.Body)
+		if err != nil {
+			msg = []byte("unknown error")
+		}
+		logging.Fatal().Int("status", resp.StatusCode).Str("msg", string(msg)).Msg("failed to add agent")
 	}
 
 	zip, err := io.ReadAll(resp.Body)
