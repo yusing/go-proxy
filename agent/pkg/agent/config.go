@@ -13,7 +13,6 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/certs"
-	"github.com/yusing/go-proxy/agent/pkg/env"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
@@ -94,6 +93,14 @@ func (cfg *AgentConfig) errIfNameExists() E.Error {
 	return nil
 }
 
+func withoutBuildTime(version string) string {
+	return strings.Split(version, "-")[0]
+}
+
+func checkVersion(a, b string) bool {
+	return withoutBuildTime(a) == withoutBuildTime(b)
+}
+
 func (cfg *AgentConfig) load() E.Error {
 	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
 	if err != nil {
@@ -132,15 +139,13 @@ func (cfg *AgentConfig) load() E.Error {
 	defer cancel()
 
 	// check agent version
-	if !env.AgentSkipVersionCheck {
-		version, _, err := cfg.Fetch(ctx, EndpointVersion)
-		if err != nil {
-			return E.Wrap(err)
-		}
+	version, _, err := cfg.Fetch(ctx, EndpointVersion)
+	if err != nil {
+		return E.Wrap(err)
+	}
 
-		if string(version) != pkg.GetVersion() {
-			return E.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
-		}
+	if !checkVersion(string(version), pkg.GetVersion()) {
+		return E.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
 	}
 
 	// get agent name

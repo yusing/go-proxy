@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"io"
 	"log"
 	"net"
@@ -100,7 +99,7 @@ func (s *Server) Start(parent task.Parent) {
 	s.startTime = time.Now()
 	if s.http != nil {
 		go func() {
-			s.handleErr("http", s.http.ListenAndServe())
+			s.handleErr(s.http.ListenAndServe())
 		}()
 		s.httpStarted = true
 		s.l.Info().Str("addr", s.http.Addr).Msg("server started")
@@ -110,11 +109,11 @@ func (s *Server) Start(parent task.Parent) {
 		go func() {
 			l, err := net.Listen("tcp", s.https.Addr)
 			if err != nil {
-				s.handleErr("https", err)
+				s.handleErr(err)
 				return
 			}
 			defer l.Close()
-			s.handleErr("https", s.https.Serve(tls.NewListener(l, s.https.TLSConfig)))
+			s.handleErr(s.https.Serve(tls.NewListener(l, s.https.TLSConfig)))
 		}()
 		s.httpsStarted = true
 		s.l.Info().Str("addr", s.https.Addr).Msgf("server started")
@@ -132,13 +131,13 @@ func (s *Server) stop() {
 	defer cancel()
 
 	if s.http != nil && s.httpStarted {
-		s.handleErr("http", s.http.Shutdown(ctx))
+		s.handleErr(s.http.Shutdown(ctx))
 		s.httpStarted = false
 		s.l.Info().Str("addr", s.http.Addr).Msgf("server stopped")
 	}
 
 	if s.https != nil && s.httpsStarted {
-		s.handleErr("https", s.https.Shutdown(ctx))
+		s.handleErr(s.https.Shutdown(ctx))
 		s.httpsStarted = false
 		s.l.Info().Str("addr", s.https.Addr).Msgf("server stopped")
 	}
@@ -148,11 +147,6 @@ func (s *Server) Uptime() time.Duration {
 	return time.Since(s.startTime)
 }
 
-func (s *Server) handleErr(scheme string, err error) {
-	switch {
-	case err == nil, errors.Is(err, http.ErrServerClosed), errors.Is(err, context.Canceled):
-		return
-	default:
-		s.l.Fatal().Err(err).Str("scheme", scheme).Msg("server error")
-	}
+func (s *Server) handleErr(err error) {
+	HandleError(&s.l, err)
 }

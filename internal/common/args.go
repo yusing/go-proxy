@@ -3,7 +3,7 @@ package common
 const (
 	CommandStart              = ""
 	CommandSetup              = "setup"
-	CommandNewAgent           = "new-agent"
+	CommandAddAgent           = "add-agent"
 	CommandValidate           = "validate"
 	CommandListConfigs        = "ls-config"
 	CommandListRoutes         = "ls-routes"
@@ -20,7 +20,7 @@ func (v MainServerCommandValidator) IsCommandValid(cmd string) bool {
 	switch cmd {
 	case CommandStart,
 		CommandSetup,
-		CommandNewAgent,
+		CommandAddAgent,
 		CommandValidate,
 		CommandListConfigs,
 		CommandListRoutes,

@@ -5,8 +5,11 @@ services:
     restart: always
     network_mode: host # do not change this
     environment:
-      GODOXY_AGENT_NAME: # defaults to hostname
-      GODOXY_AGENT_PORT: # defaults to 8890
+      AGENT_NAME: # defaults to hostname
+      AGENT_PORT: # defaults to 8890
+      # comma separated list of allowed main server IPs or CIDRs
+      # to register from this agent
+      REGISTRATION_ALLOWED_HOSTS:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./certs:/app/certs # store Agent CA cert and Agent SSL cert

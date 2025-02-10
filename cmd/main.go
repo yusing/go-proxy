@@ -2,11 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"os"
 
-	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
@@ -16,7 +14,6 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/logging/memlogger"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
 	"github.com/yusing/go-proxy/internal/utils"
@@ -24,14 +21,6 @@ import (
 )
 
 var rawLogger = log.New(os.Stdout, "", 0)
-
-func init() {
-	var out io.Writer = os.Stderr
-	if common.EnableLogStreaming {
-		out = zerolog.MultiLevelWriter(out, memlogger.GetMemLogger())
-	}
-	logging.InitLogger(out)
-}
 
 func main() {
 	initProfiling()
@@ -41,8 +30,8 @@ func main() {
 	case common.CommandSetup:
 		Setup()
 		return
-	case common.CommandNewAgent:
-		NewAgent(args.Args)
+	case common.CommandAddAgent:
+		AddAgent(args.Args)
 		return
 	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {

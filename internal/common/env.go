@@ -20,8 +20,7 @@ var (
 	IsTrace      = GetEnvBool("TRACE", false) && IsDebug
 	IsProduction = !IsTest && !IsDebug
 
-	EnableLogStreaming = GetEnvBool("LOG_STREAMING", true)
-	DebugMemLogger     = GetEnvBool("DEBUG_MEM_LOGGER", false) && EnableLogStreaming
+	DebugMemLogger = GetEnvBool("DEBUG_MEM_LOGGER", false)
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,

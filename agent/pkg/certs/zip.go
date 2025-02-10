@@ -32,6 +32,7 @@ func readFile(f *zip.File) ([]byte, error) {
 
 func ZipCert(ca, crt, key []byte) ([]byte, error) {
 	data := bytes.NewBuffer(nil)
+	data.Grow(6144)
 	zipWriter := zip.NewWriter(data)
 	defer zipWriter.Close()
 

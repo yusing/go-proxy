@@ -23,7 +23,7 @@ func Wrap(err error, message ...string) Error {
 	if len(message) == 0 || message[0] == "" {
 		return From(err)
 	}
-	return Errorf("%w: %s", err, message[0])
+	return Errorf("%s: %w", message[0], err)
 }
 
 func From(err error) Error {

@@ -5,10 +5,12 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -55,9 +57,6 @@ var memLoggerInstance = &memLogger{
 }
 
 func init() {
-	if !common.EnableLogStreaming {
-		return
-	}
 	memLoggerInstance.Grow(maxMemLogSize)
 
 	if common.DebugMemLogger {
@@ -78,6 +77,8 @@ func init() {
 			}
 		}()
 	}
+
+	logging.InitLogger(zerolog.MultiLevelWriter(os.Stderr, memLoggerInstance))
 }
 
 func LogsWS(config config.ConfigInstance) http.HandlerFunc {

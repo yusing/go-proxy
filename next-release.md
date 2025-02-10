@@ -1,8 +1,8 @@
 ## GoDoxy v0.10.0
 
-### GoDoxy-Agent
+### GoDoxy Agent
 
-listen only on Agent API server, authenticate and encrypt connection with mTLS. Maintain secure connection between GoDoxy main and GoDoxy agent server
+Maintain secure connection between main server and agent server by authenticating and encrypting connection with mTLS.
 
 Main benefits:
 
@@ -20,9 +20,16 @@ Main benefits:
 
 #### How to setup
 
-1. Agent server generates CA cert, SSL certificate and Client certificate on first run.
-2. Follow the output on screen to run `godoxy new-agent <ip>:<port> ...` on GoDoxy main server to store generated certs
-3. Add config output to GoDoxy main server in `config.yml` under `providers.agents`
+Prerequisites:
+
+- GoDoxy main server must be running
+
+1. Create a directory for agent server, cd into it
+2. Copy `agent.compose.yml` into the directory
+3. Modify `agent.compose.yml` to set `REGISTRATION_ALLOWED_HOSTS`
+4. Run `docker-compose up -d` to start agent
+5. Follow instructions on screen to run command on GoDoxy main server
+6. Add config output to GoDoxy main server in `config.yml` under `providers.agents`
    ```yaml
    providers:
      agents:
@@ -31,6 +38,47 @@ Main benefits:
 
 ### How does it work
 
-1. Main server and agent server negotiate mTLS
-2. Agent server verify main server's client cert and check if server version matches agent version
-3. Agent server now acts as a http proxy and docker socket proxy
+Setup flow:
+
+```mermaid
+flowchart TD
+    subgraph Agent Server
+        A[Create a directory] -->
+        B[Setup agent.compose.yml] -->
+        C[Set REGISTRATION_ALLOWED_HOSTS] -->
+        D[Run agent] -->
+        E[Wait for main server to register]
+
+        F[Respond to main server]
+        G[Agent now run in agent mode]
+    end
+    subgraph Main Server
+      E -->
+      H[Run register command] -->
+      I[Send registration request] --> F -->
+      J[Store client certs] -->
+      K[Send done request] --> G -->
+      L[Add agent to config.yml]
+    end
+```
+
+Run flow:
+
+```mermaid
+flowchart TD
+    subgraph Agent HTTPS Server
+        aa[Load CA and SSL certs] -->
+        ab[Start HTTPS server] -->
+
+        ac[Receive request] -->
+        ad[Verify client cert] -->
+        ae[Handle request] --> ac
+    end
+    subgraph Main Server
+        ma[Load client certs] -->
+        mb[Query agent version] --> ac
+        mb --> mc[Check if agent version matches] -->
+        md[Query agent info] --> ac
+        md --> ae --> me[Store agent info]
+    end
+```
