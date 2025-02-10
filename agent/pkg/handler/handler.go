@@ -42,6 +42,7 @@ func NewHandler() http.Handler {
 	})
 	mux.HandleMethods("GET", agent.EndpointHealth, CheckHealth)
 	mux.HandleMethods("GET", agent.EndpointLogs, memlogger.LogsWS(nil))
+	mux.HandleMethods("GET", agent.EndpointSystemInfo, SystemInfo)
 	mux.ServeMux.HandleFunc("/", DockerSocketHandler())
 	return mux
 }

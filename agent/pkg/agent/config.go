@@ -35,11 +35,12 @@ type (
 )
 
 const (
-	EndpointVersion   = "/version"
-	EndpointName      = "/name"
-	EndpointProxyHTTP = "/proxy/http"
-	EndpointHealth    = "/health"
-	EndpointLogs      = "/logs"
+	EndpointVersion    = "/version"
+	EndpointName       = "/name"
+	EndpointProxyHTTP  = "/proxy/http"
+	EndpointHealth     = "/health"
+	EndpointLogs       = "/logs"
+	EndpointSystemInfo = "/system-info"
 
 	AgentHost = certs.CertsDNSName
 

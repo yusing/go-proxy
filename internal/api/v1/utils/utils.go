@@ -6,7 +6,6 @@ import (
 	"net/http"
 
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
 func WriteBody(w http.ResponseWriter, body []byte) {
@@ -20,26 +19,17 @@ func RespondJSON(w http.ResponseWriter, r *http.Request, data any, code ...int) 
 		w.WriteHeader(code[0])
 	}
 	w.Header().Set("Content-Type", "application/json")
-	var j []byte
 	var err error
 
 	switch data := data.(type) {
 	case string:
-		j = []byte(fmt.Sprintf("%q", data))
+		_, err = w.Write([]byte(fmt.Sprintf("%q", data)))
 	case []byte:
-		j = data
-	case error:
-		j, err = json.Marshal(ansi.StripANSI(data.Error()))
+		_, err = w.Write(data)
 	default:
-		j, err = json.MarshalIndent(data, "", "  ")
+		err = json.NewEncoder(w).Encode(data)
 	}
 
-	if err != nil {
-		logging.Panic().Err(err).Msg("failed to marshal json")
-		return false
-	}
-
-	_, err = w.Write(j)
 	if err != nil {
 		HandleErr(w, r, err)
 		return false
