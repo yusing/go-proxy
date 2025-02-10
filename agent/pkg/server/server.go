@@ -43,9 +43,11 @@ func StartAgentServer(parent task.Parent, opt Options) {
 	defer l.Close()
 
 	server := &http.Server{
-		Handler:   handler.NewHandler(caCertPEM),
+		Handler:   handler.NewHandler(),
 		TLSConfig: tlsConfig,
 		ErrorLog:  log.New(logging.GetLogger(), "", 0),
 	}
-	server.Serve(tls.NewListener(l, tlsConfig))
+	if err := server.Serve(tls.NewListener(l, tlsConfig)); err != nil {
+		logging.Fatal().Err(err).Int("port", opt.Port).Msg("failed to serve")
+	}
 }

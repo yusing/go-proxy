@@ -17,14 +17,14 @@ import (
 
 func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 	host := r.Header.Get(agentproxy.HeaderXProxyHost)
-	isHTTPs := strutils.ParseBool(r.Header.Get(agentproxy.HeaderXProxyHTTPS))
+	isHTTPS := strutils.ParseBool(r.Header.Get(agentproxy.HeaderXProxyHTTPS))
 	skipTLSVerify := strutils.ParseBool(r.Header.Get(agentproxy.HeaderXProxySkipTLSVerify))
 	responseHeaderTimeout, err := strconv.Atoi(r.Header.Get(agentproxy.HeaderXProxyResponseHeaderTimeout))
 	if err != nil {
 		responseHeaderTimeout = 0
 	}
 
-	logging.Debug().Msgf("proxy http request: host=%s, isHTTPs=%t, skipTLSVerify=%t, responseHeaderTimeout=%d", host, isHTTPs, skipTLSVerify, responseHeaderTimeout)
+	logging.Debug().Msgf("proxy http request: host=%s, isHTTPs=%t, skipTLSVerify=%t, responseHeaderTimeout=%d", host, isHTTPS, skipTLSVerify, responseHeaderTimeout)
 
 	if host == "" {
 		http.Error(w, "missing required headers", http.StatusBadRequest)
@@ -32,7 +32,7 @@ func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	scheme := "http"
-	if isHTTPs {
+	if isHTTPS {
 		scheme = "https"
 	}
 

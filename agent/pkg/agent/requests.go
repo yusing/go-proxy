@@ -24,7 +24,7 @@ func (cfg *AgentConfig) Fetch(ctx context.Context, endpoint string) ([]byte, int
 		return nil, 0, err
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
+	data, _ := io.ReadAll(resp.Body)
 	return data, resp.StatusCode, nil
 }
 

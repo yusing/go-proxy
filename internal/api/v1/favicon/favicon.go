@@ -36,9 +36,8 @@ func (res *fetchResult) ContentType() string {
 	if res.contentType == "" {
 		if bytes.HasPrefix(res.icon, []byte("<svg")) || bytes.HasPrefix(res.icon, []byte("<?xml")) {
 			return "image/svg+xml"
-		} else {
-			return "image/x-icon"
 		}
+		return "image/x-icon"
 	}
 	return res.contentType
 }

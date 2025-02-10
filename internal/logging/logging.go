@@ -11,11 +11,10 @@ import (
 )
 
 var (
-	logger     zerolog.Logger
-	timeFmt    string
-	level      zerolog.Level
-	prefix     string
-	prefixHTML []byte
+	logger  zerolog.Logger
+	timeFmt string
+	level   zerolog.Level
+	prefix  string
 )
 
 func init() {
@@ -32,8 +31,6 @@ func init() {
 	}
 	prefixLength := len(timeFmt) + 5 // level takes 3 + 2 spaces
 	prefix = strings.Repeat(" ", prefixLength)
-	// prefixHTML = []byte(strings.Repeat("&nbsp;", prefixLength))
-	prefixHTML = []byte(prefix)
 
 	if zerolog.TraceLevel != -1 && zerolog.NoLevel != 6 {
 		panic("zerolog implementation changed")

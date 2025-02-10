@@ -9,8 +9,7 @@ type agentCommandValidator struct{}
 
 func (v agentCommandValidator) IsCommandValid(cmd string) bool {
 	switch cmd {
-	case CommandStart,
-		CommandNewClient:
+	case CommandStart, CommandNewClient:
 		return true
 	}
 	return false

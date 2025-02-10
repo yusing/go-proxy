@@ -37,26 +37,6 @@ func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) 
 		}
 	}
 
-	// if common.IsDebug {
-	// 	eventsLog := E.NewBuilder("events")
-	// 	for _, event := range events {
-	// 		eventsLog.Addf("event %s, actor: name=%s, id=%s", event.Action, event.ActorName, event.ActorID)
-	// 	}
-	// 	E.LogDebug(eventsLog.About(), eventsLog.Error(), handler.provider.Logger())
-
-	// 	oldRoutesLog := E.NewBuilder("old routes")
-	// 	for k := range oldRoutes {
-	// 		oldRoutesLog.Adds(k)
-	// 	}
-	// 	E.LogDebug(oldRoutesLog.About(), oldRoutesLog.Error(), handler.provider.Logger())
-
-	// 	newRoutesLog := E.NewBuilder("new routes")
-	// 	for k := range newRoutes {
-	// 		newRoutesLog.Adds(k)
-	// 	}
-	// 	E.LogDebug(newRoutesLog.About(), newRoutesLog.Error(), handler.provider.Logger())
-	// }
-
 	for k, oldr := range oldRoutes {
 		newr, ok := newRoutes[k]
 		switch {

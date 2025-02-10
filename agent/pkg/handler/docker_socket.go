@@ -86,7 +86,7 @@ func DockerSocketHandler() http.HandlerFunc {
 			}
 		} else {
 			// For non-event streams, just copy the body
-			godoxyIO.NewPipe(r.Context(), resp.Body, NopWriteCloser{w}).Start()
+			_ = godoxyIO.NewPipe(r.Context(), resp.Body, NopWriteCloser{w}).Start()
 		}
 	}
 }

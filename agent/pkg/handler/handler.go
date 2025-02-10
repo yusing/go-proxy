@@ -32,16 +32,13 @@ func (NopWriteCloser) Close() error {
 	return nil
 }
 
-func NewHandler(caCertPEM []byte) http.Handler {
+func NewHandler() http.Handler {
 	mux := ServeMux{http.NewServeMux()}
 
 	mux.HandleFunc(agent.EndpointProxyHTTP+"/{path...}", ProxyHTTP)
 	mux.HandleMethods("GET", agent.EndpointVersion, v1.GetVersion)
 	mux.HandleMethods("GET", agent.EndpointName, func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, env.AgentName)
-	})
-	mux.HandleMethods("GET", agent.EndpointCACert, func(w http.ResponseWriter, r *http.Request) {
-		w.Write(caCertPEM)
 	})
 	mux.HandleMethods("GET", agent.EndpointHealth, CheckHealth)
 	mux.HandleMethods("GET", agent.EndpointLogs, memlogger.LogsWS(nil))

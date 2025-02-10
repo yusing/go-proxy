@@ -41,7 +41,6 @@ type (
 
 // var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
-// TODO: fix this for agent
 func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
 	httpConfig := base.HTTPConfig
 	proxyURL := base.ProxyURL

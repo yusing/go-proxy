@@ -72,8 +72,7 @@ func main() {
 		E.LogFatal("init CA error", err)
 	}
 
-	switch args.Command {
-	case CommandNewClient:
+	if args.Command == CommandNewClient {
 		printNewClientHelp(ca)
 		return
 	}

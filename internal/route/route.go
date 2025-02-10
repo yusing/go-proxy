@@ -280,14 +280,15 @@ func (r *Route) Finalize() {
 	}
 
 	if pp == 0 {
-		if isDocker {
+		switch {
+		case isDocker:
 			pp = lowestPort(cont.PrivatePortMapping)
 			if pp == 0 {
 				pp = lowestPort(cont.PublicPortMapping)
 			}
-		} else if r.Scheme == "https" {
+		case r.Scheme == "https":
 			pp = 443
-		} else {
+		default:
 			pp = 80
 		}
 	}

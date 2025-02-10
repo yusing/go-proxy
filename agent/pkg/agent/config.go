@@ -37,7 +37,6 @@ type (
 const (
 	EndpointVersion   = "/version"
 	EndpointName      = "/name"
-	EndpointCACert    = "/ca-cert"
 	EndpointProxyHTTP = "/proxy/http"
 	EndpointHealth    = "/health"
 	EndpointLogs      = "/logs"
