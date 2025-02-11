@@ -47,9 +47,12 @@ func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 		transport.ResponseHeaderTimeout = time.Duration(responseHeaderTimeout) * time.Second
 	}
 
-	r.URL.Scheme = scheme
-	r.URL.Host = host
+	r.URL.Scheme = ""
+	r.URL.Host = ""
 	r.URL.Path = r.URL.Path[agent.HTTPProxyURLStripLen:] // strip the {API_BASE}/proxy/http prefix
+	r.RequestURI = r.URL.String()
+	r.URL.Host = host
+	r.URL.Scheme = scheme
 
 	logging.Debug().Msgf("proxy http request: %s %s", r.Method, r.URL.String())
 
