@@ -42,6 +42,7 @@ type (
 		RouteProviderList() []string
 		Context() context.Context
 		GetAgent(agentDockerHost string) (*agent.AgentConfig, bool)
+		ListAgents() []*agent.AgentConfig
 	}
 )
 

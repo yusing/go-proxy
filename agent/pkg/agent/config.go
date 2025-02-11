@@ -135,7 +135,7 @@ func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
 	cfg.name = string(name)
 	cfg.l = logging.With().Str("agent", cfg.name).Logger()
 
-	logging.Info().Msgf("agent %q started", cfg.name)
+	logging.Info().Msgf("agent %q initialized", cfg.name)
 	return nil
 }
 

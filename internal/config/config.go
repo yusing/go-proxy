@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/api"
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
@@ -273,27 +272,18 @@ func (cfg *Config) storeProvider(p *proxy.Provider) {
 	cfg.providers.Store(p.String(), p)
 }
 
-func (cfg *Config) GetAgent(agentDockerHost string) (*agent.AgentConfig, bool) {
-	if !agent.IsDockerHostAgent(agentDockerHost) {
-		panic(errors.New("invalid use of GetAgent with docker host: " + agentDockerHost))
-	}
-	key := "agent@" + agent.GetAgentAddrFromDockerHost(agentDockerHost)
-	p, ok := cfg.providers.Load(key)
-	if !ok {
-		return nil, false
-	}
-	return p.ProviderImpl.(*proxy.AgentProvider).AgentConfig, true
-}
-
 func (cfg *Config) loadRouteProviders(providers *config.Providers) E.Error {
 	errs := E.NewBuilder("route provider errors")
 	results := E.NewBuilder("loaded route providers")
+
+	removeAllAgents()
 
 	for _, agent := range providers.Agents {
 		if err := agent.Start(cfg.task); err != nil {
 			errs.Add(err.Subject(agent.String()))
 			continue
 		}
+		addAgent(agent)
 		p := proxy.NewAgentProvider(agent)
 		if err := cfg.errIfExists(p); err != nil {
 			errs.Add(err.Subject(p.String()))

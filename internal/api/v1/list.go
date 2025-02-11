@@ -28,6 +28,7 @@ const (
 	ListHomepageCategories = "homepage_categories"
 	ListIcons              = "icons"
 	ListTasks              = "tasks"
+	ListAgents             = "agents"
 )
 
 func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
@@ -77,6 +78,8 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 		U.RespondJSON(w, r, icons)
 	case ListTasks:
 		U.RespondJSON(w, r, task.DebugTaskList())
+	case ListAgents:
+		U.RespondJSON(w, r, cfg.ListAgents())
 	default:
 		U.HandleErr(w, r, U.ErrInvalidKey("what"), http.StatusBadRequest)
 	}

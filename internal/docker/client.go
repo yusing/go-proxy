@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"runtime/debug"
 	"sync"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -88,7 +87,7 @@ func ConnectClient(host string) (*SharedClient, error) {
 	if agent.IsDockerHostAgent(host) {
 		cfg, ok := config.GetInstance().GetAgent(host)
 		if !ok {
-			return nil, fmt.Errorf("agent %q not found\n%s", host, debug.Stack())
+			panic(fmt.Errorf("agent %q not found", host))
 		}
 		opt = []client.Opt{
 			client.WithHost(agent.DockerHost),
