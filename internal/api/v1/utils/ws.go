@@ -60,7 +60,7 @@ func PeriodicWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 			return
 		case <-ticker.C:
 			if err := do(conn); err != nil {
-				LogError(r).Msg(err.Error())
+				HandleErr(w, r, err)
 				return
 			}
 		}

@@ -1,7 +1,9 @@
 package utils
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	E "github.com/yusing/go-proxy/internal/error"
@@ -17,7 +19,13 @@ func HandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
 	if err == nil {
 		return
 	}
+	if errors.Is(err, context.Canceled) {
+		return
+	}
 	LogError(r).Msg(err.Error())
+	if r.Header.Get("Upgrade") == "websocket" {
+		return
+	}
 	if len(code) == 0 {
 		code = []int{http.StatusInternalServerError}
 	}

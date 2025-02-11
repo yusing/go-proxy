@@ -36,7 +36,7 @@ const (
 	EndpointProxyHTTP  = "/proxy/http"
 	EndpointHealth     = "/health"
 	EndpointLogs       = "/logs"
-	EndpointSystemInfo = "/system-info"
+	EndpointSystemInfo = "/system_info"
 
 	AgentHost = certs.CertsDNSName
 

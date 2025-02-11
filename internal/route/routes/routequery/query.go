@@ -10,6 +10,7 @@ import (
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
+	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 func getHealthInfo(r route.Route) map[string]string {
@@ -30,11 +31,19 @@ func getHealthInfo(r route.Route) map[string]string {
 
 func HealthMap() map[string]map[string]string {
 	healthMap := make(map[string]map[string]string)
-	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
+	routes.RangeRoutes(func(alias string, r route.Route) {
 		healthMap[alias] = getHealthInfo(r)
 	})
-	routes.GetStreamRoutes().RangeAll(func(alias string, r route.StreamRoute) {
-		healthMap[alias] = getHealthInfo(r)
+	return healthMap
+}
+
+func HealthStatuses() map[string]health.Status {
+	healthMap := make(map[string]health.Status, routes.NumRoutes())
+	routes.RangeRoutes(func(alias string, r route.Route) {
+		if r.HealthMonitor() == nil {
+			return
+		}
+		healthMap[alias] = r.HealthMonitor().Status()
 	})
 	return healthMap
 }

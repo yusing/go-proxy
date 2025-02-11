@@ -11,6 +11,7 @@ import (
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/logging/memlogger"
+	"github.com/yusing/go-proxy/internal/metrics/uptime"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -39,8 +40,10 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/logs/ws", auth.RequireAuth(memlogger.LogsWS(cfg)))
 	mux.HandleFunc("GET", "/v1/favicon", auth.RequireAuth(favicon.GetFavIcon))
 	mux.HandleFunc("POST", "/v1/homepage/set", auth.RequireAuth(v1.SetHomePageOverrides))
-	mux.HandleFunc("GET", "/v1/system_info", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
-	mux.HandleFunc("GET", "/v1/system_info/{agent_name}", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
+	mux.HandleFunc("GET", "/v1/metrics/system_info", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
+	mux.HandleFunc("GET", "/v1/metrics/system_info/ws", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
+	mux.HandleFunc("GET", "/v1/metrics/uptime", auth.RequireAuth(uptime.Poller.ServeHTTP))
+	mux.HandleFunc("GET", "/v1/metrics/uptime/ws", auth.RequireAuth(useCfg(cfg, uptime.Poller.ServeWS)))
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())

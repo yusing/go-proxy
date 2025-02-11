@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yusing/go-proxy/internal/common"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics"
@@ -61,10 +60,6 @@ func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cance
 func (mon *monitor) Start(parent task.Parent) E.Error {
 	if mon.config.Interval <= 0 {
 		return E.From(ErrNegativeInterval)
-	}
-
-	if common.PrometheusEnabled {
-		mon.metric = metrics.GetServiceMetrics().HealthStatus.With(metrics.HealthMetricLabels(mon.service))
 	}
 
 	mon.service = parent.Name()

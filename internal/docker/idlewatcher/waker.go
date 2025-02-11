@@ -4,7 +4,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/metrics"
@@ -63,12 +62,6 @@ func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReversePro
 		panic("both nil")
 	}
 
-	if common.PrometheusEnabled {
-		m := metrics.GetServiceMetrics()
-		fqn := parent.Name() + "/" + route.TargetName()
-		waker.metric = m.HealthStatus.With(metrics.HealthMetricLabels(fqn))
-		waker.metric.Set(float64(watcher.Status()))
-	}
 	return watcher, nil
 }
 

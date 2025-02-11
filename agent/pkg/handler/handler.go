@@ -15,6 +15,7 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/logging/memlogger"
+	"github.com/yusing/go-proxy/internal/metrics/systeminfo"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -49,7 +50,7 @@ func NewAgentHandler() http.Handler {
 	})
 	mux.HandleMethods("GET", agent.EndpointHealth, CheckHealth)
 	mux.HandleMethods("GET", agent.EndpointLogs, memlogger.LogsWS(nil))
-	mux.HandleMethods("GET", agent.EndpointSystemInfo, SystemInfo)
+	mux.HandleMethods("GET", agent.EndpointSystemInfo, systeminfo.Poller.ServeHTTP)
 	mux.ServeMux.HandleFunc("/", DockerSocketHandler())
 	return mux
 }
