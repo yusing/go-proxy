@@ -2,16 +2,18 @@ package config
 
 import (
 	"context"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/api"
 	"github.com/yusing/go-proxy/internal/autocert"
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/config/types"
+	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/entrypoint"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -26,7 +28,7 @@ import (
 )
 
 type Config struct {
-	value            *types.Config
+	value            *config.Config
 	providers        F.Map[string, *proxy.Provider]
 	autocertProvider *autocert.Provider
 	entrypoint       *entrypoint.Entrypoint
@@ -35,7 +37,6 @@ type Config struct {
 }
 
 var (
-	instance   *Config
 	cfgWatcher watcher.Watcher
 	reloadMu   sync.Mutex
 )
@@ -49,15 +50,15 @@ Make sure you rename it back before next time you start.`
 You may run "ls-config" to show or dump the current config.`
 )
 
-var Validate = types.Validate
+var Validate = config.Validate
 
 func GetInstance() *Config {
-	return instance
+	return config.GetInstance().(*Config)
 }
 
 func newConfig() *Config {
 	return &Config{
-		value:      types.DefaultConfig(),
+		value:      config.DefaultConfig(),
 		providers:  F.NewMapOf[string, *proxy.Provider](),
 		entrypoint: entrypoint.NewEntrypoint(),
 		task:       task.RootTask("config", false),
@@ -65,16 +66,17 @@ func newConfig() *Config {
 }
 
 func Load() (*Config, E.Error) {
-	if instance != nil {
-		return instance, nil
+	if config.HasInstance() {
+		panic(errors.New("config already loaded"))
 	}
-	instance = newConfig()
+	cfg := newConfig()
+	config.SetInstance(cfg)
 	cfgWatcher = watcher.NewConfigFileWatcher(common.ConfigFileName)
-	return instance, instance.load()
+	return cfg, cfg.load()
 }
 
 func MatchDomains() []string {
-	return instance.value.MatchDomains
+	return GetInstance().Value().MatchDomains
 }
 
 func WatchChanges() {
@@ -122,14 +124,14 @@ func Reload() E.Error {
 
 	// cancel all current subtasks -> wait
 	// -> replace config -> start new subtasks
-	instance.task.Finish("config changed")
-	instance = newCfg
-	instance.Start(StartAllServers)
+	GetInstance().Task().Finish("config changed")
+	newCfg.Start(StartAllServers)
+	config.SetInstance(newCfg)
 	return nil
 }
 
-func (cfg *Config) Value() *types.Config {
-	return instance.value
+func (cfg *Config) Value() *config.Config {
+	return cfg.value
 }
 
 func (cfg *Config) Reload() E.Error {
@@ -137,7 +139,7 @@ func (cfg *Config) Reload() E.Error {
 }
 
 func (cfg *Config) AutoCertProvider() *autocert.Provider {
-	return instance.autocertProvider
+	return cfg.autocertProvider
 }
 
 func (cfg *Config) Task() *task.Task {
@@ -217,7 +219,7 @@ func (cfg *Config) load() E.Error {
 		E.LogFatal(errMsg, err)
 	}
 
-	model := types.DefaultConfig()
+	model := config.DefaultConfig()
 	if err := utils.DeserializeYAML(data, model); err != nil {
 		E.LogFatal(errMsg, err)
 	}
@@ -260,39 +262,74 @@ func (cfg *Config) initAutoCert(autocertCfg *autocert.AutocertConfig) (err E.Err
 	return
 }
 
-func (cfg *Config) loadRouteProviders(providers *types.Providers) E.Error {
+func (cfg *Config) errIfExists(p *proxy.Provider) E.Error {
+	if _, ok := cfg.providers.Load(p.String()); ok {
+		return E.Errorf("provider %s already exists", p.String())
+	}
+	return nil
+}
+
+func (cfg *Config) storeProvider(p *proxy.Provider) {
+	cfg.providers.Store(p.String(), p)
+}
+
+func (cfg *Config) GetAgent(agentDockerHost string) (*agent.AgentConfig, bool) {
+	if !agent.IsDockerHostAgent(agentDockerHost) {
+		panic(errors.New("invalid use of GetAgent with docker host: " + agentDockerHost))
+	}
+	key := "agent@" + agent.GetAgentAddrFromDockerHost(agentDockerHost)
+	p, ok := cfg.providers.Load(key)
+	if !ok {
+		return nil, false
+	}
+	return p.ProviderImpl.(*proxy.AgentProvider).AgentConfig, true
+}
+
+func (cfg *Config) loadRouteProviders(providers *config.Providers) E.Error {
 	errs := E.NewBuilder("route provider errors")
 	results := E.NewBuilder("loaded route providers")
 
-	lenLongestName := 0
+	for _, agent := range providers.Agents {
+		if err := agent.Start(cfg.task); err != nil {
+			errs.Add(err.Subject(agent.String()))
+			continue
+		}
+		p := proxy.NewAgentProvider(agent)
+		if err := cfg.errIfExists(p); err != nil {
+			errs.Add(err.Subject(p.String()))
+			continue
+		}
+		cfg.storeProvider(p)
+	}
 	for _, filename := range providers.Files {
 		p, err := proxy.NewFileProvider(filename)
+		if err == nil {
+			err = cfg.errIfExists(p)
+		}
 		if err != nil {
 			errs.Add(E.PrependSubject(filename, err))
 			continue
 		}
-		cfg.providers.Store(p.String(), p)
-		if len(p.String()) > lenLongestName {
-			lenLongestName = len(p.String())
-		}
+		cfg.storeProvider(p)
 	}
 	for name, dockerHost := range providers.Docker {
-		p, err := proxy.NewDockerProvider(name, dockerHost)
-		if err != nil {
-			errs.Add(E.PrependSubject(name, err))
+		p := proxy.NewDockerProvider(name, dockerHost)
+		if err := cfg.errIfExists(p); err != nil {
+			errs.Add(err.Subject(p.String()))
 			continue
 		}
-		cfg.providers.Store(p.String(), p)
-		if len(p.String()) > lenLongestName {
-			lenLongestName = len(p.String())
-		}
-	}
-	for _, agent := range providers.Agents {
-		cfg.providers.Store(agent.Name(), proxy.NewAgentProvider(&agent))
+		cfg.storeProvider(p)
 	}
 	if cfg.providers.Size() == 0 {
 		return nil
 	}
+
+	lenLongestName := 0
+	cfg.providers.RangeAll(func(k string, _ *proxy.Provider) {
+		if len(k) > lenLongestName {
+			lenLongestName = len(k)
+		}
+	})
 	cfg.providers.RangeAllParallel(func(_ string, p *proxy.Provider) {
 		if err := p.LoadRoutes(); err != nil {
 			errs.Add(err.Subject(p.String()))

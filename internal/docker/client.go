@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"runtime/debug"
 	"sync"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -11,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/common"
+	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -84,9 +86,9 @@ func ConnectClient(host string) (*SharedClient, error) {
 	var opt []client.Opt
 
 	if agent.IsDockerHostAgent(host) {
-		cfg, ok := agent.GetAgentFromDockerHost(host)
+		cfg, ok := config.GetInstance().GetAgent(host)
 		if !ok {
-			return nil, fmt.Errorf("agent not found for host: %s", host)
+			return nil, fmt.Errorf("agent %q not found\n%s", host, debug.Stack())
 		}
 		opt = []client.Opt{
 			client.WithHost(agent.DockerHost),

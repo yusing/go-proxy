@@ -7,6 +7,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
+	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/logging"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -82,7 +83,11 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 	}
 
 	if agent.IsDockerHostAgent(dockerHost) {
-		res.Agent, _ = agent.GetAgentFromDockerHost(dockerHost)
+		var ok bool
+		res.Agent, ok = config.GetInstance().GetAgent(dockerHost)
+		if !ok {
+			logging.Error().Msgf("agent %q not found", dockerHost)
+		}
 	}
 
 	res.setPrivateHostname(helper)

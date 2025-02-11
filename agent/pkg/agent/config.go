@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -18,21 +17,18 @@ import (
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/task"
-	"github.com/yusing/go-proxy/internal/utils/functional"
 	"github.com/yusing/go-proxy/pkg"
 	"golang.org/x/net/context"
 )
 
-type (
-	AgentConfig struct {
-		Addr string
+type AgentConfig struct {
+	Addr string
 
-		httpClient *http.Client
-		tlsConfig  *tls.Config
-		name       string
-		l          zerolog.Logger
-	}
-)
+	httpClient *http.Client
+	tlsConfig  *tls.Config
+	name       string
+	l          zerolog.Logger
+}
 
 const (
 	EndpointVersion    = "/version"
@@ -54,42 +50,24 @@ const (
 )
 
 var (
-	agents     = functional.NewMapOf[string, *AgentConfig]()
-	agentMapMu sync.RWMutex
-)
-
-var (
-	HTTPProxyURL         = types.MustParseURL(APIBaseURL + EndpointProxyHTTP)
-	HTTPProxyURLStripLen = len(APIEndpointBase + EndpointProxyHTTP)
+	HTTPProxyURL          = types.MustParseURL(APIBaseURL + EndpointProxyHTTP)
+	HTTPProxyURLPrefixLen = len(APIEndpointBase + EndpointProxyHTTP)
 )
 
 func IsDockerHostAgent(dockerHost string) bool {
 	return strings.HasPrefix(dockerHost, FakeDockerHostPrefix)
 }
 
-func GetAgentFromDockerHost(dockerHost string) (*AgentConfig, bool) {
-	if !IsDockerHostAgent(dockerHost) {
-		return nil, false
-	}
-	return agents.Load(dockerHost[FakeDockerHostPrefixLen:])
+func GetAgentAddrFromDockerHost(dockerHost string) string {
+	return dockerHost[FakeDockerHostPrefixLen:]
 }
 
 func (cfg *AgentConfig) FakeDockerHost() string {
-	return FakeDockerHostPrefix + cfg.Name()
+	return FakeDockerHostPrefix + cfg.Addr
 }
 
 func (cfg *AgentConfig) Parse(addr string) error {
 	cfg.Addr = addr
-	return cfg.load()
-}
-
-func (cfg *AgentConfig) errIfNameExists() E.Error {
-	agentMapMu.RLock()
-	defer agentMapMu.RUnlock()
-	agent, ok := agents.Load(cfg.Name())
-	if ok {
-		return E.Errorf("agent with name %s (%s) already exists", cfg.Name(), agent.Addr)
-	}
 	return nil
 }
 
@@ -101,13 +79,7 @@ func checkVersion(a, b string) bool {
 	return withoutBuildTime(a) == withoutBuildTime(b)
 }
 
-func (cfg *AgentConfig) Remove() {
-	agentMapMu.Lock()
-	defer agentMapMu.Unlock()
-	agents.Delete(cfg.Name())
-}
-
-func (cfg *AgentConfig) load() E.Error {
+func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
 	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -141,7 +113,7 @@ func (cfg *AgentConfig) load() E.Error {
 	// create transport and http client
 	cfg.httpClient = cfg.NewHTTPClient()
 
-	ctx, cancel := context.WithTimeout(task.RootContext(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(parent.Context(), 5*time.Second)
 	defer cancel()
 
 	// check agent version
@@ -160,15 +132,10 @@ func (cfg *AgentConfig) load() E.Error {
 		return E.Wrap(err)
 	}
 
-	// check if agent name is already used
 	cfg.name = string(name)
-	if err := cfg.errIfNameExists(); err != nil {
-		return err
-	}
-
 	cfg.l = logging.With().Str("agent", cfg.name).Logger()
 
-	agents.Store(cfg.name, cfg)
+	logging.Info().Msgf("agent %q started", cfg.name)
 	return nil
 }
 
@@ -195,7 +162,7 @@ func (cfg *AgentConfig) Name() string {
 }
 
 func (cfg *AgentConfig) String() string {
-	return "agent@" + cfg.Name()
+	return "agent@" + cfg.Addr
 }
 
 func (cfg *AgentConfig) MarshalJSON() ([]byte, error) {

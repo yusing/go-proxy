@@ -5,13 +5,11 @@ import (
 	"net/http"
 
 	"github.com/coder/websocket"
-	"github.com/yusing/go-proxy/internal/logging"
 	"golang.org/x/net/context"
 )
 
 func (cfg *AgentConfig) Do(ctx context.Context, method, endpoint string, body io.Reader) (*http.Response, error) {
 	req, err := http.NewRequestWithContext(ctx, method, APIBaseURL+endpoint, body)
-	logging.Debug().Msgf("request: %s %s", method, req.URL.String())
 	if err != nil {
 		return nil, err
 	}

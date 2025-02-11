@@ -39,8 +39,7 @@ func makeRoutes(cont *types.Container, dockerHostIP ...string) route.Routes {
 }
 
 func TestExplicitOnly(t *testing.T) {
-	p, err := NewDockerProvider("a!", "")
-	ExpectNoError(t, err)
+	p := NewDockerProvider("a!", "")
 	ExpectTrue(t, p.IsExplicitOnly())
 }
 

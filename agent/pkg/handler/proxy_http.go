@@ -49,7 +49,7 @@ func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 
 	r.URL.Scheme = ""
 	r.URL.Host = ""
-	r.URL.Path = r.URL.Path[agent.HTTPProxyURLStripLen:] // strip the {API_BASE}/proxy/http prefix
+	r.URL.Path = r.URL.Path[agent.HTTPProxyURLPrefixLen:] // strip the {API_BASE}/proxy/http prefix
 	r.RequestURI = r.URL.String()
 	r.URL.Host = host
 	r.URL.Scheme = scheme

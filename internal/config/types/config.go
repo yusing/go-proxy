@@ -3,6 +3,7 @@ package types
 import (
 	"context"
 	"regexp"
+	"sync"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
@@ -25,8 +26,8 @@ type (
 	}
 	Providers struct {
 		Files        []string                   `json:"include" yaml:"include,omitempty" validate:"dive,filepath"`
-		Docker       map[string]string          `json:"docker" yaml:"docker,omitempty" validate:"dive,unix_addr|url"`
-		Agents       []agent.AgentConfig        `json:"agents" yaml:"agents,omitempty"`
+		Docker       map[string]string          `json:"docker" yaml:"docker,omitempty" validate:"non_empty_docker_keys,dive,unix_addr|url"`
+		Agents       []*agent.AgentConfig       `json:"agents" yaml:"agents,omitempty"`
 		Notification []notif.NotificationConfig `json:"notification" yaml:"notification,omitempty"`
 	}
 	Entrypoint struct {
@@ -40,7 +41,13 @@ type (
 		Statistics() map[string]any
 		RouteProviderList() []string
 		Context() context.Context
+		GetAgent(agentDockerHost string) (*agent.AgentConfig, bool)
 	}
+)
+
+var (
+	instance   ConfigInstance
+	instanceMu sync.RWMutex
 )
 
 func DefaultConfig() *Config {
@@ -50,6 +57,24 @@ func DefaultConfig() *Config {
 			UseDefaultCategories: true,
 		},
 	}
+}
+
+func GetInstance() ConfigInstance {
+	instanceMu.RLock()
+	defer instanceMu.RUnlock()
+	return instance
+}
+
+func SetInstance(cfg ConfigInstance) {
+	instanceMu.Lock()
+	defer instanceMu.Unlock()
+	instance = cfg
+}
+
+func HasInstance() bool {
+	instanceMu.RLock()
+	defer instanceMu.RUnlock()
+	return instance != nil
 }
 
 func Validate(data []byte) E.Error {
@@ -65,6 +90,15 @@ func init() {
 		domains := fl.Field().Interface().([]string)
 		for _, domain := range domains {
 			if !matchDomainsRegex.MatchString(domain) {
+				return false
+			}
+		}
+		return true
+	})
+	utils.MustRegisterValidation("non_empty_docker_keys", func(fl validator.FieldLevel) bool {
+		m := fl.Field().Interface().(map[string]string)
+		for k := range m {
+			if k == "" {
 				return false
 			}
 		}

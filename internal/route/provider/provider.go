@@ -59,15 +59,11 @@ func NewFileProvider(filename string) (p *Provider, err error) {
 	return
 }
 
-func NewDockerProvider(name string, dockerHost string) (p *Provider, err error) {
-	if name == "" {
-		return nil, ErrEmptyProviderName
-	}
-
-	p = newProvider(types.ProviderTypeDocker)
+func NewDockerProvider(name string, dockerHost string) *Provider {
+	p := newProvider(types.ProviderTypeDocker)
 	p.ProviderImpl = DockerProviderImpl(name, dockerHost)
 	p.watcher = p.NewWatcher()
-	return
+	return p
 }
 
 func NewAgentProvider(cfg *agent.AgentConfig) *Provider {
@@ -126,10 +122,6 @@ func (p *Provider) Start(parent task.Parent) E.Error {
 
 	if err := errs.Error(); err != nil {
 		return err.Subject(p.String())
-	}
-
-	if p.t == types.ProviderTypeAgent {
-		t.OnCancel("remove agent", p.ProviderImpl.(*AgentProvider).AgentConfig.Remove)
 	}
 	return nil
 }
