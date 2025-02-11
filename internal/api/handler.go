@@ -39,6 +39,8 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/logs/ws", auth.RequireAuth(memlogger.LogsWS(cfg)))
 	mux.HandleFunc("GET", "/v1/favicon", auth.RequireAuth(favicon.GetFavIcon))
 	mux.HandleFunc("POST", "/v1/homepage/set", auth.RequireAuth(v1.SetHomePageOverrides))
+	mux.HandleFunc("GET", "/v1/system_info", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
+	mux.HandleFunc("GET", "/v1/system_info/{agent_name}", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())
