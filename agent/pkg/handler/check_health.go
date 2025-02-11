@@ -3,10 +3,10 @@ package handler
 import (
 	"net/http"
 	"net/url"
+	"os"
 
 	apiUtils "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/net/types"
-	"github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
@@ -28,8 +28,8 @@ func CheckHealth(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
-		ok, err := utils.FileExists(path)
-		result = &health.HealthCheckResult{Healthy: ok}
+		_, err := os.Stat(path)
+		result = &health.HealthCheckResult{Healthy: err == nil}
 		if err != nil {
 			result.Detail = err.Error()
 		}

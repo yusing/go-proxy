@@ -5,6 +5,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/yusing/go-proxy/internal/common"
 )
@@ -32,14 +33,11 @@ func init() {
 	if err != nil {
 		log.Fatalf("failed to parse allowed hosts: %v", err)
 	}
-	if len(cidrs) == 0 {
-		log.Fatal("REGISTRATION_ALLOWED_HOSTS is empty")
-	}
 	RegistrationAllowedCIDRs = cidrs
 }
 
 func toCIDRs(hosts []string) ([]*net.IPNet, error) {
-	var cidrs []*net.IPNet
+	cidrs := make([]*net.IPNet, 0, len(hosts))
 	for _, host := range hosts {
 		if !strings.Contains(host, "/") {
 			host += "/32"
@@ -53,7 +51,15 @@ func toCIDRs(hosts []string) ([]*net.IPNet, error) {
 	return cidrs, nil
 }
 
+var warnOnce sync.Once
+
 func IsAllowedHost(remoteAddr string) bool {
+	if len(RegistrationAllowedCIDRs) == 0 {
+		warnOnce.Do(func() {
+			log.Println("Warning: REGISTRATION_ALLOWED_HOSTS is empty, allowing all hosts")
+		})
+		return true
+	}
 	ip, _, err := net.SplitHostPort(remoteAddr)
 	if err != nil {
 		ip = remoteAddr

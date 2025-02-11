@@ -127,6 +127,10 @@ func (p *Provider) Start(parent task.Parent) E.Error {
 	if err := errs.Error(); err != nil {
 		return err.Subject(p.String())
 	}
+
+	if p.t == types.ProviderTypeAgent {
+		t.OnCancel("remove agent", p.ProviderImpl.(*AgentProvider).AgentConfig.Remove)
+	}
 	return nil
 }
 

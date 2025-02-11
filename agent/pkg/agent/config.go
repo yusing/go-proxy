@@ -101,6 +101,12 @@ func checkVersion(a, b string) bool {
 	return withoutBuildTime(a) == withoutBuildTime(b)
 }
 
+func (cfg *AgentConfig) Remove() {
+	agentMapMu.Lock()
+	defer agentMapMu.Unlock()
+	agents.Delete(cfg.Name())
+}
+
 func (cfg *AgentConfig) load() E.Error {
 	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
 	if err != nil {

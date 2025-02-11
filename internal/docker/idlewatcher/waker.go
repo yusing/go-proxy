@@ -53,6 +53,8 @@ func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReversePro
 	}
 
 	switch {
+	case route.IsAgent():
+		waker.hc = monitor.NewAgentRouteMonitor(route.Agent(), hcCfg, monitor.AgentTargetFromURL(route.TargetURL()))
 	case rp != nil:
 		waker.hc = monitor.NewHTTPHealthChecker(route.TargetURL(), hcCfg)
 	case stream != nil:

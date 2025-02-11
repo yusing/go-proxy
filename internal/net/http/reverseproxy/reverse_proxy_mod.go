@@ -168,7 +168,7 @@ func copyHeader(dst, src http.Header) {
 }
 
 func (p *ReverseProxy) errorHandler(rw http.ResponseWriter, r *http.Request, err error, writeHeader bool) {
-	reqURL := r.Host + r.RequestURI
+	reqURL := r.Host + r.URL.Path
 	switch {
 	case errors.Is(err, context.Canceled),
 		errors.Is(err, io.EOF),

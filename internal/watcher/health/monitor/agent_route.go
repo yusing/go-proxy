@@ -24,7 +24,7 @@ type (
 	}
 )
 
-func AgentCheckHealthTargetFromURL(url *types.URL) *AgentCheckHealthTarget {
+func AgentTargetFromURL(url *types.URL) *AgentCheckHealthTarget {
 	return &AgentCheckHealthTarget{
 		Scheme: url.Scheme,
 		Host:   url.Host,
