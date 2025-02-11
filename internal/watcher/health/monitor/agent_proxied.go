@@ -12,7 +12,7 @@ import (
 )
 
 type (
-	AgentRouteMonior struct {
+	AgentProxiedMonitor struct {
 		agent       *agentPkg.AgentConfig
 		endpointURL string
 		*monitor
@@ -48,8 +48,8 @@ func (target *AgentCheckHealthTarget) displayURL() *types.URL {
 	})
 }
 
-func NewAgentRouteMonitor(agent *agentPkg.AgentConfig, config *health.HealthCheckConfig, target *AgentCheckHealthTarget) *AgentRouteMonior {
-	mon := &AgentRouteMonior{
+func NewAgentProxiedMonitor(agent *agentPkg.AgentConfig, config *health.HealthCheckConfig, target *AgentCheckHealthTarget) *AgentProxiedMonitor {
+	mon := &AgentProxiedMonitor{
 		agent:       agent,
 		endpointURL: agentPkg.EndpointHealth + "?" + target.buildQuery(),
 	}
@@ -57,7 +57,7 @@ func NewAgentRouteMonitor(agent *agentPkg.AgentConfig, config *health.HealthChec
 	return mon
 }
 
-func (mon *AgentRouteMonior) CheckHealth() (result *health.HealthCheckResult, err error) {
+func (mon *AgentProxiedMonitor) CheckHealth() (result *health.HealthCheckResult, err error) {
 	result = new(health.HealthCheckResult)
 	ctx, cancel := mon.ContextWithTimeout("timeout querying agent")
 	defer cancel()

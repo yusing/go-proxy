@@ -207,7 +207,7 @@ func (r *ReveseProxyRoute) newHealthMonitor() interface {
 } {
 	if a := r.Agent(); a != nil {
 		target := monitor.AgentTargetFromURL(r.ProxyURL)
-		return monitor.NewAgentRouteMonitor(a, r.HealthCheck, target)
+		return monitor.NewAgentProxiedMonitor(a, r.HealthCheck, target)
 	}
 	return monitor.NewHTTPHealthMonitor(r.ProxyURL, r.HealthCheck)
 }

@@ -22,12 +22,12 @@ type (
 	waker struct {
 		_ U.NoCopy
 
-		rp     *reverseproxy.ReverseProxy
-		stream net.Stream
-		hc     health.HealthChecker
-		metric *metrics.Gauge
-
-		ready atomic.Bool
+		rp      *reverseproxy.ReverseProxy
+		stream  net.Stream
+		hc      health.HealthChecker
+		metric  *metrics.Gauge
+		lastErr error
+		ready   atomic.Bool
 	}
 )
 
@@ -54,7 +54,7 @@ func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReversePro
 
 	switch {
 	case route.IsAgent():
-		waker.hc = monitor.NewAgentRouteMonitor(route.Agent(), hcCfg, monitor.AgentTargetFromURL(route.TargetURL()))
+		waker.hc = monitor.NewAgentProxiedMonitor(route.Agent(), hcCfg, monitor.AgentTargetFromURL(route.TargetURL()))
 	case rp != nil:
 		waker.hc = monitor.NewHTTPHealthChecker(route.TargetURL(), hcCfg)
 	case stream != nil:
@@ -145,12 +145,15 @@ func (w *Watcher) getStatusUpdateReady() health.Status {
 	result, err := w.hc.CheckHealth()
 	switch {
 	case err != nil:
+		w.lastErr = err
 		w.ready.Store(false)
 		return health.StatusError
 	case result.Healthy:
+		w.lastErr = nil
 		w.ready.Store(true)
 		return health.StatusHealthy
 	default:
+		w.lastErr = nil
 		return health.StatusStarting
 	}
 }
@@ -161,10 +164,15 @@ func (w *Watcher) MarshalJSON() ([]byte, error) {
 	if w.hc.URL().Port() != "0" {
 		url = w.hc.URL()
 	}
+	var detail string
+	if w.lastErr != nil {
+		detail = w.lastErr.Error()
+	}
 	return (&monitor.JSONRepresentation{
 		Name:   w.Name(),
 		Status: w.Status(),
 		Config: w.hc.Config(),
 		URL:    url,
+		Detail: detail,
 	}).MarshalJSON()
 }
