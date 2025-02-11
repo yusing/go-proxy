@@ -60,7 +60,7 @@ var (
 
 var (
 	HTTPProxyURL         = types.MustParseURL(APIBaseURL + EndpointProxyHTTP)
-	HTTPProxyURLStripLen = len(HTTPProxyURL.Path)
+	HTTPProxyURLStripLen = len(APIEndpointBase + EndpointProxyHTTP)
 )
 
 func IsDockerHostAgent(dockerHost string) bool {

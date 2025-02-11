@@ -3,6 +3,7 @@ package handler
 import (
 	"crypto/tls"
 	"net/http"
+	"net/url"
 	"strconv"
 	"time"
 
@@ -23,8 +24,6 @@ func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		responseHeaderTimeout = 0
 	}
-
-	logging.Debug().Msgf("proxy http request: host=%s, isHTTPs=%t, skipTLSVerify=%t, responseHeaderTimeout=%d", host, isHTTPS, skipTLSVerify, responseHeaderTimeout)
 
 	if host == "" {
 		http.Error(w, "missing required headers", http.StatusBadRequest)
@@ -54,6 +53,9 @@ func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 
 	logging.Debug().Msgf("proxy http request: %s %s", r.Method, r.URL.String())
 
-	rp := reverseproxy.NewReverseProxy("agent", types.NewURL(r.URL), transport)
+	rp := reverseproxy.NewReverseProxy("agent", types.NewURL(&url.URL{
+		Scheme: scheme,
+		Host:   host,
+	}), transport)
 	rp.ServeHTTP(w, r)
 }
