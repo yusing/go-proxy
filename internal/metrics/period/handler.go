@@ -7,6 +7,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
+	metricsutils "github.com/yusing/go-proxy/internal/metrics/utils"
 )
 
 func (p *Poller[T, AggregateT]) lastResultHandler(w http.ResponseWriter, r *http.Request) {
@@ -19,7 +20,8 @@ func (p *Poller[T, AggregateT]) lastResultHandler(w http.ResponseWriter, r *http
 }
 
 func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	period := r.URL.Query().Get("period")
+	query := r.URL.Query()
+	period := query.Get("period")
 	if period == "" {
 		p.lastResultHandler(w, r)
 		return
@@ -35,8 +37,11 @@ func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if p.aggregator != nil {
-		aggregated := p.aggregator(rangeData...)
-		utils.RespondJSON(w, r, aggregated)
+		total, aggregated := p.aggregator(rangeData, query)
+		utils.RespondJSON(w, r, map[string]any{
+			"total": total,
+			"data":  aggregated,
+		})
 	} else {
 		utils.RespondJSON(w, r, rangeData)
 	}
@@ -45,11 +50,13 @@ func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request
 func (p *Poller[T, AggregateT]) ServeWS(allowedDomains []string, w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	period := query.Get("period")
-	intervalStr := query.Get("interval")
-	interval, err := time.ParseDuration(intervalStr)
+	interval := metricsutils.QueryDuration(query, "interval", 0)
 
-	minInterval := p.interval()
-	if err != nil || interval < minInterval {
+	minInterval := 1 * time.Second
+	if interval == 0 {
+		interval = p.interval()
+	}
+	if interval < minInterval {
 		interval = minInterval
 	}
 
@@ -65,7 +72,11 @@ func (p *Poller[T, AggregateT]) ServeWS(allowedDomains []string, w http.Response
 		}
 		if p.aggregator != nil {
 			utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
-				return wsjson.Write(r.Context(), conn, p.aggregator(p.Get(periodFilter)...))
+				total, aggregated := p.aggregator(p.Get(periodFilter), query)
+				return wsjson.Write(r.Context(), conn, map[string]any{
+					"total": total,
+					"data":  aggregated,
+				})
 			})
 		} else {
 			utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {

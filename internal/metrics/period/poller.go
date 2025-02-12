@@ -3,6 +3,7 @@ package period
 import (
 	"context"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 
@@ -11,15 +12,17 @@ import (
 )
 
 type (
-	PollFunc[T any]                  func(ctx context.Context) (*T, error)
-	AggregateFunc[T, AggregateT any] func(entries ...*T) AggregateT
+	PollFunc[T any]                  func(ctx context.Context, lastResult *T) (*T, error)
+	AggregateFunc[T, AggregateT any] func(entries []*T, query url.Values) (total int, result AggregateT)
+	FilterFunc[T any]                func(entries []*T, keyword string) (filtered []*T)
 	Poller[T, AggregateT any]        struct {
-		name       string
-		poll       PollFunc[T]
-		aggregator AggregateFunc[T, AggregateT]
-		period     *Period[T]
-		lastResult *T
-		errs       []pollErr
+		name         string
+		poll         PollFunc[T]
+		aggregator   AggregateFunc[T, AggregateT]
+		resultFilter FilterFunc[T]
+		period       *Period[T]
+		lastResult   *T
+		errs         []pollErr
 	}
 	pollErr struct {
 		err   error
@@ -31,7 +34,6 @@ const gatherErrsInterval = 30 * time.Second
 
 func NewPoller[T any](
 	name string,
-	interval time.Duration,
 	poll PollFunc[T],
 ) *Poller[T, T] {
 	return &Poller[T, T]{
@@ -43,7 +45,6 @@ func NewPoller[T any](
 
 func NewPollerWithAggregator[T, AggregateT any](
 	name string,
-	interval time.Duration,
 	poll PollFunc[T],
 	aggregator AggregateFunc[T, AggregateT],
 ) *Poller[T, AggregateT] {
@@ -55,8 +56,13 @@ func NewPollerWithAggregator[T, AggregateT any](
 	}
 }
 
+func (p *Poller[T, AggregateT]) WithResultFilter(filter FilterFunc[T]) *Poller[T, AggregateT] {
+	p.resultFilter = filter
+	return p
+}
+
 func (p *Poller[T, AggregateT]) interval() time.Duration {
-	return p.period.FifteenMinutes.interval
+	return p.period.FiveMinutes.interval
 }
 
 func (p *Poller[T, AggregateT]) appendErr(err error) {
@@ -91,7 +97,7 @@ func (p *Poller[T, AggregateT]) gatherErrs() (string, bool) {
 func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, p.interval())
 	defer cancel()
-	data, err := p.poll(ctx)
+	data, err := p.poll(ctx, p.lastResult)
 	if err != nil {
 		p.appendErr(err)
 		return

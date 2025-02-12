@@ -6,6 +6,7 @@ import (
 )
 
 type Period[T any] struct {
+	FiveMinutes    *Entries[T]
 	FifteenMinutes *Entries[T]
 	OneHour        *Entries[T]
 	OneDay         *Entries[T]
@@ -16,6 +17,7 @@ type Period[T any] struct {
 type Filter string
 
 const (
+	PeriodFiveMinutes    Filter = "5m"
 	PeriodFifteenMinutes Filter = "15m"
 	PeriodOneHour        Filter = "1h"
 	PeriodOneDay         Filter = "1d"
@@ -24,6 +26,7 @@ const (
 
 func NewPeriod[T any]() *Period[T] {
 	return &Period[T]{
+		FiveMinutes:    newEntries[T](5 * time.Minute),
 		FifteenMinutes: newEntries[T](15 * time.Minute),
 		OneHour:        newEntries[T](1 * time.Hour),
 		OneDay:         newEntries[T](24 * time.Hour),

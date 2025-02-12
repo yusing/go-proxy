@@ -37,13 +37,13 @@ func HealthMap() map[string]map[string]string {
 	return healthMap
 }
 
-func HealthStatuses() map[string]health.Status {
-	healthMap := make(map[string]health.Status, routes.NumRoutes())
+func HealthInfo() map[string]health.WithHealthInfo {
+	healthMap := make(map[string]health.WithHealthInfo, routes.NumRoutes())
 	routes.RangeRoutes(func(alias string, r route.Route) {
-		if r.HealthMonitor() == nil {
-			return
+		mon := r.HealthMonitor()
+		if mon != nil {
+			healthMap[alias] = mon
 		}
-		healthMap[alias] = r.HealthMonitor().Status()
 	})
 	return healthMap
 }

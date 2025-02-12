@@ -13,6 +13,7 @@ const (
 	NumStatuses int = iota - 1
 
 	HealthyMask = StatusHealthy | StatusNapping | StatusStarting
+	IdlingMask  = StatusNapping | StatusStarting
 )
 
 func (s Status) String() string {
@@ -42,4 +43,8 @@ func (s Status) Good() bool {
 
 func (s Status) Bad() bool {
 	return s&HealthyMask == 0
+}
+
+func (s Status) Idling() bool {
+	return s&IdlingMask != 0
 }
