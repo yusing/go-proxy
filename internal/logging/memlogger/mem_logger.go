@@ -13,7 +13,6 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
-	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
@@ -81,9 +80,9 @@ func init() {
 	logging.InitLogger(zerolog.MultiLevelWriter(os.Stderr, memLoggerInstance))
 }
 
-func LogsWS(config config.ConfigInstance) http.HandlerFunc {
+func LogsWS(allowedDomains []string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		memLoggerInstance.ServeHTTP(config, w, r)
+		memLoggerInstance.ServeHTTP(allowedDomains, w, r)
 	}
 }
 
@@ -151,8 +150,8 @@ func (m *memLogger) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (m *memLogger) ServeHTTP(config config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
-	conn, err := utils.InitiateWS(config, w, r)
+func (m *memLogger) ServeHTTP(allowedDomains []string, w http.ResponseWriter, r *http.Request) {
+	conn, err := utils.InitiateWS(allowedDomains, w, r)
 	if err != nil {
 		utils.HandleErr(w, r, err)
 		return
@@ -161,7 +160,6 @@ func (m *memLogger) ServeHTTP(config config.ConfigInstance, w http.ResponseWrite
 	logCh := make(chan *logEntryRange)
 	m.connChans.Store(logCh, struct{}{})
 
-	/* trunk-ignore(golangci-lint/errcheck) */
 	defer func() {
 		_ = conn.CloseNow()
 

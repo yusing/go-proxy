@@ -2,11 +2,11 @@ package period
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
-	config "github.com/yusing/go-proxy/internal/config/types"
 )
 
 func (p *Poller[T, AggregateT]) lastResultHandler(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +42,35 @@ func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (p *Poller[T, AggregateT]) ServeWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
-	utils.PeriodicWS(cfg, w, r, p.interval, func(conn *websocket.Conn) error {
-		return wsjson.Write(r.Context(), conn, p.GetLastResult())
-	})
+func (p *Poller[T, AggregateT]) ServeWS(allowedDomains []string, w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	period := query.Get("period")
+	intervalStr := query.Get("interval")
+	interval, err := time.ParseDuration(intervalStr)
+
+	minInterval := p.interval()
+	if err != nil || interval < minInterval {
+		interval = minInterval
+	}
+
+	if period == "" {
+		utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
+			return wsjson.Write(r.Context(), conn, p.GetLastResult())
+		})
+	} else {
+		periodFilter := Filter(period)
+		if !periodFilter.IsValid() {
+			http.Error(w, "invalid period", http.StatusBadRequest)
+			return
+		}
+		if p.aggregator != nil {
+			utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
+				return wsjson.Write(r.Context(), conn, p.aggregator(p.Get(periodFilter)...))
+			})
+		} else {
+			utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
+				return wsjson.Write(r.Context(), conn, p.Get(periodFilter))
+			})
+		}
+	}
 }

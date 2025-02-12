@@ -37,13 +37,13 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/stats", useCfg(cfg, v1.Stats))
 	mux.HandleFunc("GET", "/v1/stats/ws", useCfg(cfg, v1.StatsWS))
 	mux.HandleFunc("GET", "/v1/health/ws", auth.RequireAuth(useCfg(cfg, v1.HealthWS)))
-	mux.HandleFunc("GET", "/v1/logs/ws", auth.RequireAuth(memlogger.LogsWS(cfg)))
+	mux.HandleFunc("GET", "/v1/logs/ws", auth.RequireAuth(memlogger.LogsWS(cfg.Value().MatchDomains)))
 	mux.HandleFunc("GET", "/v1/favicon", auth.RequireAuth(favicon.GetFavIcon))
 	mux.HandleFunc("POST", "/v1/homepage/set", auth.RequireAuth(v1.SetHomePageOverrides))
 	mux.HandleFunc("GET", "/v1/metrics/system_info", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
 	mux.HandleFunc("GET", "/v1/metrics/system_info/ws", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
 	mux.HandleFunc("GET", "/v1/metrics/uptime", auth.RequireAuth(uptime.Poller.ServeHTTP))
-	mux.HandleFunc("GET", "/v1/metrics/uptime/ws", auth.RequireAuth(useCfg(cfg, uptime.Poller.ServeWS)))
+	mux.HandleFunc("GET", "/v1/metrics/uptime/ws", auth.RequireAuth(useWS(cfg, uptime.Poller.ServeWS)))
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())
@@ -72,5 +72,11 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 func useCfg(cfg config.ConfigInstance, handler func(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		handler(cfg, w, r)
+	}
+}
+
+func useWS(cfg config.ConfigInstance, handler func(allowedDomains []string, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		handler(cfg.Value().MatchDomains, w, r)
 	}
 }

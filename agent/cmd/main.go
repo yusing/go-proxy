@@ -10,7 +10,6 @@ import (
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
-	"github.com/yusing/go-proxy/internal/utils"
 	"github.com/yusing/go-proxy/pkg"
 	"gopkg.in/yaml.v3"
 )
@@ -69,5 +68,5 @@ Tips:
 
 	server.StartAgentServer(t, opts)
 
-	utils.WaitExit(3)
+	task.WaitExit(3)
 }

@@ -12,7 +12,7 @@ import (
 )
 
 func HealthWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
-	U.PeriodicWS(cfg, w, r, 1*time.Second, func(conn *websocket.Conn) error {
+	U.PeriodicWS(cfg.Value().MatchDomains, w, r, 1*time.Second, func(conn *websocket.Conn) error {
 		return wsjson.Write(r.Context(), conn, routequery.HealthMap())
 	})
 }

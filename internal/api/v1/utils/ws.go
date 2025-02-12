@@ -7,7 +7,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/yusing/go-proxy/internal/common"
-	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/logging"
 )
 
@@ -17,45 +16,49 @@ func warnNoMatchDomains() {
 
 var warnNoMatchDomainOnce sync.Once
 
-func InitiateWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
+func InitiateWS(allowedDomains []string, w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
 	var originPats []string
 
 	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
 
-	if cfg == nil || len(cfg.Value().MatchDomains) == 0 {
+	if len(allowedDomains) == 0 || common.IsDebug {
 		warnNoMatchDomainOnce.Do(warnNoMatchDomains)
 		originPats = []string{"*"}
 	} else {
-		originPats = make([]string, len(cfg.Value().MatchDomains))
-		for i, domain := range cfg.Value().MatchDomains {
-			originPats[i] = "*" + domain
+		originPats = make([]string, len(allowedDomains))
+		for i, domain := range allowedDomains {
+			if domain[0] != '.' {
+				originPats[i] = "*." + domain
+			} else {
+				originPats[i] = "*" + domain
+			}
 		}
 		originPats = append(originPats, localAddresses...)
-	}
-	if common.IsDebug {
-		originPats = []string{"*"}
 	}
 	return websocket.Accept(w, r, &websocket.AcceptOptions{
 		OriginPatterns: originPats,
 	})
 }
 
-func PeriodicWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request, interval time.Duration, do func(conn *websocket.Conn) error) {
-	conn, err := InitiateWS(cfg, w, r)
+func PeriodicWS(allowedDomains []string, w http.ResponseWriter, r *http.Request, interval time.Duration, do func(conn *websocket.Conn) error) {
+	conn, err := InitiateWS(allowedDomains, w, r)
 	if err != nil {
 		HandleErr(w, r, err)
 		return
 	}
-	/* trunk-ignore(golangci-lint/errcheck) */
+	//nolint:errcheck
 	defer conn.CloseNow()
+
+	if err := do(conn); err != nil {
+		HandleErr(w, r, err)
+		return
+	}
 
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
 		select {
-		case <-cfg.Context().Done():
-			return
 		case <-r.Context().Done():
 			return
 		case <-ticker.C:

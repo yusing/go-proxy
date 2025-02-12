@@ -24,17 +24,17 @@ const (
 
 func NewPeriod[T any]() *Period[T] {
 	return &Period[T]{
-		FifteenMinutes: newEntries[T](15 * 60 / maxEntries),
-		OneHour:        newEntries[T](60 * 60 / maxEntries),
-		OneDay:         newEntries[T](24 * 60 * 60 / maxEntries),
-		OneMonth:       newEntries[T](30 * 24 * 60 * 60 / maxEntries),
+		FifteenMinutes: newEntries[T](15 * time.Minute),
+		OneHour:        newEntries[T](1 * time.Hour),
+		OneDay:         newEntries[T](24 * time.Hour),
+		OneMonth:       newEntries[T](30 * 24 * time.Hour),
 	}
 }
 
 func (p *Period[T]) Add(info *T) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	now := time.Now().Unix()
+	now := time.Now()
 	p.FifteenMinutes.Add(now, info)
 	p.OneHour.Add(now, info)
 	p.OneDay.Add(now, info)

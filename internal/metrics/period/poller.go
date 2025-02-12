@@ -18,7 +18,6 @@ type (
 		poll       PollFunc[T]
 		aggregator AggregateFunc[T, AggregateT]
 		period     *Period[T]
-		interval   time.Duration
 		lastResult *T
 		errs       []pollErr
 	}
@@ -36,10 +35,9 @@ func NewPoller[T any](
 	poll PollFunc[T],
 ) *Poller[T, T] {
 	return &Poller[T, T]{
-		name:     name,
-		poll:     poll,
-		period:   NewPeriod[T](),
-		interval: interval,
+		name:   name,
+		poll:   poll,
+		period: NewPeriod[T](),
 	}
 }
 
@@ -54,8 +52,11 @@ func NewPollerWithAggregator[T, AggregateT any](
 		poll:       poll,
 		aggregator: aggregator,
 		period:     NewPeriod[T](),
-		interval:   interval,
 	}
+}
+
+func (p *Poller[T, AggregateT]) interval() time.Duration {
+	return p.period.FifteenMinutes.interval
 }
 
 func (p *Poller[T, AggregateT]) appendErr(err error) {
@@ -87,32 +88,36 @@ func (p *Poller[T, AggregateT]) gatherErrs() (string, bool) {
 	return strings.Join(errs, "\n"), true
 }
 
-func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) (*T, error) {
-	ctx, cancel := context.WithTimeout(ctx, p.interval)
+func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
+	ctx, cancel := context.WithTimeout(ctx, p.interval())
 	defer cancel()
-	return p.poll(ctx)
+	data, err := p.poll(ctx)
+	if err != nil {
+		p.appendErr(err)
+		return
+	}
+	p.period.Add(data)
+	p.lastResult = data
 }
 
 func (p *Poller[T, AggregateT]) Start() {
 	go func() {
 		ctx := task.RootContext()
-		ticker := time.NewTicker(p.interval)
+		ticker := time.NewTicker(p.interval())
 		gatherErrsTicker := time.NewTicker(gatherErrsInterval)
 		defer ticker.Stop()
 		defer gatherErrsTicker.Stop()
+
+		logging.Debug().Msgf("Starting poller %s with interval %s", p.name, p.interval())
+
+		p.pollWithTimeout(ctx)
 
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				data, err := p.pollWithTimeout(ctx)
-				if err != nil {
-					p.appendErr(err)
-					continue
-				}
-				p.period.Add(data)
-				p.lastResult = data
+				p.pollWithTimeout(ctx)
 			case <-gatherErrsTicker.C:
 				errs, ok := p.gatherErrs()
 				if ok {

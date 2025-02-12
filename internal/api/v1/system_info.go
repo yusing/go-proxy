@@ -16,7 +16,7 @@ func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 	agentName := r.URL.Query().Get("agent_name")
 	if agentName == "" {
 		if isWS {
-			systeminfo.Poller.ServeWS(cfg, w, r)
+			systeminfo.Poller.ServeWS(cfg.Value().MatchDomains, w, r)
 		} else {
 			systeminfo.Poller.ServeHTTP(w, r)
 		}
@@ -40,7 +40,7 @@ func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 		}
 		U.WriteBody(w, respData)
 	} else {
-		clientConn, err := U.InitiateWS(cfg, w, r)
+		clientConn, err := U.InitiateWS(cfg.Value().MatchDomains, w, r)
 		if err != nil {
 			U.HandleErr(w, r, err)
 			return

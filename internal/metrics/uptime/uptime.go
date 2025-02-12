@@ -2,21 +2,23 @@ package uptime
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/metrics/period"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
 	Statuses struct {
 		Statuses  map[string]health.Status
-		Timestamp int64
+		Timestamp time.Time
 	}
 	Status struct {
 		Status    health.Status
-		Timestamp int64
+		Timestamp time.Time
 	}
 	Aggregated map[string][]Status
 )
@@ -30,7 +32,7 @@ func init() {
 func getStatuses(ctx context.Context) (*Statuses, error) {
 	return &Statuses{
 		Statuses:  routequery.HealthStatuses(),
-		Timestamp: time.Now().Unix(),
+		Timestamp: time.Now(),
 	}, nil
 }
 
@@ -70,4 +72,20 @@ func (a Aggregated) finalize() map[string]map[string]interface{} {
 		}
 	}
 	return result
+}
+
+func (s *Status) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"status":    s.Status.String(),
+		"timestamp": s.Timestamp.Unix(),
+		"tooltip":   strutils.FormatTime(s.Timestamp),
+	})
+}
+
+func (s *Statuses) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]interface{}{
+		"statuses":  s.Statuses,
+		"timestamp": s.Timestamp.Unix(),
+		"tooltip":   strutils.FormatTime(s.Timestamp),
+	})
 }

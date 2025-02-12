@@ -1,4 +1,4 @@
-package handler
+package handler_test
 
 import (
 	"encoding/json"
@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/yusing/go-proxy/agent/pkg/agent"
+	"github.com/yusing/go-proxy/agent/pkg/handler"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
@@ -75,7 +76,7 @@ func TestCheckHealthHTTP(t *testing.T) {
 				query.Set(key, value)
 			}
 			request := httptest.NewRequest(http.MethodGet, agent.APIEndpointBase+agent.EndpointHealth+"?"+query.Encode(), nil)
-			CheckHealth(recorder, request)
+			handler.CheckHealth(recorder, request)
 
 			ExpectEqual(t, recorder.Code, tt.expectedStatus)
 
@@ -120,7 +121,7 @@ func TestCheckHealthFileServer(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 			request := httptest.NewRequest(http.MethodGet, agent.APIEndpointBase+agent.EndpointHealth+"?"+query.Encode(), nil)
-			CheckHealth(recorder, request)
+			handler.CheckHealth(recorder, request)
 
 			ExpectEqual(t, recorder.Code, tt.expectedStatus)
 
@@ -203,7 +204,7 @@ func TestCheckHealthTCPUDP(t *testing.T) {
 
 			recorder := httptest.NewRecorder()
 			request := httptest.NewRequest(http.MethodGet, agent.APIEndpointBase+agent.EndpointHealth+"?"+query.Encode(), nil)
-			CheckHealth(recorder, request)
+			handler.CheckHealth(recorder, request)
 
 			ExpectEqual(t, recorder.Code, tt.expectedStatus)
 

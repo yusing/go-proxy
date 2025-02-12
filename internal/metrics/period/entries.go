@@ -1,26 +1,28 @@
 package period
 
-import "time"
+import (
+	"time"
+)
 
 type Entries[T any] struct {
 	entries  [maxEntries]*T
 	index    int
 	count    int
-	interval int64
-	lastAdd  int64
+	interval time.Duration
+	lastAdd  time.Time
 }
 
-const maxEntries = 500
+const maxEntries = 200
 
-func newEntries[T any](interval int64) *Entries[T] {
+func newEntries[T any](duration time.Duration) *Entries[T] {
 	return &Entries[T]{
-		interval: interval,
-		lastAdd:  time.Now().Unix(),
+		interval: duration / maxEntries,
+		lastAdd:  time.Now(),
 	}
 }
 
-func (e *Entries[T]) Add(now int64, info *T) {
-	if now-e.lastAdd < e.interval {
+func (e *Entries[T]) Add(now time.Time, info *T) {
+	if now.Sub(e.lastAdd) < e.interval {
 		return
 	}
 	e.entries[e.index] = info

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"syscall"
 
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
@@ -16,10 +17,11 @@ import (
 //
 // The error is only logged but not returned to the client.
 func HandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
-	if err == nil {
-		return
-	}
-	if errors.Is(err, context.Canceled) {
+	switch {
+	case err == nil,
+		errors.Is(err, context.Canceled),
+		errors.Is(err, syscall.EPIPE),
+		errors.Is(err, syscall.ECONNRESET):
 		return
 	}
 	LogError(r).Msg(err.Error())

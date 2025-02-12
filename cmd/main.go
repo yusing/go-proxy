@@ -16,7 +16,7 @@ import (
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/http/middleware"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
-	"github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
 )
 
@@ -129,7 +129,7 @@ func main() {
 
 	config.WatchChanges()
 
-	utils.WaitExit(cfg.Value().TimeoutShutdown)
+	task.WaitExit(cfg.Value().TimeoutShutdown)
 }
 
 func prepareDirectory(dir string) {
