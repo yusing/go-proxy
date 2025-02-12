@@ -32,10 +32,6 @@ var allMiddlewares = map[string]*Middleware{
 
 	"cidrwhitelist": CIDRWhiteList,
 	"ratelimit":     RateLimiter,
-
-	// !experimental
-	"forwardauth": ForwardAuth,
-	// "oauth2":      OAuth2.m,
 }
 
 var (
