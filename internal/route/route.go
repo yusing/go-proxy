@@ -298,16 +298,18 @@ func (r *Route) Finalize() {
 		if r.Host == cont.PublicHostname {
 			if p, ok := cont.PrivatePortMapping[pp]; ok {
 				pp = int(p.PublicPort)
-				if r.Scheme == "" && p.Type == "udp" {
-					r.Scheme = "udp"
-				}
 			}
 		} else {
 			// replace public port with private port if using private IP.
 			if p, ok := cont.PublicPortMapping[pp]; ok {
 				pp = int(p.PrivatePort)
-				if r.Scheme == "" && p.Type == "udp" {
+			}
+		}
+		if r.Scheme == "" {
+			for _, p := range cont.PublicPortMapping {
+				if p.Type == "udp" {
 					r.Scheme = "udp"
+					break
 				}
 			}
 		}
@@ -330,10 +332,13 @@ func (r *Route) Finalize() {
 		r.HealthCheck = health.DefaultHealthConfig
 	}
 
-	// set or keep at least default
 	if !r.HealthCheck.Disable {
-		r.HealthCheck.Interval |= common.HealthCheckIntervalDefault
-		r.HealthCheck.Timeout |= common.HealthCheckTimeoutDefault
+		if r.HealthCheck.Interval == 0 {
+			r.HealthCheck.Interval = common.HealthCheckIntervalDefault
+		}
+		if r.HealthCheck.Timeout == 0 {
+			r.HealthCheck.Timeout = common.HealthCheckTimeoutDefault
+		}
 	}
 
 	if isDocker && cont.IdleTimeout != "" {
