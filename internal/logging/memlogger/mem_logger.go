@@ -80,14 +80,16 @@ func init() {
 	logging.InitLogger(zerolog.MultiLevelWriter(os.Stderr, memLoggerInstance))
 }
 
-func LogsWS(allowedDomains []string) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		memLoggerInstance.ServeHTTP(allowedDomains, w, r)
-	}
-}
-
 func GetMemLogger() MemLogger {
 	return memLoggerInstance
+}
+
+func Handler() http.Handler {
+	return memLoggerInstance
+}
+
+func HandlerFunc() http.HandlerFunc {
+	return memLoggerInstance.ServeHTTP
 }
 
 func (m *memLogger) truncateIfNeeded(n int) {
@@ -150,8 +152,8 @@ func (m *memLogger) Write(p []byte) (n int, err error) {
 	return
 }
 
-func (m *memLogger) ServeHTTP(allowedDomains []string, w http.ResponseWriter, r *http.Request) {
-	conn, err := utils.InitiateWS(allowedDomains, w, r)
+func (m *memLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	conn, err := utils.InitiateWS(w, r)
 	if err != nil {
 		utils.HandleErr(w, r, err)
 		return

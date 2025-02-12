@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 )
 
 type (
@@ -20,10 +20,10 @@ var (
 
 // before implements RequestModifier.
 func (setXForwarded) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
-	r.Header.Del(gphttp.HeaderXForwardedFor)
+	r.Header.Del(httpheaders.HeaderXForwardedFor)
 	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil {
-		r.Header.Set(gphttp.HeaderXForwardedFor, clientIP)
+		r.Header.Set(httpheaders.HeaderXForwardedFor, clientIP)
 	}
 	return true
 }

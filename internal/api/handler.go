@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -12,39 +13,73 @@ import (
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/logging/memlogger"
 	"github.com/yusing/go-proxy/internal/metrics/uptime"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-type ServeMux struct{ *http.ServeMux }
+type (
+	ServeMux struct {
+		*http.ServeMux
+		cfg config.ConfigInstance
+	}
+	WithCfgHandler = func(config.ConfigInstance, http.ResponseWriter, *http.Request)
+)
 
-func (mux ServeMux) HandleFunc(methods, endpoint string, handler http.HandlerFunc) {
+func (mux ServeMux) HandleFunc(methods, endpoint string, h any, requireAuth ...bool) {
+	var handler http.HandlerFunc
+	switch h := h.(type) {
+	case func(http.ResponseWriter, *http.Request):
+		handler = h
+	case http.Handler:
+		handler = h.ServeHTTP
+	case WithCfgHandler:
+		handler = func(w http.ResponseWriter, r *http.Request) {
+			h(mux.cfg, w, r)
+		}
+	default:
+		panic(fmt.Errorf("unsupported handler type: %T", h))
+	}
+
+	matchDomains := mux.cfg.Value().MatchDomains
+	if len(matchDomains) > 0 {
+		origHandler := handler
+		handler = func(w http.ResponseWriter, r *http.Request) {
+			if httpheaders.IsWebsocket(r.Header) {
+				httpheaders.SetWebsocketAllowedDomains(r.Header, matchDomains)
+			}
+			origHandler(w, r)
+		}
+	}
+
+	if len(requireAuth) > 0 && requireAuth[0] {
+		handler = auth.RequireAuth(handler)
+	}
+
 	for _, m := range strutils.CommaSeperatedList(methods) {
 		mux.ServeMux.HandleFunc(m+" "+endpoint, handler)
 	}
 }
 
 func NewHandler(cfg config.ConfigInstance) http.Handler {
-	mux := ServeMux{http.NewServeMux()}
+	mux := ServeMux{http.NewServeMux(), cfg}
 	mux.HandleFunc("GET", "/v1", v1.Index)
 	mux.HandleFunc("GET", "/v1/version", v1.GetVersion)
-	mux.HandleFunc("POST", "/v1/reload", useCfg(cfg, v1.Reload))
-	mux.HandleFunc("GET", "/v1/list", auth.RequireAuth(useCfg(cfg, v1.List)))
-	mux.HandleFunc("GET", "/v1/list/{what}", auth.RequireAuth(useCfg(cfg, v1.List)))
-	mux.HandleFunc("GET", "/v1/list/{what}/{which}", auth.RequireAuth(useCfg(cfg, v1.List)))
-	mux.HandleFunc("GET", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.GetFileContent))
-	mux.HandleFunc("POST,PUT", "/v1/file/{type}/{filename}", auth.RequireAuth(v1.SetFileContent))
-	mux.HandleFunc("POST", "/v1/file/validate/{type}", auth.RequireAuth(v1.ValidateFile))
-	mux.HandleFunc("GET", "/v1/stats", useCfg(cfg, v1.Stats))
-	mux.HandleFunc("GET", "/v1/stats/ws", useCfg(cfg, v1.StatsWS))
-	mux.HandleFunc("GET", "/v1/health/ws", auth.RequireAuth(useCfg(cfg, v1.HealthWS)))
-	mux.HandleFunc("GET", "/v1/logs/ws", auth.RequireAuth(memlogger.LogsWS(cfg.Value().MatchDomains)))
-	mux.HandleFunc("GET", "/v1/favicon", auth.RequireAuth(favicon.GetFavIcon))
-	mux.HandleFunc("POST", "/v1/homepage/set", auth.RequireAuth(v1.SetHomePageOverrides))
-	mux.HandleFunc("GET", "/v1/agents/ws", auth.RequireAuth(useCfg(cfg, v1.AgentsWS)))
-	mux.HandleFunc("GET", "/v1/metrics/system_info", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
-	mux.HandleFunc("GET", "/v1/metrics/system_info/ws", auth.RequireAuth(useCfg(cfg, v1.SystemInfo)))
-	mux.HandleFunc("GET", "/v1/metrics/uptime", auth.RequireAuth(uptime.Poller.ServeHTTP))
-	mux.HandleFunc("GET", "/v1/metrics/uptime/ws", auth.RequireAuth(useWS(cfg, uptime.Poller.ServeWS)))
+
+	mux.HandleFunc("GET", "/v1/stats", v1.Stats, true)
+	mux.HandleFunc("POST", "/v1/reload", v1.Reload, true)
+	mux.HandleFunc("GET", "/v1/list", v1.List, true)
+	mux.HandleFunc("GET", "/v1/list/{what}", v1.List, true)
+	mux.HandleFunc("GET", "/v1/list/{what}/{which}", v1.List, true)
+	mux.HandleFunc("GET", "/v1/file/{type}/{filename}", v1.GetFileContent, true)
+	mux.HandleFunc("POST,PUT", "/v1/file/{type}/{filename}", v1.SetFileContent, true)
+	mux.HandleFunc("POST", "/v1/file/validate/{type}", v1.ValidateFile, true)
+	mux.HandleFunc("GET", "/v1/health", v1.Health, true)
+	mux.HandleFunc("GET", "/v1/logs", memlogger.Handler(), true)
+	mux.HandleFunc("GET", "/v1/favicon", favicon.GetFavIcon, true)
+	mux.HandleFunc("POST", "/v1/homepage/set", v1.SetHomePageOverrides, true)
+	mux.HandleFunc("GET", "/v1/agents", v1.AgentsWS, true)
+	mux.HandleFunc("GET", "/v1/metrics/system_info", v1.SystemInfo, true)
+	mux.HandleFunc("GET", "/v1/metrics/uptime", uptime.Poller.ServeHTTP, true)
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())
@@ -68,16 +103,4 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 		})
 	}
 	return mux
-}
-
-func useCfg(cfg config.ConfigInstance, handler func(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		handler(cfg, w, r)
-	}
-}
-
-func useWS(cfg config.ConfigInstance, handler func(allowedDomains []string, w http.ResponseWriter, r *http.Request)) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		handler(cfg.Value().MatchDomains, w, r)
-	}
 }

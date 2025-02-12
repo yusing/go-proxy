@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 )
 
 type (
@@ -91,25 +91,25 @@ var staticReqVarSubsMap = map[string]reqVarGetter{
 		return ""
 	},
 	VarRemoteAddr:     func(req *http.Request) string { return req.RemoteAddr },
-	VarUpstreamName:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamName) },
-	VarUpstreamScheme: func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamScheme) },
-	VarUpstreamHost:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamHost) },
-	VarUpstreamPort:   func(req *http.Request) string { return req.Header.Get(gphttp.HeaderUpstreamPort) },
+	VarUpstreamName:   func(req *http.Request) string { return req.Header.Get(httpheaders.HeaderUpstreamName) },
+	VarUpstreamScheme: func(req *http.Request) string { return req.Header.Get(httpheaders.HeaderUpstreamScheme) },
+	VarUpstreamHost:   func(req *http.Request) string { return req.Header.Get(httpheaders.HeaderUpstreamHost) },
+	VarUpstreamPort:   func(req *http.Request) string { return req.Header.Get(httpheaders.HeaderUpstreamPort) },
 	VarUpstreamAddr: func(req *http.Request) string {
-		upHost := req.Header.Get(gphttp.HeaderUpstreamHost)
-		upPort := req.Header.Get(gphttp.HeaderUpstreamPort)
+		upHost := req.Header.Get(httpheaders.HeaderUpstreamHost)
+		upPort := req.Header.Get(httpheaders.HeaderUpstreamPort)
 		if upPort != "" {
 			return upHost + ":" + upPort
 		}
 		return upHost
 	},
 	VarUpstreamURL: func(req *http.Request) string {
-		upScheme := req.Header.Get(gphttp.HeaderUpstreamScheme)
+		upScheme := req.Header.Get(httpheaders.HeaderUpstreamScheme)
 		if upScheme == "" {
 			return ""
 		}
-		upHost := req.Header.Get(gphttp.HeaderUpstreamHost)
-		upPort := req.Header.Get(gphttp.HeaderUpstreamPort)
+		upHost := req.Header.Get(httpheaders.HeaderUpstreamHost)
+		upPort := req.Header.Get(httpheaders.HeaderUpstreamPort)
 		upAddr := upHost
 		if upPort != "" {
 			upAddr += ":" + upPort

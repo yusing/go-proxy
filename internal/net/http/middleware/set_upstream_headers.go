@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 )
 
@@ -29,9 +29,9 @@ func newSetUpstreamHeaders(rp *reverseproxy.ReverseProxy) *Middleware {
 
 // before implements RequestModifier.
 func (s setUpstreamHeaders) before(w http.ResponseWriter, r *http.Request) (proceed bool) {
-	r.Header.Set(gphttp.HeaderUpstreamName, s.Name)
-	r.Header.Set(gphttp.HeaderUpstreamScheme, s.Scheme)
-	r.Header.Set(gphttp.HeaderUpstreamHost, s.Host)
-	r.Header.Set(gphttp.HeaderUpstreamPort, s.Port)
+	r.Header.Set(httpheaders.HeaderUpstreamName, s.Name)
+	r.Header.Set(httpheaders.HeaderUpstreamScheme, s.Scheme)
+	r.Header.Set(httpheaders.HeaderUpstreamHost, s.Host)
+	r.Header.Set(httpheaders.HeaderUpstreamPort, s.Port)
 	return true
 }

@@ -10,6 +10,7 @@ import (
 
 	"github.com/yusing/go-proxy/internal/logging"
 	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 	"github.com/yusing/go-proxy/internal/net/http/middleware/errorpage"
 )
 
@@ -36,8 +37,8 @@ func (customErrorPage) modifyResponse(resp *http.Response) error {
 			resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(errorPage))
 			resp.ContentLength = int64(len(errorPage))
-			resp.Header.Set(gphttp.HeaderContentLength, strconv.Itoa(len(errorPage)))
-			resp.Header.Set(gphttp.HeaderContentType, "text/html; charset=utf-8")
+			resp.Header.Set(httpheaders.HeaderContentLength, strconv.Itoa(len(errorPage)))
+			resp.Header.Set(httpheaders.HeaderContentType, "text/html; charset=utf-8")
 		} else {
 			logging.Error().Msgf("unable to load error page for status %d", resp.StatusCode)
 		}
@@ -61,11 +62,11 @@ func ServeStaticErrorPageFile(w http.ResponseWriter, r *http.Request) (served bo
 		ext := filepath.Ext(filename)
 		switch ext {
 		case ".html":
-			w.Header().Set(gphttp.HeaderContentType, "text/html; charset=utf-8")
+			w.Header().Set(httpheaders.HeaderContentType, "text/html; charset=utf-8")
 		case ".js":
-			w.Header().Set(gphttp.HeaderContentType, "application/javascript; charset=utf-8")
+			w.Header().Set(httpheaders.HeaderContentType, "application/javascript; charset=utf-8")
 		case ".css":
-			w.Header().Set(gphttp.HeaderContentType, "text/css; charset=utf-8")
+			w.Header().Set(httpheaders.HeaderContentType, "text/css; charset=utf-8")
 		default:
 			logging.Error().Msgf("unexpected file type %q for %s", ext, filename)
 		}

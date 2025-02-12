@@ -1,6 +1,7 @@
 package period
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -8,48 +9,22 @@ import (
 	"github.com/coder/websocket/wsjson"
 	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	metricsutils "github.com/yusing/go-proxy/internal/metrics/utils"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 )
 
-func (p *Poller[T, AggregateT]) lastResultHandler(w http.ResponseWriter, r *http.Request) {
-	info := p.GetLastResult()
-	if info == nil {
-		http.Error(w, "no system info", http.StatusNoContent)
-		return
-	}
-	utils.RespondJSON(w, r, info)
-}
-
+// ServeHTTP serves the data for the given period.
+//
+// If the period is not specified, it serves the last result.
+//
+// If the period is specified, it serves the data for the given period.
+//
+// If the period is invalid, it returns a 400 error.
+//
+// If the data is not found, it returns a 204 error.
+//
+// If the request is a websocket request, it serves the data for the given period for every interval.
 func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	period := query.Get("period")
-	if period == "" {
-		p.lastResultHandler(w, r)
-		return
-	}
-	periodFilter := Filter(period)
-	if !periodFilter.IsValid() {
-		http.Error(w, "invalid period", http.StatusBadRequest)
-		return
-	}
-	rangeData := p.Get(periodFilter)
-	if len(rangeData) == 0 {
-		http.Error(w, "no data", http.StatusNoContent)
-		return
-	}
-	if p.aggregator != nil {
-		total, aggregated := p.aggregator(rangeData, query)
-		utils.RespondJSON(w, r, map[string]any{
-			"total": total,
-			"data":  aggregated,
-		})
-	} else {
-		utils.RespondJSON(w, r, rangeData)
-	}
-}
-
-func (p *Poller[T, AggregateT]) ServeWS(allowedDomains []string, w http.ResponseWriter, r *http.Request) {
-	query := r.URL.Query()
-	period := query.Get("period")
 	interval := metricsutils.QueryDuration(query, "interval", 0)
 
 	minInterval := 1 * time.Second
@@ -60,28 +35,52 @@ func (p *Poller[T, AggregateT]) ServeWS(allowedDomains []string, w http.Response
 		interval = minInterval
 	}
 
-	if period == "" {
-		utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
-			return wsjson.Write(r.Context(), conn, p.GetLastResult())
+	if httpheaders.IsWebsocket(r.Header) {
+		utils.PeriodicWS(w, r, interval, func(conn *websocket.Conn) error {
+			data, err := p.getRespData(r)
+			if err != nil {
+				return err
+			}
+			if data == nil {
+				return nil
+			}
+			return wsjson.Write(r.Context(), conn, data)
 		})
 	} else {
-		periodFilter := Filter(period)
-		if !periodFilter.IsValid() {
-			http.Error(w, "invalid period", http.StatusBadRequest)
+		data, err := p.getRespData(r)
+		if err != nil {
+			utils.HandleErr(w, r, err)
 			return
 		}
-		if p.aggregator != nil {
-			utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
-				total, aggregated := p.aggregator(p.Get(periodFilter), query)
-				return wsjson.Write(r.Context(), conn, map[string]any{
-					"total": total,
-					"data":  aggregated,
-				})
-			})
-		} else {
-			utils.PeriodicWS(allowedDomains, w, r, interval, func(conn *websocket.Conn) error {
-				return wsjson.Write(r.Context(), conn, p.Get(periodFilter))
-			})
+		if data == nil {
+			http.Error(w, "no data", http.StatusNoContent)
+			return
 		}
+		utils.RespondJSON(w, r, data)
+	}
+}
+
+func (p *Poller[T, AggregateT]) getRespData(r *http.Request) (any, error) {
+	query := r.URL.Query()
+	period := query.Get("period")
+	if period == "" {
+		return p.GetLastResult(), nil
+	}
+	periodFilter := Filter(period)
+	if !periodFilter.IsValid() {
+		return nil, errors.New("invalid period")
+	}
+	rangeData := p.Get(periodFilter)
+	if len(rangeData) == 0 {
+		return nil, nil
+	}
+	if p.aggregator != nil {
+		total, aggregated := p.aggregator(rangeData, query)
+		return map[string]any{
+			"total": total,
+			"data":  aggregated,
+		}, nil
+	} else {
+		return rangeData, nil
 	}
 }

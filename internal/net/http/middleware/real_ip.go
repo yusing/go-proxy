@@ -4,7 +4,7 @@ import (
 	"net"
 	"net/http"
 
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
@@ -111,6 +111,6 @@ func (ri *realIP) setRealIP(req *http.Request) {
 
 	req.RemoteAddr = lastNonTrustedIP
 	req.Header.Set(ri.Header, lastNonTrustedIP)
-	req.Header.Set(gphttp.HeaderXRealIP, lastNonTrustedIP)
+	req.Header.Set(httpheaders.HeaderXRealIP, lastNonTrustedIP)
 	ri.AddTracef("set real ip %s", lastNonTrustedIP)
 }

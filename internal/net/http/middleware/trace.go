@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sync"
 
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 )
 
 type (
@@ -37,7 +37,7 @@ func (tr *Trace) WithRequest(req *http.Request) *Trace {
 		return nil
 	}
 	tr.URL = req.RequestURI
-	tr.ReqHeaders = gphttp.HeaderToMap(req.Header)
+	tr.ReqHeaders = httpheaders.HeaderToMap(req.Header)
 	return tr
 }
 
@@ -46,8 +46,8 @@ func (tr *Trace) WithResponse(resp *http.Response) *Trace {
 		return nil
 	}
 	tr.URL = resp.Request.RequestURI
-	tr.ReqHeaders = gphttp.HeaderToMap(resp.Request.Header)
-	tr.RespHeaders = gphttp.HeaderToMap(resp.Header)
+	tr.ReqHeaders = httpheaders.HeaderToMap(resp.Request.Header)
+	tr.RespHeaders = httpheaders.HeaderToMap(resp.Header)
 	tr.RespStatus = resp.StatusCode
 	return tr
 }

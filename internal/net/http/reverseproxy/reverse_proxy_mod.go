@@ -26,8 +26,8 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/internal/logging"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
 	"github.com/yusing/go-proxy/internal/net/http/accesslog"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 	"github.com/yusing/go-proxy/internal/net/types"
 	U "github.com/yusing/go-proxy/internal/utils"
 	"golang.org/x/net/http/httpguts"
@@ -266,14 +266,14 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	p.rewriteRequestURL(outreq)
 	outreq.Close = false
 
-	reqUpType := gphttp.UpgradeType(outreq.Header)
+	reqUpType := httpheaders.UpgradeType(outreq.Header)
 	if !IsPrint(reqUpType) {
 		p.errorHandler(rw, req, fmt.Errorf("client tried to switch to invalid protocol %q", reqUpType), true)
 		return
 	}
 
 	req.Header.Del("Forwarded")
-	gphttp.RemoveHopByHopHeaders(outreq.Header)
+	httpheaders.RemoveHopByHopHeaders(outreq.Header)
 
 	// Issue 21096: tell backend applications that care about trailer support
 	// that we support trailers. (We do, but we don't go out of our way to
@@ -298,7 +298,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	// If we aren't the first proxy retain prior
 	// X-Forwarded-For information as a comma+space
 	// separated list and fold multiple headers into one.
-	prior, ok := outreq.Header[gphttp.HeaderXForwardedFor]
+	prior, ok := outreq.Header[httpheaders.HeaderXForwardedFor]
 	omit := ok && prior == nil // Issue 38079: nil now means don't populate the header
 
 	xff, _, err := net.SplitHostPort(req.RemoteAddr)
@@ -309,7 +309,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		xff = strings.Join(prior, ", ") + ", " + xff
 	}
 	if !omit {
-		outreq.Header.Set(gphttp.HeaderXForwardedFor, xff)
+		outreq.Header.Set(httpheaders.HeaderXForwardedFor, xff)
 	}
 
 	var reqScheme string
@@ -319,10 +319,10 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		reqScheme = "http"
 	}
 
-	outreq.Header.Set(gphttp.HeaderXForwardedMethod, req.Method)
-	outreq.Header.Set(gphttp.HeaderXForwardedProto, reqScheme)
-	outreq.Header.Set(gphttp.HeaderXForwardedHost, req.Host)
-	outreq.Header.Set(gphttp.HeaderXForwardedURI, req.RequestURI)
+	outreq.Header.Set(httpheaders.HeaderXForwardedMethod, req.Method)
+	outreq.Header.Set(httpheaders.HeaderXForwardedProto, reqScheme)
+	outreq.Header.Set(httpheaders.HeaderXForwardedHost, req.Host)
+	outreq.Header.Set(httpheaders.HeaderXForwardedURI, req.RequestURI)
 
 	if _, ok := outreq.Header["User-Agent"]; !ok {
 		// If the outbound request doesn't have a User-Agent header set,
@@ -389,7 +389,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	gphttp.RemoveHopByHopHeaders(res.Header)
+	httpheaders.RemoveHopByHopHeaders(res.Header)
 
 	if !p.modifyResponse(rw, res, req, outreq) {
 		return
@@ -460,8 +460,8 @@ func cleanWebsocketHeaders(req *http.Request) {
 }
 
 func (p *ReverseProxy) handleUpgradeResponse(rw http.ResponseWriter, req *http.Request, res *http.Response) {
-	reqUpType := gphttp.UpgradeType(req.Header)
-	resUpType := gphttp.UpgradeType(res.Header)
+	reqUpType := httpheaders.UpgradeType(req.Header)
+	resUpType := httpheaders.UpgradeType(res.Header)
 	if !IsPrint(resUpType) { // We know reqUpType is ASCII, it's checked by the caller.
 		p.errorHandler(rw, req, fmt.Errorf("backend tried to switch to invalid protocol %q", resUpType), true)
 		return

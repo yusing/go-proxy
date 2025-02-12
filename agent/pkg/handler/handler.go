@@ -49,7 +49,7 @@ func NewAgentHandler() http.Handler {
 		fmt.Fprint(w, env.AgentName)
 	})
 	mux.HandleMethods("GET", agent.EndpointHealth, CheckHealth)
-	mux.HandleMethods("GET", agent.EndpointLogs, memlogger.LogsWS(nil))
+	mux.HandleMethods("GET", agent.EndpointLogs, memlogger.HandlerFunc())
 	mux.HandleMethods("GET", agent.EndpointSystemInfo, systeminfo.Poller.ServeHTTP)
 	mux.ServeMux.HandleFunc("/", DockerSocketHandler())
 	return mux

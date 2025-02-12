@@ -8,6 +8,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 )
 
 func warnNoMatchDomains() {
@@ -16,11 +17,12 @@ func warnNoMatchDomains() {
 
 var warnNoMatchDomainOnce sync.Once
 
-func InitiateWS(allowedDomains []string, w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
+func InitiateWS(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
 	var originPats []string
 
 	localAddresses := []string{"127.0.0.1", "10.0.*.*", "172.16.*.*", "192.168.*.*"}
 
+	allowedDomains := httpheaders.WebsocketAllowedDomains(r.Header)
 	if len(allowedDomains) == 0 || common.IsDebug {
 		warnNoMatchDomainOnce.Do(warnNoMatchDomains)
 		originPats = []string{"*"}
@@ -40,8 +42,8 @@ func InitiateWS(allowedDomains []string, w http.ResponseWriter, r *http.Request)
 	})
 }
 
-func PeriodicWS(allowedDomains []string, w http.ResponseWriter, r *http.Request, interval time.Duration, do func(conn *websocket.Conn) error) {
-	conn, err := InitiateWS(allowedDomains, w, r)
+func PeriodicWS(w http.ResponseWriter, r *http.Request, interval time.Duration, do func(conn *websocket.Conn) error) {
+	conn, err := InitiateWS(w, r)
 	if err != nil {
 		HandleErr(w, r, err)
 		return
