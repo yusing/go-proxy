@@ -198,7 +198,7 @@ func TestCheckHealthTCPUDP(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			query := url.Values{}
-			query.Set("scheme", "tcp")
+			query.Set("scheme", tt.scheme)
 			query.Set("host", tt.host)
 			query.Set("port", strconv.Itoa(tt.port))
 

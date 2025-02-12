@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	apiUtils "github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/net/types"
@@ -48,6 +50,14 @@ func CheckHealth(w http.ResponseWriter, r *http.Request) {
 	case "tcp", "udp":
 		host := query.Get("host")
 		if host == "" {
+			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+			return
+		}
+		hasPort := strings.Contains(host, ":")
+		port := query.Get("port")
+		if port != "" && !hasPort {
+			host = fmt.Sprintf("%s:%s", host, port)
+		} else {
 			http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 			return
 		}
