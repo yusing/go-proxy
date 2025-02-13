@@ -86,7 +86,7 @@ func (r *Route) Validate() (err E.Error) {
 		}
 		fallthrough
 	case types.SchemeTCP, types.SchemeUDP:
-		r.LisURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://%s:%d", r.Scheme, r.Host, r.Port.Listening))
+		r.LisURL = E.Collect(errs, net.ParseURL, fmt.Sprintf("%s://:%d", r.Scheme, r.Port.Listening))
 		fallthrough
 	default:
 		if r.LoadBalance != nil && r.LoadBalance.Link == "" {
