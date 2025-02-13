@@ -170,7 +170,7 @@ func (cfg *Config) StartAutoCert() {
 }
 
 func (cfg *Config) StartProxyProviders() {
-	errs := cfg.providers.CollectErrorsParallel(
+	errs := cfg.providers.CollectErrors(
 		func(_ string, p *proxy.Provider) error {
 			return p.Start(cfg.task)
 		})

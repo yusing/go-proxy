@@ -97,6 +97,9 @@ func (r *ReveseProxyRoute) String() string {
 
 // Start implements task.TaskStarter.
 func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
+	if existing, ok := routes.GetHTTPRoute(r.TargetName()); ok {
+		return E.Errorf("route already exists: from provider %s and %s", existing.ProviderName(), r.ProviderName())
+	}
 	r.task = parent.Subtask("http."+r.TargetName(), false)
 
 	switch {

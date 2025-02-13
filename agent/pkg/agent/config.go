@@ -163,7 +163,7 @@ func (cfg *AgentConfig) Name() string {
 }
 
 func (cfg *AgentConfig) String() string {
-	return "agent@" + cfg.Addr
+	return cfg.name + "@" + cfg.Addr
 }
 
 func (cfg *AgentConfig) MarshalJSON() ([]byte, error) {

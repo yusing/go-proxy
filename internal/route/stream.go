@@ -47,6 +47,9 @@ func (r *StreamRoute) String() string {
 
 // Start implements task.TaskStarter.
 func (r *StreamRoute) Start(parent task.Parent) E.Error {
+	if existing, ok := routes.GetStreamRoute(r.TargetName()); ok {
+		return E.Errorf("route already exists: from provider %s and %s", existing.ProviderName(), r.ProviderName())
+	}
 	r.task = parent.Subtask("stream." + r.TargetName())
 	r.Stream = NewStream(r)
 	parent.OnCancel("finish", func() {
