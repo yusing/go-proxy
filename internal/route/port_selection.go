@@ -1,15 +1,6 @@
-//nolint:misspell
-package common
+package route
 
 var (
-	WellKnownHTTPPorts = map[string]bool{
-		"80":   true,
-		"8000": true,
-		"8008": true,
-		"8080": true,
-		"3000": true,
-	}
-
 	ImageNamePortMapTCP = map[string]int{
 		"mssql":            1433,
 		"mysql":            3306,
@@ -42,8 +33,6 @@ var (
 		"nginx-proxy-manager": 81,
 		"open-webui":          8080,
 		"plex":                32400,
-		"portainer-be":        9443,
-		"portainer-ce":        9443,
 		"prometheus":          9090,
 		"prowlarr":            9696,
 		"radarr":              7878,
@@ -55,4 +44,36 @@ var (
 		"uptime-kuma":         3001,
 		"whisparr":            6969,
 	}
+	ImageNamePortMapHTTPS = map[string]int{
+		"portainer-be": 9443,
+		"portainer-ce": 9443,
+	}
+	AliasPortMapHTTP  = map[string]int{}
+	AliasPortMapHTTPS = map[string]int{
+		"portainer": 9443,
+		"crafty":    8080,
+	}
 )
+
+func getSchemePortByImageName(imageName string, port int) (scheme string, portNum int, ok bool) {
+	if port, ok := ImageNamePortMapHTTP[imageName]; ok {
+		return "http", port, true
+	}
+	if port, ok := ImageNamePortMapHTTPS[imageName]; ok {
+		return "https", port, true
+	}
+	if port, ok := ImageNamePortMapTCP[imageName]; ok {
+		return "tcp", port, true
+	}
+	return
+}
+
+func getSchemePortByAlias(alias string, port int) (scheme string, portNum int, ok bool) {
+	if port, ok := AliasPortMapHTTP[alias]; ok {
+		return "http", port, true
+	}
+	if port, ok := AliasPortMapHTTPS[alias]; ok {
+		return "https", port, true
+	}
+	return
+}

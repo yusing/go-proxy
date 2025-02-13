@@ -2,7 +2,6 @@ package route
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/yusing/go-proxy/agent/pkg/agent"
@@ -262,20 +261,23 @@ func (r *Route) Finalize() {
 	lp, pp := r.Port.Listening, r.Port.Proxy
 
 	if isDocker {
-		if port, ok := common.ImageNamePortMapTCP[cont.ImageName]; ok {
+		scheme, port, ok := getSchemePortByImageName(cont.ImageName, pp)
+		if ok {
+			if r.Scheme == "" {
+				r.Scheme = types.Scheme(scheme)
+			}
 			if pp == 0 {
 				pp = port
 			}
-			if r.Scheme == "" {
-				r.Scheme = "tcp"
-			}
-		} else if port, ok := common.ImageNamePortMapHTTP[cont.ImageName]; ok {
-			if pp == 0 {
-				pp = port
-			}
-			if r.Scheme == "" {
-				r.Scheme = "http"
-			}
+		}
+	}
+
+	if scheme, port, ok := getSchemePortByAlias(r.Alias, pp); ok {
+		if r.Scheme == "" {
+			r.Scheme = types.Scheme(scheme)
+		}
+		if pp == 0 {
+			pp = port
 		}
 	}
 
@@ -294,6 +296,14 @@ func (r *Route) Finalize() {
 	}
 
 	if isDocker {
+		if r.Scheme == "" {
+			for _, p := range cont.PublicPortMapping {
+				if p.PrivatePort == uint16(pp) && p.Type == "udp" {
+					r.Scheme = "udp"
+					break
+				}
+			}
+		}
 		// replace private port with public port if using public IP.
 		if r.Host == cont.PublicHostname {
 			if p, ok := cont.PrivatePortMapping[pp]; ok {
@@ -305,21 +315,13 @@ func (r *Route) Finalize() {
 				pp = int(p.PrivatePort)
 			}
 		}
-		if r.Scheme == "" {
-			for _, p := range cont.PublicPortMapping {
-				if p.Type == "udp" {
-					r.Scheme = "udp"
-					break
-				}
-			}
-		}
 	}
 
 	if r.Scheme == "" {
 		switch {
 		case lp != 0:
 			r.Scheme = "tcp"
-		case strings.HasSuffix(strconv.Itoa(pp), "443"):
+		case pp%1000 == 443:
 			r.Scheme = "https"
 		default: // assume its http
 			r.Scheme = "http"
