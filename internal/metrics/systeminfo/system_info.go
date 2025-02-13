@@ -101,7 +101,7 @@ func getSystemInfo(ctx context.Context, lastResult *SystemInfo) (*SystemInfo, er
 			// disk.Warnings has the same type
 			// all Warnings are alias of common.Warnings from "github.com/shirou/gopsutil/v4/internal/common"
 			// see line 37
-			var warnings sensors.Warnings
+			warnings := new(sensors.Warnings)
 			if errors.As(err, &warnings) {
 				for _, warning := range warnings.List {
 					allWarnings.Add(warning)
