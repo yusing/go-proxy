@@ -26,10 +26,7 @@ func (e *Entries[T]) Add(now time.Time, info *T) {
 		return
 	}
 	e.entries[e.index] = info
-	e.index++
-	if e.index >= maxEntries {
-		e.index = 0
-	}
+	e.index = (e.index + 1) % maxEntries
 	if e.count < maxEntries {
 		e.count++
 	}
