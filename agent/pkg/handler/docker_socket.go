@@ -1,17 +1,15 @@
 package handler
 
 import (
-	"bufio"
-	"errors"
-	"io"
 	"net/http"
-	"strings"
+	"net/url"
 
-	"github.com/yusing/go-proxy/internal/api/v1/utils"
+	"github.com/docker/docker/client"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/logging"
-	godoxyIO "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
+	"github.com/yusing/go-proxy/internal/net/types"
 )
 
 func DockerSocketHandler() http.HandlerFunc {
@@ -19,75 +17,10 @@ func DockerSocketHandler() http.HandlerFunc {
 	if err != nil {
 		logging.Fatal().Err(err).Msg("failed to connect to docker client")
 	}
-	dockerDialerCallback := dockerClient.Dialer()
+	rp := reverseproxy.NewReverseProxy("docker", types.NewURL(&url.URL{
+		Scheme: "http",
+		Host:   client.DummyHost,
+	}), dockerClient.HTTPClient().Transport)
 
-	return func(w http.ResponseWriter, r *http.Request) {
-		conn, err := dockerDialerCallback(r.Context())
-		if err != nil {
-			utils.HandleErr(w, r, err)
-			return
-		}
-		defer conn.Close()
-
-		// Create a done channel to handle cancellation
-		done := make(chan struct{})
-		defer close(done)
-
-		closed := false
-
-		// Start a goroutine to monitor context cancellation
-		go func() {
-			select {
-			case <-r.Context().Done():
-				closed = true
-				conn.Close() // Force close the connection when client disconnects
-			case <-done:
-			}
-		}()
-
-		if err := r.Write(conn); err != nil {
-			utils.HandleErr(w, r, err)
-			return
-		}
-
-		resp, err := http.ReadResponse(bufio.NewReader(conn), r)
-		if err != nil {
-			utils.HandleErr(w, r, err)
-			return
-		}
-		defer resp.Body.Close()
-
-		// Set any response headers before writing the status code
-		for k, v := range resp.Header {
-			w.Header()[k] = v
-		}
-		w.WriteHeader(resp.StatusCode)
-
-		// For event streams, we need to flush the writer to ensure
-		// events are sent immediately
-		if f, ok := w.(http.Flusher); ok && strings.HasSuffix(r.URL.Path, "/events") {
-			// Copy the body in chunks and flush after each write
-			buf := make([]byte, 2048)
-			for {
-				n, err := resp.Body.Read(buf)
-				if n > 0 {
-					_, werr := w.Write(buf[:n])
-					if werr != nil {
-						logging.Error().Err(werr).Msg("error writing docker event response")
-						break
-					}
-					f.Flush()
-				}
-				if err != nil {
-					if !closed && !errors.Is(err, io.EOF) {
-						logging.Error().Err(err).Msg("error reading docker event response")
-					}
-					return
-				}
-			}
-		} else {
-			// For non-event streams, just copy the body
-			_ = godoxyIO.NewPipe(r.Context(), resp.Body, NopWriteCloser{w}).Start()
-		}
-	}
+	return rp.ServeHTTP
 }

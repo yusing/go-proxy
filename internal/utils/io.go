@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net/http"
 	"sync"
 	"syscall"
 
@@ -37,6 +38,14 @@ type (
 	}
 )
 
+func NewContextReader(ctx context.Context, r io.Reader) *ContextReader {
+	return &ContextReader{ctx: ctx, Reader: r}
+}
+
+func NewContextWriter(ctx context.Context, w io.Writer) *ContextWriter {
+	return &ContextWriter{ctx: ctx, Writer: w}
+}
+
 func (r *ContextReader) Read(p []byte) (int, error) {
 	select {
 	case <-r.ctx.Done():
@@ -63,7 +72,7 @@ func NewPipe(ctx context.Context, r io.ReadCloser, w io.WriteCloser) *Pipe {
 }
 
 func (p *Pipe) Start() (err error) {
-	err = Copy(&p.w, &p.r)
+	err = CopyClose(&p.w, &p.r)
 	switch {
 	case
 		// NOTE: ignoring broken pipe and connection reset by peer
@@ -97,20 +106,78 @@ func (p BidirectionalPipe) Start() E.Error {
 	return b.Error()
 }
 
+var copyBufPool = sync.Pool{
+	New: func() any {
+		return make([]byte, copyBufSize)
+	},
+}
+
+type httpFlusher interface {
+	Flush() error
+}
+
+func getHttpFlusher(dst io.Writer) httpFlusher {
+	if rw, ok := dst.(http.ResponseWriter); ok {
+		return http.NewResponseController(rw)
+	}
+	return nil
+}
+
+const (
+	copyBufSize = 32 * 1024
+)
+
 // Copyright 2009 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
-// This is a copy of io.Copy with context handling
+// This is a copy of io.Copy with context and HTTP flusher handling
 // Author: yusing <yusing@6uo.me>.
-func Copy(dst *ContextWriter, src *ContextReader) (err error) {
-	size := 32 * 1024
-	if l, ok := src.Reader.(*io.LimitedReader); ok && int64(size) > l.N {
-		if l.N < 1 {
-			size = 1
+func CopyClose(dst *ContextWriter, src *ContextReader) (err error) {
+	var buf []byte
+	if l, ok := src.Reader.(*io.LimitedReader); ok {
+		size := copyBufSize
+		if int64(size) > l.N {
+			if l.N < 1 {
+				size = 1
+			} else {
+				size = int(l.N)
+			}
+		}
+		buf = make([]byte, size)
+	} else {
+		buf = copyBufPool.Get().([]byte)
+		defer copyBufPool.Put(buf)
+	}
+	// close both as soon as one of them is done
+	wCloser, wCanClose := dst.Writer.(io.Closer)
+	rCloser, rCanClose := src.Reader.(io.Closer)
+	if wCanClose || rCanClose {
+		if src.ctx == dst.ctx {
+			go func() {
+				<-src.ctx.Done()
+				if wCanClose {
+					wCloser.Close()
+				}
+				if rCanClose {
+					rCloser.Close()
+				}
+			}()
 		} else {
-			size = int(l.N)
+			if wCloser != nil {
+				go func() {
+					<-src.ctx.Done()
+					wCloser.Close()
+				}()
+			}
+			if rCloser != nil {
+				go func() {
+					<-dst.ctx.Done()
+					rCloser.Close()
+				}()
+			}
 		}
 	}
-	buf := make([]byte, size)
+	flusher := getHttpFlusher(dst.Writer)
+	canFlush := flusher != nil
 	for {
 		select {
 		case <-src.ctx.Done():
@@ -135,6 +202,16 @@ func Copy(dst *ContextWriter, src *ContextReader) (err error) {
 					err = io.ErrShortWrite
 					return
 				}
+				if canFlush {
+					err = flusher.Flush()
+					if err != nil {
+						if errors.Is(err, http.ErrNotSupported) {
+							canFlush = false
+						} else {
+							return err
+						}
+					}
+				}
 			}
 			if er != nil {
 				if er != io.EOF {
@@ -144,8 +221,4 @@ func Copy(dst *ContextWriter, src *ContextReader) (err error) {
 			}
 		}
 	}
-}
-
-func Copy2(ctx context.Context, dst io.Writer, src io.Reader) error {
-	return Copy(&ContextWriter{ctx: ctx, Writer: dst}, &ContextReader{ctx: ctx, Reader: src})
 }

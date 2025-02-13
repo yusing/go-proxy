@@ -41,21 +41,22 @@ func StartAgentServer(parent task.Parent, opt Options) {
 		tlsConfig.ClientAuth = tls.NoClientCert
 	}
 
+	logger := logging.GetLogger()
 	agentServer := &http.Server{
 		Handler:   handler.NewAgentHandler(),
 		TLSConfig: tlsConfig,
-		ErrorLog:  log.New(logging.GetLogger(), "", 0),
+		ErrorLog:  log.New(logger, "", 0),
 	}
 
 	go func() {
 		l, err := net.Listen("tcp", fmt.Sprintf(":%d", opt.Port))
 		if err != nil {
-			logging.Fatal().Err(err).Int("port", opt.Port).Msg("failed to listen on port")
+			server.HandleError(logger, err, "failed to listen on port")
 			return
 		}
 		defer l.Close()
 		if err := agentServer.Serve(tls.NewListener(l, tlsConfig)); err != nil {
-			logging.Fatal().Err(err).Int("port", opt.Port).Msg("failed to serve")
+			server.HandleError(logger, err, "failed to serve agent server")
 		}
 	}()
 
@@ -70,24 +71,26 @@ func StartAgentServer(parent task.Parent, opt Options) {
 
 		err := agentServer.Shutdown(ctx)
 		if err != nil {
-			logging.Error().Err(err).Int("port", opt.Port).Msg("failed to shutdown agent server")
+			server.HandleError(logger, err, "failed to shutdown agent server")
+		} else {
+			logging.Info().Int("port", opt.Port).Msg("agent server stopped")
 		}
-		logging.Info().Int("port", opt.Port).Msg("agent server stopped")
 	}()
 }
 
 func StartRegistrationServer(parent task.Parent, opt Options) {
 	t := parent.Subtask("registration_server")
 
+	logger := logging.GetLogger()
 	registrationServer := &http.Server{
 		Addr:     fmt.Sprintf(":%d", opt.Port),
 		Handler:  handler.NewRegistrationHandler(t, opt.CACert),
-		ErrorLog: log.New(logging.GetLogger(), "", 0),
+		ErrorLog: log.New(logger, "", 0),
 	}
 
 	go func() {
 		err := registrationServer.ListenAndServe()
-		server.HandleError(logging.GetLogger(), err)
+		server.HandleError(logger, err, "failed to serve registration server")
 	}()
 
 	logging.Info().Int("port", opt.Port).Msg("registration server started")
@@ -99,7 +102,7 @@ func StartRegistrationServer(parent task.Parent, opt Options) {
 	defer cancel()
 
 	err := registrationServer.Shutdown(ctx)
-	server.HandleError(logging.GetLogger(), err)
+	server.HandleError(logger, err, "failed to shutdown registration server")
 
 	logging.Info().Int("port", opt.Port).Msg("registration server stopped")
 }

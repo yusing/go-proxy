@@ -410,15 +410,13 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 
 	rw.WriteHeader(res.StatusCode)
 
-	_, err = io.Copy(rw, res.Body)
+	err = U.CopyClose(U.NewContextWriter(ctx, rw), U.NewContextReader(ctx, res.Body)) // close now, instead of defer, to populate res.Trailer
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			p.errorHandler(rw, req, err, true)
 		}
-		res.Body.Close()
 		return
 	}
-	res.Body.Close() // close now, instead of defer, to populate res.Trailer
 
 	if len(res.Trailer) > 0 {
 		// Force chunking if we saw a response trailer.

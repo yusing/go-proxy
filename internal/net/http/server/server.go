@@ -99,7 +99,10 @@ func (s *Server) Start(parent task.Parent) {
 	s.startTime = time.Now()
 	if s.http != nil {
 		go func() {
-			s.handleErr(s.http.ListenAndServe())
+			err := s.http.ListenAndServe()
+			if err != nil {
+				s.handleErr(err, "failed to serve http server")
+			}
 		}()
 		s.httpStarted = true
 		s.l.Info().Str("addr", s.http.Addr).Msg("server started")
@@ -109,11 +112,11 @@ func (s *Server) Start(parent task.Parent) {
 		go func() {
 			l, err := net.Listen("tcp", s.https.Addr)
 			if err != nil {
-				s.handleErr(err)
+				s.handleErr(err, "failed to listen on port")
 				return
 			}
 			defer l.Close()
-			s.handleErr(s.https.Serve(tls.NewListener(l, s.https.TLSConfig)))
+			s.handleErr(s.https.Serve(tls.NewListener(l, s.https.TLSConfig)), "failed to serve https server")
 		}()
 		s.httpsStarted = true
 		s.l.Info().Str("addr", s.https.Addr).Msgf("server started")
@@ -131,15 +134,23 @@ func (s *Server) stop() {
 	defer cancel()
 
 	if s.http != nil && s.httpStarted {
-		s.handleErr(s.http.Shutdown(ctx))
-		s.httpStarted = false
-		s.l.Info().Str("addr", s.http.Addr).Msgf("server stopped")
+		err := s.http.Shutdown(ctx)
+		if err != nil {
+			s.handleErr(err, "failed to shutdown http server")
+		} else {
+			s.httpStarted = false
+			s.l.Info().Str("addr", s.http.Addr).Msgf("server stopped")
+		}
 	}
 
 	if s.https != nil && s.httpsStarted {
-		s.handleErr(s.https.Shutdown(ctx))
-		s.httpsStarted = false
-		s.l.Info().Str("addr", s.https.Addr).Msgf("server stopped")
+		err := s.https.Shutdown(ctx)
+		if err != nil {
+			s.handleErr(err, "failed to shutdown https server")
+		} else {
+			s.httpsStarted = false
+			s.l.Info().Str("addr", s.https.Addr).Msgf("server stopped")
+		}
 	}
 }
 
@@ -147,6 +158,6 @@ func (s *Server) Uptime() time.Duration {
 	return time.Since(s.startTime)
 }
 
-func (s *Server) handleErr(err error) {
-	HandleError(&s.l, err)
+func (s *Server) handleErr(err error, msg string) {
+	HandleError(&s.l, err, msg)
 }
