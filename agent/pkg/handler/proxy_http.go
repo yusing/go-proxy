@@ -43,7 +43,6 @@ func ProxyHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if responseHeaderTimeout > 0 {
-		transport = transport.Clone()
 		transport.ResponseHeaderTimeout = time.Duration(responseHeaderTimeout) * time.Second
 	}
 
