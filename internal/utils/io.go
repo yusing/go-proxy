@@ -207,6 +207,7 @@ func CopyClose(dst *ContextWriter, src *ContextReader) (err error) {
 					if err != nil {
 						if errors.Is(err, http.ErrNotSupported) {
 							canFlush = false
+							err = nil
 						} else {
 							return err
 						}
