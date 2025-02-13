@@ -30,7 +30,10 @@ type (
 	}
 )
 
-const gatherErrsInterval = 30 * time.Second
+const (
+	pollInterval       = 1 * time.Second
+	gatherErrsInterval = 30 * time.Second
+)
 
 func NewPoller[T any](
 	name string,
@@ -59,10 +62,6 @@ func NewPollerWithAggregator[T, AggregateT any](
 func (p *Poller[T, AggregateT]) WithResultFilter(filter FilterFunc[T]) *Poller[T, AggregateT] {
 	p.resultFilter = filter
 	return p
-}
-
-func (p *Poller[T, AggregateT]) interval() time.Duration {
-	return p.period.FiveMinutes.interval
 }
 
 func (p *Poller[T, AggregateT]) appendErr(err error) {
@@ -97,7 +96,7 @@ func (p *Poller[T, AggregateT]) clearErrs() {
 }
 
 func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
-	ctx, cancel := context.WithTimeout(ctx, p.interval())
+	ctx, cancel := context.WithTimeout(ctx, pollInterval)
 	defer cancel()
 	data, err := p.poll(ctx, p.lastResult)
 	if err != nil {
@@ -111,12 +110,12 @@ func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
 func (p *Poller[T, AggregateT]) Start() {
 	go func() {
 		ctx := task.RootContext()
-		ticker := time.NewTicker(p.interval())
+		ticker := time.NewTicker(pollInterval)
 		gatherErrsTicker := time.NewTicker(gatherErrsInterval)
 		defer ticker.Stop()
 		defer gatherErrsTicker.Stop()
 
-		logging.Debug().Msgf("Starting poller %s with interval %s", p.name, p.interval())
+		logging.Debug().Msgf("Starting poller %s with interval %s", p.name, pollInterval)
 
 		p.pollWithTimeout(ctx)
 
@@ -137,7 +136,7 @@ func (p *Poller[T, AggregateT]) Start() {
 	}()
 }
 
-func (p *Poller[T, AggregateT]) Get(filter Filter) []*T {
+func (p *Poller[T, AggregateT]) Get(filter Filter) ([]*T, bool) {
 	return p.period.Get(filter)
 }
 

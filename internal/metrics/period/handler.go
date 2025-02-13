@@ -31,7 +31,7 @@ func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request
 
 		minInterval := 1 * time.Second
 		if interval == 0 {
-			interval = p.interval()
+			interval = pollInterval
 		}
 		if interval < minInterval {
 			interval = minInterval
@@ -66,11 +66,10 @@ func (p *Poller[T, AggregateT]) getRespData(r *http.Request) (any, error) {
 	if period == "" {
 		return p.GetLastResult(), nil
 	}
-	periodFilter := Filter(period)
-	if !periodFilter.IsValid() {
+	rangeData, ok := p.Get(Filter(period))
+	if !ok {
 		return nil, errors.New("invalid period")
 	}
-	rangeData := p.Get(periodFilter)
 	if p.aggregator != nil {
 		total, aggregated := p.aggregator(rangeData, query)
 		return map[string]any{
