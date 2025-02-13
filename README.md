@@ -13,6 +13,8 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
 
 **EN** | <a href="README_CHT.md">中文</a>
 
+**Currently working on [feat/godoxy-agent](https://github.com/yusing/go-proxy/tree/feat/godoxy-agent).<br/>Fork this instead of default branch.**
+
 <!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy) -->
