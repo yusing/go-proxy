@@ -21,7 +21,7 @@ const (
 	PeriodFifteenMinutes Filter = "15m"
 	PeriodOneHour        Filter = "1h"
 	PeriodOneDay         Filter = "1d"
-	PeriodOneMonth       Filter = "1m"
+	PeriodOneMonth       Filter = "1mo"
 )
 
 func NewPeriod[T any]() *Period[T] {
