@@ -38,6 +38,7 @@ func (p *Period[T]) Add(info *T) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
+	p.FiveMinutes.Add(now, info)
 	p.FifteenMinutes.Add(now, info)
 	p.OneHour.Add(now, info)
 	p.OneDay.Add(now, info)
