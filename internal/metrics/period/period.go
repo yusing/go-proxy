@@ -48,6 +48,8 @@ func (p *Period[T]) Get(filter Filter) []*T {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	switch filter {
+	case PeriodFiveMinutes:
+		return p.FiveMinutes.Get()
 	case PeriodFifteenMinutes:
 		return p.FifteenMinutes.Get()
 	case PeriodOneHour:
@@ -63,7 +65,7 @@ func (p *Period[T]) Get(filter Filter) []*T {
 
 func (filter Filter) IsValid() bool {
 	switch filter {
-	case PeriodFifteenMinutes, PeriodOneHour, PeriodOneDay, PeriodOneMonth:
+	case PeriodFiveMinutes, PeriodFifteenMinutes, PeriodOneHour, PeriodOneDay, PeriodOneMonth:
 		return true
 	}
 	return false
