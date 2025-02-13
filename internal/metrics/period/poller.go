@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 	"time"
 
+	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 )
@@ -85,13 +85,11 @@ func (p *Poller[T, AggregateT]) gatherErrs() (string, bool) {
 	if len(p.errs) == 0 {
 		return "", false
 	}
-	title := fmt.Sprintf("Poller %s has encountered %d errors in the last %s seconds:", p.name, len(p.errs), gatherErrsInterval)
-	errs := make([]string, 0, len(p.errs)+1)
-	errs = append(errs, title)
+	errs := E.NewBuilder(fmt.Sprintf("poller %s has encountered %d errors in the last %s:", p.name, len(p.errs), gatherErrsInterval))
 	for _, e := range p.errs {
-		errs = append(errs, fmt.Sprintf("%s: %d times", e.err.Error(), e.count))
+		errs.Addf("%w: %d times", e.err, e.count)
 	}
-	return strings.Join(errs, "\n"), true
+	return errs.String(), true
 }
 
 func (p *Poller[T, AggregateT]) clearErrs() {
