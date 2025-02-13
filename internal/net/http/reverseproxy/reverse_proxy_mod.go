@@ -413,7 +413,7 @@ func (p *ReverseProxy) handler(rw http.ResponseWriter, req *http.Request) {
 	err = U.CopyClose(U.NewContextWriter(ctx, rw), U.NewContextReader(ctx, res.Body)) // close now, instead of defer, to populate res.Trailer
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
-			p.errorHandler(rw, req, err, true)
+			p.errorHandler(rw, req, err, false)
 		}
 		return
 	}
