@@ -41,7 +41,7 @@ type (
 		Statistics() map[string]any
 		RouteProviderList() []string
 		Context() context.Context
-		GetAgent(agentDockerHost string) (*agent.AgentConfig, bool)
+		GetAgent(agentAddrOrDockerHost string) (*agent.AgentConfig, bool)
 		ListAgents() []*agent.AgentConfig
 	}
 )

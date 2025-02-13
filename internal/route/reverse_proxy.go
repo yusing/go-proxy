@@ -45,12 +45,13 @@ func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
 	httpConfig := base.HTTPConfig
 	proxyURL := base.ProxyURL
 
-	trans := gphttp.NewTransport()
+	var trans *http.Transport
 	a := base.Agent()
 	if a != nil {
 		trans = a.Transport()
 		proxyURL = agent.HTTPProxyURL
 	} else {
+		trans = gphttp.NewTransport()
 		if httpConfig.NoTLSVerify {
 			trans.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 		}

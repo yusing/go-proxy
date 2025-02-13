@@ -1,8 +1,6 @@
 package config
 
 import (
-	"errors"
-
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/utils/functional"
 )
@@ -22,11 +20,11 @@ func GetAgent(addr string) (agent *agent.AgentConfig, ok bool) {
 	return
 }
 
-func (cfg *Config) GetAgent(agentDockerHost string) (*agent.AgentConfig, bool) {
-	if !agent.IsDockerHostAgent(agentDockerHost) {
-		panic(errors.New("invalid use of GetAgent with docker host: " + agentDockerHost))
+func (cfg *Config) GetAgent(agentAddrOrDockerHost string) (*agent.AgentConfig, bool) {
+	if !agent.IsDockerHostAgent(agentAddrOrDockerHost) {
+		return GetAgent(agentAddrOrDockerHost)
 	}
-	return GetAgent(agent.GetAgentAddrFromDockerHost(agentDockerHost))
+	return GetAgent(agent.GetAgentAddrFromDockerHost(agentAddrOrDockerHost))
 }
 
 func (cfg *Config) ListAgents() []*agent.AgentConfig {

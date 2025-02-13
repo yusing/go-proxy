@@ -25,17 +25,17 @@ import (
 // If the request is a websocket request, it serves the data for the given period for every interval.
 func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	interval := metricsutils.QueryDuration(query, "interval", 0)
-
-	minInterval := 1 * time.Second
-	if interval == 0 {
-		interval = p.interval()
-	}
-	if interval < minInterval {
-		interval = minInterval
-	}
 
 	if httpheaders.IsWebsocket(r.Header) {
+		interval := metricsutils.QueryDuration(query, "interval", 0)
+
+		minInterval := 1 * time.Second
+		if interval == 0 {
+			interval = p.interval()
+		}
+		if interval < minInterval {
+			interval = minInterval
+		}
 		utils.PeriodicWS(w, r, interval, func(conn *websocket.Conn) error {
 			data, err := p.getRespData(r)
 			if err != nil {

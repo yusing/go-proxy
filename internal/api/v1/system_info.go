@@ -3,27 +3,27 @@ package v1
 import (
 	"net/http"
 
-	"github.com/coder/websocket/wsjson"
 	agentPkg "github.com/yusing/go-proxy/agent/pkg/agent"
 	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	config "github.com/yusing/go-proxy/internal/config/types"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/metrics/systeminfo"
 	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
+	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
 )
 
 func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	agentName := query.Get("agent_name")
-	query.Del("agent_name")
-	if agentName == "" {
+	agentAddr := query.Get("agent_addr")
+	query.Del("agent_addr")
+	if agentAddr == "" {
 		systeminfo.Poller.ServeHTTP(w, r)
 		return
 	}
 
-	agent, ok := cfg.GetAgent(agentName)
+	agent, ok := cfg.GetAgent(agentAddr)
 	if !ok {
-		U.HandleErr(w, r, U.ErrInvalidKey("agent_name"), http.StatusNotFound)
+		U.HandleErr(w, r, U.ErrInvalidKey("agent_addr"), http.StatusNotFound)
 		return
 	}
 
@@ -40,35 +40,14 @@ func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 		}
 		U.WriteBody(w, respData)
 	} else {
-		r = r.WithContext(r.Context())
-		clientConn, err := U.InitiateWS(w, r)
+		rp := reverseproxy.NewReverseProxy("agent", agentPkg.AgentURL, agent.Transport())
+		header := r.Header.Clone()
+		r, err := http.NewRequestWithContext(r.Context(), r.Method, agentPkg.EndpointSystemInfo+"?"+query.Encode(), nil)
 		if err != nil {
-			U.HandleErr(w, r, E.Wrap(err, "failed to initiate websocket"))
+			U.HandleErr(w, r, E.Wrap(err, "failed to create request"))
 			return
 		}
-		defer clientConn.CloseNow()
-		agentConn, _, err := agent.Websocket(r.Context(), agentPkg.EndpointSystemInfo+"?"+query.Encode())
-		if err != nil {
-			U.HandleErr(w, r, E.Wrap(err, "failed to connect to agent with websocket"))
-			return
-		}
-		//nolint:errcheck
-		defer agentConn.CloseNow()
-		var data []byte
-		for {
-			select {
-			case <-r.Context().Done():
-				return
-			default:
-				err := wsjson.Read(r.Context(), agentConn, &data)
-				if err == nil {
-					err = wsjson.Write(r.Context(), clientConn, data)
-				}
-				if err != nil {
-					U.HandleErr(w, r, E.Wrap(err, "failed to write data to client"))
-					return
-				}
-			}
-		}
+		r.Header = header
+		rp.ServeHTTP(w, r)
 	}
 }

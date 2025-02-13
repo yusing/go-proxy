@@ -21,6 +21,7 @@ func (cfg *AgentConfig) Forward(req *http.Request, endpoint string) ([]byte, int
 	req.URL.Host = AgentHost
 	req.URL.Scheme = "https"
 	req.URL.Path = APIEndpointBase + endpoint
+	req.RequestURI = ""
 	resp, err := cfg.httpClient.Do(req)
 	if err != nil {
 		return nil, 0, err

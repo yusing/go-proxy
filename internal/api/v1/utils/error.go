@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 	"github.com/yusing/go-proxy/internal/utils/strutils/ansi"
 )
 
@@ -25,7 +26,7 @@ func HandleErr(w http.ResponseWriter, r *http.Request, err error, code ...int) {
 		return
 	}
 	LogError(r).Msg(err.Error())
-	if r.Header.Get("Upgrade") == "websocket" {
+	if httpheaders.IsWebsocket(r.Header) {
 		return
 	}
 	if len(code) == 0 {

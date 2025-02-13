@@ -50,6 +50,7 @@ const (
 )
 
 var (
+	AgentURL              = types.MustParseURL(APIBaseURL)
 	HTTPProxyURL          = types.MustParseURL(APIBaseURL + EndpointProxyHTTP)
 	HTTPProxyURLPrefixLen = len(APIEndpointBase + EndpointProxyHTTP)
 )
