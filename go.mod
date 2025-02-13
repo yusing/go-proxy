@@ -3,29 +3,29 @@ module github.com/yusing/go-proxy
 go 1.24.0
 
 require (
-	github.com/PuerkitoBio/goquery v1.10.2
-	github.com/coder/websocket v1.8.12
-	github.com/coreos/go-oidc/v3 v3.12.0
-	github.com/docker/cli v27.5.1+incompatible
-	github.com/docker/docker v27.5.1+incompatible
-	github.com/fsnotify/fsnotify v1.8.0
-	github.com/go-acme/lego/v4 v4.22.2
-	github.com/go-playground/validator/v10 v10.25.0
-	github.com/gobwas/glob v0.2.3
-	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/gotify/server/v2 v2.6.1
-	github.com/lithammer/fuzzysearch v1.1.8
-	github.com/prometheus/client_golang v1.20.5
-	github.com/puzpuzpuz/xsync/v3 v3.5.1
-	github.com/rs/zerolog v1.33.0
-	github.com/shirou/gopsutil/v4 v4.25.1
-	github.com/vincent-petithory/dataurl v1.0.0
-	golang.org/x/crypto v0.33.0
-	golang.org/x/net v0.35.0
-	golang.org/x/oauth2 v0.26.0
-	golang.org/x/text v0.22.0
-	golang.org/x/time v0.10.0
-	gopkg.in/yaml.v3 v3.0.1
+	github.com/PuerkitoBio/goquery v1.10.2 // parsing HTML for extract fav icon
+	github.com/coder/websocket v1.8.12 // websocket for API and agent
+	github.com/coreos/go-oidc/v3 v3.12.0 // oidc authentication
+	github.com/docker/cli v27.5.1+incompatible // docker CLI
+	github.com/docker/docker v27.5.1+incompatible // docker daemon
+	github.com/fsnotify/fsnotify v1.8.0 // file watcher
+	github.com/go-acme/lego/v4 v4.22.2 // acme client
+	github.com/go-playground/validator/v10 v10.25.0 // validator
+	github.com/gobwas/glob v0.2.3 // glob matcher for route rules
+	github.com/golang-jwt/jwt/v5 v5.2.1 // jwt for default auth
+	github.com/gotify/server/v2 v2.6.1 // reference the Message struct for json response
+	github.com/lithammer/fuzzysearch v1.1.8 // fuzzy search for searching icons and filtering metrics
+	github.com/prometheus/client_golang v1.20.5 // metrics
+	github.com/puzpuzpuz/xsync/v3 v3.5.1 // lock free map for concurrent operations
+	github.com/rs/zerolog v1.33.0 // logging
+	github.com/vincent-petithory/dataurl v1.0.0 // data url for fav icon
+	golang.org/x/crypto v0.33.0 // encrypting password with bcrypt
+	golang.org/x/net v0.35.0 // HTTP header utilities
+	golang.org/x/oauth2 v0.26.0 // oauth2 authentication
+	golang.org/x/text v0.22.0 // string utilities
+	golang.org/x/time v0.10.0 // time utilities
+	gopkg.in/yaml.v3 v3.0.1 // yaml parsing for different config files
+	github.com/shirou/gopsutil/v4 v4.25.1 // system info metrics
 )
 
 require (
