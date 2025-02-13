@@ -5,6 +5,7 @@ import (
 	"github.com/go-acme/lego/v4/providers/dns/cloudflare"
 	"github.com/go-acme/lego/v4/providers/dns/duckdns"
 	"github.com/go-acme/lego/v4/providers/dns/ovh"
+	"github.com/go-acme/lego/v4/providers/dns/porkbun"
 )
 
 const (
@@ -21,6 +22,7 @@ const (
 	ProviderDuckdns    = "duckdns"
 	ProviderOVH        = "ovh"
 	ProviderPseudo     = "pseudo" // for testing
+	ProviderPorkbun    = "porkbun"
 )
 
 var providersGenMap = map[string]ProviderGenerator{
@@ -30,4 +32,5 @@ var providersGenMap = map[string]ProviderGenerator{
 	ProviderDuckdns:    providerGenerator(duckdns.NewDefaultConfig, duckdns.NewDNSProviderConfig),
 	ProviderOVH:        providerGenerator(ovh.NewDefaultConfig, ovh.NewDNSProviderConfig),
 	ProviderPseudo:     providerGenerator(NewDummyDefaultConfig, NewDummyDNSProviderConfig),
+	ProviderPorkbun:    providerGenerator(porkbun.NewDefaultConfig, porkbun.NewDNSProviderConfig),
 }

@@ -1,7 +1,7 @@
 import { DomainOrWildcard, Email } from "../types";
-export declare const AUTOCERT_PROVIDERS: readonly ["local", "cloudflare", "clouddns", "duckdns", "ovh"];
+export declare const AUTOCERT_PROVIDERS: readonly ["local", "cloudflare", "clouddns", "duckdns", "ovh", "porkbun"];
 export type AutocertProvider = (typeof AUTOCERT_PROVIDERS)[number];
-export type AutocertConfig = LocalOptions | CloudflareOptions | CloudDNSOptions | DuckDNSOptions | OVHOptionsWithAppKey | OVHOptionsWithOAuth2Config;
+export type AutocertConfig = LocalOptions | CloudflareOptions | CloudDNSOptions | DuckDNSOptions | OVHOptionsWithAppKey | OVHOptionsWithOAuth2Config | PorkbunOptions;
 export interface AutocertConfigBase {
     email: Email;
     domains: DomainOrWildcard[];
@@ -32,6 +32,13 @@ export interface DuckDNSOptions extends AutocertConfigBase {
     provider: "duckdns";
     options: {
         token: string;
+    };
+}
+export interface PorkbunOptions extends AutocertConfigBase {
+    provider: "porkbun";
+    options: {
+        api_key: string;
+        secret_api_key: string;
     };
 }
 export declare const OVH_ENDPOINTS: readonly ["ovh-eu", "ovh-ca", "ovh-us", "kimsufi-eu", "kimsufi-ca", "soyoustart-eu", "soyoustart-ca"];

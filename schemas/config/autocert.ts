@@ -6,6 +6,7 @@ export const AUTOCERT_PROVIDERS = [
   "clouddns",
   "duckdns",
   "ovh",
+  "porkbun",
 ] as const;
 
 export type AutocertProvider = (typeof AUTOCERT_PROVIDERS)[number];
@@ -16,7 +17,8 @@ export type AutocertConfig =
   | CloudDNSOptions
   | DuckDNSOptions
   | OVHOptionsWithAppKey
-  | OVHOptionsWithOAuth2Config;
+  | OVHOptionsWithOAuth2Config
+  | PorkbunOptions;
 
 export interface AutocertConfigBase {
   /* ACME email */
@@ -59,6 +61,13 @@ export interface DuckDNSOptions extends AutocertConfigBase {
   };
 }
 
+export interface PorkbunOptions extends AutocertConfigBase {
+  provider: "porkbun";
+  options: {
+    api_key: string;
+    secret_api_key: string;
+  };
+}
 export const OVH_ENDPOINTS = [
   "ovh-eu",
   "ovh-ca",

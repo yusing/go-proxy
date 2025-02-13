@@ -4,6 +4,7 @@ export const AUTOCERT_PROVIDERS = [
     "clouddns",
     "duckdns",
     "ovh",
+    "porkbun",
 ];
 export const OVH_ENDPOINTS = [
     "ovh-eu",
