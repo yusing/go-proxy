@@ -94,6 +94,10 @@ func (p *Poller[T, AggregateT]) gatherErrs() (string, bool) {
 	return strings.Join(errs, "\n"), true
 }
 
+func (p *Poller[T, AggregateT]) clearErrs() {
+	p.errs = p.errs[:0]
+}
+
 func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, p.interval())
 	defer cancel()
@@ -129,6 +133,7 @@ func (p *Poller[T, AggregateT]) Start() {
 				if ok {
 					logging.Error().Msg(errs)
 				}
+				p.clearErrs()
 			}
 		}
 	}()
