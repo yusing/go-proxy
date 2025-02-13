@@ -3,6 +3,7 @@ package systeminfo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -10,6 +11,9 @@ import (
 	"github.com/shirou/gopsutil/v4/mem"
 	"github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/sensors"
+	"github.com/yusing/go-proxy/internal/common"
+	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics/period"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -31,44 +35,90 @@ func init() {
 	Poller.Start()
 }
 
+func _() { // check if this behavior is not changed
+	var _ sensors.Warnings = disk.Warnings{}
+}
+
 func getSystemInfo(ctx context.Context, lastResult *SystemInfo) (*SystemInfo, error) {
-	memoryInfo, err := mem.VirtualMemory()
-	if err != nil {
-		return nil, err
-	}
-	cpuAverage, err := cpu.PercentWithContext(ctx, 150*time.Millisecond, false)
-	if err != nil {
-		return nil, err
-	}
-	diskInfo, err := disk.Usage("/")
-	if err != nil {
-		return nil, err
-	}
-	networkIO, err := net.IOCounters(false)
-	if err != nil {
-		return nil, err
-	}
-	sensors, err := sensors.SensorsTemperatures()
-	if err != nil {
-		return nil, err
-	}
-	var networkUp, networkDown float64
-	if lastResult != nil {
-		interval := time.Since(lastResult.Timestamp).Seconds()
-		networkUp = float64(networkIO[0].BytesSent-lastResult.NetworkIO.BytesSent) / interval
-		networkDown = float64(networkIO[0].BytesRecv-lastResult.NetworkIO.BytesRecv) / interval
+	errs := E.NewBuilder("failed to get system info")
+	var systemInfo SystemInfo
+
+	if !common.MetricsDisableCPU {
+		cpuAverage, err := cpu.PercentWithContext(ctx, 150*time.Millisecond, false)
+		if err != nil {
+			errs.Add(err)
+		} else {
+			systemInfo.CPUAverage = cpuAverage[0]
+		}
 	}
 
-	return &SystemInfo{
-		Timestamp:   time.Now(),
-		CPUAverage:  cpuAverage[0],
-		Memory:      memoryInfo,
-		Disk:        diskInfo,
-		NetworkIO:   &networkIO[0],
-		NetworkUp:   networkUp,
-		NetworkDown: networkDown,
-		Sensors:     sensors,
-	}, nil
+	if !common.MetricsDisableMemory {
+		memoryInfo, err := mem.VirtualMemory()
+		if err != nil {
+			errs.Add(err)
+		}
+		systemInfo.Memory = memoryInfo
+	}
+
+	if !common.MetricsDisableDisk {
+		diskInfo, err := disk.Usage("/")
+		if err != nil {
+			errs.Add(err)
+		}
+		systemInfo.Disk = diskInfo
+	}
+
+	if !common.MetricsDisableNetwork {
+		networkIO, err := net.IOCounters(false)
+		if err != nil {
+			errs.Add(err)
+		} else {
+			networkIO := networkIO[0]
+			systemInfo.NetworkIO = &networkIO
+			var networkUp, networkDown float64
+			if lastResult != nil {
+				interval := time.Since(lastResult.Timestamp).Seconds()
+				networkUp = float64(networkIO.BytesSent-lastResult.NetworkIO.BytesSent) / interval
+				networkDown = float64(networkIO.BytesRecv-lastResult.NetworkIO.BytesRecv) / interval
+			}
+			systemInfo.NetworkUp = networkUp
+			systemInfo.NetworkDown = networkDown
+		}
+	}
+
+	if !common.MetricsDisableSensors {
+		sensorsInfo, err := sensors.SensorsTemperatures()
+		if err != nil {
+			errs.Add(err)
+		}
+		systemInfo.Sensors = sensorsInfo
+	}
+
+	if errs.HasError() {
+		allWarnings := E.NewBuilder("")
+		allErrors := E.NewBuilder("failed to get system info")
+		errs.ForEach(func(err error) {
+			// disk.Warnings has the same type
+			// all Warnings are alias of common.Warnings from "github.com/shirou/gopsutil/v4/internal/common"
+			// see line 37
+			var warnings sensors.Warnings
+			if errors.As(err, &warnings) {
+				for _, warning := range warnings.List {
+					allWarnings.Add(warning)
+				}
+			} else {
+				allErrors.Add(err)
+			}
+		})
+		if allWarnings.HasError() {
+			logging.Warn().Msg(allWarnings.String())
+		}
+		if allErrors.HasError() {
+			return nil, allErrors.Error()
+		}
+	}
+
+	return &systemInfo, nil
 }
 
 func (s *SystemInfo) MarshalJSON() ([]byte, error) {

@@ -122,3 +122,9 @@ func (b *Builder) AddRange(errs ...error) *Builder {
 
 	return b
 }
+
+func (b *Builder) ForEach(fn func(error)) {
+	for _, err := range b.errs {
+		fn(err)
+	}
+}

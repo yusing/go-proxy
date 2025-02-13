@@ -53,6 +53,13 @@ var (
 	OIDCScopes        = GetEnvString("OIDC_SCOPES", "openid, profile, email")
 	OIDCAllowedUsers  = GetCommaSepEnv("OIDC_ALLOWED_USERS", "")
 	OIDCAllowedGroups = GetCommaSepEnv("OIDC_ALLOWED_GROUPS", "")
+
+	// metrics configuration
+	MetricsDisableCPU     = GetEnvBool("METRICS_DISABLE_CPU", false)
+	MetricsDisableMemory  = GetEnvBool("METRICS_DISABLE_MEMORY", false)
+	MetricsDisableDisk    = GetEnvBool("METRICS_DISABLE_DISK", false)
+	MetricsDisableNetwork = GetEnvBool("METRICS_DISABLE_NETWORK", false)
+	MetricsDisableSensors = GetEnvBool("METRICS_DISABLE_SENSORS", false)
 )
 
 func GetEnv[T any](key string, defaultValue T, parser func(string) (T, error)) T {
