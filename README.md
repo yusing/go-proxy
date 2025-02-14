@@ -17,7 +17,7 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy) -->
 
-<img src="https://github.com/user-attachments/assets/4bb371f4-6e4c-425c-89b2-b9e962bdd46f" style="max-width: 650">
+<img src="screenshots/webui.png" style="max-width: 650">
 
 </div>
 
@@ -124,6 +124,14 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 ### idlesleeper
 
 ![idlesleeper](screenshots/idlesleeper.webp)
+
+### Uptime Monitor
+
+![uptime monitor](screenshots/uptime.png)
+
+### System Monitor
+
+![system monitor](screenshots/system-monitor.png)
 
 [🔼Back to top](#table-of-content)
 
