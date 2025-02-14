@@ -30,9 +30,6 @@ func main() {
 	case common.CommandSetup:
 		Setup()
 		return
-	case common.CommandAddAgent:
-		AddAgent(args.Args)
-		return
 	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {
 			E.LogFatal("server reload error", err)
