@@ -4,12 +4,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/homepage"
 	provider "github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -87,10 +85,6 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		item := r.HomepageConfig()
 
-		if item.IsEmpty() {
-			item = homepage.NewItem(alias)
-		}
-
 		if override := item.GetOverride(); override != item {
 			if providerFilter != "" && override.Provider != providerFilter ||
 				categoryFilter != "" && override.Category != categoryFilter {
@@ -105,25 +99,6 @@ func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter st
 
 		if providerFilter != "" && item.Provider != providerFilter {
 			return
-		}
-
-		if item.Name == "" {
-			reference := r.TargetName()
-			cont := r.ContainerInfo()
-			if cont != nil {
-				reference = cont.ImageName
-			}
-			name, ok := internal.GetDisplayName(reference)
-			if ok {
-				item.Name = name
-			} else {
-				item.Name = strutils.Title(
-					strings.ReplaceAll(
-						strings.ReplaceAll(alias, "-", " "),
-						"_", " ",
-					),
-				)
-			}
 		}
 
 		if useDefaultCategories {

@@ -48,6 +48,14 @@ func GetStreamRoute(alias string) (types.StreamRoute, bool) {
 	return streamRoutes.Load(alias)
 }
 
+func GetRoute(alias string) (types.Route, bool) {
+	r, ok := httpRoutes.Load(alias)
+	if ok {
+		return r, true
+	}
+	return streamRoutes.Load(alias)
+}
+
 func SetHTTPRoute(alias string, r types.HTTPRoute) {
 	httpRoutes.Store(alias, r)
 }

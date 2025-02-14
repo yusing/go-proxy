@@ -5,11 +5,13 @@ import (
 	"strings"
 
 	"github.com/yusing/go-proxy/agent/pkg/agent"
+	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/homepage"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/task"
+	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 
 	dockertypes "github.com/docker/docker/api/types"
@@ -357,6 +359,26 @@ func (r *Route) Finalize() {
 
 	if r.Homepage.IsEmpty() {
 		r.Homepage = homepage.NewItem(r.Alias)
+	}
+
+	if r.Homepage.Name == "" {
+		var key string
+		if r.Container != nil {
+			key = r.Container.ImageName
+		} else {
+			key = r.Alias
+		}
+		displayName, ok := internal.GetDisplayName(key)
+		if ok {
+			r.Homepage.Name = displayName
+		} else {
+			r.Homepage.Name = strutils.Title(
+				strings.ReplaceAll(
+					strings.ReplaceAll(r.Alias, "-", " "),
+					"_", " ",
+				),
+			)
+		}
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/yusing/go-proxy/internal/metrics/period"
 	metricsutils "github.com/yusing/go-proxy/internal/metrics/utils"
+	"github.com/yusing/go-proxy/internal/route/routes"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
@@ -118,6 +119,10 @@ func (rs RouteStatuses) aggregate(limit int, offset int) Aggregated {
 			"idle":        idle,
 			"avg_latency": latency,
 			"statuses":    statuses,
+		}
+		r, ok := routes.GetRoute(alias)
+		if ok {
+			result[i]["display_name"] = r.HomepageConfig().Name
 		}
 	}
 	return result
