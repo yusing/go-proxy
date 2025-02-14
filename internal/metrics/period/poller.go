@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"time"
 
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 )
@@ -84,7 +84,7 @@ func (p *Poller[T, AggregateT]) gatherErrs() (string, bool) {
 	if len(p.errs) == 0 {
 		return "", false
 	}
-	errs := E.NewBuilder(fmt.Sprintf("poller %s has encountered %d errors in the last %s:", p.name, len(p.errs), gatherErrsInterval))
+	errs := gperr.NewBuilder(fmt.Sprintf("poller %s has encountered %d errors in the last %s:", p.name, len(p.errs), gatherErrsInterval))
 	for _, e := range p.errs {
 		errs.Addf("%w: %d times", e.err, e.count)
 	}

@@ -8,7 +8,7 @@ import (
 	"sync"
 	"syscall"
 
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 )
 
 // TODO: move to "utils/io".
@@ -90,10 +90,10 @@ func NewBidirectionalPipe(ctx context.Context, rw1 io.ReadWriteCloser, rw2 io.Re
 	}
 }
 
-func (p BidirectionalPipe) Start() E.Error {
+func (p BidirectionalPipe) Start() gperr.Error {
 	var wg sync.WaitGroup
 	wg.Add(2)
-	b := E.NewBuilder("bidirectional pipe error")
+	b := gperr.NewBuilder("bidirectional pipe error")
 	go func() {
 		b.Add(p.pSrcDst.Start())
 		wg.Done()

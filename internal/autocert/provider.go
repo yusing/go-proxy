@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"reflect"
@@ -14,7 +15,7 @@ import (
 	"github.com/go-acme/lego/v4/challenge"
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
@@ -32,7 +33,7 @@ type (
 		tlsCert      *tls.Certificate
 		certExpiries CertExpiries
 	}
-	ProviderGenerator func(ProviderOpt) (challenge.Provider, E.Error)
+	ProviderGenerator func(ProviderOpt) (challenge.Provider, gperr.Error)
 
 	CertExpiries map[string]time.Time
 )
@@ -62,7 +63,7 @@ func (p *Provider) GetExpiries() CertExpiries {
 	return p.certExpiries
 }
 
-func (p *Provider) ObtainCert() E.Error {
+func (p *Provider) ObtainCert() error {
 	if p.cfg.Provider == ProviderLocal {
 		return nil
 	}
@@ -75,7 +76,7 @@ func (p *Provider) ObtainCert() E.Error {
 
 	if p.user.Registration == nil {
 		if err := p.registerACME(); err != nil {
-			return E.From(err)
+			return err
 		}
 	}
 
@@ -100,22 +101,22 @@ func (p *Provider) ObtainCert() E.Error {
 			Bundle:  true,
 		})
 		if err != nil {
-			return E.From(err)
+			return err
 		}
 	}
 
 	if err = p.saveCert(cert); err != nil {
-		return E.From(err)
+		return err
 	}
 
 	tlsCert, err := tls.X509KeyPair(cert.Certificate, cert.PrivateKey)
 	if err != nil {
-		return E.From(err)
+		return err
 	}
 
 	expiries, err := getCertExpiries(&tlsCert)
 	if err != nil {
-		return E.From(err)
+		return err
 	}
 	p.tlsCert = &tlsCert
 	p.certExpiries = expiries
@@ -123,14 +124,14 @@ func (p *Provider) ObtainCert() E.Error {
 	return nil
 }
 
-func (p *Provider) LoadCert() E.Error {
+func (p *Provider) LoadCert() error {
 	cert, err := tls.LoadX509KeyPair(p.cfg.CertPath, p.cfg.KeyPath)
 	if err != nil {
-		return E.Errorf("load SSL certificate: %w", err)
+		return fmt.Errorf("load SSL certificate: %w", err)
 	}
 	expiries, err := getCertExpiries(&cert)
 	if err != nil {
-		return E.Errorf("parse SSL certificate: %w", err)
+		return fmt.Errorf("parse SSL certificate: %w", err)
 	}
 	p.tlsCert = &cert
 	p.certExpiries = expiries
@@ -171,7 +172,7 @@ func (p *Provider) ScheduleRenewal(parent task.Parent) {
 					continue
 				}
 				if err := p.renewIfNeeded(); err != nil {
-					E.LogWarn("cert renew failed", err)
+					gperr.LogWarn("cert renew failed", err)
 					lastErrOn = time.Now()
 					continue
 				}
@@ -184,10 +185,10 @@ func (p *Provider) ScheduleRenewal(parent task.Parent) {
 	}()
 }
 
-func (p *Provider) initClient() E.Error {
+func (p *Provider) initClient() error {
 	legoClient, err := lego.NewClient(p.legoCfg)
 	if err != nil {
-		return E.From(err)
+		return err
 	}
 
 	generator := providersGenMap[p.cfg.Provider]
@@ -198,7 +199,7 @@ func (p *Provider) initClient() E.Error {
 
 	err = legoClient.Challenge.SetDNS01Provider(legoProvider)
 	if err != nil {
-		return E.From(err)
+		return err
 	}
 
 	p.client = legoClient
@@ -273,7 +274,7 @@ func (p *Provider) certState() CertState {
 	return CertStateValid
 }
 
-func (p *Provider) renewIfNeeded() E.Error {
+func (p *Provider) renewIfNeeded() error {
 	if p.cfg.Provider == ProviderLocal {
 		return nil
 	}
@@ -312,13 +313,13 @@ func providerGenerator[CT any, PT challenge.Provider](
 	defaultCfg func() *CT,
 	newProvider func(*CT) (PT, error),
 ) ProviderGenerator {
-	return func(opt ProviderOpt) (challenge.Provider, E.Error) {
+	return func(opt ProviderOpt) (challenge.Provider, gperr.Error) {
 		cfg := defaultCfg()
 		err := U.Deserialize(opt, &cfg)
 		if err != nil {
 			return nil, err
 		}
 		p, pErr := newProvider(cfg)
-		return p, E.From(pErr)
+		return p, gperr.Wrap(pErr)
 	}
 }

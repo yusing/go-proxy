@@ -8,11 +8,10 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/autocert"
-	"github.com/yusing/go-proxy/internal/net/http/accesslog"
+	"github.com/yusing/go-proxy/internal/gperr"
+	"github.com/yusing/go-proxy/internal/net/gphttp/accesslog"
 	"github.com/yusing/go-proxy/internal/notif"
 	"github.com/yusing/go-proxy/internal/utils"
-
-	E "github.com/yusing/go-proxy/internal/error"
 )
 
 type (
@@ -37,12 +36,12 @@ type (
 
 	ConfigInstance interface {
 		Value() *Config
-		Reload() E.Error
+		Reload() gperr.Error
 		Statistics() map[string]any
 		RouteProviderList() []string
 		Context() context.Context
 		GetAgent(agentAddrOrDockerHost string) (*agent.AgentConfig, bool)
-		AddAgent(host string, ca agent.PEMPair, client agent.PEMPair) (int, E.Error)
+		AddAgent(host string, ca agent.PEMPair, client agent.PEMPair) (int, gperr.Error)
 		ListAgents() []*agent.AgentConfig
 	}
 )
@@ -79,7 +78,7 @@ func HasInstance() bool {
 	return instance != nil
 }
 
-func Validate(data []byte) E.Error {
+func Validate(data []byte) gperr.Error {
 	var model Config
 	return utils.DeserializeYAML(data, &model)
 }

@@ -4,12 +4,12 @@ import (
 	"net/http"
 
 	agentPkg "github.com/yusing/go-proxy/agent/pkg/agent"
-	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	config "github.com/yusing/go-proxy/internal/config/types"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/metrics/systeminfo"
-	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
-	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
+	"github.com/yusing/go-proxy/internal/net/gphttp"
+	"github.com/yusing/go-proxy/internal/net/gphttp/httpheaders"
+	"github.com/yusing/go-proxy/internal/net/gphttp/reverseproxy"
 )
 
 func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
@@ -23,7 +23,7 @@ func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 
 	agent, ok := cfg.GetAgent(agentAddr)
 	if !ok {
-		U.HandleErr(w, r, U.ErrInvalidKey("agent_addr"), http.StatusNotFound)
+		gphttp.NotFound(w, "agent_addr")
 		return
 	}
 
@@ -31,20 +31,20 @@ func SystemInfo(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Reques
 	if !isWS {
 		respData, status, err := agent.Forward(r, agentPkg.EndpointSystemInfo)
 		if err != nil {
-			U.HandleErr(w, r, E.Wrap(err, "failed to forward request to agent"))
+			gphttp.ServerError(w, r, gperr.Wrap(err, "failed to forward request to agent"))
 			return
 		}
 		if status != http.StatusOK {
 			http.Error(w, string(respData), status)
 			return
 		}
-		U.WriteBody(w, respData)
+		gphttp.WriteBody(w, respData)
 	} else {
 		rp := reverseproxy.NewReverseProxy("agent", agentPkg.AgentURL, agent.Transport())
 		header := r.Header.Clone()
 		r, err := http.NewRequestWithContext(r.Context(), r.Method, agentPkg.EndpointSystemInfo+"?"+query.Encode(), nil)
 		if err != nil {
-			U.HandleErr(w, r, E.Wrap(err, "failed to create request"))
+			gphttp.ServerError(w, r, gperr.Wrap(err, "failed to create request"))
 			return
 		}
 		r.Header = header

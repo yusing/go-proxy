@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/docker"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 )
 
 type (
@@ -40,7 +40,7 @@ var validSignals = map[string]struct{}{
 	"INT": {}, "TERM": {}, "HUP": {}, "QUIT": {},
 }
 
-func ValidateConfig(cont *docker.Container) (*Config, E.Error) {
+func ValidateConfig(cont *docker.Container) (*Config, gperr.Error) {
 	if cont == nil {
 		return nil, nil
 	}
@@ -54,14 +54,14 @@ func ValidateConfig(cont *docker.Container) (*Config, E.Error) {
 		}, nil
 	}
 
-	errs := E.NewBuilder("invalid idlewatcher config")
+	errs := gperr.NewBuilder("invalid idlewatcher config")
 
-	idleTimeout := E.Collect(errs, validateDurationPostitive, cont.IdleTimeout)
-	wakeTimeout := E.Collect(errs, validateDurationPostitive, cont.WakeTimeout)
-	stopTimeout := E.Collect(errs, validateDurationPostitive, cont.StopTimeout)
-	stopMethod := E.Collect(errs, validateStopMethod, cont.StopMethod)
-	signal := E.Collect(errs, validateSignal, cont.StopSignal)
-	startEndpoint := E.Collect(errs, validateStartEndpoint, cont.StartEndpoint)
+	idleTimeout := gperr.Collect(errs, validateDurationPostitive, cont.IdleTimeout)
+	wakeTimeout := gperr.Collect(errs, validateDurationPostitive, cont.WakeTimeout)
+	stopTimeout := gperr.Collect(errs, validateDurationPostitive, cont.StopTimeout)
+	stopMethod := gperr.Collect(errs, validateStopMethod, cont.StopMethod)
+	signal := gperr.Collect(errs, validateSignal, cont.StopSignal)
+	startEndpoint := gperr.Collect(errs, validateStartEndpoint, cont.StartEndpoint)
 
 	if errs.HasError() {
 		return nil, errs.Error()

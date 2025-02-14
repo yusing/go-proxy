@@ -9,7 +9,7 @@ import (
 
 	_ "embed"
 
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/utils"
 	"gopkg.in/yaml.v3"
@@ -110,11 +110,11 @@ func MigrateFromOld() error {
 	composeConfig.SSLCert = agentCert.String()
 	composeTemplate, err := composeConfig.Generate()
 	if err != nil {
-		return E.Wrap(err, "failed to generate new docker compose")
+		return gperr.Wrap(err, "failed to generate new docker compose")
 	}
 
 	if err := os.WriteFile("/app/compose.yml", []byte(composeTemplate), 0600); err != nil {
-		return E.Wrap(err, "failed to write new docker compose")
+		return gperr.Wrap(err, "failed to write new docker compose")
 	}
 
 	logging.Info().Msg("Migrated from old docker compose:")

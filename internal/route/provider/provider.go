@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/task"
@@ -29,7 +29,7 @@ type (
 		fmt.Stringer
 		ShortName() string
 		IsExplicitOnly() bool
-		loadRoutesImpl() (route.Routes, E.Error)
+		loadRoutesImpl() (route.Routes, gperr.Error)
 		NewWatcher() W.Watcher
 		Logger() *zerolog.Logger
 	}
@@ -86,7 +86,7 @@ func (p *Provider) MarshalText() ([]byte, error) {
 	return []byte(p.String()), nil
 }
 
-func (p *Provider) startRoute(parent task.Parent, r *route.Route) E.Error {
+func (p *Provider) startRoute(parent task.Parent, r *route.Route) gperr.Error {
 	err := r.Start(parent)
 	if err != nil {
 		delete(p.routes, r.Alias)
@@ -97,10 +97,10 @@ func (p *Provider) startRoute(parent task.Parent, r *route.Route) E.Error {
 }
 
 // Start implements task.TaskStarter.
-func (p *Provider) Start(parent task.Parent) E.Error {
+func (p *Provider) Start(parent task.Parent) gperr.Error {
 	t := parent.Subtask("provider."+p.String(), false)
 
-	errs := E.NewBuilder("routes error")
+	errs := gperr.NewBuilder("routes error")
 	for _, r := range p.routes {
 		errs.Add(p.startRoute(t, r))
 	}
@@ -114,8 +114,8 @@ func (p *Provider) Start(parent task.Parent) E.Error {
 			handler.Handle(t, events)
 			handler.Log()
 		},
-		func(err E.Error) {
-			E.LogError("event error", err, p.Logger())
+		func(err gperr.Error) {
+			gperr.LogError("event error", err, p.Logger())
 		},
 	)
 	eventQueue.Start(p.watcher.Events(t.Context()))
@@ -137,12 +137,12 @@ func (p *Provider) GetRoute(alias string) (r *route.Route, ok bool) {
 	return
 }
 
-func (p *Provider) loadRoutes() (routes route.Routes, err E.Error) {
+func (p *Provider) loadRoutes() (routes route.Routes, err gperr.Error) {
 	routes, err = p.loadRoutesImpl()
 	if err != nil && len(routes) == 0 {
 		return route.Routes{}, err
 	}
-	errs := E.NewBuilder("routes error")
+	errs := gperr.NewBuilder("routes error")
 	errs.Add(err)
 	// check for exclusion
 	// set alias and provider, then validate
@@ -161,7 +161,7 @@ func (p *Provider) loadRoutes() (routes route.Routes, err E.Error) {
 	return routes, errs.Error()
 }
 
-func (p *Provider) LoadRoutes() (err E.Error) {
+func (p *Provider) LoadRoutes() (err gperr.Error) {
 	p.routes, err = p.loadRoutes()
 	return
 }

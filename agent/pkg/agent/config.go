@@ -12,9 +12,9 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/certs"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	gphttp "github.com/yusing/go-proxy/internal/net/gphttp"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
@@ -80,17 +80,17 @@ func checkVersion(a, b string) bool {
 	return withoutBuildTime(a) == withoutBuildTime(b)
 }
 
-func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) E.Error {
+func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) error {
 	clientCert, err := tls.X509KeyPair(crt, key)
 	if err != nil {
-		return E.Wrap(err)
+		return err
 	}
 
 	// create tls config
 	caCertPool := x509.NewCertPool()
 	ok := caCertPool.AppendCertsFromPEM(ca)
 	if !ok {
-		return E.New("invalid CA certificate")
+		return gperr.New("invalid CA certificate")
 	}
 
 	cfg.tlsConfig = &tls.Config{
@@ -108,17 +108,17 @@ func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) 
 	// check agent version
 	version, _, err := cfg.Fetch(ctx, EndpointVersion)
 	if err != nil {
-		return E.Wrap(err)
+		return err
 	}
 
 	if !checkVersion(string(version), pkg.GetVersion()) {
-		return E.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
+		return gperr.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
 	}
 
 	// get agent name
 	name, _, err := cfg.Fetch(ctx, EndpointName)
 	if err != nil {
-		return E.Wrap(err)
+		return err
 	}
 
 	cfg.name = string(name)
@@ -128,18 +128,18 @@ func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) 
 	return nil
 }
 
-func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
+func (cfg *AgentConfig) Start(parent task.Parent) error {
 	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return E.Errorf("agents certs not found, did you run `godoxy new-agent %s ...`?", cfg.Addr)
+			return gperr.Errorf("agents certs not found, did you run `godoxy new-agent %s ...`?", cfg.Addr)
 		}
-		return E.Wrap(err)
+		return gperr.Wrap(err)
 	}
 
 	ca, crt, key, err := certs.ExtractCert(certData)
 	if err != nil {
-		return E.Wrap(err)
+		return gperr.Wrap(err)
 	}
 
 	return cfg.StartWithCerts(parent, ca, crt, key)

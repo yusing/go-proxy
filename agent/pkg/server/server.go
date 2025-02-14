@@ -14,7 +14,7 @@ import (
 	"github.com/yusing/go-proxy/agent/pkg/env"
 	"github.com/yusing/go-proxy/agent/pkg/handler"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/net/http/server"
+	"github.com/yusing/go-proxy/internal/net/gphttp/server"
 	"github.com/yusing/go-proxy/internal/task"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics"
 	"github.com/yusing/go-proxy/internal/net/types"
@@ -57,9 +57,9 @@ func (mon *monitor) ContextWithTimeout(cause string) (ctx context.Context, cance
 }
 
 // Start implements task.TaskStarter.
-func (mon *monitor) Start(parent task.Parent) E.Error {
+func (mon *monitor) Start(parent task.Parent) gperr.Error {
 	if mon.config.Interval <= 0 {
-		return E.From(ErrNegativeInterval)
+		return gperr.Wrap(ErrNegativeInterval)
 	}
 
 	mon.service = parent.Name()

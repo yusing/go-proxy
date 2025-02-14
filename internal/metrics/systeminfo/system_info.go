@@ -12,7 +12,7 @@ import (
 	"github.com/shirou/gopsutil/v4/net"
 	"github.com/shirou/gopsutil/v4/sensors"
 	"github.com/yusing/go-proxy/internal/common"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics/period"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
@@ -40,7 +40,7 @@ func _() { // check if this behavior is not changed
 }
 
 func getSystemInfo(ctx context.Context, lastResult *SystemInfo) (*SystemInfo, error) {
-	errs := E.NewBuilder("failed to get system info")
+	errs := gperr.NewBuilder("failed to get system info")
 	var systemInfo SystemInfo
 
 	if !common.MetricsDisableCPU {
@@ -95,8 +95,8 @@ func getSystemInfo(ctx context.Context, lastResult *SystemInfo) (*SystemInfo, er
 	}
 
 	if errs.HasError() {
-		allWarnings := E.NewBuilder("")
-		allErrors := E.NewBuilder("failed to get system info")
+		allWarnings := gperr.NewBuilder("")
+		allErrors := gperr.NewBuilder("failed to get system info")
 		errs.ForEach(func(err error) {
 			// disk.Warnings has the same type
 			// all Warnings are alias of common.Warnings from "github.com/shirou/gopsutil/v4/internal/common"

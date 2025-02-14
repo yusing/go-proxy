@@ -5,9 +5,9 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/metrics"
-	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
+	"github.com/yusing/go-proxy/internal/net/gphttp/reverseproxy"
 	net "github.com/yusing/go-proxy/internal/net/types"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
@@ -37,7 +37,7 @@ const (
 
 // TODO: support stream
 
-func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReverseProxy, stream net.Stream) (Waker, E.Error) {
+func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReverseProxy, stream net.Stream) (Waker, gperr.Error) {
 	hcCfg := route.HealthCheckConfig()
 	hcCfg.Timeout = idleWakerCheckTimeout
 
@@ -48,7 +48,7 @@ func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReversePro
 	task := parent.Subtask("idlewatcher." + route.TargetName())
 	watcher, err := registerWatcher(task, route, waker)
 	if err != nil {
-		return nil, E.Errorf("register watcher: %w", err)
+		return nil, gperr.Errorf("register watcher: %w", err)
 	}
 
 	switch {
@@ -66,16 +66,16 @@ func newWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReversePro
 }
 
 // lifetime should follow route provider.
-func NewHTTPWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReverseProxy) (Waker, E.Error) {
+func NewHTTPWaker(parent task.Parent, route route.Route, rp *reverseproxy.ReverseProxy) (Waker, gperr.Error) {
 	return newWaker(parent, route, rp, nil)
 }
 
-func NewStreamWaker(parent task.Parent, route route.Route, stream net.Stream) (Waker, E.Error) {
+func NewStreamWaker(parent task.Parent, route route.Route, stream net.Stream) (Waker, gperr.Error) {
 	return newWaker(parent, route, nil, stream)
 }
 
 // Start implements health.HealthMonitor.
-func (w *Watcher) Start(parent task.Parent) E.Error {
+func (w *Watcher) Start(parent task.Parent) gperr.Error {
 	w.task.OnCancel("route_cleanup", func() {
 		parent.Finish(w.task.FinishCause())
 		if w.metric != nil {

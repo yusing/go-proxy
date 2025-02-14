@@ -11,10 +11,10 @@ import (
 	"github.com/yusing/go-proxy/internal/api/v1/query"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/config"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/net/http/middleware"
+	"github.com/yusing/go-proxy/internal/net/gphttp/middleware"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
@@ -32,7 +32,7 @@ func main() {
 		return
 	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {
-			E.LogFatal("server reload error", err)
+			gperr.LogFatal("server reload error", err)
 		}
 		rawLogger.Println("ok")
 		return
@@ -88,9 +88,9 @@ func main() {
 	middleware.LoadComposeFiles()
 
 	var cfg *config.Config
-	var err E.Error
+	var err gperr.Error
 	if cfg, err = config.Load(); err != nil {
-		E.LogWarn("errors in config", err)
+		gperr.LogWarn("errors in config", err)
 	}
 
 	switch args.Command {

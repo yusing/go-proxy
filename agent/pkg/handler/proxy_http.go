@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/yusing/go-proxy/agent/pkg/agent"
-	agentproxy "github.com/yusing/go-proxy/agent/pkg/agentproxy"
+	"github.com/yusing/go-proxy/agent/pkg/agentproxy"
 	"github.com/yusing/go-proxy/internal/logging"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
-	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
+	"github.com/yusing/go-proxy/internal/net/gphttp"
+	"github.com/yusing/go-proxy/internal/net/gphttp/reverseproxy"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )

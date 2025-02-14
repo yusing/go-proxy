@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/yusing/go-proxy/internal/common"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	gphttp "github.com/yusing/go-proxy/internal/net/gphttp"
+	"github.com/yusing/go-proxy/internal/net/gphttp/httpheaders"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
@@ -63,7 +63,7 @@ func (w *Watcher) wakeFromHTTP(rw http.ResponseWriter, r *http.Request) (shouldN
 	accept := gphttp.GetAccept(r.Header)
 	acceptHTML := (r.Method == http.MethodGet && accept.AcceptHTML() || r.RequestURI == "/" && accept.IsEmpty())
 
-	isCheckRedirect := r.Header.Get(common.HeaderCheckRedirect) != ""
+	isCheckRedirect := r.Header.Get(httpheaders.HeaderGoDoxyCheckRedirect) != ""
 	if !isCheckRedirect && acceptHTML {
 		// Send a loading response to the client
 		body := w.makeLoadingPageBody()

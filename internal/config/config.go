@@ -14,9 +14,9 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/entrypoint"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
-	"github.com/yusing/go-proxy/internal/net/http/server"
+	"github.com/yusing/go-proxy/internal/net/gphttp/server"
 	"github.com/yusing/go-proxy/internal/notif"
 	proxy "github.com/yusing/go-proxy/internal/route/provider"
 	"github.com/yusing/go-proxy/internal/task"
@@ -64,7 +64,7 @@ func newConfig() *Config {
 	}
 }
 
-func Load() (*Config, E.Error) {
+func Load() (*Config, gperr.Error) {
 	if config.HasInstance() {
 		panic(errors.New("config already loaded"))
 	}
@@ -84,8 +84,8 @@ func WatchChanges() {
 		t,
 		configEventFlushInterval,
 		OnConfigChange,
-		func(err E.Error) {
-			E.LogError("config reload error", err)
+		func(err gperr.Error) {
+			gperr.LogError("config reload error", err)
 		},
 	)
 	eventQueue.Start(cfgWatcher.Events(t.Context()))
@@ -109,7 +109,7 @@ func OnConfigChange(ev []events.Event) {
 	}
 }
 
-func Reload() E.Error {
+func Reload() gperr.Error {
 	// avoid race between config change and API reload request
 	reloadMu.Lock()
 	defer reloadMu.Unlock()
@@ -118,7 +118,7 @@ func Reload() E.Error {
 	err := newCfg.load()
 	if err != nil {
 		newCfg.task.Finish(err)
-		return E.New("using last config").With(err)
+		return gperr.New("using last config").With(err)
 	}
 
 	// cancel all current subtasks -> wait
@@ -133,10 +133,13 @@ func (cfg *Config) Value() *config.Config {
 	return cfg.value
 }
 
-func (cfg *Config) Reload() E.Error {
+func (cfg *Config) Reload() gperr.Error {
 	return Reload()
 }
 
+// AutoCertProvider returns the autocert provider.
+//
+// If the autocert provider is not configured, it returns nil.
 func (cfg *Config) AutoCertProvider() *autocert.Provider {
 	return cfg.autocertProvider
 }
@@ -163,7 +166,7 @@ func (cfg *Config) StartAutoCert() {
 	}
 
 	if err := autocert.Setup(); err != nil {
-		E.LogFatal("autocert setup error", err)
+		gperr.LogFatal("autocert setup error", err)
 	} else {
 		autocert.ScheduleRenewal(cfg.task)
 	}
@@ -175,8 +178,8 @@ func (cfg *Config) StartProxyProviders() {
 			return p.Start(cfg.task)
 		})
 
-	if err := E.Join(errs...); err != nil {
-		E.LogError("route provider errors", err)
+	if err := gperr.Join(errs...); err != nil {
+		gperr.LogError("route provider errors", err)
 	}
 }
 
@@ -210,21 +213,21 @@ func (cfg *Config) StartServers(opts ...*StartServersOptions) {
 	}
 }
 
-func (cfg *Config) load() E.Error {
+func (cfg *Config) load() gperr.Error {
 	const errMsg = "config load error"
 
 	data, err := os.ReadFile(common.ConfigPath)
 	if err != nil {
-		E.LogFatal(errMsg, err)
+		gperr.LogFatal(errMsg, err)
 	}
 
 	model := config.DefaultConfig()
 	if err := utils.DeserializeYAML(data, model); err != nil {
-		E.LogFatal(errMsg, err)
+		gperr.LogFatal(errMsg, err)
 	}
 
 	// errors are non fatal below
-	errs := E.NewBuilder(errMsg)
+	errs := gperr.NewBuilder(errMsg)
 	errs.Add(cfg.entrypoint.SetMiddlewares(model.Entrypoint.Middlewares))
 	errs.Add(cfg.entrypoint.SetAccessLogger(cfg.task, model.Entrypoint.AccessLog))
 	cfg.initNotification(model.Providers.Notification)
@@ -252,7 +255,7 @@ func (cfg *Config) initNotification(notifCfg []notif.NotificationConfig) {
 	}
 }
 
-func (cfg *Config) initAutoCert(autocertCfg *autocert.AutocertConfig) (err E.Error) {
+func (cfg *Config) initAutoCert(autocertCfg *autocert.AutocertConfig) (err gperr.Error) {
 	if cfg.autocertProvider != nil {
 		return
 	}
@@ -261,9 +264,9 @@ func (cfg *Config) initAutoCert(autocertCfg *autocert.AutocertConfig) (err E.Err
 	return
 }
 
-func (cfg *Config) errIfExists(p *proxy.Provider) E.Error {
+func (cfg *Config) errIfExists(p *proxy.Provider) gperr.Error {
 	if _, ok := cfg.providers.Load(p.String()); ok {
-		return E.Errorf("provider %s already exists", p.String())
+		return gperr.Errorf("provider %s already exists", p.String())
 	}
 	return nil
 }
@@ -272,9 +275,9 @@ func (cfg *Config) storeProvider(p *proxy.Provider) {
 	cfg.providers.Store(p.String(), p)
 }
 
-func (cfg *Config) loadRouteProviders(providers *config.Providers) E.Error {
-	errs := E.NewBuilder("route provider errors")
-	results := E.NewBuilder("loaded route providers")
+func (cfg *Config) loadRouteProviders(providers *config.Providers) gperr.Error {
+	errs := gperr.NewBuilder("route provider errors")
+	results := gperr.NewBuilder("loaded route providers")
 
 	removeAllAgents()
 
@@ -297,7 +300,7 @@ func (cfg *Config) loadRouteProviders(providers *config.Providers) E.Error {
 			err = cfg.errIfExists(p)
 		}
 		if err != nil {
-			errs.Add(E.PrependSubject(filename, err))
+			errs.Add(gperr.PrependSubject(filename, err))
 			continue
 		}
 		cfg.storeProvider(p)

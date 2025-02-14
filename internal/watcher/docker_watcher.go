@@ -7,7 +7,7 @@ import (
 	docker_events "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
 	D "github.com/yusing/go-proxy/internal/docker"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
@@ -61,7 +61,7 @@ func NewDockerWatcherWithClient(client *D.SharedClient) DockerWatcher {
 	}
 }
 
-func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Error) {
+func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan gperr.Error) {
 	return w.EventsWithOptions(ctx, optionsDefault)
 }
 
@@ -71,9 +71,9 @@ func (w DockerWatcher) Close() {
 	}
 }
 
-func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan E.Error) {
+func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan gperr.Error) {
 	eventCh := make(chan Event, 100)
-	errCh := make(chan E.Error, 10)
+	errCh := make(chan gperr.Error, 10)
 
 	go func() {
 		defer func() {
@@ -89,7 +89,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			retryTicker := time.NewTicker(dockerWatcherRetryInterval)
 			for err != nil {
 				attempts++
-				errCh <- E.Errorf("docker connection attempt #%d: %w", attempts, err)
+				errCh <- gperr.Errorf("docker connection attempt #%d: %w", attempts, err)
 				select {
 				case <-ctx.Done():
 					retryTicker.Stop()
@@ -126,7 +126,7 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 				if err == nil {
 					continue
 				}
-				errCh <- E.From(err)
+				errCh <- gperr.Wrap(err)
 				select {
 				case <-ctx.Done():
 					return

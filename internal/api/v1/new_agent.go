@@ -12,8 +12,9 @@ import (
 
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/agent/pkg/certs"
-	U "github.com/yusing/go-proxy/internal/api/v1/utils"
 	config "github.com/yusing/go-proxy/internal/config/types"
+	"github.com/yusing/go-proxy/internal/gperr"
+	"github.com/yusing/go-proxy/internal/net/gphttp"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -21,27 +22,27 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	name := q.Get("name")
 	if name == "" {
-		U.RespondError(w, U.ErrMissingKey("name"))
+		gphttp.ClientError(w, gphttp.ErrMissingKey("name"))
 		return
 	}
 	host := q.Get("host")
 	if host == "" {
-		U.RespondError(w, U.ErrMissingKey("host"))
+		gphttp.ClientError(w, gphttp.ErrMissingKey("host"))
 		return
 	}
 	portStr := q.Get("port")
 	if portStr == "" {
-		U.RespondError(w, U.ErrMissingKey("port"))
+		gphttp.ClientError(w, gphttp.ErrMissingKey("port"))
 		return
 	}
 	port, err := strconv.Atoi(portStr)
 	if err != nil || port < 1 || port > 65535 {
-		U.RespondError(w, U.ErrInvalidKey("port"))
+		gphttp.ClientError(w, gphttp.ErrInvalidKey("port"))
 		return
 	}
 	hostport := fmt.Sprintf("%s:%d", host, port)
 	if _, ok := config.GetInstance().GetAgent(hostport); ok {
-		U.RespondError(w, U.ErrAlreadyExists("agent", hostport), http.StatusConflict)
+		gphttp.ClientError(w, gphttp.ErrAlreadyExists("agent", hostport), http.StatusConflict)
 		return
 	}
 	t := q.Get("type")
@@ -49,13 +50,13 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 	case "docker":
 		break
 	case "system":
-		U.RespondError(w, U.Errorf("system agent is not supported yet"), http.StatusNotImplemented)
+		gphttp.ClientError(w, gperr.Errorf("system agent is not supported yet"), http.StatusNotImplemented)
 		return
 	case "":
-		U.RespondError(w, U.ErrMissingKey("type"))
+		gphttp.ClientError(w, gphttp.ErrMissingKey("type"))
 		return
 	default:
-		U.RespondError(w, U.ErrInvalidKey("type"))
+		gphttp.ClientError(w, gphttp.ErrInvalidKey("type"))
 		return
 	}
 
@@ -69,7 +70,7 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 
 	ca, srv, client, err := agent.NewAgent()
 	if err != nil {
-		U.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 
@@ -83,11 +84,11 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 
 	template, err := cfg.Generate()
 	if err != nil {
-		U.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 
-	U.RespondJSON(w, r, map[string]any{
+	gphttp.RespondJSON(w, r, map[string]any{
 		"compose": template,
 		"ca":      ca,
 		"client":  client,
@@ -98,7 +99,7 @@ func AddAgent(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	clientPEMData, err := io.ReadAll(r.Body)
 	if err != nil {
-		U.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 
@@ -109,24 +110,24 @@ func AddAgent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.Unmarshal(clientPEMData, &data); err != nil {
-		U.RespondError(w, err, http.StatusBadRequest)
+		gphttp.ClientError(w, err, http.StatusBadRequest)
 		return
 	}
 
 	nRoutesAdded, err := config.GetInstance().AddAgent(data.Host, data.CA, data.Client)
 	if err != nil {
-		U.RespondError(w, err)
+		gphttp.ClientError(w, err)
 		return
 	}
 
 	zip, err := certs.ZipCert(data.CA.Cert, data.Client.Cert, data.Client.Key)
 	if err != nil {
-		U.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 
 	if err := os.WriteFile(certs.AgentCertsFilename(data.Host), zip, 0600); err != nil {
-		U.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 

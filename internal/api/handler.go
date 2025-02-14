@@ -13,7 +13,7 @@ import (
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/logging/memlogger"
 	"github.com/yusing/go-proxy/internal/metrics/uptime"
-	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
+	"github.com/yusing/go-proxy/internal/net/gphttp/httpheaders"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 

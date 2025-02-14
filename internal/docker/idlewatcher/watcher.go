@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog"
 	D "github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
@@ -180,7 +180,7 @@ func (w *Watcher) wakeIfStopped() error {
 	case "running":
 		return nil
 	default:
-		return E.Errorf("unexpected container status: %s", status)
+		return gperr.Errorf("unexpected container status: %s", status)
 	}
 }
 
@@ -213,7 +213,7 @@ func (w *Watcher) expires() time.Time {
 	return w.lastReset.Add(w.IdleTimeout)
 }
 
-func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventCh <-chan events.Event, errCh <-chan E.Error) {
+func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventCh <-chan events.Event, errCh <-chan gperr.Error) {
 	eventCh, errCh = dockerWatcher.EventsWithOptions(w.Task().Context(), watcher.DockerListOptions{
 		Filters: watcher.NewDockerFilter(
 			watcher.DockerFilterContainer,
@@ -251,7 +251,7 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 			return w.task.FinishCause()
 		case err := <-dockerEventErrCh:
 			if !err.Is(context.Canceled) {
-				E.LogError("idlewatcher error", err, &w.Logger)
+				gperr.LogError("idlewatcher error", err, &w.Logger)
 			}
 			return err
 		case e := <-dockerEventCh:

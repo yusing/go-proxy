@@ -10,15 +10,15 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
-	"github.com/yusing/go-proxy/internal/net/http/accesslog"
-	"github.com/yusing/go-proxy/internal/net/http/loadbalancer"
-	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
-	"github.com/yusing/go-proxy/internal/net/http/middleware"
-	metricslogger "github.com/yusing/go-proxy/internal/net/http/middleware/metrics_logger"
-	"github.com/yusing/go-proxy/internal/net/http/reverseproxy"
+	gphttp "github.com/yusing/go-proxy/internal/net/gphttp"
+	"github.com/yusing/go-proxy/internal/net/gphttp/accesslog"
+	"github.com/yusing/go-proxy/internal/net/gphttp/loadbalancer"
+	loadbalance "github.com/yusing/go-proxy/internal/net/gphttp/loadbalancer/types"
+	"github.com/yusing/go-proxy/internal/net/gphttp/middleware"
+	metricslogger "github.com/yusing/go-proxy/internal/net/gphttp/middleware/metrics_logger"
+	"github.com/yusing/go-proxy/internal/net/gphttp/reverseproxy"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -41,7 +41,7 @@ type (
 
 // var globalMux    = http.NewServeMux() // TODO: support regex subdomain matching.
 
-func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, E.Error) {
+func NewReverseProxyRoute(base *Route) (*ReveseProxyRoute, gperr.Error) {
 	httpConfig := base.HTTPConfig
 	proxyURL := base.ProxyURL
 
@@ -96,9 +96,9 @@ func (r *ReveseProxyRoute) String() string {
 }
 
 // Start implements task.TaskStarter.
-func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
+func (r *ReveseProxyRoute) Start(parent task.Parent) gperr.Error {
 	if existing, ok := routes.GetHTTPRoute(r.TargetName()); ok {
-		return E.Errorf("route already exists: from provider %s and %s", existing.ProviderName(), r.ProviderName())
+		return gperr.Errorf("route already exists: from provider %s and %s", existing.ProviderName(), r.ProviderName())
 	}
 	r.task = parent.Subtask("http."+r.TargetName(), false)
 
@@ -130,7 +130,7 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 		r.rp.AccessLogger, err = accesslog.NewFileAccessLogger(r.task, r.AccessLog)
 		if err != nil {
 			r.task.Finish(err)
-			return E.From(err)
+			return gperr.Wrap(err)
 		}
 	}
 
@@ -146,7 +146,7 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) E.Error {
 				Str("route", r.TargetName()).
 				Msg("`path_patterns` for reverse proxy is deprecated. Use `rules` instead.")
 			mux := gphttp.NewServeMux()
-			patErrs := E.NewBuilder("invalid path pattern(s)")
+			patErrs := gperr.NewBuilder("invalid path pattern(s)")
 			for _, p := range pathPatterns {
 				patErrs.Add(mux.HandleFunc(p, r.rp.HandlerFunc))
 			}

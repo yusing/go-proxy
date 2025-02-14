@@ -11,7 +11,7 @@ import (
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 
-	loadbalance "github.com/yusing/go-proxy/internal/net/http/loadbalancer/types"
+	loadbalance "github.com/yusing/go-proxy/internal/net/gphttp/loadbalancer/types"
 )
 
 type (

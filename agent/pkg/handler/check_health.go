@@ -7,7 +7,7 @@ import (
 	"os"
 	"strings"
 
-	apiUtils "github.com/yusing/go-proxy/internal/api/v1/utils"
+	"github.com/yusing/go-proxy/internal/net/gphttp"
 	"github.com/yusing/go-proxy/internal/net/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
@@ -72,5 +72,5 @@ func CheckHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiUtils.RespondJSON(w, r, result)
+	gphttp.RespondJSON(w, r, result)
 }

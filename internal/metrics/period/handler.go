@@ -7,9 +7,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
-	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	metricsutils "github.com/yusing/go-proxy/internal/metrics/utils"
-	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
+	"github.com/yusing/go-proxy/internal/net/gphttp"
+	"github.com/yusing/go-proxy/internal/net/gphttp/gpwebsocket"
+	"github.com/yusing/go-proxy/internal/net/gphttp/httpheaders"
 )
 
 // ServeHTTP serves the data for the given period.
@@ -36,7 +37,7 @@ func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request
 		if interval < minInterval {
 			interval = minInterval
 		}
-		utils.PeriodicWS(w, r, interval, func(conn *websocket.Conn) error {
+		gpwebsocket.Periodic(w, r, interval, func(conn *websocket.Conn) error {
 			data, err := p.getRespData(r)
 			if err != nil {
 				return err
@@ -49,14 +50,14 @@ func (p *Poller[T, AggregateT]) ServeHTTP(w http.ResponseWriter, r *http.Request
 	} else {
 		data, err := p.getRespData(r)
 		if err != nil {
-			utils.HandleErr(w, r, err)
+			gphttp.ServerError(w, r, err)
 			return
 		}
 		if data == nil {
 			http.Error(w, "no data", http.StatusNoContent)
 			return
 		}
-		utils.RespondJSON(w, r, data)
+		gphttp.RespondJSON(w, r, data)
 	}
 }
 

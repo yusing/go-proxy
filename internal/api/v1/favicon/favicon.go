@@ -13,10 +13,10 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/vincent-petithory/dataurl"
-	U "github.com/yusing/go-proxy/internal/api/v1/utils"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/homepage"
 	"github.com/yusing/go-proxy/internal/logging"
-	gphttp "github.com/yusing/go-proxy/internal/net/http"
+	gphttp "github.com/yusing/go-proxy/internal/net/gphttp"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
 )
@@ -53,11 +53,11 @@ func (res *fetchResult) ContentType() string {
 func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 	url, alias := req.FormValue("url"), req.FormValue("alias")
 	if url == "" && alias == "" {
-		U.RespondError(w, U.ErrMissingKey("url or alias"), http.StatusBadRequest)
+		gphttp.ClientError(w, gphttp.ErrMissingKey("url or alias"), http.StatusBadRequest)
 		return
 	}
 	if url != "" && alias != "" {
-		U.RespondError(w, U.ErrInvalidKey("url and alias are mutually exclusive"), http.StatusBadRequest)
+		gphttp.ClientError(w, gperr.New("url and alias are mutually exclusive"), http.StatusBadRequest)
 		return
 	}
 
@@ -65,7 +65,7 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 	if url != "" {
 		var iconURL homepage.IconURL
 		if err := iconURL.Parse(url); err != nil {
-			U.RespondError(w, err, http.StatusBadRequest)
+			gphttp.ClientError(w, err, http.StatusBadRequest)
 			return
 		}
 		fetchResult := getFavIconFromURL(&iconURL)
@@ -74,14 +74,14 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", fetchResult.ContentType())
-		U.WriteBody(w, fetchResult.icon)
+		gphttp.WriteBody(w, fetchResult.icon)
 		return
 	}
 
 	// try with route.Homepage.Icon
 	r, ok := routes.GetHTTPRoute(alias)
 	if !ok {
-		U.RespondError(w, errors.New("no such route"), http.StatusNotFound)
+		gphttp.ClientError(w, errors.New("no such route"), http.StatusNotFound)
 		return
 	}
 
@@ -105,7 +105,7 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", result.ContentType())
-	U.WriteBody(w, result.icon)
+	gphttp.WriteBody(w, result.icon)
 }
 
 func getFavIconFromURL(iconURL *homepage.IconURL) *fetchResult {
@@ -125,7 +125,7 @@ func fetchIconAbsolute(url string) *fetchResult {
 		return result
 	}
 
-	resp, err := U.Get(url)
+	resp, err := gphttp.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if err == nil {
 			err = errors.New(resp.Status)

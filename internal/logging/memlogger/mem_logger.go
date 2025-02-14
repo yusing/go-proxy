@@ -11,9 +11,10 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/rs/zerolog"
-	"github.com/yusing/go-proxy/internal/api/v1/utils"
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
+	"github.com/yusing/go-proxy/internal/net/gphttp"
+	"github.com/yusing/go-proxy/internal/net/gphttp/gpwebsocket"
 	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
@@ -27,8 +28,9 @@ type memLogger struct {
 	sync.RWMutex
 	notifyLock sync.RWMutex
 	connChans  F.Map[chan *logEntryRange, struct{}]
+	listeners  F.Map[chan []byte, struct{}]
 
-	bufPool sync.Pool // used in hook mode
+	bufPool sync.Pool
 }
 
 type MemLogger io.Writer
@@ -41,15 +43,16 @@ const (
 	maxMemLogSize         = 16 * 1024
 	truncateSize          = maxMemLogSize / 2
 	initialWriteChunkSize = 4 * 1024
-	hookModeBufSize       = 256
+	bufPoolSize           = 256
 )
 
 var memLoggerInstance = &memLogger{
 	connChans: F.NewMapOf[chan *logEntryRange, struct{}](),
+	listeners: F.NewMapOf[chan []byte, struct{}](),
 	bufPool: sync.Pool{
 		New: func() any {
 			return &buffer{
-				data: make([]byte, 0, hookModeBufSize),
+				data: make([]byte, 0, bufPoolSize),
 			}
 		},
 	},
@@ -92,6 +95,10 @@ func HandlerFunc() http.HandlerFunc {
 	return memLoggerInstance.ServeHTTP
 }
 
+func Events() (<-chan []byte, func()) {
+	return memLoggerInstance.events()
+}
+
 func (m *memLogger) truncateIfNeeded(n int) {
 	m.RLock()
 	needTruncate := m.Len()+n > maxMemLogSize
@@ -111,7 +118,7 @@ func (m *memLogger) truncateIfNeeded(n int) {
 
 func (m *memLogger) notifyWS(pos, n int) {
 	if m.connChans.Size() > 0 {
-		timeout := time.NewTimer(1 * time.Second)
+		timeout := time.NewTimer(2 * time.Second)
 		defer timeout.Stop()
 
 		m.notifyLock.RLock()
@@ -125,6 +132,19 @@ func (m *memLogger) notifyWS(pos, n int) {
 				return false
 			}
 		})
+		if m.listeners.Size() > 0 {
+			msg := make([]byte, n)
+			copy(msg, m.Buffer.Bytes()[pos:pos+n])
+			m.listeners.Range(func(ch chan []byte, _ struct{}) bool {
+				select {
+				case <-timeout.C:
+					logging.Warn().Msg("mem logger: timeout logging to channel")
+					return false
+				case ch <- msg:
+					return true
+				}
+			})
+		}
 		return
 	}
 }
@@ -153,9 +173,9 @@ func (m *memLogger) Write(p []byte) (n int, err error) {
 }
 
 func (m *memLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	conn, err := utils.InitiateWS(w, r)
+	conn, err := gpwebsocket.Initiate(w, r)
 	if err != nil {
-		utils.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 
@@ -172,11 +192,25 @@ func (m *memLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	if err := m.wsInitial(r.Context(), conn); err != nil {
-		utils.HandleErr(w, r, err)
+		gphttp.ServerError(w, r, err)
 		return
 	}
 
 	m.wsStreamLog(r.Context(), conn, logCh)
+}
+
+func (m *memLogger) events() (<-chan []byte, func()) {
+	ch := make(chan []byte, 10)
+	m.notifyLock.Lock()
+	defer m.notifyLock.Unlock()
+	m.listeners.Store(ch, struct{}{})
+
+	return ch, func() {
+		m.notifyLock.Lock()
+		defer m.notifyLock.Unlock()
+		m.listeners.Delete(ch)
+		close(ch)
+	}
 }
 
 func (m *memLogger) writeBytes(ctx context.Context, conn *websocket.Conn, b []byte) error {

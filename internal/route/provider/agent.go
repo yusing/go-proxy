@@ -3,7 +3,7 @@ package provider
 import (
 	"github.com/rs/zerolog"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/route"
 	"github.com/yusing/go-proxy/internal/watcher"
 )
@@ -25,7 +25,7 @@ func (p *AgentProvider) IsExplicitOnly() bool {
 	return p.docker.IsExplicitOnly()
 }
 
-func (p *AgentProvider) loadRoutesImpl() (route.Routes, E.Error) {
+func (p *AgentProvider) loadRoutesImpl() (route.Routes, gperr.Error) {
 	return p.docker.loadRoutesImpl()
 }
 

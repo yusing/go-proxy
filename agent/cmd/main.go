@@ -6,7 +6,7 @@ import (
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/agent/pkg/env"
 	"github.com/yusing/go-proxy/agent/pkg/server"
-	E "github.com/yusing/go-proxy/internal/error"
+	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/pkg"
@@ -16,7 +16,7 @@ func main() {
 	args := os.Args
 	if len(args) > 1 && args[1] == "migrate" {
 		if err := agent.MigrateFromOld(); err != nil {
-			E.LogFatal("failed to migrate from old docker compose", err)
+			gperr.LogFatal("failed to migrate from old docker compose", err)
 		}
 		return
 	}
@@ -24,21 +24,21 @@ func main() {
 	ca := &agent.PEMPair{}
 	err := ca.Load(env.AgentCACert)
 	if err != nil {
-		E.LogFatal("init CA error", err)
+		gperr.LogFatal("init CA error", err)
 	}
 	caCert, err := ca.ToTLSCert()
 	if err != nil {
-		E.LogFatal("init CA error", err)
+		gperr.LogFatal("init CA error", err)
 	}
 
 	srv := &agent.PEMPair{}
 	srv.Load(env.AgentSSLCert)
 	if err != nil {
-		E.LogFatal("init SSL error", err)
+		gperr.LogFatal("init SSL error", err)
 	}
 	srvCert, err := srv.ToTLSCert()
 	if err != nil {
-		E.LogFatal("init SSL error", err)
+		gperr.LogFatal("init SSL error", err)
 	}
 
 	logging.Info().Msgf("GoDoxy Agent version %s", pkg.GetVersion())
