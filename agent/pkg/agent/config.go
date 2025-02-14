@@ -38,7 +38,7 @@ const (
 	EndpointLogs       = "/logs"
 	EndpointSystemInfo = "/system_info"
 
-	AgentHost = certs.CertsDNSName
+	AgentHost = CertsDNSName
 
 	APIEndpointBase = "/godoxy/agent"
 	APIBaseURL      = "https://" + AgentHost + APIEndpointBase
@@ -80,20 +80,7 @@ func checkVersion(a, b string) bool {
 	return withoutBuildTime(a) == withoutBuildTime(b)
 }
 
-func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
-	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return E.Errorf("agents certs not found, did you run `godoxy new-agent %s ...`?", cfg.Addr)
-		}
-		return E.Wrap(err)
-	}
-
-	ca, crt, key, err := certs.ExtractCert(certData)
-	if err != nil {
-		return E.Wrap(err)
-	}
-
+func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) E.Error {
 	clientCert, err := tls.X509KeyPair(crt, key)
 	if err != nil {
 		return E.Wrap(err)
@@ -109,6 +96,7 @@ func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
 	cfg.tlsConfig = &tls.Config{
 		Certificates: []tls.Certificate{clientCert},
 		RootCAs:      caCertPool,
+		ServerName:   CertsDNSName,
 	}
 
 	// create transport and http client
@@ -138,6 +126,23 @@ func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
 
 	logging.Info().Msgf("agent %q initialized", cfg.name)
 	return nil
+}
+
+func (cfg *AgentConfig) Start(parent task.Parent) E.Error {
+	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return E.Errorf("agents certs not found, did you run `godoxy new-agent %s ...`?", cfg.Addr)
+		}
+		return E.Wrap(err)
+	}
+
+	ca, crt, key, err := certs.ExtractCert(certData)
+	if err != nil {
+		return E.Wrap(err)
+	}
+
+	return cfg.StartWithCerts(parent, ca, crt, key)
 }
 
 func (cfg *AgentConfig) NewHTTPClient() *http.Client {

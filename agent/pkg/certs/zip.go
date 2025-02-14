@@ -12,7 +12,7 @@ import (
 func writeFile(zipWriter *zip.Writer, name string, data []byte) error {
 	w, err := zipWriter.CreateHeader(&zip.FileHeader{
 		Name:   name,
-		Method: zip.Deflate,
+		Method: zip.Store,
 	})
 	if err != nil {
 		return err
@@ -31,8 +31,7 @@ func readFile(f *zip.File) ([]byte, error) {
 }
 
 func ZipCert(ca, crt, key []byte) ([]byte, error) {
-	data := bytes.NewBuffer(nil)
-	data.Grow(6144)
+	data := bytes.NewBuffer(make([]byte, 0, 6144))
 	zipWriter := zip.NewWriter(data)
 	defer zipWriter.Close()
 

@@ -130,7 +130,7 @@ func (s *Server) stop() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(task.RootContext(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(task.RootContext(), 5*time.Second)
 	defer cancel()
 
 	if s.http != nil && s.httpStarted {

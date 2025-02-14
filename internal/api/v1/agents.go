@@ -11,7 +11,7 @@ import (
 	"github.com/yusing/go-proxy/internal/net/http/httpheaders"
 )
 
-func AgentsWS(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
+func ListAgents(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	if httpheaders.IsWebsocket(r.Header) {
 		U.PeriodicWS(w, r, 10*time.Second, func(conn *websocket.Conn) error {
 			wsjson.Write(r.Context(), conn, cfg.ListAgents())

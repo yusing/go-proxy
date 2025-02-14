@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"syscall"
@@ -42,25 +41,26 @@ func RespondError(w http.ResponseWriter, err error, code ...int) {
 	if len(code) == 0 {
 		code = []int{http.StatusBadRequest}
 	}
-	buf, err := json.Marshal(err)
-	if err != nil { // just in case
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		http.Error(w, ansi.StripANSI(err.Error()), code[0])
-		return
-	}
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(code[0])
-	_, _ = w.Write(buf)
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	http.Error(w, ansi.StripANSI(err.Error()), code[0])
+}
+
+func Errorf(format string, args ...any) error {
+	return E.Errorf(format, args...)
 }
 
 func ErrMissingKey(k string) error {
-	return E.New("missing key '" + k + "' in query or request body")
+	return E.New(k + " is required")
 }
 
 func ErrInvalidKey(k string) error {
-	return E.New("invalid key '" + k + "' in query or request body")
+	return E.New(k + " is invalid")
+}
+
+func ErrAlreadyExists(k, v string) error {
+	return E.Errorf("%s %q already exists", k, v)
 }
 
 func ErrNotFound(k, v string) error {
-	return E.Errorf("key %q with value %q not found", k, v)
+	return E.Errorf("%s %q not found", k, v)
 }

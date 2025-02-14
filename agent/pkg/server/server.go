@@ -77,32 +77,3 @@ func StartAgentServer(parent task.Parent, opt Options) {
 		}
 	}()
 }
-
-func StartRegistrationServer(parent task.Parent, opt Options) {
-	t := parent.Subtask("registration_server")
-
-	logger := logging.GetLogger()
-	registrationServer := &http.Server{
-		Addr:     fmt.Sprintf(":%d", opt.Port),
-		Handler:  handler.NewRegistrationHandler(t, opt.CACert),
-		ErrorLog: log.New(logger, "", 0),
-	}
-
-	go func() {
-		err := registrationServer.ListenAndServe()
-		server.HandleError(logger, err, "failed to serve registration server")
-	}()
-
-	logging.Info().Int("port", opt.Port).Msg("registration server started")
-
-	defer t.Finish(nil)
-	<-t.Context().Done()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-
-	err := registrationServer.Shutdown(ctx)
-	server.HandleError(logger, err, "failed to shutdown registration server")
-
-	logging.Info().Int("port", opt.Port).Msg("registration server stopped")
-}
