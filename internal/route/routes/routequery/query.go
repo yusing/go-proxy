@@ -29,21 +29,32 @@ func getHealthInfo(r route.Route) map[string]string {
 	}
 }
 
+func getHealthInfoRaw(r route.Route) map[string]any {
+	mon := r.HealthMonitor()
+	if mon == nil {
+		return map[string]any{
+			"status":  health.StatusUnknown,
+			"latency": time.Duration(0),
+		}
+	}
+	return map[string]any{
+		"status":  mon.Status(),
+		"latency": mon.Latency(),
+	}
+}
+
 func HealthMap() map[string]map[string]string {
-	healthMap := make(map[string]map[string]string)
+	healthMap := make(map[string]map[string]string, routes.NumRoutes())
 	routes.RangeRoutes(func(alias string, r route.Route) {
 		healthMap[alias] = getHealthInfo(r)
 	})
 	return healthMap
 }
 
-func HealthInfo() map[string]health.WithHealthInfo {
-	healthMap := make(map[string]health.WithHealthInfo, routes.NumRoutes())
+func HealthInfo() map[string]map[string]any {
+	healthMap := make(map[string]map[string]any, routes.NumRoutes())
 	routes.RangeRoutes(func(alias string, r route.Route) {
-		mon := r.HealthMonitor()
-		if mon != nil {
-			healthMap[alias] = mon
-		}
+		healthMap[alias] = getHealthInfoRaw(r)
 	})
 	return healthMap
 }

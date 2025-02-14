@@ -17,7 +17,7 @@ import (
 
 type (
 	StatusByAlias struct {
-		Map       map[string]health.WithHealthInfo
+		Map       map[string]map[string]any
 		Timestamp time.Time
 	}
 	Status struct {
@@ -36,10 +36,9 @@ func init() {
 }
 
 func getStatuses(ctx context.Context, _ *StatusByAlias) (*StatusByAlias, error) {
-	now := time.Now()
 	return &StatusByAlias{
 		Map:       routequery.HealthInfo(),
-		Timestamp: now,
+		Timestamp: time.Now(),
 	}, nil
 }
 
@@ -52,8 +51,8 @@ func aggregateStatuses(entries []*StatusByAlias, query url.Values) (int, Aggrega
 	for _, entry := range entries {
 		for alias, status := range entry.Map {
 			statuses[alias] = append(statuses[alias], &Status{
-				Status:    status.Status(),
-				Latency:   status.Latency(),
+				Status:    status["status"].(health.Status),
+				Latency:   status["latency"].(time.Duration),
 				Timestamp: entry.Timestamp,
 			})
 		}
