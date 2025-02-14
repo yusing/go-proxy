@@ -11,13 +11,12 @@ import (
 	"github.com/yusing/go-proxy/internal/metrics/period"
 	metricsutils "github.com/yusing/go-proxy/internal/metrics/utils"
 	"github.com/yusing/go-proxy/internal/route/routes/routequery"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 )
 
 type (
 	StatusByAlias struct {
-		Map       map[string]map[string]any
+		Map       map[string]*routequery.HealthInfoRaw
 		Timestamp time.Time
 	}
 	Status struct {
@@ -51,8 +50,8 @@ func aggregateStatuses(entries []*StatusByAlias, query url.Values) (int, Aggrega
 	for _, entry := range entries {
 		for alias, status := range entry.Map {
 			statuses[alias] = append(statuses[alias], &Status{
-				Status:    status["status"].(health.Status),
-				Latency:   status["latency"].(time.Duration),
+				Status:    status.Status,
+				Latency:   status.Latency,
 				Timestamp: entry.Timestamp,
 			})
 		}
@@ -129,7 +128,6 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 		"status":    s.Status.String(),
 		"latency":   s.Latency.Milliseconds(),
 		"timestamp": s.Timestamp.Unix(),
-		"time":      strutils.FormatTime(s.Timestamp),
 	})
 }
 
@@ -137,6 +135,5 @@ func (s *StatusByAlias) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]interface{}{
 		"statuses":  s.Map,
 		"timestamp": s.Timestamp.Unix(),
-		"time":      strutils.FormatTime(s.Timestamp),
 	})
 }

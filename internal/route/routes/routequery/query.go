@@ -29,17 +29,22 @@ func getHealthInfo(r route.Route) map[string]string {
 	}
 }
 
-func getHealthInfoRaw(r route.Route) map[string]any {
+type HealthInfoRaw struct {
+	Status  health.Status
+	Latency time.Duration
+}
+
+func getHealthInfoRaw(r route.Route) *HealthInfoRaw {
 	mon := r.HealthMonitor()
 	if mon == nil {
-		return map[string]any{
-			"status":  health.StatusUnknown,
-			"latency": time.Duration(0),
+		return &HealthInfoRaw{
+			Status:  health.StatusUnknown,
+			Latency: time.Duration(0),
 		}
 	}
-	return map[string]any{
-		"status":  mon.Status(),
-		"latency": mon.Latency(),
+	return &HealthInfoRaw{
+		Status:  mon.Status(),
+		Latency: mon.Latency(),
 	}
 }
 
@@ -51,8 +56,8 @@ func HealthMap() map[string]map[string]string {
 	return healthMap
 }
 
-func HealthInfo() map[string]map[string]any {
-	healthMap := make(map[string]map[string]any, routes.NumRoutes())
+func HealthInfo() map[string]*HealthInfoRaw {
+	healthMap := make(map[string]*HealthInfoRaw, routes.NumRoutes())
 	routes.RangeRoutes(func(alias string, r route.Route) {
 		healthMap[alias] = getHealthInfoRaw(r)
 	})
