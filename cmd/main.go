@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"os"
+	"sync"
 
 	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
@@ -21,6 +22,18 @@ import (
 )
 
 var rawLogger = log.New(os.Stdout, "", 0)
+
+func parallel(fns ...func()) {
+	var wg sync.WaitGroup
+	for _, fn := range fns {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fn()
+		}()
+	}
+	wg.Wait()
+}
 
 func main() {
 	initProfiling()
@@ -64,6 +77,11 @@ func main() {
 	if args.Command == common.CommandStart {
 		logging.Info().Msgf("GoDoxy version %s", pkg.GetVersion())
 		logging.Trace().Msg("trace enabled")
+		parallel(
+			internal.InitIconListCache,
+			homepage.InitOverridesConfig,
+			favicon.InitIconCache,
+		)
 		// logging.AddHook(notif.GetDispatcher())
 	} else {
 		logging.DiscardLogger()
@@ -108,10 +126,6 @@ func main() {
 		printJSON(cfg.DumpRouteProviders())
 		return
 	}
-
-	go internal.InitIconListCache()
-	go homepage.InitOverridesConfig()
-	go favicon.InitIconCache()
 
 	cfg.Start(&config.StartServersOptions{
 		Proxy: true,

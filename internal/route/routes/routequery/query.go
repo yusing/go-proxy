@@ -1,11 +1,9 @@
 package routequery
 
 import (
-	"strings"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/homepage"
-	provider "github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/route/routes"
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/watcher/health"
@@ -79,70 +77,17 @@ func HomepageCategories() []string {
 	return categories
 }
 
-func HomepageConfig(useDefaultCategories bool, categoryFilter, providerFilter string) homepage.Categories {
+func HomepageConfig(categoryFilter, providerFilter string) homepage.Categories {
 	hpCfg := homepage.NewHomePageConfig()
 
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
 		item := r.HomepageConfig()
-
-		if override := item.GetOverride(); override != item {
-			if providerFilter != "" && override.Provider != providerFilter ||
-				categoryFilter != "" && override.Category != categoryFilter {
-				return
-			}
-			hpCfg.Add(override)
-			return
-		}
-
-		item.Alias = alias
-		item.Provider = r.ProviderName()
-
 		if providerFilter != "" && item.Provider != providerFilter {
 			return
 		}
-
-		if useDefaultCategories {
-			container := r.ContainerInfo()
-			if container != nil && item.Category == "" {
-				if category, ok := homepage.PredefinedCategories[container.ImageName]; ok {
-					item.Category = category
-				}
-			}
-
-			if item.Category == "" {
-				if category, ok := homepage.PredefinedCategories[strings.ToLower(alias)]; ok {
-					item.Category = category
-				}
-			}
-		}
-
 		if categoryFilter != "" && item.Category != categoryFilter {
 			return
 		}
-
-		switch {
-		case r.IsDocker():
-			if item.Category == "" {
-				item.Category = "Docker"
-			}
-			if r.IsAgent() {
-				item.SourceType = string(provider.ProviderTypeAgent)
-			} else {
-				item.SourceType = string(provider.ProviderTypeDocker)
-			}
-		case r.UseLoadBalance():
-			if item.Category == "" {
-				item.Category = "Load-balanced"
-			}
-			item.SourceType = "loadbalancer"
-		default:
-			if item.Category == "" {
-				item.Category = "Others"
-			}
-			item.SourceType = string(provider.ProviderTypeFile)
-		}
-
-		item.AltURL = r.TargetURL().String()
 		hpCfg.Add(item)
 	})
 	return hpCfg

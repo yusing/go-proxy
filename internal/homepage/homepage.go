@@ -23,10 +23,8 @@ type (
 	Item struct {
 		*ItemConfig
 
-		Alias      string `json:"alias"` // proxy alias
-		SourceType string `json:"source_type"`
-		AltURL     string `json:"alt_url"` // original proxy target
-		Provider   string `json:"provider"`
+		Alias    string `json:"alias"` // proxy alias
+		Provider string `json:"provider"`
 
 		IsUnset bool `json:"-"`
 	}

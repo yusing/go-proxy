@@ -36,7 +36,7 @@ func InitIconCache() {
 	if err != nil {
 		logging.Error().Err(err).Msg("failed to load icon cache")
 	} else {
-		logging.Info().Msgf("icon cache loaded (%d icons)", len(iconCache))
+		logging.Info().Int("count", len(iconCache)).Msg("icon cache loaded")
 	}
 
 	go func() {

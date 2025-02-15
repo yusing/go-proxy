@@ -17,6 +17,7 @@ import (
 
 	dockertypes "github.com/docker/docker/api/types"
 	"github.com/yusing/go-proxy/internal/common"
+	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/net/gphttp/accesslog"
 	loadbalance "github.com/yusing/go-proxy/internal/net/gphttp/loadbalancer/types"
 	"github.com/yusing/go-proxy/internal/route/rules"
@@ -356,13 +357,27 @@ func (r *Route) Finalize() {
 			cont.StopMethod = common.StopMethodDefault
 		}
 	}
+}
 
-	if r.Homepage.IsEmpty() {
-		r.Homepage = homepage.NewItem(r.Alias)
+func (r *Route) FinalizeHomepageConfig() {
+	if r.Alias == "" {
+		panic("alias is empty")
 	}
 
-	if r.Homepage.Name == "" {
-		var key string
+	isDocker := r.Container != nil
+
+	hp := r.Homepage
+	if hp.IsEmpty() {
+		hp = homepage.NewItem(r.Alias)
+	}
+	hp = hp.GetOverride()
+	hp.Alias = r.Alias
+	hp.Provider = r.Provider
+
+	r.Homepage = hp
+
+	var key string
+	if hp.Name == "" {
 		if r.Container != nil {
 			key = r.Container.ImageName
 		} else {
@@ -370,14 +385,38 @@ func (r *Route) Finalize() {
 		}
 		displayName, ok := internal.GetDisplayName(key)
 		if ok {
-			r.Homepage.Name = displayName
+			hp.Name = displayName
 		} else {
-			r.Homepage.Name = strutils.Title(
+			hp.Name = strutils.Title(
 				strings.ReplaceAll(
-					strings.ReplaceAll(r.Alias, "-", " "),
+					strings.ReplaceAll(key, "-", " "),
 					"_", " ",
 				),
 			)
+		}
+	}
+
+	if hp.Category == "" {
+		if config.GetInstance().Value().Homepage.UseDefaultCategories {
+			if isDocker {
+				key = r.Container.ImageName
+			} else {
+				key = strings.ToLower(r.Alias)
+			}
+			if category, ok := homepage.PredefinedCategories[key]; ok {
+				hp.Category = category
+			}
+		}
+
+		if hp.Category == "" {
+			switch {
+			case r.UseLoadBalance():
+				hp.Category = "Load-balanced"
+			case isDocker:
+				hp.Category = "Docker"
+			default:
+				hp.Category = "Others"
+			}
 		}
 	}
 }

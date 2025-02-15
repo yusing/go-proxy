@@ -56,7 +56,7 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 	case ListMatchDomains:
 		gphttp.RespondJSON(w, r, cfg.Value().MatchDomains)
 	case ListHomepageConfig:
-		gphttp.RespondJSON(w, r, routequery.HomepageConfig(cfg.Value().Homepage.UseDefaultCategories, r.FormValue("category"), r.FormValue("provider")))
+		gphttp.RespondJSON(w, r, routequery.HomepageConfig(r.FormValue("category"), r.FormValue("provider")))
 	case ListRouteProviders:
 		gphttp.RespondJSON(w, r, cfg.RouteProviderList())
 	case ListHomepageCategories:

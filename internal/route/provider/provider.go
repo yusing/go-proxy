@@ -87,6 +87,7 @@ func (p *Provider) MarshalText() ([]byte, error) {
 }
 
 func (p *Provider) startRoute(parent task.Parent, r *route.Route) gperr.Error {
+	r.FinalizeHomepageConfig()
 	err := r.Start(parent)
 	if err != nil {
 		delete(p.routes, r.Alias)
