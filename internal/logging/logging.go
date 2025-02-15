@@ -31,10 +31,6 @@ func init() {
 	}
 	prefixLength := len(timeFmt) + 5 // level takes 3 + 2 spaces
 	prefix = strings.Repeat(" ", prefixLength)
-
-	if zerolog.TraceLevel != -1 && zerolog.NoLevel != 6 {
-		panic("zerolog implementation changed")
-	}
 }
 
 func fmtMessage(msg string) string {

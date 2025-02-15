@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -11,11 +12,9 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/rs/zerolog"
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/gphttp"
 	"github.com/yusing/go-proxy/internal/net/gphttp/gpwebsocket"
-	"github.com/yusing/go-proxy/internal/task"
 	F "github.com/yusing/go-proxy/internal/utils/functional"
 )
 
@@ -29,8 +28,6 @@ type memLogger struct {
 	notifyLock sync.RWMutex
 	connChans  F.Map[chan *logEntryRange, struct{}]
 	listeners  F.Map[chan []byte, struct{}]
-
-	bufPool sync.Pool
 }
 
 type MemLogger io.Writer
@@ -43,44 +40,20 @@ const (
 	maxMemLogSize         = 16 * 1024
 	truncateSize          = maxMemLogSize / 2
 	initialWriteChunkSize = 4 * 1024
-	bufPoolSize           = 256
 )
 
 var memLoggerInstance = &memLogger{
 	connChans: F.NewMapOf[chan *logEntryRange, struct{}](),
 	listeners: F.NewMapOf[chan []byte, struct{}](),
-	bufPool: sync.Pool{
-		New: func() any {
-			return &buffer{
-				data: make([]byte, 0, bufPoolSize),
-			}
-		},
-	},
 }
 
 func init() {
 	memLoggerInstance.Grow(maxMemLogSize)
-
-	if common.DebugMemLogger {
-		ticker := time.NewTicker(1 * time.Second)
-
-		go func() {
-			defer ticker.Stop()
-
-			for {
-				select {
-				case <-task.RootContextCanceled():
-					return
-				case <-ticker.C:
-					logging.Info().Msgf("mem logger size: %d, active conns: %d",
-						memLoggerInstance.Len(),
-						memLoggerInstance.connChans.Size())
-				}
-			}
-		}()
-	}
-
-	logging.InitLogger(zerolog.MultiLevelWriter(os.Stderr, memLoggerInstance))
+	w := zerolog.MultiLevelWriter(os.Stderr, memLoggerInstance)
+	logging.InitLogger(w)
+	log.SetOutput(w)
+	log.SetPrefix("")
+	log.SetFlags(0)
 }
 
 func GetMemLogger() MemLogger {
@@ -133,8 +106,7 @@ func (m *memLogger) notifyWS(pos, n int) {
 			}
 		})
 		if m.listeners.Size() > 0 {
-			msg := make([]byte, n)
-			copy(msg, m.Buffer.Bytes()[pos:pos+n])
+			msg := m.Buffer.Bytes()[pos : pos+n]
 			m.listeners.Range(func(ch chan []byte, _ struct{}) bool {
 				select {
 				case <-timeout.C:
@@ -199,8 +171,8 @@ func (m *memLogger) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	m.wsStreamLog(r.Context(), conn, logCh)
 }
 
-func (m *memLogger) events() (<-chan []byte, func()) {
-	ch := make(chan []byte, 10)
+func (m *memLogger) events() (logs <-chan []byte, cancel func()) {
+	ch := make(chan []byte)
 	m.notifyLock.Lock()
 	defer m.notifyLock.Unlock()
 	m.listeners.Store(ch, struct{}{})
