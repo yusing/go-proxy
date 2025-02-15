@@ -51,7 +51,7 @@ func (cfg *AutocertConfig) Validate() gperr.Error {
 	}
 
 	b := gperr.NewBuilder("autocert errors")
-	if cfg.Provider != ProviderLocal {
+	if cfg.Provider != ProviderLocal && cfg.Provider != ProviderPseudo {
 		if len(cfg.Domains) == 0 {
 			b.Add(ErrMissingDomain)
 		}
@@ -101,7 +101,7 @@ func (cfg *AutocertConfig) GetProvider() (*Provider, gperr.Error) {
 	var privKey *ecdsa.PrivateKey
 	var err error
 
-	if cfg.Provider != ProviderLocal {
+	if cfg.Provider != ProviderLocal && cfg.Provider != ProviderPseudo {
 		if privKey, err = cfg.loadACMEKey(); err != nil {
 			logging.Info().Err(err).Msg("load ACME private key failed")
 			logging.Info().Msg("generate new ACME private key")

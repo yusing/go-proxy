@@ -90,34 +90,35 @@ func (m *memLogger) truncateIfNeeded(n int) {
 }
 
 func (m *memLogger) notifyWS(pos, n int) {
-	if m.connChans.Size() > 0 {
-		timeout := time.NewTimer(2 * time.Second)
-		defer timeout.Stop()
+	if m.connChans.Size() == 0 && m.listeners.Size() == 0 {
+		return
+	}
 
-		m.notifyLock.RLock()
-		defer m.notifyLock.RUnlock()
-		m.connChans.Range(func(ch chan *logEntryRange, _ struct{}) bool {
+	timeout := time.NewTimer(3 * time.Second)
+	defer timeout.Stop()
+
+	m.notifyLock.RLock()
+	defer m.notifyLock.RUnlock()
+
+	m.connChans.Range(func(ch chan *logEntryRange, _ struct{}) bool {
+		select {
+		case ch <- &logEntryRange{pos, pos + n}:
+			return true
+		case <-timeout.C:
+			return false
+		}
+	})
+
+	if m.listeners.Size() > 0 {
+		msg := m.Buffer.Bytes()[pos : pos+n]
+		m.listeners.Range(func(ch chan []byte, _ struct{}) bool {
 			select {
-			case ch <- &logEntryRange{pos, pos + n}:
-				return true
 			case <-timeout.C:
-				logging.Warn().Msg("mem logger: timeout logging to channel")
 				return false
+			case ch <- msg:
+				return true
 			}
 		})
-		if m.listeners.Size() > 0 {
-			msg := m.Buffer.Bytes()[pos : pos+n]
-			m.listeners.Range(func(ch chan []byte, _ struct{}) bool {
-				select {
-				case <-timeout.C:
-					logging.Warn().Msg("mem logger: timeout logging to channel")
-					return false
-				case ch <- msg:
-					return true
-				}
-			})
-		}
-		return
 	}
 }
 

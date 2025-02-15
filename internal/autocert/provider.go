@@ -9,6 +9,7 @@ import (
 	"path"
 	"reflect"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/go-acme/lego/v4/certificate"
@@ -32,6 +33,8 @@ type (
 		legoCert     *certificate.Resource
 		tlsCert      *tls.Certificate
 		certExpiries CertExpiries
+
+		obtainMu sync.Mutex
 	}
 	ProviderGenerator func(ProviderOpt) (challenge.Provider, gperr.Error)
 
@@ -65,6 +68,17 @@ func (p *Provider) GetExpiries() CertExpiries {
 
 func (p *Provider) ObtainCert() error {
 	if p.cfg.Provider == ProviderLocal {
+		return nil
+	}
+
+	if p.cfg.Provider == ProviderPseudo {
+		t := time.NewTicker(1000 * time.Millisecond)
+		defer t.Stop()
+		logging.Info().Msg("init client for pseudo provider")
+		<-t.C
+		logging.Info().Msg("registering acme for pseudo provider")
+		<-t.C
+		logging.Info().Msg("obtained cert for pseudo provider")
 		return nil
 	}
 
@@ -150,7 +164,7 @@ func (p *Provider) ShouldRenewOn() time.Time {
 }
 
 func (p *Provider) ScheduleRenewal(parent task.Parent) {
-	if p.GetName() == ProviderLocal {
+	if p.GetName() == ProviderLocal || p.GetName() == ProviderPseudo {
 		return
 	}
 	go func() {

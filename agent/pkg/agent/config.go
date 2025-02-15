@@ -90,7 +90,7 @@ func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) 
 	caCertPool := x509.NewCertPool()
 	ok := caCertPool.AppendCertsFromPEM(ca)
 	if !ok {
-		return gperr.New("invalid CA certificate")
+		return gperr.New("invalid ca certificate")
 	}
 
 	cfg.tlsConfig = &tls.Config{
@@ -128,21 +128,18 @@ func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) 
 	return nil
 }
 
-func (cfg *AgentConfig) Start(parent task.Parent) error {
+func (cfg *AgentConfig) Start(parent task.Parent) gperr.Error {
 	certData, err := os.ReadFile(certs.AgentCertsFilename(cfg.Addr))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return gperr.Errorf("agents certs not found, did you run `godoxy new-agent %s ...`?", cfg.Addr)
-		}
-		return gperr.Wrap(err)
+		return gperr.Wrap(err, "failed to read agent certs")
 	}
 
 	ca, crt, key, err := certs.ExtractCert(certData)
 	if err != nil {
-		return gperr.Wrap(err)
+		return gperr.Wrap(err, "failed to extract agent certs")
 	}
 
-	return cfg.StartWithCerts(parent, ca, crt, key)
+	return gperr.Wrap(cfg.StartWithCerts(parent, ca, crt, key))
 }
 
 func (cfg *AgentConfig) NewHTTPClient() *http.Client {

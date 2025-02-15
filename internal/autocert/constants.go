@@ -20,6 +20,7 @@ const (
 	ProviderClouddns   = "clouddns"
 	ProviderDuckdns    = "duckdns"
 	ProviderOVH        = "ovh"
+	ProviderPseudo     = "pseudo" // for testing
 )
 
 var providersGenMap = map[string]ProviderGenerator{
@@ -28,4 +29,5 @@ var providersGenMap = map[string]ProviderGenerator{
 	ProviderClouddns:   providerGenerator(clouddns.NewDefaultConfig, clouddns.NewDNSProviderConfig),
 	ProviderDuckdns:    providerGenerator(duckdns.NewDefaultConfig, duckdns.NewDNSProviderConfig),
 	ProviderOVH:        providerGenerator(ovh.NewDefaultConfig, ovh.NewDNSProviderConfig),
+	ProviderPseudo:     providerGenerator(NewDummyDefaultConfig, NewDummyDNSProviderConfig),
 }

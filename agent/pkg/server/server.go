@@ -6,7 +6,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"time"
@@ -45,7 +44,6 @@ func StartAgentServer(parent task.Parent, opt Options) {
 	agentServer := &http.Server{
 		Handler:   handler.NewAgentHandler(),
 		TLSConfig: tlsConfig,
-		ErrorLog:  log.New(logger, "", 0),
 	}
 
 	go func() {

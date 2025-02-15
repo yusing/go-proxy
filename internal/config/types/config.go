@@ -43,6 +43,7 @@ type (
 		GetAgent(agentAddrOrDockerHost string) (*agent.AgentConfig, bool)
 		AddAgent(host string, ca agent.PEMPair, client agent.PEMPair) (int, gperr.Error)
 		ListAgents() []*agent.AgentConfig
+		AutoCertProvider() *autocert.Provider
 	}
 )
 

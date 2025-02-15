@@ -51,10 +51,6 @@ You may run "ls-config" to show or dump the current config.`
 
 var Validate = config.Validate
 
-func GetInstance() *Config {
-	return config.GetInstance().(*Config)
-}
-
 func newConfig() *Config {
 	return &Config{
 		value:      config.DefaultConfig(),
@@ -75,7 +71,7 @@ func Load() (*Config, gperr.Error) {
 }
 
 func MatchDomains() []string {
-	return GetInstance().Value().MatchDomains
+	return config.GetInstance().Value().MatchDomains
 }
 
 func WatchChanges() {
@@ -123,7 +119,7 @@ func Reload() gperr.Error {
 
 	// cancel all current subtasks -> wait
 	// -> replace config -> start new subtasks
-	GetInstance().Task().Finish("config changed")
+	config.GetInstance().(*Config).Task().Finish("config changed")
 	newCfg.Start(StartAllServers)
 	config.SetInstance(newCfg)
 	return nil

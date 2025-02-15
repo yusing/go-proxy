@@ -3,7 +3,7 @@ module github.com/yusing/go-proxy
 go 1.24.0
 
 require (
-	github.com/PuerkitoBio/goquery v1.10.1
+	github.com/PuerkitoBio/goquery v1.10.2
 	github.com/coder/websocket v1.8.12
 	github.com/coreos/go-oidc/v3 v3.12.0
 	github.com/docker/cli v27.5.1+incompatible

@@ -7,6 +7,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
+	"github.com/yusing/go-proxy/internal/api/v1/certapi"
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -54,9 +55,12 @@ func (mux ServeMux) HandleFunc(methods, endpoint string, h any, requireAuth ...b
 	if len(requireAuth) > 0 && requireAuth[0] {
 		handler = auth.RequireAuth(handler)
 	}
-
-	for _, m := range strutils.CommaSeperatedList(methods) {
-		mux.ServeMux.HandleFunc(m+" "+endpoint, handler)
+	if methods == "" {
+		mux.ServeMux.HandleFunc(endpoint, handler)
+	} else {
+		for _, m := range strutils.CommaSeperatedList(methods) {
+			mux.ServeMux.HandleFunc(m+" "+endpoint, handler)
+		}
 	}
 }
 
@@ -82,6 +86,8 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("POST", "/v1/agents/add", v1.AddAgent, true)
 	mux.HandleFunc("GET", "/v1/metrics/system_info", v1.SystemInfo, true)
 	mux.HandleFunc("GET", "/v1/metrics/uptime", uptime.Poller.ServeHTTP, true)
+	mux.HandleFunc("GET", "/v1/cert/info", certapi.GetCertInfo, true)
+	mux.HandleFunc("", "/v1/cert/renew", certapi.RenewCert, true)
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())
