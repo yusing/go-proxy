@@ -15,7 +15,6 @@ import (
 	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/metrics/period"
-	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type SystemInfo struct {
@@ -42,6 +41,7 @@ func _() { // check if this behavior is not changed
 func getSystemInfo(ctx context.Context, lastResult *SystemInfo) (*SystemInfo, error) {
 	errs := gperr.NewBuilder("failed to get system info")
 	var systemInfo SystemInfo
+	systemInfo.Timestamp = time.Now()
 
 	if !common.MetricsDisableCPU {
 		cpuAverage, err := cpu.PercentWithContext(ctx, 150*time.Millisecond, false)
@@ -124,7 +124,6 @@ func getSystemInfo(ctx context.Context, lastResult *SystemInfo) (*SystemInfo, er
 func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
 		"timestamp":   s.Timestamp.Unix(),
-		"time":        strutils.FormatTime(s.Timestamp),
 		"cpu_average": s.CPUAverage,
 		"memory": map[string]any{
 			"total":        s.Memory.Total,
