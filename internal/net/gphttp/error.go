@@ -49,15 +49,15 @@ func ClientError(w http.ResponseWriter, err error, code ...int) {
 		json.NewEncoder(w).Encode(err)
 	} else {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		http.Error(w, err.Error(), code[0])
 	}
-	http.Error(w, err.Error(), code[0])
 }
 
 // JSONError returns a JSON response of gperr.Error with the given status code.
 func JSONError(w http.ResponseWriter, err gperr.Error, code int) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 	json.NewEncoder(w).Encode(err)
-	http.Error(w, err.Error(), code)
 }
 
 // BadRequest returns a Bad Request response with the given error message.
