@@ -12,11 +12,15 @@ type Entries[T any] struct {
 	lastAdd  time.Time
 }
 
-const maxEntries = 200
+const maxEntries = 100
 
 func newEntries[T any](duration time.Duration) *Entries[T] {
+	interval := duration / maxEntries
+	if interval < time.Second {
+		interval = time.Second
+	}
 	return &Entries[T]{
-		interval: duration / maxEntries,
+		interval: interval,
 		lastAdd:  time.Now(),
 	}
 }
