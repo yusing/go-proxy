@@ -9,6 +9,7 @@ certs*/
 bin/
 error_pages/
 !examples/error_pages/
+profiles/
 
 logs/
 log/

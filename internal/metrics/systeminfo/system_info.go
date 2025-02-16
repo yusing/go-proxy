@@ -1,12 +1,14 @@
 package systeminfo
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -52,21 +54,17 @@ type (
 		UploadSpeed   float64 `json:"upload_speed"`
 		DownloadSpeed float64 `json:"download_speed"`
 	}
-	Sensor struct {
-		Temperature float32 `json:"temperature"`
-		High        float32 `json:"high"`
-		Critical    float32 `json:"critical"`
-	}
+	Aggregated []map[string]any
 )
 
 type SystemInfo struct {
-	Timestamp  int64              `json:"timestamp"`
-	CPUAverage *float64           `json:"cpu_average"`
-	Memory     *MemoryUsage       `json:"memory"`
-	Disks      map[string]*Disk   `json:"disks"`    // disk usage by partition
-	DisksIO    map[string]*DiskIO `json:"disks_io"` // disk IO by device
-	Network    *Network           `json:"network"`
-	Sensors    map[string]Sensor  `json:"sensors"` // sensor temperature by key
+	Timestamp  int64                     `json:"timestamp"`
+	CPUAverage *float64                  `json:"cpu_average"`
+	Memory     *MemoryUsage              `json:"memory"`
+	Disks      map[string]*Disk          `json:"disks"`    // disk usage by partition
+	DisksIO    map[string]*DiskIO        `json:"disks_io"` // disk IO by device
+	Network    *Network                  `json:"network"`
+	Sensors    []sensors.TemperatureStat `json:"sensors"` // sensor temperature by key
 }
 
 const (
@@ -82,7 +80,26 @@ const (
 	querySensorTemperature  = "sensor_temperature"
 )
 
+var allQueries = []string{
+	queryCPUAverage,
+	queryMemoryUsage,
+	queryMemoryUsagePercent,
+	queryDisksReadSpeed,
+	queryDisksWriteSpeed,
+	queryDisksIOPS,
+	queryDiskUsage,
+	queryNetworkSpeed,
+	queryNetworkTransfer,
+	querySensorTemperature,
+}
+
 var Poller = period.NewPollerWithAggregator("system_info", getSystemInfo, aggregate)
+
+var bufPool = sync.Pool{
+	New: func() any {
+		return bytes.NewBuffer(make([]byte, 0, 1024))
+	},
+}
 
 func init() {
 	Poller.Start()
@@ -171,6 +188,34 @@ func (s *SystemInfo) collectDisksInfo(ctx context.Context, lastResult *SystemInf
 	}
 	s.DisksIO = make(map[string]*DiskIO, len(ioCounters))
 	for name, io := range ioCounters {
+		// include only /dev/sd* and /dev/nvme* disk devices
+		if len(name) < 3 {
+			continue
+		}
+		switch {
+		case strings.HasPrefix(name, "nvme"),
+			strings.HasPrefix(name, "mmcblk"): // NVMe/SD/MMC
+			if name[len(name)-2] == 'p' {
+				continue // skip partitions
+			}
+		default:
+			switch name[0] {
+			case 's', 'h', 'v': // SCSI/SATA/virtio disks
+				if name[1] != 'd' {
+					continue
+				}
+			case 'x': // Xen virtual disks
+				if name[1:3] != "vd" {
+					continue
+				}
+			default:
+				continue
+			}
+			last := name[len(name)-1]
+			if last >= '0' && last <= '9' {
+				continue // skip partitions
+			}
+		}
 		s.DisksIO[name] = &DiskIO{
 			ReadBytes:  io.ReadBytes,
 			WriteBytes: io.WriteBytes,
@@ -243,21 +288,16 @@ func (s *SystemInfo) collectSensorsInfo(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	s.Sensors = make(map[string]Sensor, len(sensorsInfo))
-	for _, sensor := range sensorsInfo {
-		s.Sensors[sensor.SensorKey] = Sensor{
-			Temperature: float32(sensor.Temperature),
-			High:        float32(sensor.High),
-			Critical:    float32(sensor.Critical),
-		}
-	}
+	s.Sensors = sensorsInfo
 	return nil
 }
 
 // explicitly implement MarshalJSON to avoid reflection
 func (s *SystemInfo) MarshalJSON() ([]byte, error) {
-	var b strings.Builder
-	b.Grow(1024)
+	b := bufPool.Get().(*bytes.Buffer)
+	b.Reset()
+	defer bufPool.Put(b)
+
 	b.WriteRune('{')
 
 	// timestamp
@@ -358,14 +398,14 @@ func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 	if s.Sensors != nil {
 		b.WriteString("{")
 		first := true
-		for key, sensor := range s.Sensors {
+		for _, sensor := range s.Sensors {
 			if !first {
 				b.WriteRune(',')
 			}
 			b.WriteString(fmt.Sprintf(
 				`%q:{"name":%q,"temperature":%s,"high":%s,"critical":%s}`,
-				key,
-				key,
+				sensor.SensorKey,
+				sensor.SensorKey,
 				strconv.FormatFloat(float64(sensor.Temperature), 'f', 2, 32),
 				strconv.FormatFloat(float64(sensor.High), 'f', 2, 32),
 				strconv.FormatFloat(float64(sensor.Critical), 'f', 2, 32),
@@ -382,11 +422,11 @@ func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 }
 
 // recharts friendly
-func aggregate(entries []*SystemInfo, query url.Values) (total int, result []map[string]any) {
+func aggregate(entries []*SystemInfo, query url.Values) (total int, result Aggregated) {
 	n := len(entries)
+	aggregated := make(Aggregated, 0, n)
 	switch query.Get("aggregate") {
 	case queryCPUAverage:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.CPUAverage != nil {
 				aggregated = append(aggregated, map[string]any{
@@ -395,9 +435,7 @@ func aggregate(entries []*SystemInfo, query url.Values) (total int, result []map
 				})
 			}
 		}
-		return len(aggregated), aggregated
 	case queryMemoryUsage:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Memory != nil {
 				aggregated = append(aggregated, map[string]any{
@@ -406,9 +444,7 @@ func aggregate(entries []*SystemInfo, query url.Values) (total int, result []map
 				})
 			}
 		}
-		return len(aggregated), aggregated
 	case queryMemoryUsagePercent:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Memory != nil {
 				aggregated = append(aggregated, map[string]any{
@@ -417,105 +453,133 @@ func aggregate(entries []*SystemInfo, query url.Values) (total int, result []map
 				})
 			}
 		}
-		return len(aggregated), aggregated
 	case queryDisksReadSpeed:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.DisksIO == nil {
 				continue
 			}
-			m := make(map[string]any)
+			m := make(map[string]any, len(entry.DisksIO)+1)
 			for name, usage := range entry.DisksIO {
 				m[name] = usage.ReadSpeed
 			}
 			m["timestamp"] = entry.Timestamp
 			aggregated = append(aggregated, m)
 		}
-		return len(aggregated), aggregated
 	case queryDisksWriteSpeed:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.DisksIO == nil {
 				continue
 			}
-			m := make(map[string]any)
+			m := make(map[string]any, len(entry.DisksIO)+1)
 			for name, usage := range entry.DisksIO {
 				m[name] = usage.WriteSpeed
 			}
 			m["timestamp"] = entry.Timestamp
 			aggregated = append(aggregated, m)
 		}
-		return len(aggregated), aggregated
 	case queryDisksIOPS:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.DisksIO == nil {
 				continue
 			}
-			m := make(map[string]any)
+			m := make(map[string]any, len(entry.DisksIO)+1)
 			for name, usage := range entry.DisksIO {
 				m[name] = usage.Iops
 			}
 			m["timestamp"] = entry.Timestamp
 			aggregated = append(aggregated, m)
 		}
-		return len(aggregated), aggregated
 	case queryDiskUsage:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Disks == nil {
 				continue
 			}
-			m := make(map[string]any)
+			m := make(map[string]any, len(entry.Disks)+1)
 			for name, disk := range entry.Disks {
 				m[name] = disk.Used
 			}
 			m["timestamp"] = entry.Timestamp
 			aggregated = append(aggregated, m)
 		}
-		return len(aggregated), aggregated
 	case queryNetworkSpeed:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Network == nil {
 				continue
 			}
-			m := map[string]any{
+			aggregated = append(aggregated, map[string]any{
 				"timestamp": entry.Timestamp,
 				"upload":    entry.Network.UploadSpeed,
 				"download":  entry.Network.DownloadSpeed,
-			}
-			aggregated = append(aggregated, m)
+			})
 		}
-		return len(aggregated), aggregated
 	case queryNetworkTransfer:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Network == nil {
 				continue
 			}
-			m := map[string]any{
+			aggregated = append(aggregated, map[string]any{
 				"timestamp": entry.Timestamp,
 				"upload":    entry.Network.BytesSent,
 				"download":  entry.Network.BytesRecv,
-			}
-			aggregated = append(aggregated, m)
+			})
 		}
-		return len(aggregated), aggregated
 	case querySensorTemperature:
 		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Sensors == nil {
 				continue
 			}
-			m := make(map[string]any)
-			for key, sensor := range entry.Sensors {
-				m[key] = sensor.Temperature
+			m := make(map[string]any, len(entry.Sensors)+1)
+			for _, sensor := range entry.Sensors {
+				m[sensor.SensorKey] = sensor.Temperature
 			}
 			m["timestamp"] = entry.Timestamp
 			aggregated = append(aggregated, m)
 		}
-		return len(aggregated), aggregated
+	default:
+		return -1, nil
 	}
-	return -1, []map[string]any{}
+	return len(aggregated), aggregated
+}
+
+func (result Aggregated) MarshalJSON() ([]byte, error) {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	buf.WriteByte('[')
+	i := 0
+	n := len(result)
+	for _, entry := range result {
+		buf.WriteRune('{')
+		j := 0
+		m := len(entry)
+		for k, v := range entry {
+			buf.WriteByte('"')
+			buf.WriteString(k)
+			buf.WriteByte('"')
+			buf.WriteByte(':')
+			switch v := v.(type) {
+			case float64:
+				buf.WriteString(strconv.FormatFloat(v, 'f', 2, 64))
+			case uint64:
+				buf.WriteString(strconv.FormatUint(v, 10))
+			case int64:
+				buf.WriteString(strconv.FormatInt(v, 10))
+			default:
+				panic(fmt.Sprintf("unexpected type: %T", v))
+			}
+			if j != m-1 {
+				buf.WriteByte(',')
+			}
+			j++
+		}
+		buf.WriteByte('}')
+		if i != n-1 {
+			buf.WriteByte(',')
+		}
+		i++
+	}
+	buf.WriteByte(']')
+	return buf.Bytes(), nil
 }
