@@ -3,6 +3,7 @@ package systeminfo
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -54,17 +55,18 @@ type (
 		UploadSpeed   float64 `json:"upload_speed"`
 		DownloadSpeed float64 `json:"download_speed"`
 	}
+	Sensors    []sensors.TemperatureStat
 	Aggregated []map[string]any
 )
 
 type SystemInfo struct {
-	Timestamp  int64                     `json:"timestamp"`
-	CPUAverage *float64                  `json:"cpu_average"`
-	Memory     *MemoryUsage              `json:"memory"`
-	Disks      map[string]*Disk          `json:"disks"`    // disk usage by partition
-	DisksIO    map[string]*DiskIO        `json:"disks_io"` // disk IO by device
-	Network    *Network                  `json:"network"`
-	Sensors    []sensors.TemperatureStat `json:"sensors"` // sensor temperature by key
+	Timestamp  int64              `json:"timestamp"`
+	CPUAverage *float64           `json:"cpu_average"`
+	Memory     *MemoryUsage       `json:"memory"`
+	Disks      map[string]*Disk   `json:"disks"`    // disk usage by partition
+	DisksIO    map[string]*DiskIO `json:"disks_io"` // disk IO by device
+	Network    *Network           `json:"network"`
+	Sensors    Sensors            `json:"sensors"` // sensor temperature by key
 }
 
 const (
@@ -93,7 +95,7 @@ var allQueries = []string{
 	querySensorTemperature,
 }
 
-var Poller = period.NewPollerWithAggregator("system_info", getSystemInfo, aggregate)
+var Poller = period.NewPoller("system_info", getSystemInfo, aggregate)
 
 var bufPool = sync.Pool{
 	New: func() any {
@@ -419,6 +421,26 @@ func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 
 	b.WriteRune('}')
 	return []byte(b.String()), nil
+}
+
+func (s *Sensors) UnmarshalJSON(data []byte) error {
+	var v map[string]map[string]any
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	if len(v) == 0 {
+		return nil
+	}
+	*s = make(Sensors, 0, len(v))
+	for k, v := range v {
+		*s = append(*s, sensors.TemperatureStat{
+			SensorKey:   k,
+			Temperature: v["temperature"].(float64),
+			High:        v["high"].(float64),
+			Critical:    v["critical"].(float64),
+		})
+	}
+	return nil
 }
 
 // recharts friendly

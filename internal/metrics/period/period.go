@@ -6,7 +6,7 @@ import (
 )
 
 type Period[T any] struct {
-	Entries map[Filter]*Entries[T]
+	Entries map[Filter]*Entries[T] `json:"entries"`
 	mu      sync.RWMutex
 }
 
@@ -41,4 +41,14 @@ func (p *Period[T]) Get(filter Filter) ([]*T, bool) {
 		return nil, false
 	}
 	return period.Get(), true
+}
+
+func (p *Period[T]) Total() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	total := 0
+	for _, period := range p.Entries {
+		total += period.count
+	}
+	return total
 }

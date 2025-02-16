@@ -17,19 +17,19 @@ import (
 
 type (
 	StatusByAlias struct {
-		Map       map[string]*routequery.HealthInfoRaw
-		Timestamp time.Time
+		Map       map[string]*routequery.HealthInfoRaw `json:"statuses"`
+		Timestamp int64                                `json:"timestamp"`
 	}
 	Status struct {
-		Status    health.Status
-		Latency   time.Duration
-		Timestamp time.Time
+		Status    health.Status `json:"status"`
+		Latency   int64         `json:"latency"`
+		Timestamp int64         `json:"timestamp"`
 	}
 	RouteStatuses map[string][]*Status
 	Aggregated    []map[string]any
 )
 
-var Poller = period.NewPollerWithAggregator("uptime", getStatuses, aggregateStatuses)
+var Poller = period.NewPoller("uptime", getStatuses, aggregateStatuses)
 
 func init() {
 	Poller.Start()
@@ -38,7 +38,7 @@ func init() {
 func getStatuses(ctx context.Context, _ *StatusByAlias) (*StatusByAlias, error) {
 	return &StatusByAlias{
 		Map:       routequery.HealthInfo(),
-		Timestamp: time.Now(),
+		Timestamp: time.Now().Unix(),
 	}, nil
 }
 
@@ -52,7 +52,7 @@ func aggregateStatuses(entries []*StatusByAlias, query url.Values) (int, Aggrega
 		for alias, status := range entry.Map {
 			statuses[alias] = append(statuses[alias], &Status{
 				Status:    status.Status,
-				Latency:   status.Latency,
+				Latency:   status.Latency.Milliseconds(),
 				Timestamp: entry.Timestamp,
 			})
 		}
@@ -67,11 +67,12 @@ func aggregateStatuses(entries []*StatusByAlias, query url.Values) (int, Aggrega
 	return len(statuses), statuses.aggregate(limit, offset)
 }
 
-func (rs RouteStatuses) calculateInfo(statuses []*Status) (up float64, down float64, idle float64, latency int64) {
+func (rs RouteStatuses) calculateInfo(statuses []*Status) (up float64, down float64, idle float64, _ float64) {
 	if len(statuses) == 0 {
 		return 0, 0, 0, 0
 	}
 	total := float64(0)
+	latency := float64(0)
 	for _, status := range statuses {
 		// ignoring unknown; treating napping and starting as downtime
 		if status.Status == health.StatusUnknown {
@@ -86,12 +87,12 @@ func (rs RouteStatuses) calculateInfo(statuses []*Status) (up float64, down floa
 			down++
 		}
 		total++
-		latency += status.Latency.Milliseconds()
+		latency += float64(status.Latency)
 	}
 	if total == 0 {
 		return 0, 0, 0, 0
 	}
-	return up / total, down / total, idle / total, latency / int64(total)
+	return up / total, down / total, idle / total, latency / total
 }
 
 func (rs RouteStatuses) aggregate(limit int, offset int) Aggregated {
@@ -128,17 +129,6 @@ func (rs RouteStatuses) aggregate(limit int, offset int) Aggregated {
 	return result
 }
 
-func (s *Status) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"status":    s.Status.String(),
-		"latency":   s.Latency.Milliseconds(),
-		"timestamp": s.Timestamp.Unix(),
-	})
-}
-
-func (s *StatusByAlias) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]interface{}{
-		"statuses":  s.Map,
-		"timestamp": s.Timestamp.Unix(),
-	})
+func (result Aggregated) MarshalJSON() ([]byte, error) {
+	return json.Marshal([]map[string]any(result))
 }

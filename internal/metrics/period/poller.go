@@ -2,8 +2,11 @@ package period
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/gperr"
@@ -12,13 +15,13 @@ import (
 )
 
 type (
-	PollFunc[T any]                  func(ctx context.Context, lastResult *T) (*T, error)
-	AggregateFunc[T, AggregateT any] func(entries []*T, query url.Values) (total int, result AggregateT)
-	FilterFunc[T any]                func(entries []*T, keyword string) (filtered []*T)
-	Poller[T, AggregateT any]        struct {
+	PollFunc[T any]                                 func(ctx context.Context, lastResult *T) (*T, error)
+	AggregateFunc[T any, AggregateT json.Marshaler] func(entries []*T, query url.Values) (total int, result AggregateT)
+	FilterFunc[T any]                               func(entries []*T, keyword string) (filtered []*T)
+	Poller[T any, AggregateT json.Marshaler]        struct {
 		name         string
 		poll         PollFunc[T]
-		aggregator   AggregateFunc[T, AggregateT]
+		aggregate    AggregateFunc[T, AggregateT]
 		resultFilter FilterFunc[T]
 		period       *Period[T]
 		lastResult   *T
@@ -33,30 +36,48 @@ type (
 const (
 	pollInterval       = 1 * time.Second
 	gatherErrsInterval = 30 * time.Second
+	saveInterval       = 5 * time.Minute
+
+	saveBaseDir = "data/metrics"
 )
 
-func NewPoller[T any](
-	name string,
-	poll PollFunc[T],
-) *Poller[T, T] {
-	return &Poller[T, T]{
-		name:   name,
-		poll:   poll,
-		period: NewPeriod[T](),
+func init() {
+	if err := os.MkdirAll(saveBaseDir, 0o755); err != nil {
+		panic(fmt.Sprintf("failed to create metrics data directory: %s", err))
 	}
 }
 
-func NewPollerWithAggregator[T, AggregateT any](
+func NewPoller[T any, AggregateT json.Marshaler](
 	name string,
 	poll PollFunc[T],
 	aggregator AggregateFunc[T, AggregateT],
 ) *Poller[T, AggregateT] {
 	return &Poller[T, AggregateT]{
-		name:       name,
-		poll:       poll,
-		aggregator: aggregator,
-		period:     NewPeriod[T](),
+		name:      name,
+		poll:      poll,
+		aggregate: aggregator,
+		period:    NewPeriod[T](),
 	}
+}
+
+func (p *Poller[T, AggregateT]) savePath() string {
+	return filepath.Join(saveBaseDir, fmt.Sprintf("%s.json", p.name))
+}
+
+func (p *Poller[T, AggregateT]) load() error {
+	entries, err := os.ReadFile(p.savePath())
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(entries, &p.period)
+}
+
+func (p *Poller[T, AggregateT]) save() error {
+	entries, err := json.Marshal(p.period)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(p.savePath(), entries, 0o644)
 }
 
 func (p *Poller[T, AggregateT]) WithResultFilter(filter FilterFunc[T]) *Poller[T, AggregateT] {
@@ -108,23 +129,45 @@ func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
 }
 
 func (p *Poller[T, AggregateT]) Start() {
+	t := task.RootTask("poller." + p.name)
 	go func() {
-		ctx := task.RootContext()
-		ticker := time.NewTicker(pollInterval)
+		err := p.load()
+		if err != nil {
+			if !os.IsNotExist(err) {
+				logging.Error().Err(err).Msgf("failed to load last metrics data for %s", p.name)
+			}
+		} else {
+			logging.Debug().Msgf("Loaded last metrics data for %s, %d entries", p.name, p.period.Total())
+		}
+
+		pollTicker := time.NewTicker(pollInterval)
 		gatherErrsTicker := time.NewTicker(gatherErrsInterval)
-		defer ticker.Stop()
-		defer gatherErrsTicker.Stop()
+		saveTicker := time.NewTicker(saveInterval)
+
+		defer func() {
+			pollTicker.Stop()
+			gatherErrsTicker.Stop()
+			saveTicker.Stop()
+
+			p.save()
+			t.Finish(nil)
+		}()
 
 		logging.Debug().Msgf("Starting poller %s with interval %s", p.name, pollInterval)
 
-		p.pollWithTimeout(ctx)
+		p.pollWithTimeout(t.Context())
 
 		for {
 			select {
-			case <-ctx.Done():
+			case <-t.Context().Done():
 				return
-			case <-ticker.C:
-				p.pollWithTimeout(ctx)
+			case <-pollTicker.C:
+				p.pollWithTimeout(t.Context())
+			case <-saveTicker.C:
+				err := p.save()
+				if err != nil {
+					p.appendErr(err)
+				}
 			case <-gatherErrsTicker.C:
 				errs, ok := p.gatherErrs()
 				if ok {

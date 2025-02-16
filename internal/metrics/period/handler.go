@@ -71,16 +71,12 @@ func (p *Poller[T, AggregateT]) getRespData(r *http.Request) (any, error) {
 	if !ok {
 		return nil, errors.New("invalid period")
 	}
-	if p.aggregator != nil {
-		total, aggregated := p.aggregator(rangeData, query)
-		if total == -1 {
-			return nil, errors.New("bad request")
-		}
-		return map[string]any{
-			"total": total,
-			"data":  aggregated,
-		}, nil
-	} else {
-		return rangeData, nil
+	total, aggregated := p.aggregate(rangeData, query)
+	if total == -1 {
+		return nil, errors.New("bad request")
 	}
+	return map[string]any{
+		"total": total,
+		"data":  aggregated,
+	}, nil
 }

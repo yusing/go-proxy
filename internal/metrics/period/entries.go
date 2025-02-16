@@ -1,6 +1,7 @@
 package period
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -45,4 +46,34 @@ func (e *Entries[T]) Get() []*T {
 	copy(res, e.entries[e.index:])
 	copy(res[maxEntries-e.index:], e.entries[:e.index])
 	return res
+}
+
+func (e *Entries[T]) MarshalJSON() ([]byte, error) {
+	return json.Marshal(map[string]any{
+		"entries":  e.Get(),
+		"interval": e.interval,
+	})
+}
+
+func (e *Entries[T]) UnmarshalJSON(data []byte) error {
+	var v struct {
+		Entries  []*T          `json:"entries"`
+		Interval time.Duration `json:"interval"`
+	}
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	if len(v.Entries) == 0 {
+		return nil
+	}
+	entries := v.Entries
+	if len(entries) > maxEntries {
+		entries = entries[:maxEntries]
+	}
+	now := time.Now()
+	for _, info := range entries {
+		e.Add(now, info)
+	}
+	e.interval = v.Interval
+	return nil
 }

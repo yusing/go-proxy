@@ -34,6 +34,7 @@ services:
       - ./config:/app/config
       - ./logs:/app/logs
       - ./error_pages:/app/error_pages
+      - ./data:/app/data
 
       # To use autocert, certs will be stored in "./certs".
       # You can also use a docker volume to store it

@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/shirou/gopsutil/v4/sensors"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
 
@@ -59,6 +60,20 @@ var testInfo = &SystemInfo{
 		BytesRecv:     10000000,
 		UploadSpeed:   1024.5,
 		DownloadSpeed: 2048.5,
+	},
+	Sensors: []sensors.TemperatureStat{
+		{
+			SensorKey:   "cpu_temp",
+			Temperature: 30.0,
+			High:        40.0,
+			Critical:    50.0,
+		},
+		{
+			SensorKey:   "gpu_temp",
+			Temperature: 40.0,
+			High:        50.0,
+			Critical:    60.0,
+		},
 	},
 }
 
