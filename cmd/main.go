@@ -40,9 +40,6 @@ func main() {
 	args := pkg.GetArgs(common.MainServerCommandValidator{})
 
 	switch args.Command {
-	case common.CommandSetup:
-		Setup()
-		return
 	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {
 			gperr.LogFatal("server reload error", err)

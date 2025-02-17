@@ -2,7 +2,6 @@ package common
 
 const (
 	CommandStart              = ""
-	CommandSetup              = "setup"
 	CommandValidate           = "validate"
 	CommandListConfigs        = "ls-config"
 	CommandListRoutes         = "ls-routes"
@@ -18,7 +17,6 @@ type MainServerCommandValidator struct{}
 func (v MainServerCommandValidator) IsCommandValid(cmd string) bool {
 	switch cmd {
 	case CommandStart,
-		CommandSetup,
 		CommandValidate,
 		CommandListConfigs,
 		CommandListRoutes,

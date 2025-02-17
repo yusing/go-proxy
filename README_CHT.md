@@ -66,23 +66,19 @@
 
 ## 安裝
 
-1.  拉取最新的 Docker 映像
+**注意：** GoDoxy 設計為（且僅在）`host` 網路模式下運作，請勿更改。如需更改監聽埠，請修改 `.env`。
+
+1.  準備一個新目錄用於 docker compose 和配置文件。
+
+2.  在目錄內運行安裝腳本，或[手動安裝](#手動安裝)
 
     ```shell
-    docker pull ghcr.io/yusing/go-proxy:latest
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/v0.9/scripts/setup.sh)"
     ```
 
-2.  建立新目錄，`cd` 進入後運行安裝，或[手動安裝](#手動安裝)
+3.  啟動容器 `docker compose up -d` 並等待就緒
 
-    ```shell
-    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
-    ```
-
-3.  _（可選）_ 設置其他 Docker 節點的 `docker-socket-proxy`（參見 [多 Docker 節點設置](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)），然後在 `config.yml` 中添加它們
-
-4.  啟動容器 `docker compose up -d`
-
-5.  大功告成!可前往WebUI `https://gp.domain.com` 進行額外的配置
+4.  現在可以在 WebUI `https://godoxy.yourdomain.com` 進行額外配置
 
 [🔼回到頂部](#目錄)
 
@@ -114,6 +110,10 @@
 │   │   ├── middleware2.yml
 │   ├── provider1.yml
 │   └── provider2.yml
+├── data
+│   ├── metrics # metrics data
+│   │   ├── uptime.json
+│   │   └── system_info.json
 └── .env
 ```
 
