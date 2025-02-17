@@ -82,7 +82,11 @@ func main() {
 			homepage.InitOverridesConfig,
 			favicon.InitIconCache,
 		)
-		// logging.AddHook(notif.GetDispatcher())
+
+		if common.APIJWTSecret == nil {
+			logging.Warn().Msg("API_JWT_SECRET is not set, using random key")
+			common.APIJWTSecret = common.RandomJWTKey()
+		}
 	} else {
 		logging.DiscardLogger()
 	}

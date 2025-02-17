@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/yusing/go-proxy/internal/common"
-	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/gphttp"
 )
 
@@ -13,7 +12,6 @@ var defaultAuth Provider
 // Initialize sets up authentication providers.
 func Initialize() error {
 	if !IsEnabled() {
-		logging.Warn().Msg("authentication is disabled, please set API_JWT_SECRET or OIDC_* to enable authentication")
 		return nil
 	}
 
