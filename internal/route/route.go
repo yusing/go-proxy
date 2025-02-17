@@ -233,6 +233,9 @@ func (r *Route) UseAccessLog() bool {
 }
 
 func (r *Route) Finalize() {
+	r.Alias = strings.ToLower(strings.TrimSpace(r.Alias))
+	r.Host = strings.ToLower(strings.TrimSpace(r.Host))
+
 	isDocker := r.Container != nil
 	cont := r.Container
 
