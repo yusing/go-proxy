@@ -71,14 +71,14 @@ func TestConcurrentAccessLoggerLogAndFlush(t *testing.T) {
 		go func(l *AccessLogger) {
 			defer wg.Done()
 			parallelLog(l, req, resp, logCountPerLogger)
-			l.Flush(true)
+			l.Flush()
 		}(logger)
 	}
 
 	wg.Wait()
 
 	expected := loggerCount * logCountPerLogger
-	actual := file.Count()
+	actual := file.LineCount()
 	ExpectEqual(t, actual, expected)
 }
 

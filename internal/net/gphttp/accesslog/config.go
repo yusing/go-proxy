@@ -17,7 +17,7 @@ type (
 		Cookies FieldConfig `json:"cookies"`
 	}
 	Config struct {
-		BufferSize uint       `json:"buffer_size" validate:"gte=1"`
+		BufferSize int        `json:"buffer_size"`
 		Format     Format     `json:"format" validate:"oneof=common combined json"`
 		Path       string     `json:"path" validate:"required"`
 		Filters    Filters    `json:"filters"`
