@@ -244,7 +244,7 @@ func (r *ReveseProxyRoute) addToLoadBalancer(parent task.Parent) {
 	}
 	r.loadBalancer = lb
 
-	server := loadbalance.NewServer(r.task.Name(), r.rp.TargetURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
+	server := loadbalance.NewServer(r.task.Name(), r.ProxyURL, r.LoadBalance.Weight, r.handler, r.HealthMon)
 	lb.AddServer(server)
 	r.task.OnCancel("lb_remove_server", func() {
 		lb.RemoveServer(server)
