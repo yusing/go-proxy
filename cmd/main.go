@@ -42,9 +42,6 @@ func main() {
 	args := common.GetArgs()
 
 	switch args.Command {
-	case common.CommandSetup:
-		internal.Setup()
-		return
 	case common.CommandReload:
 		if err := query.ReloadServer(); err != nil {
 			E.LogFatal("server reload error", err)

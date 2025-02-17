@@ -70,23 +70,17 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 **NOTE:** GoDoxy is designed to be (and only works when) running in `host` network mode, do not change it. To change listening ports, modify `.env`.
 
-1.  Pull the latest docker images
+1.  Prepare a new directory for docker compose and config files.
+
+2.  Run setup script inside the directory, or [set up manually](#manual-setup)
 
     ```shell
-    docker pull ghcr.io/yusing/go-proxy:latest
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/v0.9/scripts/setup.sh)"
     ```
 
-2.  Create new directory, `cd` into it, then run setup, or [set up manually](#manual-setup)
+3.  Start the container `docker compose up -d` and wait for it to be ready
 
-    ```shell
-    docker run --rm -v .:/setup ghcr.io/yusing/go-proxy /app/godoxy setup
-    ```
-
-3.  _(Optional)_ setup `docker-socket-proxy` other docker nodes (see [Multi docker nodes setup](https://github.com/yusing/go-proxy/wiki/Configurations#multi-docker-nodes-setup)) then add them inside `config.yml`
-
-4.  Start the container `docker compose up -d`
-
-5.  You may now do some extra configuration on WebUI `https://godoxy.domain.com`
+4.  You may now do some extra configuration on WebUI `https://godoxy.yourdomain.com`
 
 [🔼Back to top](#table-of-content)
 
@@ -118,6 +112,10 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 │   │   ├── middleware2.yml
 │   ├── provider1.yml
 │   └── provider2.yml
+├── data
+│   ├── metrics # metrics data
+│   │   ├── uptime.json
+│   │   └── system_info.json
 └── .env
 ```
 
