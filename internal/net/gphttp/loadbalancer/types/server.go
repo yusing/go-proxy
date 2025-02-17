@@ -26,6 +26,7 @@ type (
 		http.Handler
 		health.HealthMonitor
 		Name() string
+		Key() string
 		URL() *net.URL
 		Weight() Weight
 		SetWeight(weight Weight)
@@ -63,6 +64,10 @@ func (srv *server) URL() *net.URL {
 	return srv.url
 }
 
+func (srv *server) Key() string {
+	return srv.url.Host
+}
+
 func (srv *server) Weight() Weight {
 	return srv.weight
 }
@@ -78,9 +83,7 @@ func (srv *server) String() string {
 func (srv *server) TryWake() error {
 	waker, ok := srv.Handler.(idlewatcher.Waker)
 	if ok {
-		if err := waker.Wake(); err != nil {
-			return err
-		}
+		return waker.Wake()
 	}
 	return nil
 }

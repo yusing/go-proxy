@@ -125,12 +125,12 @@ func (lb *LoadBalancer) AddServer(srv Server) {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
-	if lb.pool.Has(srv.Name()) {
-		old, _ := lb.pool.Load(srv.Name())
+	if lb.pool.Has(srv.Key()) {
+		old, _ := lb.pool.Load(srv.Key())
 		lb.sumWeight -= old.Weight()
 		lb.impl.OnRemoveServer(old)
 	}
-	lb.pool.Store(srv.Name(), srv)
+	lb.pool.Store(srv.Key(), srv)
 	lb.sumWeight += srv.Weight()
 
 	lb.rebalance()
@@ -146,11 +146,11 @@ func (lb *LoadBalancer) RemoveServer(srv Server) {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
-	if !lb.pool.Has(srv.Name()) {
+	if !lb.pool.Has(srv.Key()) {
 		return
 	}
 
-	lb.pool.Delete(srv.Name())
+	lb.pool.Delete(srv.Key())
 
 	lb.sumWeight -= srv.Weight()
 	lb.rebalance()
@@ -244,7 +244,7 @@ func (lb *LoadBalancer) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 func (lb *LoadBalancer) MarshalJSON() ([]byte, error) {
 	extra := make(map[string]any)
 	lb.pool.RangeAll(func(k string, v Server) {
-		extra[v.Name()] = v
+		extra[v.Key()] = v
 	})
 
 	return (&monitor.JSONRepresentation{

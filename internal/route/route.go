@@ -100,7 +100,7 @@ func (r *Route) Validate() (err gperr.Error) {
 	}
 
 	if !r.UseHealthCheck() && (r.UseLoadBalance() || r.UseIdleWatcher()) {
-		errs.Adds("healthCheck.disable cannot be true when loadbalancer or idlewatcher is enabled")
+		errs.Adds("cannot disable healthcheck when loadbalancer or idle watcher is enabled")
 	}
 
 	if errs.HasError() {
