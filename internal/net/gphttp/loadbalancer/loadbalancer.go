@@ -125,7 +125,7 @@ func (lb *LoadBalancer) AddServer(srv Server) {
 	lb.poolMu.Lock()
 	defer lb.poolMu.Unlock()
 
-	if lb.pool.Has(srv.Key()) {
+	if lb.pool.Has(srv.Key()) { // FIXME: this should be a warning
 		old, _ := lb.pool.Load(srv.Key())
 		lb.sumWeight -= old.Weight()
 		lb.impl.OnRemoveServer(old)

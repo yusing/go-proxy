@@ -111,7 +111,7 @@ func (l *AccessLogger) Rotate() error {
 	l.io.Lock()
 	defer l.io.Unlock()
 
-	return l.cfg.Retention.rotateLogFile(l.io)
+	return l.rotate()
 }
 
 func (l *AccessLogger) handleErr(err error) {

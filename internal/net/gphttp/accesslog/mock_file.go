@@ -49,7 +49,6 @@ func (m *MockFile) ReadAt(p []byte, off int64) (n int, err error) {
 		return 0, io.EOF
 	}
 	n = copy(p, m.data[off:])
-	m.position += int64(n)
 	return n, nil
 }
 
@@ -63,7 +62,7 @@ func (m *MockFile) Truncate(size int64) error {
 	return nil
 }
 
-func (m *MockFile) Count() int {
+func (m *MockFile) LineCount() int {
 	m.Lock()
 	defer m.Unlock()
 	return bytes.Count(m.data[:m.position], []byte("\n"))
@@ -71,4 +70,8 @@ func (m *MockFile) Count() int {
 
 func (m *MockFile) Len() int64 {
 	return m.position
+}
+
+func (m *MockFile) Content() []byte {
+	return m.data[:m.position]
 }
