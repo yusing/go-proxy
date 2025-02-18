@@ -30,6 +30,14 @@ const (
 var (
 	cfCIDRsLastUpdate time.Time
 	cfCIDRsMu         sync.Mutex
+
+	// RFC 1918.
+	localCIDRs = []*types.CIDR{
+		{IP: net.IPv4(127, 0, 0, 1), Mask: net.IPv4Mask(255, 255, 255, 255)}, // 127.0.0.1/32
+		{IP: net.IPv4(10, 0, 0, 0), Mask: net.IPv4Mask(255, 0, 0, 0)},        // 10.0.0.0/8
+		{IP: net.IPv4(172, 16, 0, 0), Mask: net.IPv4Mask(255, 240, 0, 0)},    // 172.16.0.0/12
+		{IP: net.IPv4(192, 168, 0, 0), Mask: net.IPv4Mask(255, 255, 0, 0)},   // 192.168.0.0/16
+	}
 )
 
 var CloudflareRealIP = NewMiddleware[cloudflareRealIP]()
@@ -37,7 +45,7 @@ var CloudflareRealIP = NewMiddleware[cloudflareRealIP]()
 // setup implements MiddlewareWithSetup.
 func (cri *cloudflareRealIP) setup() {
 	cri.realIP.RealIPOpts = RealIPOpts{
-		Header:    "Cf-Connecting-Ip",
+		Header:    "CF-Connecting-IP",
 		Recursive: cri.Recursive,
 	}
 }
@@ -72,12 +80,7 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 	}
 
 	if common.IsTest {
-		cfCIDRs = []*types.CIDR{
-			{IP: net.IPv4(127, 0, 0, 1), Mask: net.IPv4Mask(255, 0, 0, 0)},
-			{IP: net.IPv4(10, 0, 0, 0), Mask: net.IPv4Mask(255, 0, 0, 0)},
-			{IP: net.IPv4(172, 16, 0, 0), Mask: net.IPv4Mask(255, 255, 0, 0)},
-			{IP: net.IPv4(192, 168, 0, 0), Mask: net.IPv4Mask(255, 255, 255, 0)},
-		}
+		cfCIDRs = localCIDRs
 	} else {
 		cfCIDRs = make([]*types.CIDR, 0, 30)
 		err := errors.Join(
@@ -122,6 +125,6 @@ func fetchUpdateCFIPRange(endpoint string, cfCIDRs *[]*types.CIDR) error {
 
 		*cfCIDRs = append(*cfCIDRs, (*types.CIDR)(cidr))
 	}
-
+	*cfCIDRs = append(*cfCIDRs, localCIDRs...)
 	return nil
 }
