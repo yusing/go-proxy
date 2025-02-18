@@ -1,22 +1,22 @@
 module github.com/yusing/go-proxy
 
-go 1.23.5
+go 1.23.6
 
 require (
-	github.com/PuerkitoBio/goquery v1.10.1 // parsing HTML for extract fav icon
+	github.com/PuerkitoBio/goquery v1.10.2 // parsing HTML for extract fav icon
 	github.com/coder/websocket v1.8.12 // websocket for API and agent
 	github.com/coreos/go-oidc/v3 v3.12.0 // oidc authentication
 	github.com/docker/cli v27.5.1+incompatible // docker CLI
 	github.com/docker/docker v27.5.1+incompatible // docker daemon
 	github.com/fsnotify/fsnotify v1.8.0 // file watcher
-	github.com/go-acme/lego/v4 v4.21.0 // acme client
-	github.com/go-playground/validator/v10 v10.24.0 // validator
+	github.com/go-acme/lego/v4 v4.22.2 // acme client
+	github.com/go-playground/validator/v10 v10.25.0 // validator
 	github.com/gobwas/glob v0.2.3 // glob matcher for route rules
 	github.com/golang-jwt/jwt/v5 v5.2.1 // jwt for default auth
 	github.com/gotify/server/v2 v2.6.1 // reference the Message struct for json response
 	github.com/lithammer/fuzzysearch v1.1.8 // fuzzy search for searching icons and filtering metrics
 	github.com/prometheus/client_golang v1.20.5 // metrics
-	github.com/puzpuzpuz/xsync/v3 v3.5.0 // lock free map for concurrent operations
+	github.com/puzpuzpuz/xsync/v3 v3.5.1 // lock free map for concurrent operations
 	github.com/rs/zerolog v1.33.0 // logging
 	github.com/vincent-petithory/dataurl v1.0.0 // data url for fav icon
 	golang.org/x/crypto v0.33.0 // encrypting password with bcrypt
@@ -76,7 +76,7 @@ require (
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/sync v0.11.0 // indirect
 	golang.org/x/sys v0.30.0 // indirect
-	golang.org/x/tools v0.29.0 // indirect
+	golang.org/x/tools v0.30.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gotest.tools/v3 v3.5.1 // indirect

@@ -1,5 +1,5 @@
 # Stage 1: Builder
-FROM golang:1.23.5-alpine AS builder
+FROM golang:1.23.6-alpine AS builder
 HEALTHCHECK NONE
 
 # package version does not matter
