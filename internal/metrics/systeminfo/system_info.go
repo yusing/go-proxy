@@ -546,7 +546,6 @@ func aggregate(entries []*SystemInfo, query url.Values) (total int, result Aggre
 			})
 		}
 	case querySensorTemperature:
-		aggregated := make([]map[string]any, 0, n)
 		for _, entry := range entries {
 			if entry.Sensors == nil {
 				continue
