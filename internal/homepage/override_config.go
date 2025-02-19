@@ -64,24 +64,16 @@ func (c *OverrideConfig) OverrideItems(items map[string]*ItemConfig) {
 	}
 }
 
-func (c *OverrideConfig) GetOverride(item *Item) *Item {
+func (c *OverrideConfig) ApplyOverride(item *Item) *Item {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	itemOverride, hasOverride := c.ItemOverrides[item.Alias]
 	if hasOverride {
-		clone := *item
-		clone.ItemConfig = itemOverride
-		clone.IsUnset = false
-		item = &clone
+		item.ItemConfig = itemOverride
+		item.IsUnset = false
 	}
 	if show, ok := c.ItemVisibility[item.Alias]; ok {
-		if !hasOverride {
-			clone := *item
-			clone.Show = show
-			item = &clone
-		} else {
-			item.Show = show
-		}
+		item.Show = show
 	}
 	return item
 }
@@ -92,7 +84,7 @@ func (c *OverrideConfig) SetCategoryOrder(key string, value int) {
 	c.CategoryOrder[key] = value
 }
 
-func (c *OverrideConfig) UnhideItems(keys ...string) {
+func (c *OverrideConfig) UnhideItems(keys []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, key := range keys {
@@ -100,7 +92,7 @@ func (c *OverrideConfig) UnhideItems(keys ...string) {
 	}
 }
 
-func (c *OverrideConfig) HideItems(keys ...string) {
+func (c *OverrideConfig) HideItems(keys []string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for _, key := range keys {

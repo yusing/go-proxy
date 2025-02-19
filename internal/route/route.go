@@ -369,15 +369,14 @@ func (r *Route) FinalizeHomepageConfig() {
 
 	isDocker := r.Container != nil
 
-	hp := r.Homepage
-	if hp.IsEmpty() {
-		hp = homepage.NewItem(r.Alias)
+	if r.Homepage.IsEmpty() {
+		r.Homepage = homepage.NewItem(r.Alias)
 	}
-	hp = hp.GetOverride()
+
+	hp := r.Homepage
 	hp.Alias = r.Alias
 	hp.Provider = r.Provider
-
-	r.Homepage = hp
+	hp = hp.ApplyOverride()
 
 	var key string
 	if hp.Name == "" {

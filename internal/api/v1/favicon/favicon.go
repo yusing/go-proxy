@@ -86,7 +86,7 @@ func GetFavIcon(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var result *fetchResult
-	hp := r.HomepageConfig().GetOverride()
+	hp := r.HomepageConfig()
 	if !hp.IsEmpty() && hp.Icon != nil {
 		if hp.Icon.IconSource == homepage.IconSourceRelative {
 			result = findIcon(r, req, hp.Icon.Value)

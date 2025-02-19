@@ -56,8 +56,8 @@ func (item *Item) IsEmpty() bool {
 	return item == nil || item.IsUnset || item.ItemConfig == nil
 }
 
-func (item *Item) GetOverride() *Item {
-	return overrideConfigInstance.GetOverride(item)
+func (item *Item) ApplyOverride() *Item {
+	return overrideConfigInstance.ApplyOverride(item)
 }
 
 func (c *Categories) Clear() {

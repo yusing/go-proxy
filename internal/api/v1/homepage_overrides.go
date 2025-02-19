@@ -71,9 +71,9 @@ func SetHomePageOverrides(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if params.Value {
-			overrides.UnhideItems(params.Which...)
+			overrides.UnhideItems(params.Which)
 		} else {
-			overrides.HideItems(params.Which...)
+			overrides.HideItems(params.Which)
 		}
 	case HomepageOverrideCategoryOrder:
 		var params HomepageOverrideCategoryOrderParams

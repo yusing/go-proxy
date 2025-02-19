@@ -31,6 +31,6 @@ func TestOverrideItem(t *testing.T) {
 	}
 	overrides := GetOverrideConfig()
 	overrides.OverrideItem(a.Alias, override)
-	overridden := a.GetOverride()
+	overridden := a.ApplyOverride()
 	ExpectDeepEqual(t, overridden.ItemConfig, override)
 }
