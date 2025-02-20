@@ -8,6 +8,7 @@ import (
 	v1 "github.com/yusing/go-proxy/internal/api/v1"
 	"github.com/yusing/go-proxy/internal/api/v1/auth"
 	"github.com/yusing/go-proxy/internal/api/v1/certapi"
+	"github.com/yusing/go-proxy/internal/api/v1/dockerapi"
 	"github.com/yusing/go-proxy/internal/api/v1/favicon"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
@@ -88,6 +89,9 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/metrics/uptime", uptime.Poller.ServeHTTP, true)
 	mux.HandleFunc("GET", "/v1/cert/info", certapi.GetCertInfo, true)
 	mux.HandleFunc("", "/v1/cert/renew", certapi.RenewCert, true)
+	mux.HandleFunc("GET", "/v1/docker/info", dockerapi.Info, true)
+	mux.HandleFunc("GET", "/v1/docker/logs/{server}/{container}", dockerapi.Logs, true)
+	mux.HandleFunc("GET", "/v1/docker/containers", dockerapi.Containers, true)
 
 	if common.PrometheusEnabled {
 		mux.Handle("GET /v1/metrics", promhttp.Handler())

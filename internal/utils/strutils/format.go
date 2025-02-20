@@ -74,7 +74,7 @@ func formatFloat(f float64) string {
 	return strconv.FormatFloat(f, 'f', -1, 64)
 }
 
-func FormatByteSize[T ~uint64 | ~float64](size T) (value, unit string) {
+func FormatByteSize[T ~int64 | ~uint64 | ~float64](size T) (value, unit string) {
 	const (
 		_ = (1 << (10 * iota))
 		kb
@@ -99,7 +99,7 @@ func FormatByteSize[T ~uint64 | ~float64](size T) (value, unit string) {
 	}
 }
 
-func FormatByteSizeWithUnit[T ~uint64 | ~float64](size T) string {
+func FormatByteSizeWithUnit[T ~int64 | ~uint64 | ~float64](size T) string {
 	value, unit := FormatByteSize(size)
 	return value + " " + unit
 }
