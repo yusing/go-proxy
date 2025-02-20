@@ -80,7 +80,7 @@ func NewMiddleware[ImplType any]() *Middleware {
 func (m *Middleware) enableTrace() {
 	if tracer, ok := m.impl.(MiddlewareWithTracer); ok {
 		tracer.enableTrace()
-		logging.Debug().Msgf("middleware %s enabled trace", m.name)
+		logging.Trace().Msgf("middleware %s enabled trace", m.name)
 	}
 }
 
