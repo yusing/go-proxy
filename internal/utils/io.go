@@ -223,3 +223,7 @@ func CopyClose(dst *ContextWriter, src *ContextReader) (err error) {
 		}
 	}
 }
+
+func CopyCloseWithContext(ctx context.Context, dst io.Writer, src io.Reader) (err error) {
+	return CopyClose(NewContextWriter(ctx, dst), NewContextReader(ctx, src))
+}
