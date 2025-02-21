@@ -89,7 +89,7 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("GET", "/v1/metrics/uptime", uptime.Poller.ServeHTTP, true)
 	mux.HandleFunc("GET", "/v1/cert/info", certapi.GetCertInfo, true)
 	mux.HandleFunc("", "/v1/cert/renew", certapi.RenewCert, true)
-	mux.HandleFunc("GET", "/v1/docker/info", dockerapi.Info, true)
+	mux.HandleFunc("GET", "/v1/docker/info", dockerapi.DockerInfo, true)
 	mux.HandleFunc("GET", "/v1/docker/logs/{server}/{container}", dockerapi.Logs, true)
 	mux.HandleFunc("GET", "/v1/docker/containers", dockerapi.Containers, true)
 

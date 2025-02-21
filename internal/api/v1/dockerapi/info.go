@@ -4,43 +4,39 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"sort"
 
 	dockerSystem "github.com/docker/docker/api/types/system"
 	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-type DockerInfo dockerSystem.Info
+type dockerInfo dockerSystem.Info
 
-func (d *DockerInfo) MarshalJSON() ([]byte, error) {
+func (d *dockerInfo) MarshalJSON() ([]byte, error) {
 	return json.Marshal(map[string]any{
-		"host": d.Name,
+		"name":    d.Name,
+		"version": d.ServerVersion,
 		"containers": map[string]int{
 			"total":   d.Containers,
 			"running": d.ContainersRunning,
 			"paused":  d.ContainersPaused,
 			"stopped": d.ContainersStopped,
 		},
-		"images":  d.Images,
-		"n_cpu":   d.NCPU,
-		"memory":  strutils.FormatByteSizeWithUnit(d.MemTotal),
-		"version": d.ServerVersion,
+		"images": d.Images,
+		"n_cpu":  d.NCPU,
+		"memory": strutils.FormatByteSizeWithUnit(d.MemTotal),
 	})
 }
 
-func Info(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), reqTimeout)
-	defer cancel()
+func DockerInfo(w http.ResponseWriter, r *http.Request) {
+	serveHTTP[dockerInfo, []dockerInfo](w, r, GetDockerInfo)
+}
 
-	dockerClients, ok := getDockerClientsWithErrHandling(w)
-	if !ok {
-		return
-	}
-	defer closeAllClients(dockerClients)
-
+func GetDockerInfo(ctx context.Context, dockerClients DockerClients) ([]dockerInfo, gperr.Error) {
 	errs := gperr.NewBuilder("failed to get docker info")
+	dockerInfos := make([]dockerInfo, len(dockerClients))
 
-	dockerInfos := make([]DockerInfo, len(dockerClients))
 	i := 0
 	for name, dockerClient := range dockerClients {
 		info, err := dockerClient.Info(ctx)
@@ -49,9 +45,12 @@ func Info(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		info.Name = name
-		dockerInfos[i] = DockerInfo(info)
+		dockerInfos[i] = dockerInfo(info)
 		i++
 	}
 
-	handleResult(w, errs.Error(), dockerInfos)
+	sort.Slice(dockerInfos, func(i, j int) bool {
+		return dockerInfos[i].Name < dockerInfos[j].Name
+	})
+	return dockerInfos, errs.Error()
 }

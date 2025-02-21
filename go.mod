@@ -6,8 +6,8 @@ require (
 	github.com/PuerkitoBio/goquery v1.10.2 // parsing HTML for extract fav icon
 	github.com/coder/websocket v1.8.12 // websocket for API and agent
 	github.com/coreos/go-oidc/v3 v3.12.0 // oidc authentication
-	github.com/docker/cli v27.5.1+incompatible // docker CLI
-	github.com/docker/docker v27.5.1+incompatible // docker daemon
+	github.com/docker/cli v28.0.0+incompatible // docker CLI
+	github.com/docker/docker v28.0.0+incompatible // docker daemon
 	github.com/fsnotify/fsnotify v1.8.0 // file watcher
 	github.com/go-acme/lego/v4 v4.22.2 // acme client
 	github.com/go-playground/validator/v10 v10.25.0 // validator
@@ -15,9 +15,10 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1 // jwt for default auth
 	github.com/gotify/server/v2 v2.6.1 // reference the Message struct for json response
 	github.com/lithammer/fuzzysearch v1.1.8 // fuzzy search for searching icons and filtering metrics
-	github.com/prometheus/client_golang v1.20.5 // metrics
+	github.com/prometheus/client_golang v1.21.0 // metrics
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // lock free map for concurrent operations
 	github.com/rs/zerolog v1.33.0 // logging
+	github.com/shirou/gopsutil/v4 v4.25.1 // system info metrics
 	github.com/vincent-petithory/dataurl v1.0.0 // data url for fav icon
 	golang.org/x/crypto v0.33.0 // encrypting password with bcrypt
 	golang.org/x/net v0.35.0 // HTTP header utilities
@@ -25,7 +26,6 @@ require (
 	golang.org/x/text v0.22.0 // string utilities
 	golang.org/x/time v0.10.0 // time utilities
 	gopkg.in/yaml.v3 v3.0.1 // yaml parsing for different config files
-	github.com/shirou/gopsutil/v4 v4.25.1 // system info metrics
 )
 
 require (
@@ -51,7 +51,7 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
-	github.com/klauspost/compress v1.17.11 // indirect
+	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect

@@ -1,12 +1,25 @@
 package dockerapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/docker"
 	"github.com/yusing/go-proxy/internal/gperr"
+	"github.com/yusing/go-proxy/internal/net/gphttp/gpwebsocket"
+	"github.com/yusing/go-proxy/internal/net/gphttp/httpheaders"
+)
+
+type (
+	DockerClients     map[string]*docker.SharedClient
+	ResultType[T any] interface {
+		map[string]T | []T
+	}
 )
 
 // getDockerClients returns a map of docker clients for the current config.
@@ -14,11 +27,11 @@ import (
 // Returns a map of docker clients by server name and an error if any.
 //
 // Even if there are errors, the map of docker clients might not be empty.
-func getDockerClients() (map[string]*docker.SharedClient, gperr.Error) {
+func getDockerClients() (DockerClients, gperr.Error) {
 	cfg := config.GetInstance()
 
 	dockerHosts := cfg.Value().Providers.Docker
-	dockerClients := make(map[string]*docker.SharedClient)
+	dockerClients := make(DockerClients)
 
 	connErrs := gperr.NewBuilder("failed to connect to docker")
 
@@ -41,21 +54,6 @@ func getDockerClients() (map[string]*docker.SharedClient, gperr.Error) {
 	}
 
 	return dockerClients, connErrs.Error()
-}
-
-// getDockerClientsWithErrHandling returns a map of docker clients for the current config.
-//
-// Returns a map of docker clients by server name and a boolean indicating if http handler should stop/
-func getDockerClientsWithErrHandling(w http.ResponseWriter) (map[string]*docker.SharedClient, bool) {
-	dockerClients, err := getDockerClients()
-	if err != nil {
-		gperr.LogError("failed to get docker clients", err)
-		if len(dockerClients) == 0 {
-			http.Error(w, "no docker hosts connected successfully", http.StatusInternalServerError)
-			return nil, false
-		}
-	}
-	return dockerClients, true
 }
 
 func getDockerClient(w http.ResponseWriter, server string) (*docker.SharedClient, bool, error) {
@@ -86,13 +84,13 @@ func getDockerClient(w http.ResponseWriter, server string) (*docker.SharedClient
 // closeAllClients closes all docker clients after a delay.
 //
 // This is used to ensure that all docker clients are closed after the http handler returns.
-func closeAllClients(dockerClients map[string]*docker.SharedClient) {
+func closeAllClients(dockerClients DockerClients) {
 	for _, dockerClient := range dockerClients {
 		dockerClient.Close()
 	}
 }
 
-func handleResult[T any](w http.ResponseWriter, errs error, result []T) {
+func handleResult[V any, T ResultType[V]](w http.ResponseWriter, errs error, result T) {
 	if errs != nil {
 		gperr.LogError("docker errors", errs)
 		if len(result) == 0 {
@@ -101,4 +99,26 @@ func handleResult[T any](w http.ResponseWriter, errs error, result []T) {
 		}
 	}
 	json.NewEncoder(w).Encode(result)
+}
+
+func serveHTTP[V any, T ResultType[V]](w http.ResponseWriter, r *http.Request, getResult func(ctx context.Context, dockerClients DockerClients) (T, gperr.Error)) {
+	dockerClients, err := getDockerClients()
+	if err != nil {
+		handleResult[V, T](w, err, nil)
+		return
+	}
+	defer closeAllClients(dockerClients)
+
+	if httpheaders.IsWebsocket(r.Header) {
+		gpwebsocket.Periodic(w, r, 5*time.Second, func(conn *websocket.Conn) error {
+			result, err := getResult(r.Context(), dockerClients)
+			if err != nil {
+				return err
+			}
+			return wsjson.Write(r.Context(), conn, result)
+		})
+	} else {
+		result, err := getResult(r.Context(), dockerClients)
+		handleResult[V, T](w, err, result)
+	}
 }
