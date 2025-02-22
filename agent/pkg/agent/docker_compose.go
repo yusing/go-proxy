@@ -21,7 +21,7 @@ var agentComposeYAMLTemplate = template.Must(template.New("agent.compose.yml").P
 
 const (
 	DockerImageProduction = "ghcr.io/yusing/godoxy-agent:latest"
-	DockerImageNightly    = "yusing/godoxy-agent-nightly:latest"
+	DockerImageNightly    = "ghcr.io/yusing/godoxy-agent:nightly"
 )
 
 type (
