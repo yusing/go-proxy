@@ -73,7 +73,7 @@
 2.  在目錄內運行安裝腳本，或[手動安裝](#手動安裝)
 
     ```shell
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/v0.9/scripts/setup.sh)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
     ```
 
 3.  啟動容器 `docker compose up -d` 並等待就緒
@@ -86,15 +86,15 @@
 
 1. 建立 `config` 目錄，然後將 `config.example.yml` 下載到 `config/config.yml`
 
-   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/config.example.yml -O config/config.yml`
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/main/config.example.yml -O config/config.yml`
 
 2. 將 `.env.example` 下載到 `.env`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/.env.example -O .env`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/.env.example -O .env`
 
 3. 將 `compose.example.yml` 下載到 `compose.yml`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/compose.example.yml -O compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/compose.example.yml -O compose.yml`
 
 ### 資料夾結構
 
