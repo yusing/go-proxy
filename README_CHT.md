@@ -68,17 +68,17 @@
 
 **注意：** GoDoxy 設計為（且僅在）`host` 網路模式下運作，請勿更改。如需更改監聽埠，請修改 `.env`。
 
-1.  準備一個新目錄用於 docker compose 和配置文件。
+1. 準備一個新目錄用於 docker compose 和配置文件。
 
-2.  在目錄內運行安裝腳本，或[手動安裝](#手動安裝)
+2. 在目錄內運行安裝腳本，或[手動安裝](#手動安裝)
 
-    ```shell
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
-    ```
+   ```shell
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
+   ```
 
-3.  啟動容器 `docker compose up -d` 並等待就緒
+3. 啟動容器 `docker compose up -d` 並等待就緒
 
-4.  現在可以在 WebUI `https://godoxy.yourdomain.com` 進行額外配置
+4. 現在可以在 WebUI `https://godoxy.yourdomain.com` 進行額外配置
 
 [🔼回到頂部](#目錄)
 

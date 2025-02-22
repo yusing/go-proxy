@@ -68,17 +68,17 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 **NOTE:** GoDoxy is designed to be (and only works when) running in `host` network mode, do not change it. To change listening ports, modify `.env`.
 
-1.  Prepare a new directory for docker compose and config files.
+1. Prepare a new directory for docker compose and config files.
 
-2.  Run setup script inside the directory, or [set up manually](#manual-setup)
+2. Run setup script inside the directory, or [set up manually](#manual-setup)
 
     ```shell
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
     ```
 
-3.  Start the container `docker compose up -d` and wait for it to be ready
+3. Start the container `docker compose up -d` and wait for it to be ready
 
-4.  You may now do some extra configuration on WebUI `https://godoxy.yourdomain.com`
+4. You may now do some extra configuration on WebUI `https://godoxy.yourdomain.com`
 
 [🔼Back to top](#table-of-content)
 
