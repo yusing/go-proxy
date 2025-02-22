@@ -17,7 +17,6 @@ type (
 		Description  string         `json:"description" aliases:"desc"`
 		SortOrder    int            `json:"sort_order"`
 		WidgetConfig map[string]any `json:"widget_config" aliases:"widget"`
-		URL          string         `json:"url"` // alias + domain
 	}
 
 	Item struct {
@@ -25,6 +24,7 @@ type (
 
 		Alias    string `json:"alias"` // proxy alias
 		Provider string `json:"provider"`
+		URL      string `json:"url"` // alias + domain
 
 		IsUnset bool `json:"-"`
 	}
