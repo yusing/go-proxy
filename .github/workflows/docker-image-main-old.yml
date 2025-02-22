@@ -1,9 +1,0 @@
-name: Docker Image CI (main)
-
-on:
-  push:
-    tags: ["*"]
-
-jobs:
-  call-main-workflow:
-    uses: ./.github/workflows/docker-image.yml
