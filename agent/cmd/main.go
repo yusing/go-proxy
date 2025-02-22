@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/agent/pkg/env"
 	"github.com/yusing/go-proxy/agent/pkg/server"
@@ -13,14 +11,6 @@ import (
 )
 
 func main() {
-	args := os.Args
-	if len(args) > 1 && args[1] == "migrate" {
-		if err := agent.MigrateFromOld(); err != nil {
-			gperr.LogFatal("failed to migrate from old docker compose", err)
-		}
-		return
-	}
-	_ = os.Chmod("/app/compose.yml", 0600)
 	ca := &agent.PEMPair{}
 	err := ca.Load(env.AgentCACert)
 	if err != nil {

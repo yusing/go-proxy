@@ -11,5 +11,4 @@ services:
       AGENT_SSL_CERT: "{{.SSLCert}}"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - ./compose.yml:/app/compose.yml
       - ./data:/app/data
