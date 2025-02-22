@@ -1,128 +1,163 @@
 name: Docker Image CI
 
 on:
-    push:
-        tags: ["*"]
+  workflow_call:
+    inputs:
+      tag:
+        required: true
+        type: string
+      image_name:
+        required: true
+        type: string
+      old_image_name:
+        required: false
+        type: string
+      agent:
+        required: false
+        default: false
+        type: boolean
 
 env:
-    REGISTRY: ghcr.io
-    IMAGE_NAME: ${{ github.repository }}
+  REGISTRY: ghcr.io
+  MAKE_ARGS: agent=${{ inputs.agent && '1' || '0' }}
+  DIGEST_PATH: /tmp/digests/${{ inputs.agent && 'agent' || 'main' }}
+  DIGEST_NAME_SUFFIX: ${{ inputs.agent && 'agent' || 'main' }}
 
 jobs:
-    build:
-        name: Build multi-platform Docker image
-        runs-on: ubuntu-22.04
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            platform: linux/amd64
+          - runner: ubuntu-24.04-arm
+            platform: linux/arm64
 
-        permissions:
-            contents: read
-            packages: write
-            id-token: write
-            attestations: write
+    name: Build ${{ matrix.platform }}
+    runs-on: ${{ matrix.runner }}
 
-        strategy:
-            fail-fast: false
-            matrix:
-                platform:
-                    - linux/amd64
-                    # - linux/arm/v6
-                    # - linux/arm/v7
-                    - linux/arm64
-        steps:
-            - name: Prepare
-              run: |
-                  platform=${{ matrix.platform }}
-                  echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
 
-            - name: Docker meta
-              id: meta
-              uses: docker/metadata-action@v5
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+    steps:
+      - name: Prepare
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
 
-            - name: Set up QEMU
-              uses: docker/setup-qemu-action@v3
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ inputs.image_name }}
+          tags: |
+            type=raw,value=${{ inputs.tag }},event=branch
+            type=ref,event=tag
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: ${{ matrix.platform }}
 
-            - name: Login to registry
-              uses: docker/login-action@v3
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-            - name: Build and push by digest
-              id: build
-              uses: docker/build-push-action@v6
-              with:
-                  platforms: ${{ matrix.platform }}
-                  labels: ${{ steps.meta.outputs.labels }}
-                  outputs: type=image,name=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
-                  build-args: |
-                      VERSION=${{ github.ref_name }}
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          platforms: ${{ matrix.platform }}
+          labels: ${{ steps.meta.outputs.labels }}
+          outputs: type=image,name=${{ env.REGISTRY }}/${{ inputs.image_name }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.ref_name }}
+            MAKE_ARGS=${{ env.MAKE_ARGS }}
 
-            - name: Generate artifact attestation
-              uses: actions/attest-build-provenance@v1
-              with:
-                  subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
-                  subject-digest: ${{ steps.build.outputs.digest }}
-                  push-to-registry: true
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ inputs.image_name }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
 
-            - name: Export digest
-              run: |
-                  mkdir -p /tmp/digests
-                  digest="${{ steps.build.outputs.digest }}"
-                  touch "/tmp/digests/${digest#sha256:}"
+      - name: Export digest
+        run: |
+          mkdir -p ${{ env.DIGEST_PATH }}
+          digest="${{ steps.build.outputs.digest }}"
+          touch "${{ env.DIGEST_PATH }}/${digest#sha256:}"
 
-            - name: Upload digest
-              uses: actions/upload-artifact@v4
-              with:
-                  name: digests-${{ env.PLATFORM_PAIR }}
-                  path: /tmp/digests/*
-                  if-no-files-found: error
-                  retention-days: 1
-    merge:
-        runs-on: ubuntu-22.04
-        needs:
-            - build
-        permissions:
-            contents: read
-            packages: write
-            id-token: write
-        steps:
-            - name: Download digests
-              uses: actions/download-artifact@v4
-              with:
-                  path: /tmp/digests
-                  pattern: digests-*
-                  merge-multiple: true
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}-${{ env.DIGEST_NAME_SUFFIX }}
+          path: ${{ env.DIGEST_PATH }}/*
+          if-no-files-found: error
+          retention-days: 1
 
-            - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+  merge:
+    needs: build
+    runs-on: ubuntu-latest
 
-            - name: Docker meta
-              id: meta
-              uses: docker/metadata-action@v5
-              with:
-                  images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
 
-            - name: Login to registry
-              uses: docker/login-action@v3
-              with:
-                  registry: ${{ env.REGISTRY }}
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ env.DIGEST_PATH }}
+          pattern: digests-*-${{ env.DIGEST_NAME_SUFFIX }}
+          merge-multiple: true
 
-            - name: Create manifest list and push
-              id: push
-              working-directory: /tmp/digests
-              run: |
-                  docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
-                    $(printf '${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@sha256:%s ' *)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
-            - name: Inspect image
-              run: |
-                  docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.meta.outputs.version }}
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ inputs.image_name }}
+          tags: |
+            type=raw,value=${{ inputs.tag }},event=branch
+            type=ref,event=tag
+
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create manifest list and push
+        id: push
+        working-directory: ${{ env.DIGEST_PATH }}
+        run: |
+          docker buildx imagetools create $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf '${{ env.REGISTRY }}/${{ inputs.image_name }}@sha256:%s ' *)
+
+      - name: Old image name
+        if: inputs.old_image_name != ''
+        run: |
+          docker buildx imagetools create -t ${{ env.REGISTRY }}/${{ inputs.old_image_name }}:${{ steps.meta.outputs.version }}\
+            ${{ env.REGISTRY }}/${{ inputs.image_name }}:${{ steps.meta.outputs.version }}
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ inputs.image_name }}:${{ steps.meta.outputs.version }}
+
+      - name: Inspect image (old)
+        if: inputs.old_image_name != ''
+        run: |
+          docker buildx imagetools inspect ${{ env.REGISTRY }}/${{ inputs.old_image_name }}:${{ steps.meta.outputs.version }}
