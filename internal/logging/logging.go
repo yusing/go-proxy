@@ -3,6 +3,7 @@ package logging
 
 import (
 	"io"
+	"log"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -55,6 +56,9 @@ func InitLogger(out io.Writer) {
 	logger = zerolog.New(
 		writer,
 	).Level(level).With().Timestamp().Logger()
+	log.SetOutput(writer)
+	log.SetPrefix("")
+	log.SetFlags(0)
 }
 
 func DiscardLogger() { zerolog.SetGlobalLevel(zerolog.Disabled) }

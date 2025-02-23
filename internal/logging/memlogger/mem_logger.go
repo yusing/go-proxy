@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"sync"
@@ -51,9 +50,6 @@ func init() {
 	memLoggerInstance.Grow(maxMemLogSize)
 	w := zerolog.MultiLevelWriter(os.Stderr, memLoggerInstance)
 	logging.InitLogger(w)
-	log.SetOutput(w)
-	log.SetPrefix("")
-	log.SetFlags(0)
 }
 
 func GetMemLogger() MemLogger {
