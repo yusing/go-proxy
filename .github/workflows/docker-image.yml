@@ -78,9 +78,9 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           outputs: type=image,name=${{ env.REGISTRY }}/${{ inputs.image_name }},push-by-digest=true,name-canonical=true,push=true
           cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ inputs.image_name }}:buildcache-${{ matrix.platform }}-${{ inputs.tag }}
+            type=registry,ref=${{ env.REGISTRY }}/${{ inputs.image_name }}:buildcache-${{ env.PLATFORM_PAIR }}-${{ inputs.tag }}
           cache-to: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ inputs.image_name }}:buildcache-${{ matrix.platform }}-${{ inputs.tag }},mode=max
+            type=registry,ref=${{ env.REGISTRY }}/${{ inputs.image_name }}:buildcache-${{ env.PLATFORM_PAIR }}-${{ inputs.tag }},mode=max
           build-args: |
             VERSION=${{ github.ref_name }}
             MAKE_ARGS=${{ env.MAKE_ARGS }}
