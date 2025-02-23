@@ -6,6 +6,7 @@ import (
 	"github.com/yusing/go-proxy/internal/route/provider/types"
 	"github.com/yusing/go-proxy/internal/task"
 	"github.com/yusing/go-proxy/internal/watcher"
+	eventsPkg "github.com/yusing/go-proxy/internal/watcher/events"
 )
 
 type EventHandler struct {
@@ -29,10 +30,19 @@ func (p *Provider) newEventHandler() *EventHandler {
 
 func (handler *EventHandler) Handle(parent task.Parent, events []watcher.Event) {
 	oldRoutes := handler.provider.routes
+
+	isForceReload := false
+	for _, event := range events {
+		if event.Action == eventsPkg.ActionForceReload {
+			isForceReload = true
+			break
+		}
+	}
+
 	newRoutes, err := handler.provider.loadRoutes()
 	if err != nil {
 		handler.errs.Add(err)
-		if len(newRoutes) == 0 {
+		if len(newRoutes) == 0 && !isForceReload {
 			return
 		}
 	}

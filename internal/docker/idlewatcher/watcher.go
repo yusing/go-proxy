@@ -213,7 +213,7 @@ func (w *Watcher) expires() time.Time {
 	return w.lastReset.Add(w.IdleTimeout)
 }
 
-func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventCh <-chan events.Event, errCh <-chan gperr.Error) {
+func (w *Watcher) getEventCh(dockerWatcher *watcher.DockerWatcher) (eventCh <-chan events.Event, errCh <-chan gperr.Error) {
 	eventCh, errCh = dockerWatcher.EventsWithOptions(w.Task().Context(), watcher.DockerListOptions{
 		Filters: watcher.NewDockerFilter(
 			watcher.DockerFilterContainer,
