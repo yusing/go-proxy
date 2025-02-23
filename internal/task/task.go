@@ -65,7 +65,7 @@ type (
 	}
 )
 
-const taskTimeout = 3 * time.Second
+const taskTimeout = 5 * time.Second
 
 func (t *Task) Context() context.Context {
 	return t.ctx
