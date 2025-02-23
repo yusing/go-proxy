@@ -67,7 +67,7 @@ func (r *StreamRoute) Start(parent task.Parent) gperr.Error {
 		r.HealthMon = waker
 	case r.UseHealthCheck():
 		if r.IsDocker() {
-			client, err := docker.ConnectClient(r.IdlewatcherConfig().DockerHost)
+			client, err := docker.NewClient(r.IdlewatcherConfig().DockerHost)
 			if err == nil {
 				fallback := monitor.NewRawHealthChecker(r.TargetURL(), r.HealthCheck)
 				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.IdlewatcherConfig().ContainerID, r.TargetName(), r.HealthCheck, fallback)

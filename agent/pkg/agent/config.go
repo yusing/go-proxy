@@ -156,10 +156,17 @@ func (cfg *AgentConfig) Transport() *http.Transport {
 			if addr != AgentHost+":443" {
 				return nil, &net.AddrError{Err: "invalid address", Addr: addr}
 			}
-			return gphttp.DefaultDialer.DialContext(ctx, network, cfg.Addr)
+			if network != "tcp" {
+				return nil, &net.OpError{Op: "dial", Net: network, Source: nil, Addr: nil}
+			}
+			return cfg.DialContext(ctx)
 		},
 		TLSClientConfig: cfg.tlsConfig,
 	}
+}
+
+func (cfg *AgentConfig) DialContext(ctx context.Context) (net.Conn, error) {
+	return gphttp.DefaultDialer.DialContext(ctx, "tcp", cfg.Addr)
 }
 
 func (cfg *AgentConfig) Name() string {

@@ -36,7 +36,7 @@ func getDockerClients() (DockerClients, gperr.Error) {
 	connErrs := gperr.NewBuilder("failed to connect to docker")
 
 	for name, host := range dockerHosts {
-		dockerClient, err := docker.ConnectClient(host)
+		dockerClient, err := docker.NewClient(host)
 		if err != nil {
 			connErrs.Add(err)
 			continue
@@ -45,7 +45,7 @@ func getDockerClients() (DockerClients, gperr.Error) {
 	}
 
 	for _, agent := range cfg.ListAgents() {
-		dockerClient, err := docker.ConnectClient(agent.FakeDockerHost())
+		dockerClient, err := docker.NewClient(agent.FakeDockerHost())
 		if err != nil {
 			connErrs.Add(err)
 			continue
@@ -74,7 +74,7 @@ func getDockerClient(w http.ResponseWriter, server string) (*docker.SharedClient
 	if host == "" {
 		return nil, false, nil
 	}
-	dockerClient, err := docker.ConnectClient(host)
+	dockerClient, err := docker.NewClient(host)
 	if err != nil {
 		return nil, false, err
 	}

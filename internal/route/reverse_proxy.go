@@ -113,7 +113,7 @@ func (r *ReveseProxyRoute) Start(parent task.Parent) gperr.Error {
 		r.HealthMon = waker
 	case r.UseHealthCheck():
 		if r.IsDocker() {
-			client, err := docker.ConnectClient(r.Idlewatcher.DockerHost)
+			client, err := docker.NewClient(r.Idlewatcher.DockerHost)
 			if err == nil {
 				fallback := r.newHealthMonitor()
 				r.HealthMon = monitor.NewDockerHealthMonitor(client, r.Idlewatcher.ContainerID, r.TargetName(), r.HealthCheck, fallback)

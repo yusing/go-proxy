@@ -7,7 +7,7 @@ import (
 )
 
 func Inspect(dockerHost string, containerID string) (*Container, error) {
-	client, err := ConnectClient(dockerHost)
+	client, err := NewClient(dockerHost)
 	if err != nil {
 		return nil, err
 	}

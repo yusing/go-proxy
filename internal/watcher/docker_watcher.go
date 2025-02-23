@@ -16,9 +16,8 @@ import (
 
 type (
 	DockerWatcher struct {
-		host        string
-		client      *docker.SharedClient
-		clientOwned bool
+		host   string
+		client *docker.SharedClient
 	}
 	DockerListOptions = docker_events.ListOptions
 )
@@ -60,29 +59,14 @@ func DockerFilterContainerNameID(nameOrID string) filters.KeyValuePair {
 }
 
 func NewDockerWatcher(host string) *DockerWatcher {
-	return &DockerWatcher{
-		host:        host,
-		clientOwned: true,
-	}
-}
-
-func NewDockerWatcherWithClient(client *docker.SharedClient) *DockerWatcher {
-	return &DockerWatcher{
-		client: client,
-	}
+	return &DockerWatcher{host: host}
 }
 
 func (w *DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan gperr.Error) {
 	return w.EventsWithOptions(ctx, optionsDefault)
 }
 
-func (w *DockerWatcher) Close() {
-	if w.clientOwned && w.client.Connected() {
-		w.client.Close()
-	}
-}
-
-func (w *DockerWatcher) parseError(err error) gperr.Error {
+func (w DockerWatcher) parseError(err error) gperr.Error {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return gperr.New("docker client connection timeout")
 	}
@@ -95,11 +79,26 @@ func (w *DockerWatcher) parseError(err error) gperr.Error {
 func (w *DockerWatcher) checkConnection(ctx context.Context) bool {
 	ctx, cancel := context.WithTimeout(ctx, dockerWatcherRetryInterval)
 	defer cancel()
-	_, err := w.client.Ping(ctx)
+	err := w.client.CheckConnection(ctx)
 	if err != nil {
+		logging.Debug().Err(err).Msg("docker watcher: connection failed")
 		return false
 	}
 	return true
+}
+
+func (w *DockerWatcher) handleEvent(event docker_events.Message, ch chan<- Event) {
+	action, ok := events.DockerEventMap[event.Action]
+	if !ok {
+		return
+	}
+	ch <- Event{
+		Type:            events.EventTypeDocker,
+		ActorID:         event.Actor.ID,
+		ActorAttributes: event.Actor.Attributes, // labels
+		ActorName:       event.Actor.Attributes["name"],
+		Action:          action,
+	}
 }
 
 func (w *DockerWatcher) EventsWithOptions(ctx context.Context, options DockerListOptions) (<-chan Event, <-chan gperr.Error) {
@@ -107,57 +106,34 @@ func (w *DockerWatcher) EventsWithOptions(ctx context.Context, options DockerLis
 	errCh := make(chan gperr.Error)
 
 	go func() {
+		var err error
+		w.client, err = docker.NewClient(w.host)
+		if err != nil {
+			errCh <- gperr.Wrap(err, "docker watcher: failed to initialize client")
+			return
+		}
+
 		defer func() {
 			close(eventCh)
 			close(errCh)
-			w.Close()
+			w.client.Close()
 		}()
 
-		if !w.client.Connected() {
-			var err error
-			w.client, err = docker.ConnectClient(w.host)
-			attempts := 0
-			retryTicker := time.NewTicker(dockerWatcherRetryInterval)
-			for err != nil {
-				attempts++
-				errCh <- gperr.Errorf("docker connection attempt #%d: %w", attempts, err)
-				select {
-				case <-ctx.Done():
-					retryTicker.Stop()
-					return
-				case <-retryTicker.C:
-					w.client, err = docker.ConnectClient(w.host)
-				}
-			}
-			retryTicker.Stop()
-		}
-
-		defer w.Close()
-
 		cEventCh, cErrCh := w.client.Events(ctx, options)
-		defer logging.Debug().Str("host", w.host).Msg("docker watcher closed")
+		defer logging.Debug().Str("host", w.client.Address()).Msg("docker watcher closed")
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case msg := <-cEventCh:
-				action, ok := events.DockerEventMap[msg.Action]
-				if !ok {
-					continue
-				}
-				event := Event{
-					Type:            events.EventTypeDocker,
-					ActorID:         msg.Actor.ID,
-					ActorAttributes: msg.Actor.Attributes, // labels
-					ActorName:       msg.Actor.Attributes["name"],
-					Action:          action,
-				}
-				eventCh <- event
+				w.handleEvent(msg, eventCh)
 			case err := <-cErrCh:
 				if err == nil {
 					continue
 				}
 				errCh <- w.parseError(err)
+				// release the error because reopening event channel may block
+				err = nil
 				// trigger reload (clear routes)
 				eventCh <- reloadTrigger
 				for !w.checkConnection(ctx) {

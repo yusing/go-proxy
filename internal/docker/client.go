@@ -1,8 +1,10 @@
 package docker
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -23,11 +25,14 @@ type (
 		key      string
 		refCount uint32
 		closedOn int64
+
+		addr string
+		dial func(ctx context.Context) (net.Conn, error)
 	}
 )
 
 var (
-	clientMap   = make(map[string]*SharedClient, 5)
+	clientMap   = make(map[string]*SharedClient, 10)
 	clientMapMu sync.RWMutex
 
 	clientOptEnvHost = []client.Opt{
@@ -64,9 +69,7 @@ func init() {
 
 		for _, c := range clientMap {
 			delete(clientMap, c.key)
-			if c.Connected() {
-				c.Client.Close()
-			}
+			c.Client.Close()
 		}
 	})
 }
@@ -78,10 +81,6 @@ func closeTimedOutClients() {
 	now := time.Now().Unix()
 
 	for _, c := range clientMap {
-		if !c.Connected() {
-			delete(clientMap, c.key)
-			continue
-		}
 		if c.closedOn == 0 {
 			continue
 		}
@@ -93,8 +92,17 @@ func closeTimedOutClients() {
 	}
 }
 
-func (c *SharedClient) Connected() bool {
-	return c != nil && c.Client != nil
+func (c *SharedClient) Address() string {
+	return c.addr
+}
+
+func (c *SharedClient) CheckConnection(ctx context.Context) error {
+	conn, err := c.dial(ctx)
+	if err != nil {
+		return err
+	}
+	conn.Close()
+	return nil
 }
 
 // if the client is still referenced, this is no-op.
@@ -103,7 +111,7 @@ func (c *SharedClient) Close() {
 	c.refCount--
 }
 
-// ConnectClient creates a new Docker client connection to the specified host.
+// NewClient creates a new Docker client connection to the specified host.
 //
 // Returns existing client if available.
 //
@@ -113,7 +121,7 @@ func (c *SharedClient) Close() {
 // Returns:
 //   - Client: the Docker client connection.
 //   - error: an error if the connection failed.
-func ConnectClient(host string) (*SharedClient, error) {
+func NewClient(host string) (*SharedClient, error) {
 	clientMapMu.Lock()
 	defer clientMapMu.Unlock()
 
@@ -125,6 +133,8 @@ func ConnectClient(host string) (*SharedClient, error) {
 
 	// create client
 	var opt []client.Opt
+	var addr string
+	var dial func(ctx context.Context) (net.Conn, error)
 
 	if agent.IsDockerHostAgent(host) {
 		cfg, ok := config.GetInstance().GetAgent(host)
@@ -136,6 +146,8 @@ func ConnectClient(host string) (*SharedClient, error) {
 			client.WithHTTPClient(cfg.NewHTTPClient()),
 			client.WithAPIVersionNegotiation(),
 		}
+		addr = "tcp://" + cfg.Addr
+		dial = cfg.DialContext
 	} else {
 		switch host {
 		case "":
@@ -177,9 +189,16 @@ func ConnectClient(host string) (*SharedClient, error) {
 		Client:   client,
 		key:      host,
 		refCount: 1,
+		addr:     addr,
+		dial:     dial,
 	}
 
-	defer logging.Debug().Str("host", host).Msg("docker client connected")
+	// non-agent client
+	if c.dial == nil {
+		c.dial = client.Dialer()
+	}
+
+	defer logging.Debug().Str("host", host).Msg("docker client initialized")
 
 	clientMap[c.key] = c
 	return c, nil

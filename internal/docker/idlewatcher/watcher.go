@@ -8,7 +8,7 @@ import (
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/rs/zerolog"
-	D "github.com/yusing/go-proxy/internal/docker"
+	"github.com/yusing/go-proxy/internal/docker"
 	idlewatcher "github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
 	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -29,7 +29,7 @@ type (
 		*idlewatcher.Config
 		*waker
 
-		client       *D.SharedClient
+		client       *docker.SharedClient
 		stopByMethod StopCallback // send a docker command w.r.t. `stop_method`
 		ticker       *time.Ticker
 		lastReset    time.Time
@@ -70,7 +70,7 @@ func registerWatcher(watcherTask *task.Task, route route.Route, waker *waker) (*
 		return w, nil
 	}
 
-	client, err := D.ConnectClient(cfg.DockerHost)
+	client, err := docker.NewClient(cfg.DockerHost)
 	if err != nil {
 		return nil, err
 	}
@@ -146,9 +146,6 @@ func (w *Watcher) containerStart(ctx context.Context) error {
 }
 
 func (w *Watcher) containerStatus() (string, error) {
-	if !w.client.Connected() {
-		return "", errors.New("docker client not connected")
-	}
 	ctx, cancel := context.WithTimeoutCause(w.task.Context(), dockerReqTimeout, errors.New("docker request timeout"))
 	defer cancel()
 	json, err := w.client.ContainerInspect(ctx, w.ContainerID)
@@ -242,7 +239,7 @@ func (w *Watcher) getEventCh(dockerWatcher *watcher.DockerWatcher) (eventCh <-ch
 // it exits only if the context is canceled, the container is destroyed,
 // errors occurred on docker client, or route provider died (mainly caused by config reload).
 func (w *Watcher) watchUntilDestroy() (returnCause error) {
-	dockerWatcher := watcher.NewDockerWatcherWithClient(w.client)
+	dockerWatcher := watcher.NewDockerWatcher(w.Config.DockerHost)
 	dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
 
 	for {
