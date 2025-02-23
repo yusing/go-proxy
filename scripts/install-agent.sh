@@ -55,7 +55,7 @@ else
 	echo "Unsupported architecture: $arch, expect x86_64 or aarch64"
 	exit 1
 fi
-repo="yusing/go-proxy"
+repo="yusing/godoxy"
 install_path="/usr/local/bin"
 name="godoxy-agent"
 bin_path="${install_path}/${name}"

@@ -2,20 +2,20 @@
 
 # GoDoxy
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-![GitHub last commit](https://img.shields.io/github/last-commit/yusing/go-proxy)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
+![GitHub last commit](https://img.shields.io/github/last-commit/yusing/godoxy)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
 [![](https://dcbadge.limes.pink/api/server/umReR62nRd?style=flat)](https://discord.gg/umReR62nRd)
 
-A lightweight, simple, and [performant](https://github.com/yusing/go-proxy/wiki/Benchmarks) reverse proxy with WebUI.
+A lightweight, simple, and [performant](https://github.com/yusing/godoxy/wiki/Benchmarks) reverse proxy with WebUI.
 
-For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wiki)**
+For full documentation, check out **[Wiki](https://github.com/yusing/godoxy/wiki)**
 
 **EN** | <a href="README_CHT.md">中文</a>
 
-<!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy) -->
+<!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_godoxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_godoxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_godoxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy) -->
 
 <img src="screenshots/webui.png" style="max-width: 650">
 
@@ -42,14 +42,14 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
   - Effortless configuration
   - Simple multi-node setup
   - Error messages is clear and detailed, easy troubleshooting
-- Auto SSL cert management (See [Supported DNS-01 Challenge Providers](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers))
+- Auto SSL cert management (See [Supported DNS-01 Challenge Providers](https://github.com/yusing/godoxy/wiki/Supported-DNS%E2%80%9001-Providers))
 - Auto configuration for docker containers
 - Auto hot-reload on container state / config file changes
 - **idlesleeper**: stop containers on idle, wake it up on traffic _(optional, see [screenshots](#idlesleeper))_
 - HTTP(s) reserve proxy
 - OpenID Connect support
-- [HTTP middleware support](https://github.com/yusing/go-proxy/wiki/Middlewares)
-- [Custom error pages support](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
+- [HTTP middleware support](https://github.com/yusing/godoxy/wiki/Middlewares)
+- [Custom error pages support](https://github.com/yusing/godoxy/wiki/Middlewares#custom-error-pages)
 - TCP and UDP port forwarding
 - **Web UI with App dashboard and config editor**
 - Supports linux/amd64, linux/arm64
@@ -73,7 +73,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 2. Run setup script inside the directory, or [set up manually](#manual-setup)
 
     ```shell
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/godoxy/main/scripts/setup.sh)"
     ```
 
 3. Start the container `docker compose up -d` and wait for it to be ready
@@ -86,15 +86,15 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
 
-   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/main/config.example.yml -O config/config.yml`
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/godoxy/main/config.example.yml -O config/config.yml`
 
 2. Grab `.env.example` into `.env`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/.env.example -O .env`
+   `wget https://raw.githubusercontent.com/yusing/godoxy/main/.env.example -O .env`
 
 3. Grab `compose.example.yml` into `compose.yml`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/compose.example.yml -O compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/godoxy/main/compose.example.yml -O compose.yml`
 
 ### Folder structrue
 
@@ -135,7 +135,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 ## Build it yourself
 
-1. Clone the repository `git clone https://github.com/yusing/go-proxy --depth=1`
+1. Clone the repository `git clone https://github.com/yusing/godoxy --depth=1`
 
 2. Install / Upgrade [go (>=1.22)](https://go.dev/doc/install) and `make` if not already
 

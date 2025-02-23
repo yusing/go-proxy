@@ -2,18 +2,18 @@
 
 # GoDoxy
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-![GitHub last commit](https://img.shields.io/github/last-commit/yusing/go-proxy)
-[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
+![GitHub last commit](https://img.shields.io/github/last-commit/yusing/godoxy)
+[![Lines of Code](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=ncloc)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
 [![](https://dcbadge.limes.pink/api/server/umReR62nRd?style=flat)](https://discord.gg/umReR62nRd)
 
-輕量、易用、 [高效能](https://github.com/yusing/go-proxy/wiki/Benchmarks)，且帶有主頁和配置面板的反向代理
+輕量、易用、 [高效能](https://github.com/yusing/godoxy/wiki/Benchmarks)，且帶有主頁和配置面板的反向代理
 
-完整文檔請查閱 **[Wiki](https://github.com/yusing/go-proxy/wiki)**（暫未有中文翻譯）
+完整文檔請查閱 **[Wiki](https://github.com/yusing/godoxy/wiki)**（暫未有中文翻譯）
 
-<!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
-[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy) -->
+<!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_godoxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_godoxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=yusing_godoxy&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=yusing_godoxy) -->
 
 <a href="README.md">EN</a> | **中文**
 
@@ -42,14 +42,14 @@
   - 輕鬆配置
   - 簡單的多節點設置
   - 錯誤訊息清晰詳細，易於排除故障
-- 自動 SSL 憑證管理（參見 [支援的 DNS-01 驗證提供商](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers)）
+- 自動 SSL 憑證管理（參見 [支援的 DNS-01 驗證提供商](https://github.com/yusing/godoxy/wiki/Supported-DNS%E2%80%9001-Providers)）
 - 自動配置 Docker 容器
 - 容器狀態/配置文件變更時自動熱重載
 - **閒置休眠**：在閒置時停止容器，有流量時喚醒（_可選，參見[截圖](#閒置休眠)_）
 - HTTP(s) 反向代理
 - OpenID Connect 支持
-- [HTTP 中介軟體支援](https://github.com/yusing/go-proxy/wiki/Middlewares)
-- [自訂錯誤頁面支援](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
+- [HTTP 中介軟體支援](https://github.com/yusing/godoxy/wiki/Middlewares)
+- [自訂錯誤頁面支援](https://github.com/yusing/godoxy/wiki/Middlewares#custom-error-pages)
 - TCP 和 UDP 埠轉發
 - **網頁介面，具有應用儀表板和配置編輯器**
 - 支援 linux/amd64、linux/arm64
@@ -73,7 +73,7 @@
 2. 在目錄內運行安裝腳本，或[手動安裝](#手動安裝)
 
    ```shell
-   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
+   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/godoxy/main/scripts/setup.sh)"
    ```
 
 3. 啟動容器 `docker compose up -d` 並等待就緒
@@ -86,15 +86,15 @@
 
 1. 建立 `config` 目錄，然後將 `config.example.yml` 下載到 `config/config.yml`
 
-   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/main/config.example.yml -O config/config.yml`
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/godoxy/main/config.example.yml -O config/config.yml`
 
 2. 將 `.env.example` 下載到 `.env`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/.env.example -O .env`
+   `wget https://raw.githubusercontent.com/yusing/godoxy/main/.env.example -O .env`
 
 3. 將 `compose.example.yml` 下載到 `compose.yml`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/compose.example.yml -O compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/godoxy/main/compose.example.yml -O compose.yml`
 
 ### 資料夾結構
 
@@ -127,7 +127,7 @@
 
 ## 自行編譯
 
-1. 克隆儲存庫 `git clone https://github.com/yusing/go-proxy --depth=1`
+1. 克隆儲存庫 `git clone https://github.com/yusing/godoxy --depth=1`
 
 2. 如果尚未安裝，請安裝/升級 [go (>=1.22)](https://go.dev/doc/install) 和 `make`
 

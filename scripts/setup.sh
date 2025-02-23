@@ -39,7 +39,7 @@ echo "Using ${DOWNLOAD_TOOL} for downloads"
 # }
 
 # Environment variables with defaults
-REPO="yusing/go-proxy"
+REPO="yusing/godoxy"
 BRANCH=${BRANCH:-"main"}
 REPO_URL="https://github.com/$REPO"
 WIKI_URL="${REPO_URL}/wiki"
