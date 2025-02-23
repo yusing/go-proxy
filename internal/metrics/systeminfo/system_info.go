@@ -286,7 +286,7 @@ func (s *SystemInfo) collectNetworkInfo(ctx context.Context, lastResult *SystemI
 }
 
 func (s *SystemInfo) collectSensorsInfo(ctx context.Context) error {
-	sensorsInfo, err := sensors.SensorsTemperatures()
+	sensorsInfo, err := sensors.TemperaturesWithContext(ctx)
 	if err != nil {
 		return err
 	}
