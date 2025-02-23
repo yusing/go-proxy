@@ -1,7 +1,7 @@
 ---
 services:
   frontend:
-    image: ghcr.io/yusing/go-proxy-frontend:latest
+    image: ghcr.io/yusing/godoxy-frontend:latest
     container_name: godoxy-frontend
     restart: unless-stopped
     network_mode: host
@@ -21,7 +21,7 @@ services:
       #     - 192.168.0.0/16
       #     - 172.16.0.0/12
   app:
-    image: ghcr.io/yusing/go-proxy:latest
+    image: ghcr.io/yusing/godoxy:latest
     container_name: godoxy
     restart: always
     network_mode: host
