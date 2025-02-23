@@ -12,10 +12,15 @@ import (
 	"github.com/yusing/go-proxy/internal/net/types"
 )
 
+func serviceUnavailable(w http.ResponseWriter, r *http.Request) {
+	http.Error(w, "docker socket is not available", http.StatusServiceUnavailable)
+}
+
 func DockerSocketHandler() http.HandlerFunc {
-	dockerClient, err := docker.ConnectClient(common.DockerHostFromEnv)
+	dockerClient, err := docker.NewClient(common.DockerHostFromEnv)
 	if err != nil {
-		logging.Fatal().Err(err).Msg("failed to connect to docker client")
+		logging.Warn().Err(err).Msg("failed to connect to docker client")
+		return serviceUnavailable
 	}
 	rp := reverseproxy.NewReverseProxy("docker", types.NewURL(&url.URL{
 		Scheme: "http",
