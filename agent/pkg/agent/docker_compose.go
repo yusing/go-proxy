@@ -7,9 +7,11 @@ import (
 	_ "embed"
 )
 
-//go:embed agent.compose.yml
-var agentComposeYAML string
-var agentComposeYAMLTemplate = template.Must(template.New("agent.compose.yml").Parse(agentComposeYAML))
+var (
+	//go:embed templates/agent.compose.yml
+	agentComposeYAML         string
+	agentComposeYAMLTemplate = template.Must(template.New("agent.compose.yml").Parse(agentComposeYAML))
+)
 
 const (
 	DockerImageProduction = "ghcr.io/yusing/godoxy-agent:latest"

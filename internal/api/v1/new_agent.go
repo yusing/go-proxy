@@ -13,7 +13,6 @@ import (
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/agent/pkg/certs"
 	config "github.com/yusing/go-proxy/internal/config/types"
-	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/net/gphttp"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
@@ -47,11 +46,8 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	t := q.Get("type")
 	switch t {
-	case "docker":
+	case "docker", "system":
 		break
-	case "system":
-		gphttp.ClientError(w, gperr.Errorf("system agent is not supported yet"), http.StatusNotImplemented)
-		return
 	case "":
 		gphttp.ClientError(w, gphttp.ErrMissingKey("type"))
 		return
@@ -74,14 +70,18 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg := agent.AgentComposeConfig{
-		Image:   image,
+	var cfg agent.Generator = &agent.AgentEnvConfig{
 		Name:    name,
 		Port:    port,
 		CACert:  ca.String(),
 		SSLCert: srv.String(),
 	}
-
+	if t == "docker" {
+		cfg = &agent.AgentComposeConfig{
+			Image:          image,
+			AgentEnvConfig: cfg.(*agent.AgentEnvConfig),
+		}
+	}
 	template, err := cfg.Generate()
 	if err != nil {
 		gphttp.ServerError(w, r, err)
