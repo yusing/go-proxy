@@ -1,14 +1,11 @@
 package server
 
 import (
-	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"net"
 	"net/http"
-	"time"
 
 	"github.com/yusing/go-proxy/agent/pkg/env"
 	"github.com/yusing/go-proxy/agent/pkg/handler"
@@ -42,36 +39,13 @@ func StartAgentServer(parent task.Parent, opt Options) {
 
 	logger := logging.GetLogger()
 	agentServer := &http.Server{
+		Addr:      fmt.Sprintf(":%d", opt.Port),
 		Handler:   handler.NewAgentHandler(),
 		TLSConfig: tlsConfig,
 	}
 
-	go func() {
-		l, err := net.Listen("tcp", fmt.Sprintf(":%d", opt.Port))
-		if err != nil {
-			server.HandleError(logger, err, "failed to listen on port")
-			return
-		}
-		defer l.Close()
-		if err := agentServer.Serve(tls.NewListener(l, tlsConfig)); err != nil {
-			server.HandleError(logger, err, "failed to serve agent server")
-		}
-	}()
-
-	logging.Info().Int("port", opt.Port).Msg("agent server started")
-
-	go func() {
-		defer t.Finish(nil)
-		<-parent.Context().Done()
-
-		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-		defer cancel()
-
-		err := agentServer.Shutdown(ctx)
-		if err != nil {
-			server.HandleError(logger, err, "failed to shutdown agent server")
-		} else {
-			logging.Info().Int("port", opt.Port).Msg("agent server stopped")
-		}
-	}()
+	server.Start(t, agentServer, logger)
+	t.OnCancel("stop", func() {
+		server.Stop(agentServer, logger)
+	})
 }
