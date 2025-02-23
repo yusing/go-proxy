@@ -111,8 +111,10 @@ func (cfg *AgentConfig) StartWithCerts(parent task.Parent, ca, crt, key []byte) 
 		return err
 	}
 
-	if !checkVersion(string(version), pkg.GetVersion()) {
-		return gperr.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), string(version))
+	versionStr := string(version)
+	// skip version check for dev versions
+	if strings.HasPrefix(versionStr, "v") && !checkVersion(versionStr, pkg.GetVersion()) {
+		return gperr.Errorf("agent version mismatch: server: %s, agent: %s", pkg.GetVersion(), versionStr)
 	}
 
 	// get agent name
