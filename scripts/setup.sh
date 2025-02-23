@@ -150,6 +150,22 @@ ask_while_empty() {
 	eval "$var_name=\"$value\""
 }
 
+get_timezone() {
+	if [ -f /etc/timezone ]; then
+		TIMEZONE=$(cat /etc/timezone)
+		if [ -n "$TIMEZONE" ]; then
+			echo "$TIMEZONE"
+		fi
+	elif command -v timedatectl >/dev/null 2>&1; then
+		TIMEZONE=$(timedatectl status | grep "Time zone" | awk '{print $3}')
+		if [ -n "$TIMEZONE" ]; then
+			echo "$TIMEZONE"
+		fi
+	else
+		echo "Warning: could not detect timezone, please set it manually"
+	fi
+}
+
 check_pkg "openssl" "openssl"
 check_pkg "docker" "docker-ce"
 
@@ -165,7 +181,7 @@ JWT_SECRET=$(openssl rand -base64 32)
 sed -i "s|GODOXY_API_JWT_SECRET=.*|GODOXY_API_JWT_SECRET=${JWT_SECRET}|" "$DOT_ENV_PATH"
 
 # set timezone
-TIMEZONE=$(cat /etc/timezone)
+get_timezone
 if [ -n "$TIMEZONE" ]; then
 	sed -i "s|TZ=.*|TZ=${TIMEZONE}|" "$DOT_ENV_PATH"
 fi
