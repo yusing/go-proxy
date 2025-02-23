@@ -60,7 +60,7 @@ install_path="/usr/local/bin"
 name="godoxy-agent"
 bin_path="${install_path}/${name}"
 env_file="/etc/${name}.env"
-service_path="/etc/systemd/system/${name}.service"
+service_file="/etc/systemd/system/${name}.service"
 log_path="/var/log/${name}.log"
 data_path="/var/lib/${name}"
 
@@ -71,13 +71,13 @@ if [ ! -w "$install_path" ]; then
 fi
 
 # check if service path is writable
-if [ ! -w "$service_path" ]; then
+if [ ! -w "$(dirname "$service_file")" ]; then
 	echo "Service path is not writable, please check the permissions"
 	exit 1
 fi
 
 # check if env file is writable
-if [ ! -w "$env_file" ]; then
+if [ ! -w "$(dirname "$env_file")" ]; then
 	echo "Env file is not writable, please check the permissions"
 	exit 1
 fi
@@ -88,7 +88,7 @@ if [ "$1" = "uninstall" ]; then
 	systemctl disable --now $name
 	rm -f $bin_path
 	rm -f $env_file
-	rm -f $service_path
+	rm -f $service_file
 	rm -rf $data_path
 	systemctl daemon-reload
 	echo "Agent uninstalled successfully"
@@ -117,7 +117,7 @@ echo "Creating the data directory"
 mkdir -p $data_path
 
 echo "Registering the agent as a service"
-cat <<EOF >$service_path
+cat <<EOF >$service_file
 [Unit]
 Description=GoDoxy Agent
 After=docker.socket
