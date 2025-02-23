@@ -3,12 +3,12 @@ package docker
 import (
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
 type containerHelper struct {
-	*types.Container
+	*container.Summary
 }
 
 // getDeleteLabel gets the value of a label and then deletes it from the container.

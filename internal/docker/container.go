@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/logging"
@@ -14,7 +14,7 @@ import (
 )
 
 type (
-	PortMapping = map[int]types.Port
+	PortMapping = map[int]container.Port
 	Container   struct {
 		_ U.NoCopy
 
@@ -35,7 +35,6 @@ type (
 		Aliases       []string `json:"aliases"`
 		IsExcluded    bool     `json:"is_excluded"`
 		IsExplicit    bool     `json:"is_explicit"`
-		IsDatabase    bool     `json:"is_database"`
 		IdleTimeout   string   `json:"idle_timeout,omitempty"`
 		WakeTimeout   string   `json:"wake_timeout,omitempty"`
 		StopMethod    string   `json:"stop_method,omitempty"`
@@ -43,12 +42,14 @@ type (
 		StopSignal    string   `json:"stop_signal,omitempty"`  // stop_method = "stop" | "kill" only
 		StartEndpoint string   `json:"start_endpoint,omitempty"`
 		Running       bool     `json:"running"`
+
+		containerHelper
 	}
 )
 
 var DummyContainer = new(Container)
 
-func FromDocker(c *types.Container, dockerHost string) (res *Container) {
+func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 	isExplicit := false
 	helper := containerHelper{c}
 	for lbl := range c.Labels {
@@ -72,7 +73,6 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 		Aliases:       helper.getAliases(),
 		IsExcluded:    strutils.ParseBool(helper.getDeleteLabel(LabelExclude)),
 		IsExplicit:    isExplicit,
-		IsDatabase:    helper.isDatabase(),
 		IdleTimeout:   helper.getDeleteLabel(LabelIdleTimeout),
 		WakeTimeout:   helper.getDeleteLabel(LabelWakeTimeout),
 		StopMethod:    helper.getDeleteLabel(LabelStopMethod),
@@ -80,6 +80,8 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 		StopSignal:    helper.getDeleteLabel(LabelStopSignal),
 		StartEndpoint: helper.getDeleteLabel(LabelStartEndpoint),
 		Running:       c.Status == "running" || c.State == "running",
+
+		containerHelper: helper,
 	}
 
 	if agent.IsDockerHostAgent(dockerHost) {
@@ -95,18 +97,18 @@ func FromDocker(c *types.Container, dockerHost string) (res *Container) {
 	return
 }
 
-func FromJSON(json types.ContainerJSON, dockerHost string) *Container {
-	ports := make([]types.Port, 0)
+func FromInspectResponse(json container.InspectResponse, dockerHost string) *Container {
+	ports := make([]container.Port, 0)
 	for k, bindings := range json.NetworkSettings.Ports {
 		privPortStr, proto := k.Port(), k.Proto()
 		privPort, _ := strconv.ParseUint(privPortStr, 10, 16)
-		ports = append(ports, types.Port{
+		ports = append(ports, container.Port{
 			PrivatePort: uint16(privPort),
 			Type:        proto,
 		})
 		for _, v := range bindings {
 			pubPort, _ := strconv.ParseUint(v.HostPort, 10, 16)
-			ports = append(ports, types.Port{
+			ports = append(ports, container.Port{
 				IP:          v.HostIP,
 				PublicPort:  uint16(pubPort),
 				PrivatePort: uint16(privPort),
@@ -114,7 +116,7 @@ func FromJSON(json types.ContainerJSON, dockerHost string) *Container {
 			})
 		}
 	}
-	cont := FromDocker(&types.Container{
+	cont := FromDocker(&container.Summary{
 		ID:     json.ID,
 		Names:  []string{strings.TrimPrefix(json.Name, "/")},
 		Image:  json.Image,
@@ -123,7 +125,7 @@ func FromJSON(json types.ContainerJSON, dockerHost string) *Container {
 		State:  json.State.Status,
 		Status: json.State.Status,
 		Mounts: json.Mounts,
-		NetworkSettings: &types.SummaryNetworkSettings{
+		NetworkSettings: &container.NetworkSettingsSummary{
 			Networks: json.NetworkSettings.Networks,
 		},
 	}, dockerHost)
