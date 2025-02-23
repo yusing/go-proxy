@@ -7,9 +7,17 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
-type containerHelper struct {
-	*container.Summary
-}
+type (
+	containerHelper struct {
+		*container.Summary
+		image *ContainerImage
+	}
+	ContainerImage struct {
+		Author string
+		Name   string
+		Tag    string
+	}
+)
 
 // getDeleteLabel gets the value of a label and then deletes it from the container.
 // If the label does not exist, an empty string is returned.
@@ -32,10 +40,21 @@ func (c containerHelper) getName() string {
 	return strings.TrimPrefix(c.Names[0], "/")
 }
 
-func (c containerHelper) getImageName() string {
+func (c containerHelper) parseImage() *ContainerImage {
 	colonSep := strutils.SplitRune(c.Image, ':')
 	slashSep := strutils.SplitRune(colonSep[0], '/')
-	return slashSep[len(slashSep)-1]
+	im := new(ContainerImage)
+	if len(slashSep) > 1 {
+		im.Author = slashSep[len(slashSep)-1]
+		im.Name = strings.Join(slashSep[:len(slashSep)-1], "/")
+	} else {
+		im.Author = "library"
+		im.Name = colonSep[0]
+	}
+	if len(colonSep) > 1 {
+		im.Tag = colonSep[1]
+	}
+	return im
 }
 
 func (c containerHelper) getPublicPortMapping() PortMapping {
@@ -57,28 +76,9 @@ func (c containerHelper) getPrivatePortMapping() PortMapping {
 	return res
 }
 
-var databaseMPs = map[string]struct{}{
-	"/var/lib/postgresql/data": {},
-	"/var/lib/mysql":           {},
-	"/var/lib/mongodb":         {},
-	"/var/lib/mariadb":         {},
-	"/var/lib/memcached":       {},
-	"/var/lib/rabbitmq":        {},
-}
-
-func (c containerHelper) isDatabase() bool {
-	for _, m := range c.Mounts {
-		if _, ok := databaseMPs[m.Destination]; ok {
-			return true
-		}
+func (c containerHelper) IsBlacklisted() bool {
+	if c.image == nil {
+		c.image = c.parseImage()
 	}
-
-	for _, v := range c.Ports {
-		switch v.PrivatePort {
-		// postgres, mysql or mariadb, redis, memcached, mongodb
-		case 5432, 3306, 6379, 11211, 27017:
-			return true
-		}
-	}
-	return false
+	return c.image.IsBlacklisted()
 }

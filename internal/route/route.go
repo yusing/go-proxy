@@ -215,7 +215,7 @@ func (r *Route) ShouldExclude() bool {
 			return true
 		case r.IsZeroPort() && !r.UseIdleWatcher():
 			return true
-		case r.Container.IsDatabase && !r.Container.IsExplicit:
+		case !r.Container.IsExplicit && r.Container.IsBlacklisted():
 			return true
 		case strings.HasPrefix(r.Container.ContainerName, "buildx_"):
 			return true

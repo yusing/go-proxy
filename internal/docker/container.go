@@ -51,7 +51,7 @@ var DummyContainer = new(Container)
 
 func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 	isExplicit := false
-	helper := containerHelper{c}
+	helper := containerHelper{Summary: c}
 	for lbl := range c.Labels {
 		if strings.HasPrefix(lbl, NSProxy+".") {
 			isExplicit = true
@@ -63,7 +63,6 @@ func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 		DockerHost:    dockerHost,
 		ContainerName: helper.getName(),
 		ContainerID:   c.ID,
-		ImageName:     helper.getImageName(),
 
 		Labels: c.Labels,
 
