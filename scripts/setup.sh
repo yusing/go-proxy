@@ -21,26 +21,26 @@ fi
 
 echo "Using ${DOWNLOAD_TOOL} for downloads"
 
-get_default_branch() {
-	local repo="$1" # Format: owner/repo
-	local branch
+# get_default_branch() {
+#     local repo="$1"  # Format: owner/repo
+#     local branch
 
-	if [ "$DOWNLOAD_TOOL" = "curl" ]; then
-		branch=$(curl -sL "https://api.github.com/repos/${repo}" | grep -o '"default_branch": *"[^"]*"' | cut -d'"' -f4)
-	elif [ "$DOWNLOAD_TOOL" = "wget" ]; then
-		branch=$(wget -qO- "https://api.github.com/repos/${repo}" | grep -o '"default_branch": *"[^"]*"' | cut -d'"' -f4)
-	fi
+#     if [ "$DOWNLOAD_TOOL" = "curl" ]; then
+#         branch=$(curl -sL "https://api.github.com/repos/${repo}" | grep -o '"default_branch": *"[^"]*"' | cut -d'"' -f4)
+#     elif [ "$DOWNLOAD_TOOL" = "wget" ]; then
+#         branch=$(wget -qO- "https://api.github.com/repos/${repo}" | grep -o '"default_branch": *"[^"]*"' | cut -d'"' -f4)
+#     fi
 
-	if [ -z "$branch" ]; then
-		echo "main" # Fallback to 'main' if detection fails
-	else
-		echo "$branch"
-	fi
-}
+#     if [ -z "$branch" ]; then
+#         echo "main"  # Fallback to 'main' if detection fails
+#     else
+#         echo "$branch"
+#     fi
+# }
 
 # Environment variables with defaults
 REPO="yusing/go-proxy"
-BRANCH=${BRANCH:-$(get_default_branch "$REPO")}
+BRANCH=${BRANCH:-"main"}
 REPO_URL="https://github.com/$REPO"
 WIKI_URL="${REPO_URL}/wiki"
 BASE_URL="${REPO_URL}/raw/${BRANCH}"

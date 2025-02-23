@@ -75,7 +75,7 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 2.  Run setup script inside the directory, or [set up manually](#manual-setup)
 
     ```shell
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/v0.9/scripts/setup.sh)"
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/yusing/go-proxy/main/scripts/setup.sh)"
     ```
 
 3.  Start the container `docker compose up -d` and wait for it to be ready
@@ -88,15 +88,15 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
 
-   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/config.example.yml -O config/config.yml`
+   `mkdir -p config && wget https://raw.githubusercontent.com/yusing/go-proxy/main/config.example.yml -O config/config.yml`
 
 2. Grab `.env.example` into `.env`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/.env.example -O .env`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/.env.example -O .env`
 
 3. Grab `compose.example.yml` into `compose.yml`
 
-   `wget https://raw.githubusercontent.com/yusing/go-proxy/v0.9/compose.example.yml -O compose.yml`
+   `wget https://raw.githubusercontent.com/yusing/go-proxy/main/compose.example.yml -O compose.yml`
 
 ### Folder structrue
 
