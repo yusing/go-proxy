@@ -84,7 +84,7 @@ func NewHandler(cfg config.ConfigInstance) http.Handler {
 	mux.HandleFunc("POST", "/v1/homepage/set", v1.SetHomePageOverrides, true)
 	mux.HandleFunc("GET", "/v1/agents", v1.ListAgents, true)
 	mux.HandleFunc("GET", "/v1/agents/new", v1.NewAgent, true)
-	mux.HandleFunc("POST", "/v1/agents/add", v1.AddAgent, true)
+	mux.HandleFunc("POST", "/v1/agents/verify", v1.VerifyNewAgent, true)
 	mux.HandleFunc("GET", "/v1/metrics/system_info", v1.SystemInfo, true)
 	mux.HandleFunc("GET", "/v1/metrics/uptime", uptime.Poller.ServeHTTP, true)
 	mux.HandleFunc("GET", "/v1/cert/info", certapi.GetCertInfo, true)

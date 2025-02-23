@@ -1,9 +1,10 @@
 package config
 
 import (
+	"slices"
+
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal/gperr"
-	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/route/provider"
 	"github.com/yusing/go-proxy/internal/utils/functional"
 )
@@ -30,7 +31,13 @@ func (cfg *Config) GetAgent(agentAddrOrDockerHost string) (*agent.AgentConfig, b
 	return GetAgent(agent.GetAgentAddrFromDockerHost(agentAddrOrDockerHost))
 }
 
-func (cfg *Config) AddAgent(host string, ca agent.PEMPair, client agent.PEMPair) (int, gperr.Error) {
+func (cfg *Config) VerifyNewAgent(host string, ca agent.PEMPair, client agent.PEMPair) (int, gperr.Error) {
+	if slices.ContainsFunc(cfg.value.Providers.Agents, func(a *agent.AgentConfig) bool {
+		return a.Addr == host
+	}) {
+		return 0, gperr.New("agent already exists")
+	}
+
 	var agentCfg agent.AgentConfig
 	agentCfg.Addr = host
 	err := agentCfg.StartWithCerts(cfg.Task(), ca.Cert, client.Cert, client.Key)
@@ -43,10 +50,10 @@ func (cfg *Config) AddAgent(host string, ca agent.PEMPair, client agent.PEMPair)
 	if err := cfg.errIfExists(provider); err != nil {
 		return 0, err
 	}
-	provider.LoadRoutes()
-	provider.Start(cfg.Task())
-	cfg.storeProvider(provider)
-	logging.Info().Msgf("Added agent %s with %d routes", host, provider.NumRoutes())
+	err = provider.LoadRoutes()
+	if err != nil {
+		return 0, gperr.Wrap(err, "failed to load routes")
+	}
 	return provider.NumRoutes(), nil
 }
 

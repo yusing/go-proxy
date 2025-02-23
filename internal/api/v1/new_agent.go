@@ -95,7 +95,7 @@ func NewAgent(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func AddAgent(w http.ResponseWriter, r *http.Request) {
+func VerifyNewAgent(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 	clientPEMData, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -114,7 +114,7 @@ func AddAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nRoutesAdded, err := config.GetInstance().AddAgent(data.Host, data.CA, data.Client)
+	nRoutesAdded, err := config.GetInstance().VerifyNewAgent(data.Host, data.CA, data.Client)
 	if err != nil {
 		gphttp.ClientError(w, err)
 		return
