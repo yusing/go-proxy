@@ -159,9 +159,16 @@ mkdir_if_not_exists "$CONFIG_BASE_PATH"
 
 # 2. .env file
 fetch_file "$DOT_ENV_EXAMPLE_PATH" "$DOT_ENV_PATH"
+
 # set random JWT secret
 JWT_SECRET=$(openssl rand -base64 32)
-sed -i "s/GODOXY_API_JWT_SECRET=.*/GODOXY_API_JWT_SECRET=${JWT_SECRET}/" "$DOT_ENV_PATH"
+sed -i "s|GODOXY_API_JWT_SECRET=.*|GODOXY_API_JWT_SECRET=${JWT_SECRET}|" "$DOT_ENV_PATH"
+
+# set timezone
+TIMEZONE=$(cat /etc/timezone)
+if [ -n "$TIMEZONE" ]; then
+	sed -i "s|TZ=.*|TZ=${TIMEZONE}|" "$DOT_ENV_PATH"
+fi
 
 # 3. docker-compose.yml
 fetch_file "$COMPOSE_EXAMPLE_FILE_NAME" "$COMPOSE_FILE_NAME"
@@ -176,8 +183,8 @@ echo "Setting up login user"
 ask_while_empty "Enter login username: " LOGIN_USERNAME
 ask_while_empty "Enter login password: " LOGIN_PASSWORD
 echo "Setting up login user \"$LOGIN_USERNAME\" with password \"$LOGIN_PASSWORD\""
-sed -i "s/GODOXY_API_USERNAME=.*/GODOXY_API_USERNAME=${LOGIN_USERNAME}/" "$DOT_ENV_PATH"
-sed -i "s/GODOXY_API_PASSWORD=.*/GODOXY_API_PASSWORD=${LOGIN_PASSWORD}/" "$DOT_ENV_PATH"
+sed -i "s|GODOXY_API_USERNAME=.*|GODOXY_API_USERNAME=${LOGIN_USERNAME}|" "$DOT_ENV_PATH"
+sed -i "s|GODOXY_API_PASSWORD=.*|GODOXY_API_PASSWORD=${LOGIN_PASSWORD}|" "$DOT_ENV_PATH"
 
 # 6. setup autocert
 
