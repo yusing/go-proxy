@@ -236,7 +236,7 @@ func (s *SystemInfo) collectDisksInfo(ctx context.Context, lastResult *SystemInf
 		}
 	}
 
-	partitions, err := disk.Partitions(false)
+	partitions, err := disk.PartitionsWithContext(ctx, false)
 	if err != nil {
 		return err
 	}
@@ -287,11 +287,8 @@ func (s *SystemInfo) collectNetworkInfo(ctx context.Context, lastResult *SystemI
 
 func (s *SystemInfo) collectSensorsInfo(ctx context.Context) error {
 	sensorsInfo, err := sensors.TemperaturesWithContext(ctx)
-	if err != nil {
-		return err
-	}
 	s.Sensors = sensorsInfo
-	return nil
+	return err
 }
 
 // explicitly implement MarshalJSON to avoid reflection
@@ -330,7 +327,7 @@ func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 
 	// disk
 	b.WriteString(`,"disks":`)
-	if s.Disks != nil {
+	if len(s.Disks) > 0 {
 		b.WriteString("{")
 		first := true
 		for device, disk := range s.Disks {
@@ -357,7 +354,7 @@ func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 
 	// disks_io
 	b.WriteString(`,"disks_io":`)
-	if s.DisksIO != nil {
+	if len(s.DisksIO) > 0 {
 		b.WriteString("{")
 		first := true
 		for name, usage := range s.DisksIO {
@@ -397,7 +394,7 @@ func (s *SystemInfo) MarshalJSON() ([]byte, error) {
 
 	// sensors
 	b.WriteString(`,"sensors":`)
-	if s.Sensors != nil {
+	if len(s.Sensors) > 0 {
 		b.WriteString("{")
 		first := true
 		for _, sensor := range s.Sensors {
