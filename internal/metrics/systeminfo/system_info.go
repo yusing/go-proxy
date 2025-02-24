@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/shirou/gopsutil/v4/cpu"
@@ -96,12 +95,6 @@ var allQueries = []string{
 }
 
 var Poller = period.NewPoller("system_info", getSystemInfo, aggregate)
-
-var bufPool = sync.Pool{
-	New: func() any {
-		return bytes.NewBuffer(make([]byte, 0, 1024))
-	},
-}
 
 func init() {
 	Poller.Start()
@@ -293,9 +286,7 @@ func (s *SystemInfo) collectSensorsInfo(ctx context.Context) error {
 
 // explicitly implement MarshalJSON to avoid reflection
 func (s *SystemInfo) MarshalJSON() ([]byte, error) {
-	b := bufPool.Get().(*bytes.Buffer)
-	b.Reset()
-	defer bufPool.Put(b)
+	b := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	b.WriteRune('{')
 
@@ -561,9 +552,7 @@ func aggregate(entries []*SystemInfo, query url.Values) (total int, result Aggre
 }
 
 func (result Aggregated) MarshalJSON() ([]byte, error) {
-	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf)
+	buf := bytes.NewBuffer(make([]byte, 0, 1024))
 
 	buf.WriteByte('[')
 	i := 0
