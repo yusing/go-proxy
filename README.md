@@ -13,7 +13,7 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
 
 **EN** | <a href="README_CHT.md">中文</a>
 
-**Currently working on [feat/godoxy-agent](https://github.com/yusing/go-proxy/tree/feat/godoxy-agent).<br/>Fork this instead of default branch.**
+**Currently working on [feat/godoxy-agent](https://github.com/yusing/godoxy/tree/feat/godoxy-agent).<br/>For contribution, please fork this instead of default branch.**
 
 <!-- [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=yusing_go-proxy&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=yusing_go-proxy)
@@ -31,6 +31,7 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
   - [Table of content](#table-of-content)
   - [Key Features](#key-features)
   - [Prerequisites](#prerequisites)
+  - [How does GoDoxy work](#how-does-godoxy-work)
   - [Setup](#setup)
     - [Manual Setup](#manual-setup)
     - [Folder structrue](#folder-structrue)
@@ -44,16 +45,14 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
   - Effortless configuration
   - Simple multi-node setup
   - Error messages is clear and detailed, easy troubleshooting
-- Auto SSL cert management (See [Supported DNS-01 Challenge Providers](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers))
-- Auto configuration for docker containers
+- Auto SSL with Let's Encrypt and DNS-01 (See [Supported DNS-01 Challenge Providers](https://github.com/yusing/go-proxy/wiki/Supported-DNS%E2%80%9001-Providers))
 - Auto hot-reload on container state / config file changes
+- Create routes dynamically from running docker containers
 - **idlesleeper**: stop containers on idle, wake it up on traffic _(optional, see [screenshots](#idlesleeper))_
-- HTTP(s) reserve proxy
-- OpenID Connect support
-- [HTTP middleware support](https://github.com/yusing/go-proxy/wiki/Middlewares)
-- [Custom error pages support](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
-- TCP and UDP port forwarding
-- **Web UI with App dashboard and config editor**
+- HTTP reserve proxy and TCP/UDP port forwarding
+- OpenID Connect integration
+- [HTTP middleware](https://github.com/yusing/go-proxy/wiki/Middlewares) and [Custom error pages support](https://github.com/yusing/go-proxy/wiki/Middlewares#custom-error-pages)
+- **Web UI with App dashboard, config editor, _uptime monitor_, _system monitor_, _docker logs viewer_ (available on nightly builds)**
 - Supports linux/amd64, linux/arm64
 - Written in **[Go](https://go.dev)**
 
@@ -61,10 +60,19 @@ For full documentation, check out **[Wiki](https://github.com/yusing/go-proxy/wi
 
 ## Prerequisites
 
-Setup DNS Records point to machine which runs `GoDoxy`, e.g.
+Setup Wildcard DNS Record(s) for machine running `GoDoxy`, e.g.
 
-- A Record: `*.y.z` -> `10.0.10.1`
-- AAAA Record: `*.y.z` -> `::ffff:a00:a01`
+- A Record: `*.domain.com` -> `10.0.10.1`
+- AAAA Record (if you use IPv6): `*.domain.com` -> `::ffff:a00:a01`
+
+## How does GoDoxy work
+
+1. List all the containers
+2. Read container name, labels and port configurations for each of them
+3. Create a route if applicable (a route is like a "Virtual Host" in NPM)
+
+GoDoxy uses the label `proxy.aliases` as the subdomain(s), if unset it defaults to `container_name`.
+For example, with the label `proxy.aliases: qbt` you can access your app via `qbt.domain.com`.
 
 ## Setup
 
