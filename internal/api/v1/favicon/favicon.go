@@ -190,7 +190,7 @@ func findIcon(r route.HTTPRoute, req *http.Request, uri string) *fetchResult {
 	result := fetchIcon("png", sanitizeName(r.TargetName()))
 	cont := r.ContainerInfo()
 	if !result.OK() && cont != nil {
-		result = fetchIcon("png", sanitizeName(cont.ImageName))
+		result = fetchIcon("png", sanitizeName(cont.Image.Name))
 	}
 	if !result.OK() {
 		// fallback to parse html

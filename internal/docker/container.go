@@ -18,10 +18,10 @@ type (
 	Container   struct {
 		_ U.NoCopy
 
-		DockerHost    string `json:"docker_host"`
-		ContainerName string `json:"container_name"`
-		ContainerID   string `json:"container_id"`
-		ImageName     string `json:"image_name"`
+		DockerHost    string          `json:"docker_host"`
+		Image         *ContainerImage `json:"image"`
+		ContainerName string          `json:"container_name"`
+		ContainerID   string          `json:"container_id"`
 
 		Agent *agent.AgentConfig `json:"agent"`
 
@@ -42,8 +42,11 @@ type (
 		StopSignal    string   `json:"stop_signal,omitempty"`  // stop_method = "stop" | "kill" only
 		StartEndpoint string   `json:"start_endpoint,omitempty"`
 		Running       bool     `json:"running"`
-
-		containerHelper
+	}
+	ContainerImage struct {
+		Author string `json:"author,omitempty"`
+		Name   string `json:"name"`
+		Tag    string `json:"tag,omitempty"`
 	}
 )
 
@@ -51,7 +54,7 @@ var DummyContainer = new(Container)
 
 func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 	isExplicit := false
-	helper := containerHelper{Summary: c}
+	helper := containerHelper{c}
 	for lbl := range c.Labels {
 		if strings.HasPrefix(lbl, NSProxy+".") {
 			isExplicit = true
@@ -61,6 +64,7 @@ func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 	}
 	res = &Container{
 		DockerHost:    dockerHost,
+		Image:         helper.parseImage(),
 		ContainerName: helper.getName(),
 		ContainerID:   c.ID,
 
@@ -79,8 +83,6 @@ func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 		StopSignal:    helper.getDeleteLabel(LabelStopSignal),
 		StartEndpoint: helper.getDeleteLabel(LabelStartEndpoint),
 		Running:       c.Status == "running" || c.State == "running",
-
-		containerHelper: helper,
 	}
 
 	if agent.IsDockerHostAgent(dockerHost) {
@@ -129,6 +131,10 @@ func FromInspectResponse(json container.InspectResponse, dockerHost string) *Con
 		},
 	}, dockerHost)
 	return cont
+}
+
+func (c *Container) IsBlacklisted() bool {
+	return c.Image.IsBlacklisted()
 }
 
 func (c *Container) setPublicHostname() {

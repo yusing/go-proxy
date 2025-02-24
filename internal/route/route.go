@@ -267,7 +267,7 @@ func (r *Route) Finalize() {
 	lp, pp := r.Port.Listening, r.Port.Proxy
 
 	if isDocker {
-		scheme, port, ok := getSchemePortByImageName(cont.ImageName, pp)
+		scheme, port, ok := getSchemePortByImageName(cont.Image.Name, pp)
 		if ok {
 			if r.Scheme == "" {
 				r.Scheme = types.Scheme(scheme)
@@ -381,7 +381,7 @@ func (r *Route) FinalizeHomepageConfig() {
 	var key string
 	if hp.Name == "" {
 		if r.Container != nil {
-			key = r.Container.ImageName
+			key = r.Container.Image.Name
 		} else {
 			key = r.Alias
 		}
@@ -401,7 +401,7 @@ func (r *Route) FinalizeHomepageConfig() {
 	if hp.Category == "" {
 		if config.GetInstance().Value().Homepage.UseDefaultCategories {
 			if isDocker {
-				key = r.Container.ImageName
+				key = r.Container.Image.Name
 			} else {
 				key = strings.ToLower(r.Alias)
 			}
