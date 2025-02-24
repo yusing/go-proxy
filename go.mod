@@ -20,9 +20,9 @@ require (
 	github.com/rs/zerolog v1.33.0 // logging
 	github.com/shirou/gopsutil/v4 v4.25.1 // system info metrics
 	github.com/vincent-petithory/dataurl v1.0.0 // data url for fav icon
-	golang.org/x/crypto v0.33.0 // encrypting password with bcrypt
+	golang.org/x/crypto v0.35.0 // encrypting password with bcrypt
 	golang.org/x/net v0.35.0 // HTTP header utilities
-	golang.org/x/oauth2 v0.26.0 // oauth2 authentication
+	golang.org/x/oauth2 v0.27.0 // oauth2 authentication
 	golang.org/x/text v0.22.0 // string utilities
 	golang.org/x/time v0.10.0 // time utilities
 	gopkg.in/yaml.v3 v3.0.1 // yaml parsing for different config files
@@ -42,7 +42,7 @@ require (
 	github.com/ebitengine/purego v0.8.2 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
-	github.com/go-jose/go-jose/v4 v4.0.4 // indirect
+	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect
@@ -53,7 +53,7 @@ require (
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/klauspost/compress v1.18.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
-	github.com/lufia/plan9stats v0.0.0-20240909124753-873cd0166683 // indirect
+	github.com/lufia/plan9stats v0.0.0-20250224150550-a661cff19cfb // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/miekg/dns v1.1.63 // indirect
