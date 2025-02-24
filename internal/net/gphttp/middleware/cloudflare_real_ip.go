@@ -12,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/net/types"
+	"github.com/yusing/go-proxy/internal/utils/atomic"
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 )
 
@@ -28,7 +29,7 @@ const (
 )
 
 var (
-	cfCIDRsLastUpdate time.Time
+	cfCIDRsLastUpdate atomic.Value[time.Time]
 	cfCIDRsMu         sync.Mutex
 
 	// RFC 1918.
@@ -68,14 +69,14 @@ func (cri *cloudflareRealIP) getTracer() *Tracer {
 }
 
 func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
-	if time.Since(cfCIDRsLastUpdate) < cfCIDRsUpdateInterval {
+	if time.Since(cfCIDRsLastUpdate.Load()) < cfCIDRsUpdateInterval {
 		return
 	}
 
 	cfCIDRsMu.Lock()
 	defer cfCIDRsMu.Unlock()
 
-	if time.Since(cfCIDRsLastUpdate) < cfCIDRsUpdateInterval {
+	if time.Since(cfCIDRsLastUpdate.Load()) < cfCIDRsUpdateInterval {
 		return
 	}
 
@@ -88,7 +89,7 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 			fetchUpdateCFIPRange(cfIPv6CIDRsEndpoint, &cfCIDRs),
 		)
 		if err != nil {
-			cfCIDRsLastUpdate = time.Now().Add(-cfCIDRsUpdateRetryInterval - cfCIDRsUpdateInterval)
+			cfCIDRsLastUpdate.Store(time.Now().Add(-cfCIDRsUpdateRetryInterval - cfCIDRsUpdateInterval))
 			logging.Err(err).Msg("failed to update cloudflare range, retry in " + strutils.FormatDuration(cfCIDRsUpdateRetryInterval))
 			return nil
 		}
@@ -97,7 +98,7 @@ func tryFetchCFCIDR() (cfCIDRs []*types.CIDR) {
 		}
 	}
 
-	cfCIDRsLastUpdate = time.Now()
+	cfCIDRsLastUpdate.Store(time.Now())
 	logging.Info().Msg("cloudflare CIDR range updated")
 	return
 }
