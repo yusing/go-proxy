@@ -10,7 +10,11 @@ type Value[T any] struct {
 }
 
 func (a *Value[T]) Load() T {
-	return a.Value.Load().(T)
+	if v := a.Value.Load(); v != nil {
+		return v.(T)
+	}
+	var zero T
+	return zero
 }
 
 func (a *Value[T]) Store(v T) {

@@ -13,6 +13,8 @@ import (
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
 
+var defaultHealthConfig = health.DefaultHealthConfig()
+
 func CheckHealth(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	scheme := query.Get("scheme")
@@ -46,7 +48,7 @@ func CheckHealth(w http.ResponseWriter, r *http.Request) {
 			Scheme: scheme,
 			Host:   host,
 			Path:   path,
-		}), health.DefaultHealthConfig).CheckHealth()
+		}), defaultHealthConfig).CheckHealth()
 	case "tcp", "udp":
 		host := query.Get("host")
 		if host == "" {
@@ -64,7 +66,7 @@ func CheckHealth(w http.ResponseWriter, r *http.Request) {
 		result, err = monitor.NewRawHealthChecker(types.NewURL(&url.URL{
 			Scheme: scheme,
 			Host:   host,
-		}), health.DefaultHealthConfig).CheckHealth()
+		}), defaultHealthConfig).CheckHealth()
 	}
 
 	if err != nil {

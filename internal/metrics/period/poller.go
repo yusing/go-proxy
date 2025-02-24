@@ -12,6 +12,7 @@ import (
 	"github.com/yusing/go-proxy/internal/gperr"
 	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/task"
+	"github.com/yusing/go-proxy/internal/utils/atomic"
 )
 
 type (
@@ -24,7 +25,7 @@ type (
 		aggregate    AggregateFunc[T, AggregateT]
 		resultFilter FilterFunc[T]
 		period       *Period[T]
-		lastResult   *T
+		lastResult   atomic.Value[*T]
 		errs         []pollErr
 	}
 	pollErr struct {
@@ -119,13 +120,13 @@ func (p *Poller[T, AggregateT]) clearErrs() {
 func (p *Poller[T, AggregateT]) pollWithTimeout(ctx context.Context) {
 	ctx, cancel := context.WithTimeout(ctx, pollInterval)
 	defer cancel()
-	data, err := p.poll(ctx, p.lastResult)
+	data, err := p.poll(ctx, p.lastResult.Load())
 	if err != nil {
 		p.appendErr(err)
 		return
 	}
 	p.period.Add(data)
-	p.lastResult = data
+	p.lastResult.Store(data)
 }
 
 func (p *Poller[T, AggregateT]) Start() {
@@ -184,5 +185,5 @@ func (p *Poller[T, AggregateT]) Get(filter Filter) ([]*T, bool) {
 }
 
 func (p *Poller[T, AggregateT]) GetLastResult() *T {
-	return p.lastResult
+	return p.lastResult.Load()
 }

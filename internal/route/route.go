@@ -125,6 +125,7 @@ func (r *Route) Start(parent task.Parent) (err gperr.Error) {
 	if r.impl == nil {
 		return gperr.New("route not initialized")
 	}
+
 	return r.impl.Start(parent)
 }
 
@@ -337,7 +338,7 @@ func (r *Route) Finalize() {
 	r.Port.Listening, r.Port.Proxy = lp, pp
 
 	if r.HealthCheck == nil {
-		r.HealthCheck = health.DefaultHealthConfig
+		r.HealthCheck = health.DefaultHealthConfig()
 	}
 
 	if !r.HealthCheck.Disable {

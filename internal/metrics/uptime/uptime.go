@@ -31,10 +31,6 @@ type (
 
 var Poller = period.NewPoller("uptime", getStatuses, aggregateStatuses)
 
-func init() {
-	Poller.Start()
-}
-
 func getStatuses(ctx context.Context, _ *StatusByAlias) (*StatusByAlias, error) {
 	return &StatusByAlias{
 		Map:       routequery.HealthInfo(),
