@@ -15,7 +15,7 @@ import (
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
-	F "github.com/yusing/go-proxy/internal/utils/functional"
+	"github.com/yusing/go-proxy/internal/utils/atomic"
 	"github.com/yusing/go-proxy/internal/watcher"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
@@ -26,14 +26,21 @@ type (
 
 		zerolog.Logger
 
-		*idlewatcher.Config
 		*waker
+		*containerMeta
+		*idlewatcher.Config
 
-		client       *docker.SharedClient
+		client  *docker.SharedClient
+		running atomic.Bool
+		ready   atomic.Bool
+
 		stopByMethod StopCallback // send a docker command w.r.t. `stop_method`
 		ticker       *time.Ticker
 		lastReset    time.Time
 		task         *task.Task
+	}
+	containerMeta struct {
+		ContainerID, ContainerName string
 	}
 
 	WakeDone     <-chan error
@@ -42,8 +49,8 @@ type (
 )
 
 var (
-	watcherMap   = F.NewMapOf[string, *Watcher]()
-	watcherMapMu sync.Mutex
+	watcherMap   = make(map[string]*Watcher)
+	watcherMapMu sync.RWMutex
 
 	errShouldNotReachHere = errors.New("should not reach here")
 )
@@ -57,39 +64,44 @@ func registerWatcher(watcherTask *task.Task, route route.Route, waker *waker) (*
 		panic(errShouldNotReachHere)
 	}
 
+	cont := route.ContainerInfo()
+	key := cont.ContainerID
+
 	watcherMapMu.Lock()
 	defer watcherMapMu.Unlock()
 
-	key := cfg.ContainerID
-
-	if w, ok := watcherMap.Load(key); ok {
-		w.Config = cfg
-		w.waker = waker
-		w.resetIdleTimer()
-		watcherTask.Finish("used existing watcher")
-		return w, nil
+	// cancel previous watcher
+	if w, ok := watcherMap[key]; ok {
+		defer w.Finish("new request with same container id")
 	}
 
-	client, err := docker.NewClient(cfg.DockerHost)
+	client, err := docker.NewClient(cont.DockerHost)
 	if err != nil {
 		return nil, err
 	}
 
 	w := &Watcher{
-		Logger: logging.With().Str("name", cfg.ContainerName).Logger(),
-		Config: cfg,
+		Logger: logging.With().Str("name", cont.ContainerName).Logger(),
 		waker:  waker,
+		containerMeta: &containerMeta{
+			ContainerID:   cont.ContainerID,
+			ContainerName: cont.ContainerName,
+		},
+		Config: cfg,
 		client: client,
 		task:   watcherTask,
 		ticker: time.NewTicker(cfg.IdleTimeout),
 	}
+	w.running.Store(cont.Running)
 	w.stopByMethod = w.getStopCallback()
-	watcherMap.Store(key, w)
+	watcherMap[key] = w
 
 	go func() {
 		cause := w.watchUntilDestroy()
 
-		watcherMap.Delete(w.ContainerID)
+		watcherMapMu.Lock()
+		defer watcherMapMu.Unlock()
+		delete(watcherMap, key)
 
 		w.ticker.Stop()
 		w.client.Close()
@@ -116,10 +128,6 @@ func (w *Watcher) WakeTrace() *zerolog.Event {
 
 func (w *Watcher) WakeError(err error) {
 	w.Err(err).Str("action", "wake").Msg("error")
-}
-
-func (w *Watcher) LogReason(action, reason string) {
-	w.Info().Str("reason", reason).Msg(action)
 }
 
 func (w *Watcher) containerStop(ctx context.Context) error {
@@ -156,7 +164,7 @@ func (w *Watcher) containerStatus() (string, error) {
 }
 
 func (w *Watcher) wakeIfStopped() error {
-	if w.ContainerRunning {
+	if w.running.Load() {
 		return nil
 	}
 
@@ -239,7 +247,7 @@ func (w *Watcher) getEventCh(dockerWatcher *watcher.DockerWatcher) (eventCh <-ch
 // it exits only if the context is canceled, the container is destroyed,
 // errors occurred on docker client, or route provider died (mainly caused by config reload).
 func (w *Watcher) watchUntilDestroy() (returnCause error) {
-	dockerWatcher := watcher.NewDockerWatcher(w.Config.DockerHost)
+	dockerWatcher := watcher.NewDockerWatcher(w.client.DaemonHost())
 	dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
 
 	for {
@@ -254,17 +262,17 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 		case e := <-dockerEventCh:
 			switch {
 			case e.Action == events.ActionContainerDestroy:
-				w.ContainerRunning = false
+				w.running.Store(false)
 				w.ready.Store(false)
-				w.LogReason("watcher stopped", "container destroyed")
+				w.Info().Str("reason", "container destroyed").Msg("watcher stopped")
 				return errors.New("container destroyed")
 			// create / start / unpause
 			case e.Action.IsContainerWake():
-				w.ContainerRunning = true
+				w.running.Store(true)
 				w.resetIdleTimer()
 				w.Info().Msg("awaken")
 			case e.Action.IsContainerSleep(): // stop / pause / kil
-				w.ContainerRunning = false
+				w.running.Store(false)
 				w.ready.Store(false)
 				w.ticker.Stop()
 			default:
@@ -283,7 +291,7 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 			}
 		case <-w.ticker.C:
 			w.ticker.Stop()
-			if w.ContainerRunning {
+			if w.running.Load() {
 				err := w.stopByMethod()
 				switch {
 				case errors.Is(err, context.Canceled):
@@ -294,7 +302,7 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 					}
 					w.Err(err).Msgf("container stop with method %q failed", w.StopMethod)
 				default:
-					w.LogReason("container stopped", "idle timeout")
+					w.Info().Str("reason", "idle timeout").Msg("container stopped")
 				}
 			}
 		}

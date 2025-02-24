@@ -18,11 +18,6 @@ type (
 		StopMethod    StopMethod    `json:"stop_method,omitempty"`
 		StopSignal    Signal        `json:"stop_signal,omitempty"`
 		StartEndpoint string        `json:"start_endpoint,omitempty"` // Optional path that must be hit to start container
-
-		DockerHost       string `json:"docker_host,omitempty"`
-		ContainerName    string `json:"container_name,omitempty"`
-		ContainerID      string `json:"container_id,omitempty"`
-		ContainerRunning bool   `json:"container_running,omitempty"`
 	}
 	StopMethod string
 	Signal     string
@@ -41,17 +36,8 @@ var validSignals = map[string]struct{}{
 }
 
 func ValidateConfig(cont *docker.Container) (*Config, gperr.Error) {
-	if cont == nil {
+	if cont == nil || cont.IdleTimeout == "" {
 		return nil, nil
-	}
-
-	if cont.IdleTimeout == "" {
-		return &Config{
-			DockerHost:       cont.DockerHost,
-			ContainerName:    cont.ContainerName,
-			ContainerID:      cont.ContainerID,
-			ContainerRunning: cont.Running,
-		}, nil
 	}
 
 	errs := gperr.NewBuilder("invalid idlewatcher config")
@@ -74,11 +60,6 @@ func ValidateConfig(cont *docker.Container) (*Config, gperr.Error) {
 		StopMethod:    stopMethod,
 		StopSignal:    signal,
 		StartEndpoint: startEndpoint,
-
-		DockerHost:       cont.DockerHost,
-		ContainerName:    cont.ContainerName,
-		ContainerID:      cont.ContainerID,
-		ContainerRunning: cont.Running,
 	}, nil
 }
 

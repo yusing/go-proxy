@@ -1,7 +1,7 @@
 package idlewatcher
 
 import (
-	"sync/atomic"
+	"errors"
 	"time"
 
 	"github.com/yusing/go-proxy/internal/docker/idlewatcher/types"
@@ -12,6 +12,7 @@ import (
 	route "github.com/yusing/go-proxy/internal/route/types"
 	"github.com/yusing/go-proxy/internal/task"
 	U "github.com/yusing/go-proxy/internal/utils"
+	"github.com/yusing/go-proxy/internal/utils/atomic"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 	"github.com/yusing/go-proxy/internal/watcher/health/monitor"
 )
@@ -25,8 +26,7 @@ type (
 		stream  net.Stream
 		hc      health.HealthChecker
 		metric  *metrics.Gauge
-		lastErr error
-		ready   atomic.Bool
+		lastErr atomic.Value[error]
 	}
 )
 
@@ -34,6 +34,8 @@ const (
 	idleWakerCheckInterval = 100 * time.Millisecond
 	idleWakerCheckTimeout  = time.Second
 )
+
+var noErr = errors.New("no error")
 
 // TODO: support stream
 
@@ -127,7 +129,7 @@ func (w *Watcher) Status() health.Status {
 }
 
 func (w *Watcher) getStatusUpdateReady() health.Status {
-	if !w.ContainerRunning {
+	if !w.running.Load() {
 		return health.StatusNapping
 	}
 
@@ -138,17 +140,24 @@ func (w *Watcher) getStatusUpdateReady() health.Status {
 	result, err := w.hc.CheckHealth()
 	switch {
 	case err != nil:
-		w.lastErr = err
+		w.lastErr.Store(err)
 		w.ready.Store(false)
 		return health.StatusError
 	case result.Healthy:
-		w.lastErr = nil
+		w.lastErr.Store(noErr)
 		w.ready.Store(true)
 		return health.StatusHealthy
 	default:
-		w.lastErr = nil
+		w.lastErr.Store(noErr)
 		return health.StatusStarting
 	}
+}
+
+func (w *Watcher) LastError() error {
+	if err := w.lastErr.Load(); err != noErr {
+		return err
+	}
+	return nil
 }
 
 // MarshalJSON implements health.HealthMonitor.
@@ -158,8 +167,8 @@ func (w *Watcher) MarshalJSON() ([]byte, error) {
 		url = w.hc.URL()
 	}
 	var detail string
-	if w.lastErr != nil {
-		detail = w.lastErr.Error()
+	if err := w.LastError(); err != nil {
+		detail = err.Error()
 	}
 	return (&monitor.JSONRepresentation{
 		Name:   w.Name(),
