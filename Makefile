@@ -27,10 +27,10 @@ endif
 ifeq ($(pprof), 1)
 	CGO_ENABLED = 1
 	GODEBUG = gctrace=1 inittrace=1 schedtrace=3000
-	GORACE = log_path=logs/pprof strip_path_prefix=$(shell pwd)/
+	GORACE = log_path=logs/pprof strip_path_prefix=$(shell pwd)/ halt_on_error=1
 	BUILD_FLAGS = -race -gcflags=all='-N -l' -tags pprof
 	DOCKER_TAG = pprof
-	VERSION += -pprof
+	VERSION := ${VERSION}-pprof
 else
 	CGO_ENABLED = 0
 	LDFLAGS += -s -w
