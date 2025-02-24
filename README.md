@@ -30,10 +30,11 @@ For full documentation, check out **[Wiki](https://github.com/yusing/godoxy/wiki
   - [Key Features](#key-features)
   - [Prerequisites](#prerequisites)
   - [Setup](#setup)
-    - [Manual Setup](#manual-setup)
-    - [Folder structrue](#folder-structrue)
   - [Screenshots](#screenshots)
     - [idlesleeper](#idlesleeper)
+    - [Metrics and Logs](#metrics-and-logs)
+  - [Manual Setup](#manual-setup)
+    - [Folder structrue](#folder-structrue)
   - [Build it yourself](#build-it-yourself)
 
 ## Key Features
@@ -82,7 +83,40 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 
 [🔼Back to top](#table-of-content)
 
-### Manual Setup
+## Screenshots
+
+### idlesleeper
+
+![idlesleeper](screenshots/idlesleeper.webp)
+
+### Metrics and Logs
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="screenshots/uptime.png" alt="Uptime Monitor" width="250"/></td>
+      <td align="center"><img src="screenshots/docker-logs.jpg" alt="Docker Logs" width="250"/></td>
+      <td align="center"><img src="screenshots/docker.jpg" alt="Server Overview" width="250"/></td>
+    </tr>
+    <tr>
+      <td align="center"><b>Uptime Monitor</b></td>
+      <td align="center"><b>Docker Logs</b></td>
+      <td align="center"><b>Server Overview</b></td>
+    </tr>
+        <tr>
+      <td align="center"><img src="screenshots/system-monitor.jpg" alt="System Monitor" width="250"/></td>
+      <td align="center"><img src="screenshots/system-info-graphs.jpg" alt="Graphs" width="250"/></td>
+    </tr>
+    <tr>
+      <td align="center"><b>System Monitor</b></td>
+      <td align="center"><b>Graphs</b></td>
+    </tr>
+  </table>
+</div>
+
+[🔼Back to top](#table-of-content)
+
+## Manual Setup
 
 1. Make `config` directory then grab `config.example.yml` into `config/config.yml`
 
@@ -116,22 +150,6 @@ Setup DNS Records point to machine which runs `GoDoxy`, e.g.
 │   │   └── system_info.json
 └── .env
 ```
-
-## Screenshots
-
-### idlesleeper
-
-![idlesleeper](screenshots/idlesleeper.webp)
-
-### Uptime Monitor
-
-![uptime monitor](screenshots/uptime.png)
-
-### System Monitor
-
-![system monitor](screenshots/system-monitor.png)
-
-[🔼Back to top](#table-of-content)
 
 ## Build it yourself
 
