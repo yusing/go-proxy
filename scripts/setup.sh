@@ -162,7 +162,7 @@ get_timezone() {
 			echo "$TIMEZONE"
 		fi
 	else
-		echo "Warning: could not detect timezone, please set it manually"
+		echo "Warning: could not detect timezone, you may set it manually in ${DOT_ENV_PATH} to have correct time in logs"
 	fi
 }
 
@@ -218,7 +218,7 @@ if [ "$ENABLE_AUTOCERT" == "y" ]; then
 	ask_while_empty "Enter email for Let's Encrypt: " EMAIL
 
 	# ask if using cloudflare
-	ask_while_empty "Are you using cloudflare? (y/n): " USE_CLOUDFLARE
+	ask_while_empty "Is your DNS provider cloudflare? (y/n): " USE_CLOUDFLARE
 
 	# ask for cloudflare api key
 	if [ "$USE_CLOUDFLARE" = "y" ]; then
