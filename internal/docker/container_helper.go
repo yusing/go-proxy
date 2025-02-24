@@ -32,6 +32,14 @@ func (c containerHelper) getName() string {
 	return strings.TrimPrefix(c.Names[0], "/")
 }
 
+func (c containerHelper) getMounts() []string {
+	m := make([]string, len(c.Mounts))
+	for i, v := range c.Mounts {
+		m[i] = v.Destination
+	}
+	return m
+}
+
 func (c containerHelper) parseImage() *ContainerImage {
 	colonSep := strutils.SplitRune(c.Image, ':')
 	slashSep := strutils.SplitRune(colonSep[0], '/')

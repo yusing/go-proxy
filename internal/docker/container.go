@@ -27,6 +27,8 @@ type (
 
 		Labels map[string]string `json:"-"`
 
+		Mounts []string `json:"mounts"`
+
 		PublicPortMapping  PortMapping `json:"public_ports"`  // non-zero publicPort:types.Port
 		PrivatePortMapping PortMapping `json:"private_ports"` // privatePort:types.Port
 		PublicHostname     string      `json:"public_hostname"`
@@ -69,6 +71,8 @@ func FromDocker(c *container.Summary, dockerHost string) (res *Container) {
 		ContainerID:   c.ID,
 
 		Labels: c.Labels,
+
+		Mounts: helper.getMounts(),
 
 		PublicPortMapping:  helper.getPublicPortMapping(),
 		PrivatePortMapping: helper.getPrivatePortMapping(),
@@ -133,8 +137,34 @@ func FromInspectResponse(json container.InspectResponse, dockerHost string) *Con
 	return cont
 }
 
+var databaseMPs = map[string]struct{}{
+	"/var/lib/postgresql/data": {},
+	"/var/lib/mysql":           {},
+	"/var/lib/mongodb":         {},
+	"/var/lib/mariadb":         {},
+	"/var/lib/memcached":       {},
+	"/var/lib/rabbitmq":        {},
+}
+
+func (c *Container) isDatabase() bool {
+	for _, m := range c.Mounts {
+		if _, ok := databaseMPs[m]; ok {
+			return true
+		}
+	}
+
+	for _, v := range c.PrivatePortMapping {
+		switch v.PrivatePort {
+		// postgres, mysql or mariadb, redis, memcached, mongodb
+		case 5432, 3306, 6379, 11211, 27017:
+			return true
+		}
+	}
+	return false
+}
+
 func (c *Container) IsBlacklisted() bool {
-	return c.Image.IsBlacklisted()
+	return c.Image.IsBlacklisted() || c.isDatabase()
 }
 
 func (c *Container) setPublicHostname() {
