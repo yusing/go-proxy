@@ -29,7 +29,8 @@ type (
 		IdlewatcherConfig() *idlewatcher.Config
 		HealthCheckConfig() *health.HealthCheckConfig
 		LoadBalanceConfig() *loadbalance.Config
-		HomepageConfig() *homepage.Item
+		HomepageConfig() *homepage.ItemConfig
+		HomepageItem() *homepage.Item
 		ContainerInfo() *docker.Container
 
 		Agent() *agent.AgentConfig

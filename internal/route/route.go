@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/docker/docker/api/types/container"
 	"github.com/yusing/go-proxy/agent/pkg/agent"
 	"github.com/yusing/go-proxy/internal"
 	"github.com/yusing/go-proxy/internal/docker"
@@ -15,7 +16,6 @@ import (
 	"github.com/yusing/go-proxy/internal/utils/strutils"
 	"github.com/yusing/go-proxy/internal/watcher/health"
 
-	dockertypes "github.com/docker/docker/api/types"
 	"github.com/yusing/go-proxy/internal/common"
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/net/gphttp/accesslog"
@@ -41,7 +41,7 @@ type (
 		HealthCheck  *health.HealthCheckConfig  `json:"healthcheck,omitempty"`
 		LoadBalance  *loadbalance.Config        `json:"load_balance,omitempty"`
 		Middlewares  map[string]docker.LabelMap `json:"middlewares,omitempty"`
-		Homepage     *homepage.Item             `json:"homepage,omitempty"`
+		Homepage     *homepage.ItemConfig       `json:"homepage,omitempty"`
 		AccessLog    *accesslog.Config          `json:"access_log,omitempty"`
 
 		Metadata `deserialize:"-"`
@@ -190,8 +190,16 @@ func (r *Route) LoadBalanceConfig() *loadbalance.Config {
 	return r.LoadBalance
 }
 
-func (r *Route) HomepageConfig() *homepage.Item {
-	return r.Homepage
+func (r *Route) HomepageConfig() *homepage.ItemConfig {
+	return r.Homepage.GetOverride(r.Alias)
+}
+
+func (r *Route) HomepageItem() *homepage.Item {
+	return &homepage.Item{
+		Alias:      r.Alias,
+		Provider:   r.Provider,
+		ItemConfig: r.HomepageConfig(),
+	}
 }
 
 func (r *Route) ContainerInfo() *docker.Container {
@@ -370,14 +378,12 @@ func (r *Route) FinalizeHomepageConfig() {
 
 	isDocker := r.Container != nil
 
-	if r.Homepage.IsEmpty() {
-		r.Homepage = homepage.NewItem(r.Alias)
+	if r.Homepage == nil {
+		r.Homepage = &homepage.ItemConfig{Show: true}
 	}
+	r.Homepage = r.Homepage.GetOverride(r.Alias)
 
 	hp := r.Homepage
-	hp.Alias = r.Alias
-	hp.Provider = r.Provider
-	hp = hp.ApplyOverride()
 
 	var key string
 	if hp.Name == "" {
@@ -424,7 +430,7 @@ func (r *Route) FinalizeHomepageConfig() {
 	}
 }
 
-func lowestPort(ports map[int]dockertypes.Port) (res int) {
+func lowestPort(ports map[int]container.Port) (res int) {
 	cmp := (uint16)(65535)
 	for port, v := range ports {
 		if v.PrivatePort < cmp {

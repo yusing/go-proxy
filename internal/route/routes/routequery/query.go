@@ -64,33 +64,33 @@ func HomepageCategories() []string {
 	check := make(map[string]struct{})
 	categories := make([]string, 0)
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
-		homepage := r.HomepageConfig()
-		if homepage.IsEmpty() || homepage.Category == "" {
+		item := r.HomepageConfig()
+		if item == nil || item.Category == "" {
 			return
 		}
-		if _, ok := check[homepage.Category]; ok {
+		if _, ok := check[item.Category]; ok {
 			return
 		}
-		check[homepage.Category] = struct{}{}
-		categories = append(categories, homepage.Category)
+		check[item.Category] = struct{}{}
+		categories = append(categories, item.Category)
 	})
 	return categories
 }
 
-func HomepageConfig(categoryFilter, providerFilter string) homepage.Categories {
-	hpCfg := homepage.NewHomePageConfig()
+func HomepageConfig(categoryFilter, providerFilter string) homepage.Homepage {
+	hp := make(homepage.Homepage)
 
 	routes.GetHTTPRoutes().RangeAll(func(alias string, r route.HTTPRoute) {
-		item := r.HomepageConfig()
-		if providerFilter != "" && item.Provider != providerFilter {
+		if providerFilter != "" && r.ProviderName() != providerFilter {
 			return
 		}
+		item := r.HomepageItem()
 		if categoryFilter != "" && item.Category != categoryFilter {
 			return
 		}
-		hpCfg.Add(item)
+		hp.Add(item)
 	})
-	return hpCfg
+	return hp
 }
 
 func RoutesByAlias(typeFilter ...route.RouteType) map[string]route.Route {

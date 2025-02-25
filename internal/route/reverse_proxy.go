@@ -225,7 +225,7 @@ func (r *ReveseProxyRoute) addToLoadBalancer(parent task.Parent) {
 		linked = l.(*ReveseProxyRoute)
 		lb = linked.loadBalancer
 		lb.UpdateConfigIfNeeded(cfg)
-		if linked.Homepage.IsEmpty() && !r.Homepage.IsEmpty() {
+		if linked.Homepage == nil {
 			linked.Homepage = r.Homepage
 		}
 	} else {

@@ -1,13 +1,15 @@
 package homepage
 
 import (
+	"encoding/json"
+
+	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/utils"
 )
 
 type (
-	//nolint:recvcheck
-	Categories map[string]Category
-	Category   []*Item
+	Homepage map[string]Category
+	Category []*Item
 
 	ItemConfig struct {
 		Show         bool           `json:"show"`
@@ -22,11 +24,8 @@ type (
 	Item struct {
 		*ItemConfig
 
-		Alias    string `json:"alias"` // proxy alias
-		Provider string `json:"provider"`
-		URL      string `json:"url"` // alias + domain
-
-		IsUnset bool `json:"-"`
+		Alias    string
+		Provider string
 	}
 )
 
@@ -38,33 +37,34 @@ func init() {
 	})
 }
 
-func NewItem(alias string) *Item {
-	return &Item{
-		ItemConfig: &ItemConfig{
-			Show: true,
-		},
-		Alias:   alias,
-		IsUnset: true,
+func (cfg *ItemConfig) GetOverride(alias string) *ItemConfig {
+	return overrideConfigInstance.GetOverride(alias, cfg)
+}
+
+func (item *Item) MarshalJSON() ([]byte, error) {
+	godoxyCfg := config.GetInstance().Value()
+	// use first domain as base domain
+	domains := godoxyCfg.MatchDomains
+	var url *string
+	if len(domains) > 0 {
+		url = new(string)
+		*url = item.Alias + domains[0]
 	}
+	return json.Marshal(map[string]any{
+		"show":          item.Show,
+		"alias":         item.Alias,
+		"provider":      item.Provider,
+		"url":           url,
+		"name":          item.Name,
+		"icon":          item.Icon,
+		"category":      item.Category,
+		"description":   item.Description,
+		"sort_order":    item.SortOrder,
+		"widget_config": item.WidgetConfig,
+	})
 }
 
-func NewHomePageConfig() Categories {
-	return Categories(make(map[string]Category))
-}
-
-func (item *Item) IsEmpty() bool {
-	return item == nil || item.IsUnset || item.ItemConfig == nil
-}
-
-func (item *Item) ApplyOverride() *Item {
-	return overrideConfigInstance.ApplyOverride(item)
-}
-
-func (c *Categories) Clear() {
-	*c = make(Categories)
-}
-
-func (c Categories) Add(item *Item) {
+func (c Homepage) Add(item *Item) {
 	if c[item.Category] == nil {
 		c[item.Category] = make(Category, 0)
 	}

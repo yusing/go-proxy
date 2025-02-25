@@ -64,16 +64,17 @@ func (c *OverrideConfig) OverrideItems(items map[string]*ItemConfig) {
 	}
 }
 
-func (c *OverrideConfig) ApplyOverride(item *Item) *Item {
+func (c *OverrideConfig) GetOverride(alias string, item *ItemConfig) *ItemConfig {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	itemOverride, hasOverride := c.ItemOverrides[item.Alias]
+	itemOverride, hasOverride := c.ItemOverrides[alias]
 	if hasOverride {
-		item.ItemConfig = itemOverride
-		item.IsUnset = false
+		return itemOverride
 	}
-	if show, ok := c.ItemVisibility[item.Alias]; ok {
-		item.Show = show
+	if show, ok := c.ItemVisibility[alias]; ok {
+		clone := *item
+		clone.Show = show
+		return &clone
 	}
 	return item
 }
