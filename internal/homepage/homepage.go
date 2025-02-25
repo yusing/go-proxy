@@ -2,6 +2,7 @@ package homepage
 
 import (
 	"encoding/json"
+	"strings"
 
 	config "github.com/yusing/go-proxy/internal/config/types"
 	"github.com/yusing/go-proxy/internal/utils"
@@ -42,13 +43,17 @@ func (cfg *ItemConfig) GetOverride(alias string) *ItemConfig {
 }
 
 func (item *Item) MarshalJSON() ([]byte, error) {
-	godoxyCfg := config.GetInstance().Value()
-	// use first domain as base domain
-	domains := godoxyCfg.MatchDomains
 	var url *string
-	if len(domains) > 0 {
-		url = new(string)
-		*url = item.Alias + domains[0]
+	if !strings.ContainsRune(item.Alias, '.') {
+		godoxyCfg := config.GetInstance().Value()
+		// use first domain as base domain
+		domains := godoxyCfg.MatchDomains
+		if len(domains) > 0 {
+			url = new(string)
+			*url = item.Alias + domains[0]
+		}
+	} else {
+		url = &item.Alias
 	}
 	return json.Marshal(map[string]any{
 		"show":          item.Show,
