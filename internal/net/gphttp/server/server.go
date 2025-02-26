@@ -109,20 +109,20 @@ func Start(parent task.Parent, srv *http.Server, logger *zerolog.Logger) {
 
 	var lc net.ListenConfig
 
+	// Serve already closes the listener on return
+	l, err := lc.Listen(task.Context(), "tcp", srv.Addr)
+	if err != nil {
+		HandleError(logger, err, "failed to listen on port")
+		return
+	}
+
+	task.OnCancel("stop", func() {
+		Stop(srv, logger)
+	})
+
+	logger.Info().Str("addr", srv.Addr).Msg("server started")
+
 	go func() {
-		// Serve already closes the listener on return
-		l, err := lc.Listen(task.Context(), "tcp", srv.Addr)
-		if err != nil {
-			HandleError(logger, err, "failed to listen on port")
-			return
-		}
-
-		task.OnCancel("stop", func() {
-			Stop(srv, logger)
-		})
-
-		logger.Info().Str("addr", srv.Addr).Msg("server started")
-
 		if srv.TLSConfig == nil {
 			err = srv.Serve(l)
 		} else {
