@@ -48,7 +48,6 @@ func ClientError(w http.ResponseWriter, err error, code ...int) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(err)
 	} else {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		http.Error(w, err.Error(), code[0])
 	}
 }
@@ -65,12 +64,18 @@ func BadRequest(w http.ResponseWriter, err string, code ...int) {
 	if len(code) == 0 {
 		code = []int{http.StatusBadRequest}
 	}
-	http.Error(w, err, code[0])
+	w.WriteHeader(code[0])
+	w.Write([]byte(err))
 }
 
 // Unauthorized returns an Unauthorized response with the given error message.
 func Unauthorized(w http.ResponseWriter, err string) {
 	BadRequest(w, err, http.StatusUnauthorized)
+}
+
+// Forbidden returns a Forbidden response with the given error message.
+func Forbidden(w http.ResponseWriter, err string) {
+	BadRequest(w, err, http.StatusForbidden)
 }
 
 // NotFound returns a Not Found response with the given error message.

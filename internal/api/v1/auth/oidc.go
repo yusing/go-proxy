@@ -132,7 +132,7 @@ func (auth *OIDCProvider) CheckToken(r *http.Request) error {
 	allowedUser := slices.Contains(auth.allowedUsers, claims.Username)
 	allowedGroup := len(CE.Intersect(claims.Groups, auth.allowedGroups)) > 0
 	if !allowedUser && !allowedGroup {
-		return ErrUserNotAllowed.Subject(claims.Username)
+		return ErrUserNotAllowed
 	}
 	return nil
 }

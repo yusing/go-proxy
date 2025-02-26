@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"errors"
 	"net/http"
 	"sync"
 	"sync/atomic"
@@ -80,11 +81,13 @@ func (amw *oidcMiddleware) before(w http.ResponseWriter, r *http.Request) (proce
 	}
 
 	if err := amw.auth.CheckToken(r); err != nil {
-		amw.authMux.ServeHTTP(w, r)
-		return false
-	}
-	if r.URL.Path == auth.OIDCLogoutPath {
-		amw.auth.LogoutCallbackHandler(w, r)
+		if errors.Is(err, auth.ErrMissingToken) {
+			amw.authMux.ServeHTTP(w, r)
+		} else if r.URL.Path == auth.OIDCLogoutPath {
+			amw.auth.LogoutCallbackHandler(w, r)
+		} else {
+			auth.WriteBlockPage(w, http.StatusForbidden, err.Error(), auth.OIDCLogoutPath)
+		}
 		return false
 	}
 	return true
