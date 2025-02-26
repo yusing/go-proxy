@@ -15,10 +15,9 @@ import (
 var (
 	prefixes = []string{"GODOXY_", "GOPROXY_", ""}
 
-	IsTest       = GetEnvBool("TEST", false) || strings.HasSuffix(os.Args[0], ".test")
-	IsDebug      = GetEnvBool("DEBUG", IsTest)
-	IsTrace      = GetEnvBool("TRACE", false) && IsDebug
-	IsProduction = !IsTest && !IsDebug
+	IsTest  = GetEnvBool("TEST", false) || strings.HasSuffix(os.Args[0], ".test")
+	IsDebug = GetEnvBool("DEBUG", IsTest)
+	IsTrace = GetEnvBool("TRACE", false) && IsDebug
 
 	ProxyHTTPAddr,
 	ProxyHTTPHost,
