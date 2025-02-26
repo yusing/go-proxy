@@ -80,11 +80,12 @@ func (amw *oidcMiddleware) before(w http.ResponseWriter, r *http.Request) (proce
 		return false
 	}
 
+	if r.URL.Path == auth.OIDCLogoutPath {
+		amw.auth.LogoutCallbackHandler(w, r)
+	}
 	if err := amw.auth.CheckToken(r); err != nil {
 		if errors.Is(err, auth.ErrMissingToken) {
 			amw.authMux.ServeHTTP(w, r)
-		} else if r.URL.Path == auth.OIDCLogoutPath {
-			amw.auth.LogoutCallbackHandler(w, r)
 		} else {
 			auth.WriteBlockPage(w, http.StatusForbidden, err.Error(), auth.OIDCLogoutPath)
 		}
