@@ -132,17 +132,6 @@ const (
 // This is a copy of io.Copy with context and HTTP flusher handling
 // Author: yusing <yusing@6uo.me>.
 func CopyClose(dst *ContextWriter, src *ContextReader) (err error) {
-	// If the reader has a WriteTo method, use it to do the copy.
-	// Avoids an allocation and a copy.
-	if wt, ok := src.Reader.(io.WriterTo); ok {
-		_, err = wt.WriteTo(dst)
-		return
-	}
-	// Similarly, if the writer has a ReadFrom method, use it to do the copy.
-	if rf, ok := dst.Writer.(io.ReaderFrom); ok {
-		_, err = rf.ReadFrom(src)
-		return
-	}
 	var buf []byte
 	if l, ok := src.Reader.(*io.LimitedReader); ok {
 		size := copyBufSize
