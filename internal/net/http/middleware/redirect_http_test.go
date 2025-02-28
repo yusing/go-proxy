@@ -14,7 +14,7 @@ func TestRedirectToHTTPs(t *testing.T) {
 		reqURL: types.MustParseURL("http://example.com"),
 	})
 	ExpectNoError(t, err)
-	ExpectEqual(t, result.ResponseStatus, http.StatusTemporaryRedirect)
+	ExpectEqual(t, result.ResponseStatus, http.StatusPermanentRedirect)
 	ExpectEqual(t, result.ResponseHeaders.Get("Location"), "https://example.com:"+common.ProxyHTTPSPort)
 }
 
