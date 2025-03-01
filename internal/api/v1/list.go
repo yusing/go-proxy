@@ -39,9 +39,9 @@ func List(cfg config.ConfigInstance, w http.ResponseWriter, r *http.Request) {
 
 	switch what {
 	case ListRoute:
-		if route := listRoute(which); route == nil {
+		route := listRoute(which)
+		if route == nil {
 			http.NotFound(w, r)
-			return
 		} else {
 			U.RespondJSON(w, r, route)
 		}
