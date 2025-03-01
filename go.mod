@@ -18,7 +18,7 @@ require (
 	github.com/prometheus/client_golang v1.21.0 // metrics
 	github.com/puzpuzpuz/xsync/v3 v3.5.1 // lock free map for concurrent operations
 	github.com/rs/zerolog v1.33.0 // logging
-	github.com/shirou/gopsutil/v4 v4.25.1 // system info metrics
+	github.com/shirou/gopsutil/v4 v4.25.2 // system info metrics
 	github.com/vincent-petithory/dataurl v1.0.0 // data url for fav icon
 	golang.org/x/crypto v0.35.0 // encrypting password with bcrypt
 	golang.org/x/net v0.35.0 // HTTP header utilities
