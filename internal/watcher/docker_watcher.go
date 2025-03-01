@@ -6,20 +6,15 @@ import (
 
 	docker_events "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
-	"github.com/rs/zerolog"
 	D "github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
-	"github.com/yusing/go-proxy/internal/logging"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
 
 type (
 	DockerWatcher struct {
-		zerolog.Logger
-
-		host        string
-		client      *D.SharedClient
-		clientOwned bool
+		host   string
+		client *D.SharedClient
 	}
 	DockerListOptions = docker_events.ListOptions
 )
@@ -53,24 +48,7 @@ func DockerFilterContainerNameID(nameOrID string) filters.KeyValuePair {
 }
 
 func NewDockerWatcher(host string) DockerWatcher {
-	return DockerWatcher{
-		host:        host,
-		clientOwned: true,
-		Logger: logging.With().
-			Str("type", "docker").
-			Str("host", host).
-			Logger(),
-	}
-}
-
-func NewDockerWatcherWithClient(client *D.SharedClient) DockerWatcher {
-	return DockerWatcher{
-		client: client,
-		Logger: logging.With().
-			Str("type", "docker").
-			Str("host", client.DaemonHost()).
-			Logger(),
-	}
+	return DockerWatcher{host: host}
 }
 
 func (w DockerWatcher) Events(ctx context.Context) (<-chan Event, <-chan E.Error) {
@@ -82,35 +60,11 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 	errCh := make(chan E.Error)
 
 	go func() {
-		defer close(eventCh)
-		defer close(errCh)
-
 		defer func() {
-			if w.clientOwned && w.client.Connected() {
-				w.client.Close()
-			}
+			defer close(eventCh)
+			defer close(errCh)
+			w.client.Close()
 		}()
-
-		if !w.client.Connected() {
-			var err error
-			attempts := 0
-			for {
-				w.client, err = D.ConnectClient(w.host)
-				if err == nil {
-					break
-				}
-				attempts++
-				errCh <- E.Errorf("docker connection attempt #%d: %w", attempts, err)
-				select {
-				case <-ctx.Done():
-					return
-				default:
-					time.Sleep(dockerWatcherRetryInterval)
-				}
-			}
-		}
-
-		defer w.client.Close()
 
 		cEventCh, cErrCh := w.client.Events(ctx, options)
 
@@ -124,7 +78,6 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			case msg := <-cEventCh:
 				action, ok := events.DockerEventMap[msg.Action]
 				if !ok {
-					w.Debug().Msgf("ignored unknown docker event: %s for container %s", msg.Action, msg.Actor.Attributes["name"])
 					continue
 				}
 				event := Event{

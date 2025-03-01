@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/docker/cli/cli/connhelper"
@@ -61,9 +62,7 @@ func init() {
 
 		for _, c := range clientMap {
 			delete(clientMap, c.key)
-			if c.Connected() {
-				c.Client.Close()
-			}
+			c.Client.Close()
 		}
 	})
 }
@@ -75,10 +74,6 @@ func closeTimedOutClients() {
 	now := time.Now().Unix()
 
 	for _, c := range clientMap {
-		if !c.Connected() {
-			delete(clientMap, c.key)
-			continue
-		}
 		if c.closedOn == 0 {
 			continue
 		}
@@ -90,14 +85,10 @@ func closeTimedOutClients() {
 	}
 }
 
-func (c *SharedClient) Connected() bool {
-	return c != nil && c.Client != nil
-}
-
 // if the client is still referenced, this is no-op.
 func (c *SharedClient) Close() {
-	c.closedOn = time.Now().Unix()
-	c.refCount--
+	atomic.StoreInt64(&c.closedOn, time.Now().Unix())
+	atomic.AddUint32(&c.refCount, ^uint32(0))
 }
 
 // ConnectClient creates a new Docker client connection to the specified host.
@@ -115,8 +106,8 @@ func ConnectClient(host string) (*SharedClient, error) {
 	defer clientMapMu.Unlock()
 
 	if client, ok := clientMap[host]; ok {
-		client.closedOn = 0
-		client.refCount++
+		atomic.StoreInt64(&client.closedOn, 0)
+		atomic.AddUint32(&client.refCount, 1)
 		return client, nil
 	}
 

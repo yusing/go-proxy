@@ -146,9 +146,6 @@ func (w *Watcher) containerStart(ctx context.Context) error {
 }
 
 func (w *Watcher) containerStatus() (string, error) {
-	if !w.client.Connected() {
-		return "", errors.New("docker client not connected")
-	}
 	ctx, cancel := context.WithTimeoutCause(w.task.Context(), dockerReqTimeout, errors.New("docker request timeout"))
 	defer cancel()
 	json, err := w.client.ContainerInspect(ctx, w.ContainerID)
@@ -242,7 +239,7 @@ func (w *Watcher) getEventCh(dockerWatcher watcher.DockerWatcher) (eventCh <-cha
 // it exits only if the context is canceled, the container is destroyed,
 // errors occurred on docker client, or route provider died (mainly caused by config reload).
 func (w *Watcher) watchUntilDestroy() (returnCause error) {
-	dockerWatcher := watcher.NewDockerWatcherWithClient(w.client)
+	dockerWatcher := watcher.NewDockerWatcher(w.client.DaemonHost())
 	dockerEventCh, dockerEventErrCh := w.getEventCh(dockerWatcher)
 
 	for {
