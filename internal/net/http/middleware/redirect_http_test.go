@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/yusing/go-proxy/internal/common"
 	"github.com/yusing/go-proxy/internal/net/types"
 	. "github.com/yusing/go-proxy/internal/utils/testing"
 )
@@ -14,8 +13,8 @@ func TestRedirectToHTTPs(t *testing.T) {
 		reqURL: types.MustParseURL("http://example.com"),
 	})
 	ExpectNoError(t, err)
-	ExpectEqual(t, result.ResponseStatus, http.StatusPermanentRedirect)
-	ExpectEqual(t, result.ResponseHeaders.Get("Location"), "https://example.com:"+common.ProxyHTTPSPort)
+	ExpectEqual(t, result.ResponseStatus, http.StatusMovedPermanently)
+	ExpectEqual(t, result.ResponseHeaders.Get("Location"), "https://example.com")
 }
 
 func TestNoRedirect(t *testing.T) {
