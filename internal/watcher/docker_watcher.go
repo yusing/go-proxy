@@ -6,7 +6,7 @@ import (
 
 	docker_events "github.com/docker/docker/api/types/events"
 	"github.com/docker/docker/api/types/filters"
-	D "github.com/yusing/go-proxy/internal/docker"
+	"github.com/yusing/go-proxy/internal/docker"
 	E "github.com/yusing/go-proxy/internal/error"
 	"github.com/yusing/go-proxy/internal/watcher/events"
 )
@@ -14,7 +14,7 @@ import (
 type (
 	DockerWatcher struct {
 		host   string
-		client *D.SharedClient
+		client *docker.SharedClient
 	}
 	DockerListOptions = docker_events.ListOptions
 )
@@ -65,6 +65,13 @@ func (w DockerWatcher) EventsWithOptions(ctx context.Context, options DockerList
 			defer close(errCh)
 			w.client.Close()
 		}()
+
+		client, err := docker.ConnectClient(w.host)
+		if err != nil {
+			errCh <- E.From(err)
+			return
+		}
+		w.client = client
 
 		cEventCh, cErrCh := w.client.Events(ctx, options)
 
