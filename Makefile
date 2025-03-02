@@ -38,7 +38,7 @@ ifeq ($(pprof), 1)
 else
 	CGO_ENABLED = 0
 	LDFLAGS += -s -w
-	BUILD_FLAGS = -pgo=auto
+	BUILD_FLAGS = -pgo=auto -tags production
 endif
 
 BUILD_FLAGS += -ldflags='$(LDFLAGS)'
