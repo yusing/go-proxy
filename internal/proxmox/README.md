@@ -122,6 +122,15 @@ additional per-host connection slots for session refresh and interactive
 operations. Idle capacity matches the total connection limit to avoid
 discarding reusable connections after each lookup wave.
 
+Initial session creation and cluster discovery retry connection failures with
+exponential backoff within the existing 30-second initialization deadline. A
+successful session is reused when discovery needs another attempt. Rejected
+credentials, certificate verification failures, and invalid API responses are
+returned immediately. These retries do not apply to LXC start/stop operations.
+If Proxmox remains unreachable beyond the initialization deadline, the runtime
+still reports the failure and requires a configuration reload or restart after
+connectivity returns.
+
 Long-lived stats and command streams remain bound to their API WebSocket
 lifetime. Closing the WebSocket cancels any in-flight Proxmox request and
 closes the corresponding backend stream.
