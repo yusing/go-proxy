@@ -329,8 +329,21 @@ Podman Compose sets no `com.docker.compose.depends_on`: it passes compose
 through an agent, so compose `depends_on` works without `proxy.depends_on`.
 `proxy.depends_on` still wins when both are set.
 
-Behind a Docker-API-only proxy (socket-proxy, TLS providers) the libpod API is not
-reachable; set `proxy.depends_on` there.
+TLS providers reuse the Docker client's configured CA, client certificate, and
+verified transport. Agents and connection-helper providers use their existing
+transport too; discovery never follows redirects.
+
+A discovery failure only skips dependency resolution: the container's routes are
+still built, and `proxy.depends_on` can be set to supply dependencies explicitly.
+
+Each provider reload reuses its existing all-container snapshot to resolve IDs.
+Discovery adds one native inspect per eligible Podman Compose container, with a
+3-second timeout and an 8 MiB response limit. It adds no container-list requests
+on the provider reload path and caches no data across reloads. Direct `FromDocker`
+callers without a snapshot need one additional container-list request when the
+inspect reports dependencies. Building the snapshot index is O(M) for M
+containers; resolving each dependency ID is O(1). Docker hosts make no native
+inspect requests.
 
 ## Dependency and Integration Map
 

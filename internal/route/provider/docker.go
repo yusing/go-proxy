@@ -67,6 +67,8 @@ func (p *DockerProvider) loadRoutesImpl(parentCtx context.Context) (route.Routes
 		return nil, err
 	}
 
+	ctx = docker.WithPodmanContainers(ctx, containers)
+
 	errs := gperr.NewBuilder("")
 	routes := make(route.Routes)
 

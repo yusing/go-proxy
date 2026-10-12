@@ -25,7 +25,7 @@ func podmanAPIStub(t *testing.T) *http.ServeMux {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v4.0.0/libpod/containers/"+podmanAppID+"/json", func(w http.ResponseWriter, _ *http.Request) {
-		io.WriteString(w, `{"Id":"`+podmanAppID+`","Dependencies":["`+podmanDBID+`","`+podmanWebID+`","deadbeef"]}`)
+		io.WriteString(w, `{"Id":"`+podmanAppID+`","Dependencies":["`+podmanDBID+`","`+podmanWebID+`"]}`)
 	})
 	mux.HandleFunc("/containers/json", func(w http.ResponseWriter, _ *http.Request) {
 		io.WriteString(w, `[
@@ -57,17 +57,6 @@ func TestPodmanDependenciesSkipsUnsupportedHosts(t *testing.T) {
 			},
 		},
 		{
-			name: "tls provider",
-			c: &Container{
-				DockerCfg: types.DockerProviderConfig{
-					URL: "https://podman.example:8443",
-					TLS: &types.DockerTLSConfig{},
-				},
-				ContainerID:  podmanAppID,
-				ActualLabels: map[string]string{labelPodmanComposeProject: "repro"},
-			},
-		},
-		{
 			name: "agent not resolved",
 			c: &Container{
 				DockerCfg:    types.DockerProviderConfig{URL: "agent://10.0.0.1:8181"},
@@ -87,7 +76,8 @@ func TestFetchPodmanDependencies(t *testing.T) {
 	srv := httptest.NewServer(podmanAPIStub(t))
 	defer srv.Close()
 
-	got := fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID)
+	got, err := fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID)
+	require.NoError(t, err)
 	// Service names where the compose provider reports them, container names
 	// otherwise, and the unknown ID dropped.
 	require.Equal(t, []string{"db", "web"}, got)
@@ -97,7 +87,9 @@ func TestFetchPodmanDependenciesNotPodman(t *testing.T) {
 	srv := httptest.NewServer(http.NewServeMux()) // Docker has no libpod API
 	defer srv.Close()
 
-	require.Nil(t, fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID))
+	got, err := fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID)
+	require.Error(t, err)
+	require.Nil(t, got)
 }
 
 // TestPodmanDependenciesUnixSocket covers the provider connection itself: the

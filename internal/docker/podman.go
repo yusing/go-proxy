@@ -1,17 +1,19 @@
 package docker
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
-	"github.com/yusing/godoxy/agent/pkg/agent"
+	"github.com/docker/docker/client"
+	"github.com/rs/zerolog/log"
 )
 
 // labelPodmanComposeProject is set by podman-compose on every container it
@@ -20,85 +22,22 @@ import (
 const labelPodmanComposeProject = "io.podman.compose.project"
 
 // libpodAPIVersion is the native Podman API version queried for dependencies.
-// Podman 4 and newer serve it on the same socket as the Docker-compatible API.
+// Podman routes any version segment, and v4.0.0 is its minimum supported libpod
+// API version, so Podman 4 and newer serve it unchanged.
 const libpodAPIVersion = "v4.0.0"
 
 const podmanRequestTimeout = 3 * time.Second
+const podmanResponseLimit = 8 << 20
 
-// podmanDependencies returns a podman-compose container's dependencies without
-// requiring the proxy.depends_on label.
-//
-// podman-compose turns compose depends_on into podman --requires, which the
-// Docker-compatible API does not expose, so it is read from the native libpod
-// API and resolved back to the names the idle watcher matches on.
-//
-// It returns nil on Docker, on containers podman-compose did not create, on TLS
-// providers, behind a Docker-API-only proxy (socket-proxy), and whenever the
-// libpod API is unreachable.
-func podmanDependencies(ctx context.Context, c *Container) []string {
-	if c.ContainerID == "" || c.DockerCfg.TLS != nil {
-		return nil
-	}
-	if cmp.Or(c.ActualLabels[labelPodmanComposeProject], c.Labels[labelPodmanComposeProject]) == "" {
-		return nil
-	}
+type podmanNamesKey struct{}
 
-	httpClient, base, ok := podmanEndpoint(ctx, c)
-	if !ok {
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(ctx, podmanRequestTimeout)
-	defer cancel()
-
-	return fetchPodmanDependencies(ctx, httpClient, base, c.ContainerID)
+// WithPodmanContainers reuses the provider's complete container snapshot for
+// dependency resolution. The immutable index is scoped to one provider reload.
+func WithPodmanContainers(ctx context.Context, summaries []container.Summary) context.Context {
+	return context.WithValue(ctx, podmanNamesKey{}, podmanContainerNames(summaries))
 }
 
-// podmanEndpoint returns the root URL and HTTP client that reach the host's API,
-// either through an agent or over the provider's own connection.
-func podmanEndpoint(ctx context.Context, c *Container) (*http.Client, string, bool) {
-	if agent.IsDockerHostAgent(c.DockerCfg.URL) {
-		if c.Agent == nil {
-			return nil, "", false
-		}
-		// The agent forwards any path to its DOCKER_SOCKET, which is Podman's
-		// socket when Podman manages the host.
-		return c.Agent.HTTPClient(), agent.DockerHost, true
-	}
-
-	cli, err := NewClient(ctx, c.DockerCfg)
-	if err != nil {
-		return nil, "", false
-	}
-	defer cli.Close()
-
-	// cli.dial already reaches unix, tcp and connection helper hosts, so the URL
-	// host below is never used to dial.
-	return &http.Client{
-		Transport: &http.Transport{
-			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return cli.dial(ctx) },
-		},
-	}, "http://podman", true
-}
-
-// fetchPodmanDependencies reads the --requires list of containerID, which Podman
-// stores as container IDs, and maps them back to names.
-func fetchPodmanDependencies(ctx context.Context, httpClient *http.Client, base, containerID string) []string {
-	var inspect struct {
-		Dependencies []string `json:"Dependencies"`
-	}
-	endpoint := base + "/" + libpodAPIVersion + "/libpod/containers/" + url.PathEscape(containerID) + "/json"
-	if err := podmanGetJSON(ctx, httpClient, endpoint, &inspect); err != nil || len(inspect.Dependencies) == 0 {
-		return nil
-	}
-
-	// The idle watcher resolves dependencies by name: the compose service name
-	// where the provider reports one, the container name otherwise.
-	var summaries []container.Summary
-	if err := podmanGetJSON(ctx, httpClient, base+"/containers/json?all=true", &summaries); err != nil {
-		return nil
-	}
-
+func podmanContainerNames(summaries []container.Summary) map[string]string {
 	names := make(map[string]string, len(summaries))
 	for i, s := range summaries {
 		if name := cmp.Or(
@@ -109,14 +48,116 @@ func fetchPodmanDependencies(ctx context.Context, httpClient *http.Client, base,
 			names[s.ID] = name
 		}
 	}
+	return names
+}
 
-	deps := make([]string, 0, len(inspect.Dependencies))
-	for _, id := range inspect.Dependencies {
-		if name := names[id]; name != "" {
-			deps = append(deps, name)
-		}
+// podmanDependencies returns a podman-compose container's dependencies without
+// requiring the proxy.depends_on label.
+//
+// podman-compose turns compose depends_on into podman --requires, which the
+// Docker-compatible API does not expose, so it is read from the native libpod
+// API and resolved back to the names the idle watcher matches on.
+//
+// Discovery failures are logged and treated as no dependencies, so the
+// container's routes are still built.
+func podmanDependencies(ctx context.Context, c *Container) []string {
+	if c.ContainerID == "" || cmp.Or(c.ActualLabels[labelPodmanComposeProject], c.Labels[labelPodmanComposeProject]) == "" {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, podmanRequestTimeout)
+	defer cancel()
+
+	httpClient, base, cleanup, err := podmanEndpoint(ctx, c)
+	if err != nil {
+		log.Warn().Err(err).Str("container", c.ContainerName).Msg("podman dependencies")
+		return nil
+	}
+	defer cleanup()
+	deps, err := fetchPodmanDependencies(ctx, httpClient, base, c.ContainerID)
+	if err != nil {
+		log.Warn().Err(err).Str("container", c.ContainerName).Msg("podman dependencies")
 	}
 	return deps
+}
+
+// podmanEndpoint returns the root URL and HTTP client that reach the host's API,
+// either through an agent or over the provider's own connection.
+func podmanEndpoint(ctx context.Context, c *Container) (*http.Client, string, func(), error) {
+	shared, err := NewClient(ctx, c.DockerCfg)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	host, err := client.ParseHostURL(shared.Client.DaemonHost())
+	if err != nil {
+		shared.Close()
+		return nil, "", nil, err
+	}
+	httpClient := shared.HTTPClient()
+	base := "http://" + client.DummyHost
+	if host.Scheme != "unix" && host.Scheme != "npipe" && host.Scheme != "ssh" {
+		scheme := "http"
+		if transport, ok := httpClient.Transport.(*http.Transport); host.Scheme == "https" || host.Scheme == "tls" || ok && transport.TLSClientConfig != nil {
+			scheme = "https"
+		}
+		base = scheme + "://" + host.Host + host.Path
+	}
+	return httpClient, base, shared.Close, nil
+}
+
+func validPodmanID(id string) bool {
+	if len(id) != 64 {
+		return false
+	}
+	for _, ch := range id {
+		if !(ch >= '0' && ch <= '9' || ch >= 'a' && ch <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// fetchPodmanDependencies reads the --requires list of containerID, which Podman
+// reports as full container IDs, and resolves them to compose service names.
+func fetchPodmanDependencies(ctx context.Context, httpClient *http.Client, base, containerID string) ([]string, error) {
+	if !validPodmanID(containerID) {
+		return nil, fmt.Errorf("invalid container ID")
+	}
+	var inspect struct {
+		ID           string `json:"Id"`
+		Dependencies []string
+	}
+	endpoint := base + "/" + libpodAPIVersion + "/libpod/containers/" + url.PathEscape(containerID) + "/json"
+	if err := podmanGetJSON(ctx, httpClient, endpoint, &inspect); err != nil {
+		return nil, err
+	}
+	if inspect.ID != containerID || inspect.Dependencies == nil {
+		return nil, fmt.Errorf("invalid libpod inspect response")
+	}
+	if len(inspect.Dependencies) == 0 {
+		return nil, nil
+	}
+
+	names, ok := ctx.Value(podmanNamesKey{}).(map[string]string)
+	if !ok {
+		var summaries []container.Summary
+		if err := podmanGetJSON(ctx, httpClient, base+"/containers/json?all=true", &summaries); err != nil {
+			return nil, err
+		}
+		names = podmanContainerNames(summaries)
+	}
+	deps := make([]string, 0, len(inspect.Dependencies))
+	seen := make(map[string]bool, len(inspect.Dependencies))
+	for _, id := range inspect.Dependencies {
+		name := names[id]
+		if !validPodmanID(id) || id == containerID || name == "" {
+			return nil, fmt.Errorf("unresolved or invalid dependency ID")
+		}
+		if !seen[name] {
+			deps = append(deps, name)
+			seen[name] = true
+		}
+	}
+	return deps, nil
 }
 
 func podmanGetJSON(ctx context.Context, httpClient *http.Client, endpoint string, out any) error {
@@ -124,15 +165,29 @@ func podmanGetJSON(ctx context.Context, httpClient *http.Client, endpoint string
 	if err != nil {
 		return err
 	}
-
-	resp, err := httpClient.Do(req)
+	// Apply this even to callers supplying their own client.
+	client := *httpClient
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("podman: GET %s: %s", endpoint, resp.Status)
+		return fmt.Errorf("podman: unexpected HTTP status %d", resp.StatusCode)
 	}
-	return json.NewDecoder(resp.Body).Decode(out)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, podmanResponseLimit+1))
+	if err != nil {
+		return err
+	}
+	if len(body) > podmanResponseLimit {
+		return fmt.Errorf("podman: response exceeds %d bytes", podmanResponseLimit)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("podman: invalid JSON: %w", err)
+	}
+	if bytes.Equal(bytes.TrimSpace(body), []byte("null")) {
+		return fmt.Errorf("podman: null response")
+	}
+	return nil
 }
