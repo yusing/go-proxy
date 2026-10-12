@@ -268,3 +268,42 @@ func TestIdlewatcherNotifyLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestIdlewatcherDependsOnLabel(t *testing.T) {
+	tests := []struct {
+		name   string
+		labels map[string]string
+		want   []string
+	}{
+		{
+			// Podman sets no com.docker.compose.depends_on label (#279).
+			name: "proxy label without compose label",
+			labels: map[string]string{
+				LabelIdleTimeout: "1m",
+				LabelDependsOn:   "db",
+			},
+			want: []string{"db"},
+		},
+		{
+			name: "proxy label wins over compose label",
+			labels: map[string]string{
+				LabelIdleTimeout:                "1m",
+				LabelDependsOn:                  "cache",
+				"com.docker.compose.depends_on": "db:service_started:false",
+			},
+			want: []string{"cache"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := idlewatcherFromLabels(t, tt.labels)
+			expect.NotNil(t, c.IdlewatcherConfig)
+			expect.Equal(t, c.IdlewatcherConfig.DependsOn, tt.want)
+		})
+	}
+}
+
+func TestDependenciesWithoutLabels(t *testing.T) {
+	c := idlewatcherFromLabels(t, map[string]string{LabelIdleTimeout: "1m"})
+	expect.Equal(t, len(Dependencies(c)), 0)
+}
