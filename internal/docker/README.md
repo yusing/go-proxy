@@ -323,6 +323,10 @@ Those are created by Docker Compose.
 | `com.docker.compose.service`    | Service name         |
 | `com.docker.compose.depends_on` | Dependencies         |
 
+Podman Compose sets no `com.docker.compose.depends_on`: it passes compose
+`depends_on` to Podman as `--requires`, which the Docker-compatible API does not
+expose. On podman-compose, set `proxy.depends_on` on the dependent service.
+
 ## Dependency and Integration Map
 
 ### Internal dependencies
