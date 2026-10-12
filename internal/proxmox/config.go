@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -103,18 +104,23 @@ func (c *Config) Init(ctx context.Context) error {
 	initCtx, initCtxCancel := context.WithTimeout(ctx, RequestTimeout)
 	defer initCtxCancel()
 
-	if useCredentials {
-		err := c.client.CreateSession(initCtx)
-		if err != nil {
-			return fmt.Errorf("failed to create session: %w", err)
+	authenticated := !useCredentials
+	if err := retryInitialization(initCtx, func() error {
+		if !authenticated {
+			if err := c.client.CreateSession(initCtx); err != nil {
+				return fmt.Errorf("failed to create session: %w", err)
+			}
+			authenticated = true
 		}
-	}
-
-	if err := c.client.UpdateClusterInfo(initCtx); err != nil {
-		if errors.Is(err, context.DeadlineExceeded) {
-			return fmt.Errorf("timeout fetching proxmox cluster info: %w", err)
+		if err := c.client.UpdateClusterInfo(initCtx); err != nil {
+			if errors.Is(err, context.DeadlineExceeded) {
+				return fmt.Errorf("timeout fetching proxmox cluster info: %w", err)
+			}
+			return fmt.Errorf("failed to fetch proxmox cluster info: %w", err)
 		}
-		return fmt.Errorf("failed to fetch proxmox cluster info: %w", err)
+		return nil
+	}); err != nil {
+		return err
 	}
 
 	{
@@ -129,6 +135,39 @@ func (c *Config) Init(ctx context.Context) error {
 	go c.updateResourcesLoop(ctx)
 	go c.refreshSessionLoop(ctx)
 	return nil
+}
+
+// Retry only bootstrap connections, sharing the existing initialization deadline.
+// LXC actions must not be replayed after an ambiguous transport failure.
+func retryInitialization(ctx context.Context, initialize func() error) error {
+	delay := 250 * time.Millisecond
+	for {
+		if err := context.Cause(ctx); err != nil {
+			return err
+		}
+		err := initialize()
+		if err == nil {
+			return nil
+		}
+		if cause := context.Cause(ctx); cause != nil {
+			return errors.Join(err, cause)
+		}
+		var networkError *net.OpError
+		var dnsError *net.DNSError
+		if !errors.As(err, &networkError) && !errors.As(err, &dnsError) &&
+			!errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
+			return err
+		}
+
+		timer := time.NewTimer(delay)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return errors.Join(err, context.Cause(ctx))
+		case <-timer.C:
+		}
+		delay = min(delay*2, 3*time.Second)
+	}
 }
 
 func (c *Config) refreshSession(ctx context.Context) error {
