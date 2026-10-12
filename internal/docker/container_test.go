@@ -307,3 +307,22 @@ func TestDependenciesWithoutLabels(t *testing.T) {
 	c := idlewatcherFromLabels(t, map[string]string{LabelIdleTimeout: "1m"})
 	expect.Equal(t, len(Dependencies(c)), 0)
 }
+
+func TestIdlewatcherPodmanComposeDependencies(t *testing.T) {
+	// podman-compose keeps compose depends_on as podman --requires, so the idle
+	// watcher must pick it up without the proxy.depends_on label (#279).
+	socketPath := serveStubOnUnixSocket(t, podmanAPIStub(t))
+
+	c := FromDocker(t.Context(), &container.Summary{
+		ID:    podmanAppID,
+		Names: []string{"/repro_app_1"},
+		Labels: map[string]string{
+			labelPodmanComposeProject: "repro",
+			LabelIdleTimeout:          "1m",
+		},
+		State: "running",
+	}, types.DockerProviderConfig{URL: "unix://" + socketPath})
+
+	require.NotNil(t, c.IdlewatcherConfig)
+	require.Equal(t, []string{"db", "web"}, c.IdlewatcherConfig.DependsOn)
+}

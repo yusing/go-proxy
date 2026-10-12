@@ -324,8 +324,13 @@ Those are created by Docker Compose.
 | `com.docker.compose.depends_on` | Dependencies         |
 
 Podman Compose sets no `com.docker.compose.depends_on`: it passes compose
-`depends_on` to Podman as `--requires`, which the Docker-compatible API does not
-expose. On podman-compose, set `proxy.depends_on` on the dependent service.
+`depends_on` to Podman as `--requires`, which only the native libpod API reports.
+`podmanDependencies` in `podman.go` reads that API over the provider socket or
+through an agent, so compose `depends_on` works without `proxy.depends_on`.
+`proxy.depends_on` still wins when both are set.
+
+Behind a Docker-API-only proxy (socket-proxy, TLS providers) the libpod API is not
+reachable; set `proxy.depends_on` there.
 
 ## Dependency and Integration Map
 
