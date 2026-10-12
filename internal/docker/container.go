@@ -183,9 +183,20 @@ func DockerComposeService(c *Container) string {
 }
 
 func Dependencies(c *Container) []string {
-	deps := c.Labels[LabelDependsOn]
+	// Read the labels as they were before FromDocker consumed them:
+	// getDeleteLabel removes proxy.depends_on from c.Labels before this runs.
+	label := func(key string) string {
+		if v, ok := c.ActualLabels[key]; ok {
+			return v
+		}
+		return c.Labels[key]
+	}
+	deps := label(LabelDependsOn)
 	if deps == "" {
-		deps = c.Labels["com.docker.compose.depends_on"]
+		deps = label("com.docker.compose.depends_on")
+	}
+	if deps == "" {
+		return nil
 	}
 	return strings.Split(deps, ",")
 }
