@@ -19,7 +19,7 @@ const (
 )
 
 // podmanAPIStub serves the two endpoints podmanDependencies reads: the native
-// libpod inspect, and the Docker-compatible list used to resolve container IDs.
+// libpod inspect and the Docker-compatible list used to resolve container IDs.
 func podmanAPIStub(t *testing.T) *http.ServeMux {
 	t.Helper()
 
@@ -78,8 +78,8 @@ func TestFetchPodmanDependencies(t *testing.T) {
 
 	got, err := fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID)
 	require.NoError(t, err)
-	// Service names where the compose provider reports them, container names
-	// otherwise, and the unknown ID dropped.
+	// The snapshot returns service names where the compose provider reports
+	// them, container names otherwise, and drops the unknown ID.
 	require.Equal(t, []string{"db", "web"}, got)
 }
 
@@ -92,8 +92,8 @@ func TestFetchPodmanDependenciesNotPodman(t *testing.T) {
 	require.Nil(t, got)
 }
 
-// TestPodmanDependenciesUnixSocket covers the provider connection itself: the
-// libpod API is reached over the same unix socket as the Docker-compatible API.
+// TestPodmanDependenciesUnixSocket checks that the native libpod API is
+// reachable over the same unix socket as the Docker-compatible API.
 func TestPodmanDependenciesUnixSocket(t *testing.T) {
 	socketPath := serveStubOnUnixSocket(t, podmanAPIStub(t))
 

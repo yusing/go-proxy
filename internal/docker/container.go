@@ -328,7 +328,7 @@ func loadDeleteIdlewatcherLabels(ctx context.Context, c *Container, helper conta
 
 	// set only if idlewatcher is enabled
 	if hasIdleTimeout {
-		// podman-compose keeps compose depends_on as podman --requires, not as a label.
+		// podman-compose stores compose depends_on as podman --requires, not as a label.
 		if deps, _ := cfg["depends_on"].([]string); len(deps) == 0 {
 			if deps := podmanDependencies(ctx, c); len(deps) > 0 {
 				cfg["depends_on"] = deps

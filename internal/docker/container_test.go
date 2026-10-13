@@ -285,8 +285,8 @@ func TestIdlewatcherDependsOnLabel(t *testing.T) {
 			want: []string{"db:service_started:false"},
 		},
 		{
-			// proxy.depends_on is consumed before the compose fallback is read,
-			// so on its own it contributes no dependencies (upstream behavior).
+			// Dependencies reads the labels after proxy.depends_on was
+			// consumed, so the label alone yields no dependencies (upstream).
 			name: "proxy label alone yields no dependencies",
 			labels: map[string]string{
 				LabelIdleTimeout: "1m",
@@ -310,9 +310,8 @@ func TestDependenciesWithoutLabels(t *testing.T) {
 }
 
 func TestIdlewatcherPodmanComposeDependencies(t *testing.T) {
-	// podman-compose keeps compose depends_on as podman --requires, so the idle
-	// watcher must pick it up without the proxy.depends_on label (#279). Podman
-	// --requires wins over proxy.depends_on, which is only the fallback.
+	// podman-compose stores compose depends_on as podman --requires, so the idle
+	// watcher resolves it without a proxy.depends_on label (#279).
 	socketPath := serveStubOnUnixSocket(t, podmanAPIStub(t))
 
 	c := FromDocker(t.Context(), &container.Summary{

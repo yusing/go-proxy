@@ -17,13 +17,12 @@ import (
 )
 
 // labelPodmanComposeProject is set by podman-compose on every container it
-// creates. It is the cheapest way to tell a podman-compose host from Docker
-// without an extra API call.
+// creates, so its presence identifies a podman-compose host without an API call.
 const labelPodmanComposeProject = "io.podman.compose.project"
 
 // libpodAPIVersion is the native Podman API version queried for dependencies.
-// Podman routes any version segment, and v4.0.0 is its minimum supported libpod
-// API version, so Podman 4 and newer serve it unchanged.
+// Podman accepts any version segment, and v4.0.0 is the oldest libpod API, so
+// Podman 4 and newer answer it.
 const libpodAPIVersion = "v4.0.0"
 
 const podmanRequestTimeout = 3 * time.Second
@@ -31,8 +30,8 @@ const podmanResponseLimit = 8 << 20
 
 type podmanNamesKey struct{}
 
-// WithPodmanContainers reuses the provider's complete container snapshot for
-// dependency resolution. The immutable index is scoped to one provider reload.
+// WithPodmanContainers stores container names from the provider's snapshot in
+// ctx, so dependency resolution can map IDs to names without listing again.
 func WithPodmanContainers(ctx context.Context, summaries []container.Summary) context.Context {
 	return context.WithValue(ctx, podmanNamesKey{}, podmanContainerNames(summaries))
 }
@@ -51,15 +50,15 @@ func podmanContainerNames(summaries []container.Summary) map[string]string {
 	return names
 }
 
-// podmanDependencies returns a podman-compose container's dependencies without
-// requiring the proxy.depends_on label.
+// podmanDependencies returns a podman-compose container's dependencies.
 //
-// podman-compose turns compose depends_on into podman --requires, which the
-// Docker-compatible API does not expose, so it is read from the native libpod
-// API and resolved back to the names the idle watcher matches on.
+// podman-compose stores compose depends_on as podman --requires, which the
+// Docker-compatible API does not report. This reads the list from the native
+// libpod API and resolves the container IDs to the names the idle watcher
+// matches on.
 //
-// Discovery failures are logged and treated as no dependencies, so the
-// container's routes are still built.
+// A failure is logged and treated as no dependencies, and the container's routes
+// are still built.
 func podmanDependencies(ctx context.Context, c *Container) []string {
 	if c.ContainerID == "" || cmp.Or(c.ActualLabels[labelPodmanComposeProject], c.Labels[labelPodmanComposeProject]) == "" {
 		return nil
@@ -80,8 +79,8 @@ func podmanDependencies(ctx context.Context, c *Container) []string {
 	return deps
 }
 
-// podmanEndpoint returns the root URL and HTTP client that reach the host's API,
-// either through an agent or over the provider's own connection.
+// podmanEndpoint returns an HTTP client and base URL that reach the host's API,
+// through an agent or the provider's connection.
 func podmanEndpoint(ctx context.Context, c *Container) (*http.Client, string, func(), error) {
 	shared, err := NewClient(ctx, c.DockerCfg)
 	if err != nil {
@@ -116,8 +115,9 @@ func validPodmanID(id string) bool {
 	return true
 }
 
-// fetchPodmanDependencies reads the --requires list of containerID, which Podman
-// reports as full container IDs, and resolves them to compose service names.
+// fetchPodmanDependencies reads the --requires list for containerID, which
+// Podman reports as full container IDs, and returns the matching compose
+// service names.
 func fetchPodmanDependencies(ctx context.Context, httpClient *http.Client, base, containerID string) ([]string, error) {
 	if !validPodmanID(containerID) {
 		return nil, fmt.Errorf("invalid container ID")
@@ -165,7 +165,7 @@ func podmanGetJSON(ctx context.Context, httpClient *http.Client, endpoint string
 	if err != nil {
 		return err
 	}
-	// Apply this even to callers supplying their own client.
+	// Redirects are disabled even when the caller supplied the client.
 	client := *httpClient
 	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	resp, err := client.Do(req)

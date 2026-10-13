@@ -48,7 +48,7 @@ func NewHandler() http.Handler {
 
 	const apiVersionPrefix = `/{version:(?:v[\d\.]+)?}`
 	// Podman serves the native libpod API on the same socket as the
-	// Docker-compatible API; godoxy reads podman-compose dependencies from it.
+	// Docker-compatible API. godoxy reads podman-compose dependencies from it.
 	const libpodContainers = "/libpod/containers"
 	const containerPath = "/containers/{id:[a-zA-Z0-9_.-]+}"
 	const libpodContainerPath = libpodContainers + "/{id:[a-zA-Z0-9_.-]+}"

@@ -323,28 +323,16 @@ Those are created by Docker Compose.
 | `com.docker.compose.service`    | Service name         |
 | `com.docker.compose.depends_on` | Dependencies         |
 
-Podman Compose sets no `com.docker.compose.depends_on`: it passes compose
+Podman Compose sets no `com.docker.compose.depends_on`. It passes compose
 `depends_on` to Podman as `--requires`, which only the native libpod API reports.
-`podmanDependencies` in `podman.go` reads that API over the provider socket or
-through an agent, so compose `depends_on` works without `proxy.depends_on`.
-Compose `depends_on` (Docker label or podman `--requires`) wins when both are
-set.
+`podmanDependencies` in `podman.go` reads that API through the provider's
+connection, so TLS and agent providers work too and compose `depends_on` needs no
+`proxy.depends_on` label. Compose `depends_on` wins when both are set.
 
-TLS providers reuse the Docker client's configured CA, client certificate, and
-verified transport. Agents and connection-helper providers use their existing
-transport too; discovery never follows redirects.
-
-A discovery failure only skips dependency resolution: the container's routes are
-still built.
-
-Each provider reload reuses its existing all-container snapshot to resolve IDs.
-Discovery adds one native inspect per eligible Podman Compose container, with a
-3-second timeout and an 8 MiB response limit. It adds no container-list requests
-on the provider reload path and caches no data across reloads. Direct `FromDocker`
-callers without a snapshot need one additional container-list request when the
-inspect reports dependencies. Building the snapshot index is O(M) for M
-containers; resolving each dependency ID is O(1). Docker hosts make no native
-inspect requests.
+Dependency discovery runs one native inspect per podman-compose container and
+resolves dependency IDs from the provider's container snapshot. A failed inspect
+skips dependency resolution, and the provider still builds the container's
+routes.
 
 ## Dependency and Integration Map
 
