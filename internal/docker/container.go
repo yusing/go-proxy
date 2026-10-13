@@ -302,8 +302,21 @@ func setPrivateHostname(c *Container, helper containerHelper) {
 }
 
 func loadDeleteIdlewatcherLabels(ctx context.Context, c *Container, helper containerHelper) {
-	hasIdleTimeout := false
 	cfg := make(map[string]any, len(idlewatcherLabels))
+	hasIdleTimeout := loadIdlewatcherLabelValues(c, helper, cfg)
+	loadNotifyLabel(helper, cfg)
+
+	if !hasIdleTimeout {
+		return // without proxy.idle_timeout no idlewatcher config is built
+	}
+	resolveDependencies(ctx, c, cfg)
+	buildIdlewatcherConfig(c, cfg)
+}
+
+// loadIdlewatcherLabelValues consumes the idlewatcher labels into cfg and
+// reports whether proxy.idle_timeout was set.
+func loadIdlewatcherLabelValues(c *Container, helper containerHelper, cfg map[string]any) bool {
+	hasIdleTimeout := false
 	for lbl, key := range idlewatcherLabels {
 		value := helper.getDeleteLabel(lbl)
 		if value == "" {
@@ -317,36 +330,43 @@ func loadDeleteIdlewatcherLabels(ctx context.Context, c *Container, helper conta
 			cfg[key] = Dependencies(c)
 		}
 	}
+	return hasIdleTimeout
+}
 
-	if _, present := helper.Labels[LabelIdleNotifyTo]; present {
-		to := any(helper.getDeleteLabel(LabelIdleNotifyTo))
-		if to == "" {
-			to = []string{}
-		}
-		cfg["notify"] = map[string]any{"to": to}
+func loadNotifyLabel(helper containerHelper, cfg map[string]any) {
+	if _, present := helper.Labels[LabelIdleNotifyTo]; !present {
+		return
 	}
-
-	// set only if idlewatcher is enabled
-	if hasIdleTimeout {
-		// podman-compose stores compose depends_on as podman --requires, not as a label.
-		if deps, _ := cfg["depends_on"].([]string); len(deps) == 0 {
-			if deps := podmanDependencies(ctx, c); len(deps) > 0 {
-				cfg["depends_on"] = deps
-			}
-		}
-		idwCfg := new(idlewatcher.IdlewatcherConfig)
-		idwCfg.Docker = &idlewatcher.DockerConfig{
-			DockerCfg:     c.DockerCfg,
-			ContainerID:   c.ContainerID,
-			ContainerName: c.ContainerName,
-		}
-
-		if err := serialization.MapUnmarshalValidate(cfg, idwCfg); err != nil {
-			addError(c, err)
-		} else {
-			c.IdlewatcherConfig = idwCfg
-		}
+	to := any(helper.getDeleteLabel(LabelIdleNotifyTo))
+	if to == "" {
+		to = []string{}
 	}
+	cfg["notify"] = map[string]any{"to": to}
+}
+
+// resolveDependencies falls back to the podman libpod API when no label named a
+// dependency, because podman-compose stores compose depends_on as --requires.
+func resolveDependencies(ctx context.Context, c *Container, cfg map[string]any) {
+	if deps, _ := cfg["depends_on"].([]string); len(deps) > 0 {
+		return
+	}
+	if deps := podmanDependencies(ctx, c); len(deps) > 0 {
+		cfg["depends_on"] = deps
+	}
+}
+
+func buildIdlewatcherConfig(c *Container, cfg map[string]any) {
+	idwCfg := new(idlewatcher.IdlewatcherConfig)
+	idwCfg.Docker = &idlewatcher.DockerConfig{
+		DockerCfg:     c.DockerCfg,
+		ContainerID:   c.ContainerID,
+		ContainerName: c.ContainerName,
+	}
+	if err := serialization.MapUnmarshalValidate(cfg, idwCfg); err != nil {
+		addError(c, err)
+		return
+	}
+	c.IdlewatcherConfig = idwCfg
 }
 
 func addError(c *Container, err error) {

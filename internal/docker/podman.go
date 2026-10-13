@@ -92,7 +92,7 @@ func podmanEndpoint(ctx context.Context, c *Container) (*http.Client, string, fu
 		return nil, "", nil, err
 	}
 	httpClient := shared.HTTPClient()
-	base := "http://" + client.DummyHost
+	base := "http://" + client.DummyHost // NOSONAR: unix/npipe/ssh transports stay on the host
 	if host.Scheme != "unix" && host.Scheme != "npipe" && host.Scheme != "ssh" {
 		scheme := "http"
 		if transport, ok := httpClient.Transport.(*http.Transport); host.Scheme == "https" || host.Scheme == "tls" || ok && transport.TLSClientConfig != nil {
