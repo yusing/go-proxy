@@ -327,14 +327,15 @@ Podman Compose sets no `com.docker.compose.depends_on`: it passes compose
 `depends_on` to Podman as `--requires`, which only the native libpod API reports.
 `podmanDependencies` in `podman.go` reads that API over the provider socket or
 through an agent, so compose `depends_on` works without `proxy.depends_on`.
-`proxy.depends_on` still wins when both are set.
+Compose `depends_on` (Docker label or podman `--requires`) wins when both are
+set.
 
 TLS providers reuse the Docker client's configured CA, client certificate, and
 verified transport. Agents and connection-helper providers use their existing
 transport too; discovery never follows redirects.
 
 A discovery failure only skips dependency resolution: the container's routes are
-still built, and `proxy.depends_on` can be set to supply dependencies explicitly.
+still built.
 
 Each provider reload reuses its existing all-container snapshot to resolve IDs.
 Discovery adds one native inspect per eligible Podman Compose container, with a

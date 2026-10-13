@@ -183,22 +183,14 @@ func DockerComposeService(c *Container) string {
 }
 
 func Dependencies(c *Container) []string {
-	// Read the labels as they were before FromDocker consumed them:
-	// getDeleteLabel removes proxy.depends_on from c.Labels before this runs.
-	label := func(key string) string {
-		if v, ok := c.ActualLabels[key]; ok {
-			return v
-		}
-		return c.Labels[key]
-	}
-	deps := label(LabelDependsOn)
+	deps := c.Labels[LabelDependsOn]
 	if deps == "" {
-		deps = label("com.docker.compose.depends_on")
+		deps = c.Labels["com.docker.compose.depends_on"]
 	}
-	if deps == "" {
-		return nil
+	if deps != "" {
+		return strings.Split(deps, ",")
 	}
-	return strings.Split(deps, ",")
+	return nil
 }
 
 var databaseMPs = map[string]struct{}{
@@ -337,7 +329,7 @@ func loadDeleteIdlewatcherLabels(ctx context.Context, c *Container, helper conta
 	// set only if idlewatcher is enabled
 	if hasIdleTimeout {
 		// podman-compose keeps compose depends_on as podman --requires, not as a label.
-		if _, ok := cfg["depends_on"]; !ok {
+		if deps, _ := cfg["depends_on"].([]string); len(deps) == 0 {
 			if deps := podmanDependencies(ctx, c); len(deps) > 0 {
 				cfg["depends_on"] = deps
 			}
