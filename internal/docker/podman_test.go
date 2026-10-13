@@ -16,6 +16,9 @@ const (
 	podmanAppID = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 	podmanDBID  = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	podmanWebID = "ccccccccccccccccbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	// podmanUnknownID is in the libpod inspect output but not in the list
+	// snapshot, so name resolution has nothing for it.
+	podmanUnknownID = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
 )
 
 // podmanAPIStub serves the two endpoints podmanDependencies reads: the native
@@ -25,7 +28,7 @@ func podmanAPIStub(t *testing.T) *http.ServeMux {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v4.0.0/libpod/containers/"+podmanAppID+"/json", func(w http.ResponseWriter, _ *http.Request) {
-		io.WriteString(w, `{"Id":"`+podmanAppID+`","Dependencies":["`+podmanDBID+`","`+podmanWebID+`"]}`)
+		io.WriteString(w, `{"Id":"`+podmanAppID+`","Dependencies":["`+podmanDBID+`","`+podmanWebID+`","`+podmanUnknownID+`"]}`)
 	})
 	mux.HandleFunc("/containers/json", func(w http.ResponseWriter, _ *http.Request) {
 		io.WriteString(w, `[
@@ -85,6 +88,19 @@ func TestFetchPodmanDependencies(t *testing.T) {
 
 func TestFetchPodmanDependenciesNotPodman(t *testing.T) {
 	srv := httptest.NewServer(http.NewServeMux()) // Docker has no libpod API
+	defer srv.Close()
+
+	got, err := fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID)
+	require.Error(t, err)
+	require.Nil(t, got)
+}
+
+func TestFetchPodmanDependenciesInvalidID(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v4.0.0/libpod/containers/"+podmanAppID+"/json", func(w http.ResponseWriter, _ *http.Request) {
+		io.WriteString(w, `{"Id":"`+podmanAppID+`","Dependencies":["not-a-container-id"]}`)
+	})
+	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
 	got, err := fetchPodmanDependencies(t.Context(), srv.Client(), srv.URL, podmanAppID)

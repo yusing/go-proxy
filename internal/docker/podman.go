@@ -148,9 +148,14 @@ func fetchPodmanDependencies(ctx context.Context, httpClient *http.Client, base,
 	deps := make([]string, 0, len(inspect.Dependencies))
 	seen := make(map[string]bool, len(inspect.Dependencies))
 	for _, id := range inspect.Dependencies {
+		if !validPodmanID(id) || id == containerID {
+			return nil, fmt.Errorf("invalid dependency ID %q", id)
+		}
 		name := names[id]
-		if !validPodmanID(id) || id == containerID || name == "" {
-			return nil, fmt.Errorf("unresolved or invalid dependency ID")
+		if name == "" {
+			// The container may have started after the snapshot was taken.
+			log.Warn().Str("container", containerID).Str("dependency", id).Msg("podman dependency not in snapshot, skipping")
+			continue
 		}
 		if !seen[name] {
 			deps = append(deps, name)
