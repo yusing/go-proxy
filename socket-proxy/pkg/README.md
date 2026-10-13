@@ -37,7 +37,7 @@ Global configuration flags loaded from environment variables:
 | `DockerAuth`       | bool   | `false`                | Allow /auth endpoints       |
 | `DockerBuild`      | bool   | `false`                | Allow /build endpoints      |
 | `DockerCommit`     | bool   | `false`                | Allow /commit endpoints     |
-| `DockerContainers` | bool   | `false`                | Allow /containers endpoints |
+| `DockerContainers` | bool   | `false`                | Allow /containers and /libpod/containers (Podman) endpoints |
 | `DockerEvents`     | bool   | `true`                 | Allow /events endpoints     |
 | `DockerExec`       | bool   | `false`                | Allow /exec endpoints       |
 | `DockerImages`     | bool   | `false`                | Allow /images endpoints     |
@@ -56,6 +56,7 @@ The `NewHandler()` function creates an HTTP router with:
 - Path-based access control (allowed/denied paths)
 - HTTP method filtering (GET-only or GET+POST)
 - Version prefix support (e.g., `/v1.41/containers`)
+- Podman native libpod container endpoints when `DockerContainers` is enabled
 - Unix domain socket proxying
 
 ### Reverse Proxy (`reverseproxy/reverse_proxy.go`)

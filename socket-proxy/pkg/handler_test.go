@@ -173,6 +173,46 @@ func TestNewDockerHandler(t *testing.T) {
 			},
 			wantStatusCode: http.StatusMethodNotAllowed,
 		},
+		{
+			name:   "GET libpod container inspect allowed when containers enabled",
+			method: http.MethodGet,
+			path:   "/v4.0.0/libpod/containers/test-container/json",
+			envSetup: func() {
+				DockerContainers = true
+			},
+			wantStatusCode: http.StatusOK,
+		},
+		{
+			name:   "GET libpod container inspect not allowed when containers disabled",
+			method: http.MethodGet,
+			path:   "/v4.0.0/libpod/containers/test-container/json",
+			envSetup: func() {
+				DockerContainers = false
+			},
+			wantStatusCode: http.StatusForbidden,
+		},
+		{
+			name:   "Libpod container restart not allowed when disabled",
+			method: http.MethodPost,
+			path:   "/v4.0.0/libpod/containers/test-container/restart",
+			envSetup: func() {
+				DockerPost = true
+				DockerContainers = true
+				DockerRestarts = false
+			},
+			wantStatusCode: http.StatusForbidden,
+		},
+		{
+			name:   "Libpod container restart allowed when enabled",
+			method: http.MethodPost,
+			path:   "/v4.0.0/libpod/containers/test-container/restart",
+			envSetup: func() {
+				DockerPost = true
+				DockerContainers = true
+				DockerRestarts = true
+			},
+			wantStatusCode: http.StatusOK,
+		},
 	}
 
 	// Save original env values to restore after tests
@@ -300,6 +340,8 @@ func TestNewDockerHandler_PathHandling(t *testing.T) {
 		// Test versioned paths
 		{"Versioned auth", "/v1.41/auth", "DockerAuth", true, http.MethodGet, true},
 		{"Versioned auth disabled", "/v1.41/auth", "DockerAuth", false, http.MethodGet, false},
+		{"Libpod container path", "/v4.0.0/libpod/containers/json", "DockerContainers", true, http.MethodGet, true},
+		{"Libpod container path disabled", "/v4.0.0/libpod/containers/json", "DockerContainers", false, http.MethodGet, false},
 	}
 
 	defer func() {

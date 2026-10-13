@@ -47,23 +47,27 @@ func NewHandler() http.Handler {
 	socketHandler := DockerSocketHandler(DockerSocket)
 
 	const apiVersionPrefix = `/{version:(?:v[\d\.]+)?}`
+	// Podman serves the native libpod API on the same socket as the
+	// Docker-compatible API; godoxy reads podman-compose dependencies from it.
+	const libpodContainers = "/libpod/containers"
 	const containerPath = "/containers/{id:[a-zA-Z0-9_.-]+}"
+	const libpodContainerPath = libpodContainers + "/{id:[a-zA-Z0-9_.-]+}"
 
 	allowedPaths := []string{}
 	deniedPaths := []string{}
 
 	if DockerContainers {
-		allowedPaths = append(allowedPaths, "/containers")
-		if !DockerRestarts {
-			deniedPaths = append(deniedPaths, containerPath+"/stop")
-			deniedPaths = append(deniedPaths, containerPath+"/restart")
-			deniedPaths = append(deniedPaths, containerPath+"/kill")
-		}
-		if !DockerStart {
-			deniedPaths = append(deniedPaths, containerPath+"/start")
-		}
-		if !DockerStop && DockerRestarts {
-			deniedPaths = append(deniedPaths, containerPath+"/stop")
+		allowedPaths = append(allowedPaths, "/containers", libpodContainers)
+		for _, p := range []string{containerPath, libpodContainerPath} {
+			if !DockerRestarts {
+				deniedPaths = append(deniedPaths, p+"/stop", p+"/restart", p+"/kill")
+			}
+			if !DockerStart {
+				deniedPaths = append(deniedPaths, p+"/start")
+			}
+			if !DockerStop && DockerRestarts {
+				deniedPaths = append(deniedPaths, p+"/stop")
+			}
 		}
 	}
 	if DockerAuth {
@@ -135,7 +139,7 @@ func NewHandler() http.Handler {
 
 	// Helper to determine if a path should be treated as a prefix
 	isPrefixPath := func(path string) bool {
-		return strings.Count(path, "/") == 1
+		return path == libpodContainers || strings.Count(path, "/") == 1
 	}
 
 	// 1. Register Denied Paths (specific)
