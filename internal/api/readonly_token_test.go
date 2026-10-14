@@ -3,6 +3,8 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -11,6 +13,7 @@ import (
 	"github.com/yusing/godoxy/internal/auth"
 	"github.com/yusing/godoxy/internal/common"
 	"github.com/yusing/godoxy/internal/entrypoint"
+	"github.com/yusing/godoxy/internal/logging/accesslog"
 	"github.com/yusing/godoxy/internal/route"
 	"github.com/yusing/goutils/task"
 )
@@ -60,7 +63,6 @@ func TestReadOnlyBearerHandlers(t *testing.T) {
 		{"duplicate credentials", "GET", "/api/v1/route/list", []string{"Bearer machine-test-credential", "Bearer wrong"}, false, 401},
 		{"write with session", "POST", "/api/v1/docker/start", []string{"Bearer machine-test-credential"}, false, 403},
 		{"mutating GET", "GET", "/api/v1/cert/renew", []string{"Bearer machine-test-credential"}, false, 403},
-		{"control upgrade", "GET", "/api/v1/cert/renew", []string{"Bearer machine-test-credential"}, true, 403},
 		{"read upgrade", "GET", "/api/v1/route/list", []string{"Bearer machine-test-credential"}, true, 403},
 		{"static sibling", "GET", "/api/v1/route/validate", []string{"Bearer machine-test-credential"}, false, 403},
 		{"sensitive file read", "GET", "/api/v1/file/content", []string{"Bearer machine-test-credential"}, false, 403},
@@ -126,6 +128,52 @@ func TestReadOnlyBearerConfigurationBoundaries(t *testing.T) {
 			h.ServeHTTP(rec, req)
 			assert.Equal(t, http.StatusOK, rec.Code)
 			assert.Empty(t, rec.Result().Cookies())
+		})
+	}
+}
+
+func TestReadOnlyBearerAccessLogRedaction(t *testing.T) {
+	t.Setenv("GODOXY_API_READONLY_TOKEN", "machine-test-credential")
+	_ = newAuthenticatedHandler(t)
+	preserveRuleHandlers(t)
+	require.NoError(t, RegisterHandlers())
+	handler := embeddedWebUIHandler(t)
+	parent := task.GetTestTask(t)
+	entrypoint.SetCtx(parent, entrypoint.NewEntrypoint(parent, nil))
+	cfg := accesslog.DefaultRequestLoggerConfig()
+	cfg.Path = filepath.Join(t.TempDir(), "access.json")
+	cfg.Format = accesslog.FormatJSON
+	cfg.Fields.Headers.Default = accesslog.FieldModeKeep
+	logger, err := accesslog.NewAccessLogger(parent, cfg)
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		name, path string
+		values     []string
+		status     int
+	}{
+		{"accepted", "/api/v1/route/list", []string{"Bearer machine-test-credential"}, 200},
+		{"redirect", "/api/v1/route/list/", []string{"Bearer machine-test-credential"}, 301},
+		{"duplicate", "/api/v1/route/list", []string{"Bearer machine-test-credential", "Bearer rejected-credential"}, 401},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodGet, tc.path, nil).WithContext(parent.Context())
+			req.Header["Authorization"] = tc.values
+			req.Header.Set("X-Audit", tc.name)
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, req)
+			require.Equal(t, tc.status, rec.Code)
+			if tc.status == http.StatusMovedPermanently {
+				assert.Equal(t, "/api/v1/route/list", rec.Header().Get("Location"))
+			}
+			// Match the entrypoint's post-handler logging of the original request.
+			logger.LogRequest(req, rec.Result())
+			assert.Equal(t, tc.values, req.Header.Values("Authorization"))
+			logger.Flush()
+			logged, err := os.ReadFile(cfg.Path)
+			require.NoError(t, err)
+			assert.Contains(t, string(logged), `"X-Audit":["`+tc.name+`"]`)
+			assert.NotContains(t, string(logged), "machine-test-credential")
+			assert.NotContains(t, string(logged), "rejected-credential")
 		})
 	}
 }

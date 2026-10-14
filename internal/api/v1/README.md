@@ -160,6 +160,11 @@ No dedicated metrics exposed by handlers. Request metrics collected by middlewar
 
 ## Usage Examples
 
+These examples run on the GoDoxy host with the unauthenticated loopback listener
+configured as `GODOXY_LOCAL_API_ADDR=127.0.0.1:8889`. Keep that listener on loopback.
+For the authenticated listener, supply a valid browser-session cookie instead.
+The read-only machine token cannot authorize WebSocket or container operations.
+
 ### Listing All Routes via WebSocket
 
 ```go
@@ -168,7 +173,7 @@ import (
 )
 
 func watchRoutes(provider string) error {
-    url := "ws://localhost:8888/api/v1/route/list"
+    url := "ws://127.0.0.1:8889/api/v1/route/list"
     if provider != "" {
         url += "?provider=" + provider
     }
@@ -206,7 +211,7 @@ type Container struct {
 }
 
 func listContainers() ([]Container, error) {
-    resp, err := http.Get("http://localhost:8888/api/v1/docker/containers")
+    resp, err := http.Get("http://127.0.0.1:8889/api/v1/docker/containers")
     if err != nil {
         return nil, err
     }
@@ -222,6 +227,8 @@ func listContainers() ([]Container, error) {
 
 ### Health Check
 
+The read-only machine token does not permit this endpoint either.
+
 ```bash
-curl http://localhost:8888/health
+curl http://127.0.0.1:8889/api/v1/health
 ```

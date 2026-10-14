@@ -366,7 +366,8 @@ None exposed directly. Write throughput tracked internally.
 ## Security Considerations
 
 - Log files should have appropriate permissions (644)
-- Sensitive headers can be filtered via `Filters.Headers`
+- JSON access logs always redact `Authorization` values, even with `fields.headers.default=keep` or an explicit keep override. This also covers redirects before API authentication. Logging does not change the request headers.
+- Other sensitive headers can be omitted or redacted via `Fields.Headers`; `Filters.Headers` selects which requests to log
 - Query parameters and cookies are configurable via `Fields`
 - Rate limiting prevents error log flooding
 

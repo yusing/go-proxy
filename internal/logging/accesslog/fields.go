@@ -2,8 +2,10 @@ package accesslog
 
 import (
 	"iter"
+	"maps"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/rs/zerolog"
 )
@@ -176,6 +178,14 @@ func (cfg *FieldConfig) IterHeaders(headers http.Header) iter.Seq2[string, []str
 }
 
 func (cfg *FieldConfig) ZerologHeaders(headers http.Header) zerolog.LogObjectMarshaler {
+	for name := range headers {
+		// Credentials stay private even when keep is configured and the
+		// response bypassed application middleware (for example a redirect).
+		if strings.EqualFold(name, "Authorization") {
+			headers = maps.Clone(headers)
+			headers[name] = []string{RedactedValue}
+		}
+	}
 	return mapIter(cfg, headers)
 }
 
