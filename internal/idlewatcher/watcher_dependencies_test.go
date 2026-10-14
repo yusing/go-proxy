@@ -732,3 +732,43 @@ func TestStopSharedDependencyKeptForAlwaysOnRoute(t *testing.T) {
 	require.EqualValues(t, 1, providers[1].stops.Load(),
 		"dependency must stop once the depending route is down")
 }
+
+func TestStopDependencyWhenDependingRouteNaps(t *testing.T) {
+	watchers := make([]*Watcher, 2)
+	providers := make([]*dependencyLifecycleProvider, 2)
+	for i := range watchers {
+		w, p := newDependencyLifecycleWatcher(t)
+		providers[i] = p
+		watchers[i] = w
+	}
+	main, shared := watchers[0], watchers[1]
+	main.setDependencies([]*dependency{{Watcher: shared}})
+
+	ep := entrypoint.NewEntrypoint(task.GetTestTask(t), nil)
+	entrypoint.SetCtx(task.GetTestTask(t), ep)
+
+	routeProvider := &idlewatcherTestRouteProvider{routes: make(map[string]routing.Route)}
+	sharedRoute := newIdlewatcherTestRoute("shared-dep-route", routeProvider, nil)
+	sharedRoute.container.ContainerID = shared.Key()
+	routeProvider.routes[shared.Key()] = sharedRoute
+
+	// A watcher route that has already slept reports napping, not unhealthy.
+	// It must not pin its dependency awake.
+	mainRoute := newIdlewatcherTestRoute("main", routeProvider, nil)
+	mainRoute.container = docker.FromDocker(t.Context(), &dockerapi.Summary{
+		Names: []string{"/main"},
+		State: "running",
+		Labels: map[string]string{
+			"com.docker.compose.project": "idlewatcher-test",
+			"com.docker.compose.service": "main",
+			docker.LabelDependsOn:        shared.Key() + ":service_started",
+		},
+	}, godoxytypes.DockerProviderConfig{})
+	mainRoute.SetHealthMonitor(&fakeHealthMonitor{status: health.StatusNapping})
+	ep.ExcludedRoutes().Add(mainRoute)
+
+	require.NoError(t, main.stopByMethod())
+	require.EqualValues(t, 1, providers[0].stops.Load())
+	require.EqualValues(t, 1, providers[1].stops.Load(),
+		"dependency must stop once its depending route is napping")
+}

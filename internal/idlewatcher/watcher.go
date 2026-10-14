@@ -653,7 +653,8 @@ func (w *Watcher) entrypointRouteDependsOn() bool {
 		if !w.routeDependsOnContainer(r) {
 			continue
 		}
-		if status, ok := healthMap[r.Name()]; ok && status == health.StatusUnhealthy {
+		// Napping = the route's watcher already slept it: down, wake is transitive.
+		if status, ok := healthMap[r.Name()]; ok && (status == health.StatusUnhealthy || status == health.StatusNapping) {
 			continue
 		}
 		return true
