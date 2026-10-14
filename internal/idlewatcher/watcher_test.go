@@ -18,6 +18,19 @@ import (
 	"github.com/yusing/goutils/task"
 )
 
+func TestWatcherErrorsPreserveDeadline(t *testing.T) {
+	w := newTestWatcher(t)
+	dep := &dependency{Watcher: newTestWatcher(t)}
+	// Preserve the original deadline through dependency and route wrappers,
+	// so callers can select their timeout-specific recovery behavior.
+	err := w.newDepError("wake", dep, context.DeadlineExceeded)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "timeout")
+	err = w.newWatcherError(err)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, dep.cfg.ContainerName())
+}
+
 func TestWatchUntilDestroyStopsWhenProviderWatchEnds(t *testing.T) {
 	providerErr := errors.New("provider watch failed")
 	tests := []struct {

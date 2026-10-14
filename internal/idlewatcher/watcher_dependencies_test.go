@@ -3,6 +3,7 @@ package idlewatcher
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"sync/atomic"
@@ -133,6 +134,31 @@ func TestWakeWaitsForDependencyStop(t *testing.T) {
 	}
 }
 
+func TestKillWaitsForRuntimeStop(t *testing.T) {
+	for _, stopped := range []bool{false, true} {
+		t.Run(fmt.Sprint(stopped), func(t *testing.T) {
+			w, p := newDependencyLifecycleWatcher(t)
+			dep, dp := newDependencyLifecycleWatcher(t)
+			w.setDependencies([]*dependency{{Watcher: dep}})
+			w.cfg.StopMethod = idlewatchertypes.ContainerStopMethodKill
+			w.cfg.StopSignal = "SIGHUP"
+			w.cfg.StopTimeout = 20 * time.Millisecond
+			p.killStops = stopped
+			err := w.stopByMethod()
+			if stopped {
+				require.NoError(t, err)
+				require.False(t, w.running())
+				require.EqualValues(t, 1, dp.stops.Load())
+			} else {
+				require.ErrorContains(t, err, "timeout")
+				require.ErrorIs(t, err, context.DeadlineExceeded)
+				require.True(t, w.running())
+				require.Zero(t, dp.stops.Load())
+			}
+		})
+	}
+}
+
 func TestWakeDeadlineDuringStop(t *testing.T) {
 	w, p := newDependencyLifecycleWatcher(t)
 	history := attachIdleActivityHistory(t, w)
@@ -207,10 +233,11 @@ func newDependencyLifecycleWatcher(t *testing.T) (*Watcher, *dependencyLifecycle
 
 type dependencyLifecycleProvider struct {
 	*blockingStartProvider
-	stops  atomic.Int64
-	status atomic.Value
-	stop   func(context.Context) error
-	events <-chan watcherEvents.Event
+	stops     atomic.Int64
+	killStops bool
+	status    atomic.Value
+	stop      func(context.Context) error
+	events    <-chan watcherEvents.Event
 }
 
 func (p *dependencyLifecycleProvider) ContainerStop(ctx context.Context, _ idlewatchertypes.Signal, _ int) error {
@@ -218,6 +245,13 @@ func (p *dependencyLifecycleProvider) ContainerStop(ctx context.Context, _ idlew
 	p.status.Store(idlewatchertypes.ContainerStatusStopped)
 	if p.stop != nil {
 		return p.stop(ctx)
+	}
+	return nil
+}
+
+func (p *dependencyLifecycleProvider) ContainerKill(context.Context, idlewatchertypes.Signal) error {
+	if p.killStops {
+		p.status.Store(idlewatchertypes.ContainerStatusStopped)
 	}
 	return nil
 }

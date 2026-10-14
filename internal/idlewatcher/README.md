@@ -56,10 +56,8 @@ type Watcher struct {
 ```go
 // WakeEvent is broadcast via SSE during wake-up
 type WakeEvent struct {
-    Type      WakeEventType
-    Message   string
-    Timestamp time.Time
-    Error     string
+    Message string `json:"message"`
+    Error   string `json:"error,omitempty"`
 }
 ```
 
@@ -72,9 +70,6 @@ func NewWatcher(parent task.Parent, r routing.Route, cfg *runtime.Config) (*Watc
 // Wake waits for the shared provider-start result unless ctx is canceled.
 // Canceling ctx stops only this caller's wait; an independently owned shared wake may continue.
 func (w *Watcher) Wake(ctx context.Context) error
-
-// Start begins the idle watcher loop
-func (w *Watcher) Start(parent task.Parent) error
 
 // ServeHTTP promptly serves the loading page while wake-up continues on the watcher task;
 // non-HTML and no_loading_page requests wait so the original request can be proxied.
@@ -112,7 +107,6 @@ var (
 classDiagram
     class Watcher {
         +Wake(ctx) error
-        +Start(parent) error
         +ServeHTTP(ResponseWriter, *Request)
         +ListenAndServe(ctx, preDial, onRead)
         +Key() string
@@ -166,6 +160,11 @@ container stops before its dependencies. A shared dependency stays running while
 another running watcher directly depends on it. Sleeping dependents do not keep
 it running; their next wake starts the dependency chain again.
 
+For `kill`, signal delivery alone does not confirm sleep. GoDoxy waits up to
+`stop_timeout` for the runtime to report a stopped or paused container before
+releasing dependencies. A non-terminal signal can time out with the container
+and its dependencies still running.
+
 ```mermaid
 stateDiagram-v2
     [*] --> Napping: Container stopped/paused
@@ -187,20 +186,24 @@ Configuration is defined in `internal/idlewatcher/runtime.Config`:
 
 ```go
 type Config struct {
+    IdlewatcherProviderConfig
     IdlewatcherConfigBase
-    Docker  *types.DockerProviderConfig  // Exactly one required
-    Proxmox *types.ProxmoxProviderConfig // Exactly one required
+    DependsOn     []string // Container dependencies
+    StartEndpoint string   // Optional path restriction
+    NoLoadingPage bool     // Skip loading page
+}
+
+type IdlewatcherProviderConfig struct {
+    Docker  *runtime.DockerConfig  // Exactly one required
+    Proxmox *runtime.ProxmoxConfig // Exactly one required
 }
 
 type IdlewatcherConfigBase struct {
     IdleTimeout  time.Duration          // Duration before container is stopped
     StopMethod   runtime.ContainerStopMethod  // pause, stop, or kill
     StopSignal   runtime.ContainerSignal      // Signal to send
-    StopTimeout  int                    // Timeout in seconds
+    StopTimeout  time.Duration          // Maximum stop wait
     WakeTimeout  time.Duration          // Max time to wait for wake
-    DependsOn    []string               // Container dependencies
-    StartEndpoint string                // Optional path restriction
-    NoLoadingPage bool                  // Skip loading page
     Notify       *runtime.IdlewatcherNotifyConfig // Sleep/wake notifications
 }
 ```
@@ -210,8 +213,8 @@ type IdlewatcherConfigBase struct {
 ```yaml
 labels:
   proxy.idle_timeout: 5m
-  proxy.idle_stop_method: stop
-  proxy.idle_depends_on: database:redis
+  proxy.stop_method: stop
+  proxy.depends_on: database,redis
 ```
 
 ### Path Constants
@@ -318,10 +321,14 @@ route := &route.Route{
         IdlewatcherConfigBase: runtime.IdlewatcherConfigBase{
             IdleTimeout: 5 * time.Minute,
             StopMethod:  runtime.ContainerStopMethodStop,
-            StopTimeout: 30,
+            StopTimeout: 30 * time.Second,
         },
-        Docker: &types.DockerProviderConfig{
-            ContainerID: "abc123",
+        IdlewatcherProviderConfig: runtime.IdlewatcherProviderConfig{
+            Docker: &runtime.DockerConfig{
+                ContainerID: "abc123",
+                ContainerName: "myapp",
+                DockerCfg: dockerCfg, // Resolved Docker provider configuration
+            },
         },
     },
 }
@@ -330,19 +337,20 @@ w, err := idlewatcher.NewWatcher(parent, route, route.Idlewatcher)
 if err != nil {
     return err
 }
-return w.Start(parent)
+// NewWatcher starts the watcher loop and attaches it to the route.
+_ = w
 ```
 
 ### Watching Wake Events
 
-```go
+```javascript
 // Events are automatically served at /$godoxy/wake-events
 // Client connects via EventSource:
 
 const eventSource = new EventSource("/$godoxy/wake-events");
 eventSource.onmessage = (e) => {
     const event = JSON.parse(e.data);
-    console.log(`Wake event: ${event.type}`, event.message);
+    console.log(`Wake event: ${event.action}`, event.data.message);
 };
 ```
 

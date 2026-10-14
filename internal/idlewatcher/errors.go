@@ -58,7 +58,7 @@ func convertError(err error) error {
 	case err == nil:
 		return nil
 	case errors.Is(err, context.DeadlineExceeded):
-		return errors.New("timeout")
+		return fmt.Errorf("timeout: %w", err)
 	default:
 		return err
 	}

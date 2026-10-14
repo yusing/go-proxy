@@ -662,9 +662,11 @@ func (w *Watcher) stopByMethod() error {
 	if p == nil {
 		return errors.New("provider not set")
 	}
+	status := idlewatcher.ContainerStatusStopped
 	switch cfg.StopMethod {
 	case idlewatcher.ContainerStopMethodPause:
 		err = p.ContainerPause(ctx)
+		status = idlewatcher.ContainerStatusPaused
 	case idlewatcher.ContainerStopMethodStop:
 		err = p.ContainerStop(ctx, cfg.StopSignal, int(math.Ceil(cfg.StopTimeout.Seconds())))
 	case idlewatcher.ContainerStopMethodKill:
@@ -677,14 +679,31 @@ func (w *Watcher) stopByMethod() error {
 		return w.newWatcherError(err)
 	}
 
+	if cfg.StopMethod == idlewatcher.ContainerStopMethodKill {
+		// A successful kill request only confirms signal delivery. In
+		// particular, signals such as SIGHUP need not terminate the container.
+		tick := time.NewTicker(idleWakerCheckInterval)
+		defer tick.Stop()
+		for {
+			status, err = p.ContainerStatus(ctx)
+			if err != nil {
+				return w.newWatcherError(err)
+			}
+			if status == idlewatcher.ContainerStatusStopped || status == idlewatcher.ContainerStatusPaused {
+				break
+			}
+			select {
+			case <-ctx.Done():
+				return w.newWatcherError(context.Cause(ctx))
+			case <-tick.C:
+			}
+		}
+	}
+
 	w.l.Info().Msg("container stopped")
 
 	// Release dependencies before their checks, even if the provider's stop
 	// event has not been processed yet (including concurrent dependent stops).
-	status := idlewatcher.ContainerStatusStopped
-	if cfg.StopMethod == idlewatcher.ContainerStopMethodPause {
-		status = idlewatcher.ContainerStatusPaused
-	}
 	w.setNapping(status)
 
 	// then stop dependencies.
