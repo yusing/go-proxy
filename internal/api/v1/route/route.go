@@ -40,7 +40,7 @@ func Route(c *gin.Context) {
 
 	route, ok := ep.GetRoute(request.Which)
 	if ok {
-		c.JSON(http.StatusOK, route)
+		c.JSON(http.StatusOK, routeResponse{route, ep.PublicURLs(route)})
 		return
 	}
 	c.JSON(http.StatusNotFound, apitypes.Error("route not found"))

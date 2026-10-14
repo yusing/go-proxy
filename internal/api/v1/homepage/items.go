@@ -101,14 +101,15 @@ func HomepageItems(ep routing.Entrypoint, proto, hostname string, request *Homep
 			item.URL = ""
 		}
 
-		// append hostname if provided and only if alias is not FQDN
-		if hostname != "" && item.URL == "" {
-			isFQDNAlias := strings.Contains(item.Alias, ".")
-			if !isFQDNAlias {
-				item.URL = fmt.Sprintf("%s://%s.%s", proto, item.Alias, hostname)
-			} else {
-				item.URL = fmt.Sprintf("%s://%s", proto, item.Alias)
+		if item.URL == "" {
+			if urls := ep.PublicURLs(r); len(urls) > 0 {
+				item.URL = urls[0]
 			}
+		}
+
+		// Without configured domains, retain request-based short-alias links.
+		if hostname != "" && item.URL == "" {
+			item.URL = fmt.Sprintf("%s://%s.%s", proto, item.Alias, hostname)
 		}
 
 		// prepend protocol if not exists

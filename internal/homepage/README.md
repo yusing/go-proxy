@@ -226,6 +226,12 @@ homepageMap.Add(item)
 Items can have override configurations for customization. WebUI edits live in
 the homepage jsonstore, which is flushed periodically and on shutdown.
 
+The homepage API uses the entrypoint's first configured public route URL when
+`homepage.url` is not set. Dotted short aliases receive the configured match
+domain, just like undotted short aliases. With no match domains, short aliases
+retain request-based links. Explicit route homepage URLs take precedence. See
+[the API URL contract](../api/v1/README.md#public-route-urls).
+
 ```go
 // GetOverride returns the effective configuration
 func (cfg Item) GetOverride() Item {

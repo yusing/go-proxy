@@ -53,6 +53,7 @@ type Entrypoint interface {
     StartAddRoute(r routing.Route) error
     IterRoutes(yield func(r routing.Route) bool)
     NumRoutes() int
+    PublicURLs(r routing.Route) []string
     RoutesByProvider() map[string][]routing.Route
 
     // Route pool accessors
@@ -409,6 +410,11 @@ sequenceDiagram
 ## Route Registry
 
 Routes are managed per-entrypoint:
+
+`PublicURLs` derives public HTTP links using the entrypoint's match domains and
+the same listener addresses used to register HTTP routes. Route API responses
+and homepage links share this policy. See the
+[API URL contract](../api/v1/README.md#public-route-urls).
 
 ```go
 // Adding a route (main entry point for providers)

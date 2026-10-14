@@ -107,6 +107,8 @@ func (ep *testEntrypoint) ProxyProtocolPolicy() (server.ProxyProtocolPolicy, err
 }
 func (ep *testEntrypoint) DisablePoolsLog(bool) {}
 
+func (ep *testEntrypoint) PublicURLs(routing.Route) []string { return nil }
+
 func (ep *testEntrypoint) GetRoute(alias string) (routing.Route, bool) {
 	if r, ok := ep.httpRoutes.Get(alias); ok {
 		return r, true

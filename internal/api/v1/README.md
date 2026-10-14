@@ -50,6 +50,26 @@ Types are defined in `goutils/apitypes`:
 
 ## Architecture
 
+### Public route URLs
+
+`GET /api/v1/route/list` (including its WebSocket updates) and
+`GET /api/v1/route/:which` return optional `public_urls` arrays. The entrypoint
+derives these links from its runtime `match_domains` and HTTP listener settings,
+independently of API request headers, upstream URLs, and homepage URL overrides.
+
+An alias equal to a match domain, or ending in `.<match_domain>`, is used as-is.
+Other aliases, including dotted short aliases such as `app.dev`, receive each
+configured domain in configuration order. Without match domains, only dotted
+aliases have a derived public URL. Excluded and TCP/UDP routes have none.
+
+Shared listeners prefer HTTPS when enabled, otherwise HTTP. Nondefault ports
+are included. A route with a dedicated listen port uses that HTTPS listener.
+These URLs describe configured listeners; deployments that translate external
+ports or protocols must account for that mapping separately.
+
+The homepage uses the first derived URL unless an explicit homepage URL is set.
+Short aliases without match domains retain request-based homepage links.
+
 ### Handler Organization
 
 Package structure mirrors the API endpoint paths (e.g., `auth/login.go` handles `/auth/login`).

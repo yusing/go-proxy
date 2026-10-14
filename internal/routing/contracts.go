@@ -91,6 +91,7 @@ type (
 		StartAddRoute(r Route) error
 		IterRoutes(yield func(r Route) bool)
 		NumRoutes() int
+		PublicURLs(Route) []string
 		RoutesByProvider() map[string][]Route
 		HTTPRoutes() PoolLike[HTTPRoute]
 		StreamRoutes() PoolLike[StreamRoute]

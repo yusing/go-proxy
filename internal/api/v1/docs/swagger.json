@@ -2985,7 +2985,7 @@
             "schema": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/Route"
+                "$ref": "#/definitions/RouteWithPublicURLs"
               }
             }
           },
@@ -3231,7 +3231,7 @@
           "200": {
             "description": "OK",
             "schema": {
-              "$ref": "#/definitions/Route"
+              "$ref": "#/definitions/RouteWithPublicURLs"
             }
           },
           "400": {
@@ -5852,6 +5852,253 @@
         },
         "uptime": {
           "type": "number",
+          "x-nullable": false,
+          "x-omitempty": false
+        }
+      },
+      "x-nullable": false,
+      "x-omitempty": false
+    },
+    "RouteWithPublicURLs": {
+      "type": "object",
+      "properties": {
+        "access_log": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/RequestLoggerConfig"
+            }
+          ],
+          "x-nullable": true
+        },
+        "agent": {
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "alias": {
+          "description": "Alias is route lookup key.\n\nSupported HTTP host-match forms:\n  - short alias: \"app\"\n  - FQDN alias: \"app.example.com\"\n  - leading-label wildcard alias: \"*.example.com\"\n\nWildcard aliases match exactly one leftmost label and are checked only\nafter normal exact/domain lookup misses, preserving the fast path for\nexact routes.",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "bind": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "container": {
+          "description": "Docker only",
+          "allOf": [
+            {
+              "$ref": "#/definitions/Container"
+            }
+          ],
+          "x-nullable": true
+        },
+        "disable_compression": {
+          "type": "boolean",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "excluded": {
+          "type": "boolean",
+          "x-nullable": true
+        },
+        "excluded_reason": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "health": {
+          "description": "for swagger",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HealthJSON"
+            }
+          ],
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "healthcheck": {
+          "description": "null on load-balancer routes",
+          "allOf": [
+            {
+              "$ref": "#/definitions/HealthCheckConfig"
+            }
+          ],
+          "x-nullable": true
+        },
+        "homepage": {
+          "$ref": "#/definitions/HomepageItemConfig",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "host": {
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "idlewatcher": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/IdlewatcherConfig"
+            }
+          ],
+          "x-nullable": true
+        },
+        "inbound_mtls_profile": {
+          "description": "HTTP-based routes only: must match a configured inbound_mtls_profiles entry and is ignored when entrypoint.inbound_mtls_profile is set",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "index": {
+          "description": "Index file to serve for single-page app mode",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "load_balance": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/LoadBalancerConfig"
+            }
+          ],
+          "x-nullable": true
+        },
+        "lurl": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "max_conns_per_host": {
+          "type": "integer",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "middlewares": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/definitions/types.LabelMap"
+          },
+          "x-nullable": true
+        },
+        "no_tls_verify": {
+          "type": "boolean",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "port": {
+          "$ref": "#/definitions/Port",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "provider": {
+          "description": "for backward compatibility",
+          "type": "string",
+          "x-nullable": true
+        },
+        "proxmox": {
+          "allOf": [
+            {
+              "$ref": "#/definitions/ProxmoxNodeConfig"
+            }
+          ],
+          "x-nullable": true
+        },
+        "public_urls": {
+          "description": "Public HTTP URLs derived from runtime domains and listeners",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-omitempty": true,
+          "x-nullable": true
+        },
+        "purl": {
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "relay_proxy_protocol_header": {
+          "description": "TCP only: relay PROXY protocol header to the destination",
+          "type": "boolean",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "response_header_timeout": {
+          "type": "integer",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "root": {
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "rule_file": {
+          "type": "string",
+          "x-nullable": true
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/rules.Rule"
+          },
+          "x-nullable": true
+        },
+        "scheme": {
+          "type": "string",
+          "enum": [
+            "http",
+            "https",
+            "h2c",
+            "tcp",
+            "udp",
+            "fileserver"
+          ],
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "spa": {
+          "description": "Single-page app mode: serves index for non-existent paths",
+          "type": "boolean",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "ssl_certificate": {
+          "description": "Path to client certificate",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "ssl_certificate_key": {
+          "description": "Path to client certificate key",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "ssl_protocols": {
+          "description": "Allowed TLS protocols",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "ssl_server_name": {
+          "description": "SSL/TLS proxy options (nginx-like)",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "ssl_trusted_certificate": {
+          "description": "Path to trusted CA certificates",
+          "type": "string",
+          "x-nullable": false,
+          "x-omitempty": false
+        },
+        "tls_termination": {
+          "description": "TCP only: terminate inbound TLS on the shared HTTPS listener before proxying plaintext to the destination",
+          "type": "boolean",
           "x-nullable": false,
           "x-omitempty": false
         }

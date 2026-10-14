@@ -33,6 +33,11 @@ func NewHTTPServer(ep *Entrypoint) HTTPServer {
 	return newHTTPServer(ep)
 }
 
+// AddTestStreamRoute registers a stream fixture without opening a socket.
+func AddTestStreamRoute(ep *Entrypoint, r routing.StreamRoute) {
+	ep.streamRoutes.Add(r)
+}
+
 func mustParseURL(tb testing.TB, rawURL string) *nettypes.URL {
 	tb.Helper()
 

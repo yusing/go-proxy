@@ -37,6 +37,7 @@ type Entrypoint struct {
 	accessLogger     accesslog.AccessLogger
 	findRouteFunc    findRouteFunc
 	findRouteKeyFunc findRouteKeyFunc
+	matchDomains     []string
 	shortLinkMatcher *ShortLinkMatcher
 
 	streamRoutes   *pool.Pool[routing.StreamRoute]
@@ -125,6 +126,9 @@ func (ep *Entrypoint) GetServer(addr string) (HTTPServer, bool) {
 }
 
 func (ep *Entrypoint) SetFindRouteDomains(domains []string) {
+	// Each entrypoint owns its domain policy; do not alter the runtime config.
+	domains = append([]string(nil), domains...)
+	ep.matchDomains = domains
 	if len(domains) == 0 {
 		ep.findRouteFunc = findRouteAnyDomain
 		ep.findRouteKeyFunc = findRouteKeyAnyDomain

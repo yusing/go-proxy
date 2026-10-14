@@ -1205,6 +1205,150 @@ definitions:
       uptime:
         type: number
     type: object
+  RouteWithPublicURLs:
+    properties:
+      access_log:
+        allOf:
+        - $ref: '#/definitions/RequestLoggerConfig'
+        x-nullable: true
+      agent:
+        type: string
+      alias:
+        description: |-
+          Alias is route lookup key.
+
+          Supported HTTP host-match forms:
+            - short alias: "app"
+            - FQDN alias: "app.example.com"
+            - leading-label wildcard alias: "*.example.com"
+
+          Wildcard aliases match exactly one leftmost label and are checked only
+          after normal exact/domain lookup misses, preserving the fast path for
+          exact routes.
+        type: string
+      bind:
+        type: string
+        x-nullable: true
+      container:
+        allOf:
+        - $ref: '#/definitions/Container'
+        description: Docker only
+        x-nullable: true
+      disable_compression:
+        type: boolean
+      excluded:
+        type: boolean
+        x-nullable: true
+      excluded_reason:
+        type: string
+        x-nullable: true
+      health:
+        allOf:
+        - $ref: '#/definitions/HealthJSON'
+        description: for swagger
+      healthcheck:
+        allOf:
+        - $ref: '#/definitions/HealthCheckConfig'
+        description: null on load-balancer routes
+        x-nullable: true
+      homepage:
+        $ref: '#/definitions/HomepageItemConfig'
+      host:
+        type: string
+      idlewatcher:
+        allOf:
+        - $ref: '#/definitions/IdlewatcherConfig'
+        x-nullable: true
+      inbound_mtls_profile:
+        description: 'HTTP-based routes only: must match a configured inbound_mtls_profiles
+          entry and is ignored when entrypoint.inbound_mtls_profile is set'
+        type: string
+      index:
+        description: Index file to serve for single-page app mode
+        type: string
+      load_balance:
+        allOf:
+        - $ref: '#/definitions/LoadBalancerConfig'
+        x-nullable: true
+      lurl:
+        type: string
+        x-nullable: true
+      max_conns_per_host:
+        type: integer
+      middlewares:
+        additionalProperties:
+          $ref: '#/definitions/types.LabelMap'
+        type: object
+        x-nullable: true
+      no_tls_verify:
+        type: boolean
+      port:
+        $ref: '#/definitions/Port'
+      provider:
+        description: for backward compatibility
+        type: string
+        x-nullable: true
+      proxmox:
+        allOf:
+        - $ref: '#/definitions/ProxmoxNodeConfig'
+        x-nullable: true
+      public_urls:
+        description: Public HTTP URLs derived from runtime domains and listeners
+        items:
+          type: string
+        type: array
+        x-omitempty: true
+      purl:
+        type: string
+      relay_proxy_protocol_header:
+        description: 'TCP only: relay PROXY protocol header to the destination'
+        type: boolean
+      response_header_timeout:
+        type: integer
+      root:
+        type: string
+      rule_file:
+        type: string
+        x-nullable: true
+      rules:
+        items:
+          $ref: '#/definitions/rules.Rule'
+        type: array
+        x-nullable: true
+      scheme:
+        enum:
+        - http
+        - https
+        - h2c
+        - tcp
+        - udp
+        - fileserver
+        type: string
+      spa:
+        description: 'Single-page app mode: serves index for non-existent paths'
+        type: boolean
+      ssl_certificate:
+        description: Path to client certificate
+        type: string
+      ssl_certificate_key:
+        description: Path to client certificate key
+        type: string
+      ssl_protocols:
+        description: Allowed TLS protocols
+        items:
+          type: string
+        type: array
+      ssl_server_name:
+        description: SSL/TLS proxy options (nginx-like)
+        type: string
+      ssl_trusted_certificate:
+        description: Path to trusted CA certificates
+        type: string
+      tls_termination:
+        description: 'TCP only: terminate inbound TLS on the shared HTTPS listener
+          before proxying plaintext to the destination'
+        type: boolean
+    type: object
   ServerInfo:
     properties:
       containers:
@@ -4028,7 +4172,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/Route'
+            $ref: '#/definitions/RouteWithPublicURLs'
         "400":
           description: Bad Request
           schema:
@@ -4086,7 +4230,7 @@ paths:
           description: OK
           schema:
             items:
-              $ref: '#/definitions/Route'
+              $ref: '#/definitions/RouteWithPublicURLs'
             type: array
         "403":
           description: Forbidden
