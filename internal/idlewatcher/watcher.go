@@ -61,8 +61,11 @@ type (
 
 		provider synk.Value[idlewatcher.Provider]
 
-		state     synk.Value[*containerState]
-		lastReset synk.Value[time.Time]
+		state         synk.Value[*containerState]
+		lastReset     synk.Value[time.Time]
+		lifecycleOnce sync.Once
+		lifecycleGate chan struct{}
+		waking        atomic.Bool
 
 		idleTicker     *time.Ticker
 		healthTicker   *time.Ticker
@@ -440,7 +443,30 @@ func (w *Watcher) totalWakeTimeout() time.Duration {
 	return total
 }
 
+func (w *Watcher) acquireLifecycle(ctx context.Context) (func(), error) {
+	w.lifecycleOnce.Do(func() { w.lifecycleGate = make(chan struct{}, 1) })
+	select {
+	case w.lifecycleGate <- struct{}{}:
+		if err := context.Cause(ctx); err != nil {
+			<-w.lifecycleGate
+			return nil, err
+		}
+		return func() { <-w.lifecycleGate }, nil
+	case <-ctx.Done():
+		return nil, context.Cause(ctx)
+	}
+}
+
 func (w *Watcher) wake(ctx context.Context) error {
+	// Hold the lifecycle lock through dependencies so a wake cannot overtake
+	// an unfinished stop cascade. Both operations acquire locks parent first.
+	release, err := w.acquireLifecycle(ctx)
+	if err != nil {
+		w.sendEvent(WakeEventError, "Failed to wake "+w.cfg.ContainerName(), err)
+		return err
+	}
+	defer release()
+
 	if w.ready() {
 		return nil
 	}
@@ -449,6 +475,9 @@ func (w *Watcher) wake(ctx context.Context) error {
 		w.l.Debug().Msg("already starting, ignoring duplicate start event")
 		return nil
 	}
+
+	w.waking.Store(true)
+	defer w.waking.Store(false)
 
 	// A completed attempt's events, including terminal errors, must not be
 	// replayed as the status of this new attempt.
@@ -462,7 +491,7 @@ func (w *Watcher) wake(ctx context.Context) error {
 	}
 
 	containerName := w.cfg.ContainerName()
-	err := w.wakeIfStopped(ctx)
+	err = w.wakeIfStopped(ctx)
 	if err != nil {
 		w.sendEvent(WakeEventError, "Failed to start "+containerName, err)
 	} else {
@@ -590,8 +619,35 @@ func (w *Watcher) stopDependencies() error {
 	return errs.Wait()
 }
 
+func (w *Watcher) hasRunningDependent() bool {
+	watcherMapMu.RLock()
+	defer watcherMapMu.RUnlock()
+	for _, other := range watcherMap {
+		if !other.waking.Load() && !other.running() {
+			continue
+		}
+		// Sleeping dependents do not retain dependencies: wake is transitive.
+		for _, dep := range other.directDependencies() {
+			if dep.Watcher == w {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (w *Watcher) stopByMethod() error {
-	// no need singleflight here because it will only be called once every tick.
+	cfg := w.cfg
+	ctx, cancel := context.WithTimeout(w.task.Context(), cfg.StopTimeout)
+	defer cancel()
+	release, err := w.acquireLifecycle(ctx)
+	if err != nil {
+		return w.newWatcherError(err)
+	}
+	defer release()
+	if w.hasRunningDependent() {
+		return nil
+	}
 
 	// if the container is not running, skip and stop dependencies.
 	if !w.running() {
@@ -601,12 +657,7 @@ func (w *Watcher) stopByMethod() error {
 		return nil
 	}
 
-	cfg := w.cfg
-	ctx, cancel := context.WithTimeout(context.Background(), cfg.StopTimeout)
-	defer cancel()
-
 	// stop itself first.
-	var err error
 	p := w.provider.Load()
 	if p == nil {
 		return errors.New("provider not set")
@@ -628,6 +679,14 @@ func (w *Watcher) stopByMethod() error {
 
 	w.l.Info().Msg("container stopped")
 
+	// Release dependencies before their checks, even if the provider's stop
+	// event has not been processed yet (including concurrent dependent stops).
+	status := idlewatcher.ContainerStatusStopped
+	if cfg.StopMethod == idlewatcher.ContainerStopMethodPause {
+		status = idlewatcher.ContainerStatusPaused
+	}
+	w.setNapping(status)
+
 	// then stop dependencies.
 	if err := w.stopDependencies(); err != nil {
 		return w.newWatcherError(err)
@@ -638,6 +697,32 @@ func (w *Watcher) stopByMethod() error {
 func (w *Watcher) resetIdleTimer() {
 	w.idleTicker.Reset(w.cfg.IdleTimeout)
 	w.lastReset.Store(time.Now())
+}
+
+func (w *Watcher) reconcileSleepEvent() error {
+	ctx, cancel := context.WithTimeout(w.task.Context(), w.cfg.StopTimeout)
+	defer cancel()
+	release, err := w.acquireLifecycle(ctx)
+	if err != nil {
+		return err
+	}
+	defer release()
+	// Events can arrive after a subsequent wake has completed. Use current
+	// runtime state so a delayed stop cannot release a live route's dependencies.
+	status, err := w.provider.Load().ContainerStatus(ctx)
+	if err != nil {
+		return err
+	}
+	if status == idlewatcher.ContainerStatusRunning {
+		if !w.running() {
+			w.setStarting()
+		}
+		return nil
+	}
+	w.setNapping(status)
+	w.idleTicker.Stop()
+	w.healthTicker.Stop()
+	return nil
 }
 
 // watchUntilDestroy waits for the container to be created, started, or unpaused,
@@ -701,14 +786,10 @@ func (w *Watcher) watchUntilDestroy() (returnCause error) {
 			case e.Action.IsContainerStart(): // create / start / unpause
 				w.setStarting()
 				w.l.Info().Msg("awaken")
-			case e.Action.IsContainerStop(): // stop / kill / die
-				w.setNapping(idlewatcher.ContainerStatusStopped)
-				w.idleTicker.Stop()
-				w.healthTicker.Stop() // stop health checking
-			case e.Action.IsContainerPause(): // pause
-				w.setNapping(idlewatcher.ContainerStatusPaused)
-				w.idleTicker.Stop()
-				w.healthTicker.Stop() // stop health checking
+			case e.Action.IsContainerStop(), e.Action.IsContainerPause():
+				if err := w.reconcileSleepEvent(); err != nil {
+					w.setError(err)
+				}
 			default:
 				w.l.Debug().Stringer("action", e.Action).Msg("unexpected container action")
 			}

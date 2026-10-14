@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -360,7 +361,10 @@ func (*watchUntilDestroyProvider) ContainerStop(context.Context, idlewatchertype
 func (*watchUntilDestroyProvider) ContainerKill(context.Context, idlewatchertypes.Signal) error {
 	return nil
 }
-func (*watchUntilDestroyProvider) ContainerStatus(context.Context) (idlewatchertypes.ContainerStatus, error) {
+func (p *watchUntilDestroyProvider) ContainerStatus(context.Context) (idlewatchertypes.ContainerStatus, error) {
+	if p.event.Action.IsContainerPause() {
+		return idlewatchertypes.ContainerStatusPaused, nil
+	}
 	return idlewatchertypes.ContainerStatusStopped, nil
 }
 func (p *watchUntilDestroyProvider) Watch(context.Context) (<-chan watcherEvents.Event, <-chan error) {
@@ -381,14 +385,16 @@ func (p *watchUntilDestroyProvider) Watch(context.Context) (<-chan watcherEvents
 func (*watchUntilDestroyProvider) Close() {}
 
 type readinessTimeoutProvider struct {
-	events  chan watcherEvents.Event
-	stopped chan struct{}
+	events    chan watcherEvents.Event
+	stopped   chan struct{}
+	isStopped atomic.Bool
 }
 
 func (*readinessTimeoutProvider) ContainerPause(context.Context) error   { return nil }
 func (*readinessTimeoutProvider) ContainerUnpause(context.Context) error { return nil }
 func (*readinessTimeoutProvider) ContainerStart(context.Context) error   { return nil }
 func (p *readinessTimeoutProvider) ContainerStop(context.Context, idlewatchertypes.Signal, int) error {
+	p.isStopped.Store(true)
 	p.events <- watcherEvents.Event{Action: watcherEvents.ActionContainerStop}
 	p.stopped <- struct{}{}
 	return nil
@@ -396,7 +402,10 @@ func (p *readinessTimeoutProvider) ContainerStop(context.Context, idlewatchertyp
 func (*readinessTimeoutProvider) ContainerKill(context.Context, idlewatchertypes.Signal) error {
 	return nil
 }
-func (*readinessTimeoutProvider) ContainerStatus(context.Context) (idlewatchertypes.ContainerStatus, error) {
+func (p *readinessTimeoutProvider) ContainerStatus(context.Context) (idlewatchertypes.ContainerStatus, error) {
+	if p.isStopped.Load() {
+		return idlewatchertypes.ContainerStatusStopped, nil
+	}
 	return idlewatchertypes.ContainerStatusRunning, nil
 }
 func (p *readinessTimeoutProvider) Watch(ctx context.Context) (<-chan watcherEvents.Event, <-chan error) {

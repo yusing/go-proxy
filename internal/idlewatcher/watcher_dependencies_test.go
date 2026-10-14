@@ -39,6 +39,215 @@ func TestNewWatcherReloadClearsDependencies(t *testing.T) {
 	require.Empty(t, reloaded.events.Get())
 }
 
+func TestStopSharedDependencies(t *testing.T) {
+	for _, method := range []idlewatchertypes.ContainerStopMethod{
+		idlewatchertypes.ContainerStopMethodStop,
+		idlewatchertypes.ContainerStopMethodPause,
+	} {
+		t.Run(string(method), func(t *testing.T) {
+			watchers := make([]*Watcher, 4)
+			providers := make([]*dependencyLifecycleProvider, 4)
+			for i := range watchers {
+				w, p := newDependencyLifecycleWatcher(t)
+				providers[i] = p
+				w.cfg.StopMethod = method
+				watchers[i] = w
+			}
+			first, second, shared, leaf := watchers[0], watchers[1], watchers[2], watchers[3]
+			first.setDependencies([]*dependency{{Watcher: shared}})
+			second.setDependencies([]*dependency{{Watcher: shared}})
+			shared.setDependencies([]*dependency{{Watcher: leaf}})
+
+			require.NoError(t, first.stopByMethod())
+			require.EqualValues(t, 1, providers[0].stops.Load())
+			require.Zero(t, providers[1].stops.Load())
+			require.Zero(t, providers[2].stops.Load(), "shared dependency stopped while another dependent runs")
+			require.Zero(t, providers[3].stops.Load(), "shared dependency's own dependencies must stay running")
+
+			// No provider events are delivered: successful stops must release
+			// dependencies without waiting for asynchronous event processing.
+			require.NoError(t, second.stopByMethod())
+			for i, w := range watchers {
+				require.EqualValues(t, 1, providers[i].stops.Load())
+				status := idlewatchertypes.ContainerStatusStopped
+				if method == idlewatchertypes.ContainerStopMethodPause {
+					status = idlewatchertypes.ContainerStatusPaused
+				}
+				require.Equal(t, status, w.state.Load().status)
+			}
+
+			require.NoError(t, first.Wake(t.Context()))
+			for _, i := range []int{0, 2, 3} {
+				require.True(t, watchers[i].running(), "wake must restore the transitive dependency chain")
+				require.EqualValues(t, 1, providers[i].starts.Load())
+			}
+			require.False(t, second.running(), "an unrelated sleeping route must stay asleep")
+		})
+	}
+}
+
+func TestWakeWaitsForDependencyStop(t *testing.T) {
+	for _, target := range []string{"parent", "dependency"} {
+		t.Run(target, func(t *testing.T) {
+			root, _ := newDependencyLifecycleWatcher(t)
+			dep, p := newDependencyLifecycleWatcher(t)
+			root.setDependencies([]*dependency{{Watcher: dep}})
+			events := make(chan watcherEvents.Event)
+			p.events = events
+			entered, release := make(chan struct{}), make(chan struct{})
+			p.stop = func(ctx context.Context) error {
+				events <- watcherEvents.Event{Action: watcherEvents.ActionContainerStop}
+				close(entered)
+				select {
+				case <-release:
+					return nil
+				case <-ctx.Done():
+					return context.Cause(ctx)
+				}
+			}
+			watched := make(chan error, 1)
+			go func() { watched <- dep.watchUntilDestroy() }()
+			t.Cleanup(func() { dep.task.Finish(nil); <-watched })
+			defer close(release)
+			stopped := make(chan error, 1)
+			go func() { stopped <- root.stopByMethod() }()
+			requireChannelClosed(t, entered, "dependency stop did not start")
+
+			w := root
+			if target == "dependency" {
+				w = dep
+			}
+			woke := w.startWake()
+			select {
+			case result := <-woke:
+				t.Fatalf("wake completed before the dependency stop: %v", result.Err)
+			case <-time.After(20 * time.Millisecond):
+			}
+			release <- struct{}{}
+			require.NoError(t, <-stopped)
+			require.NoError(t, w.waitWake(t.Context(), woke))
+			require.True(t, w.running())
+			require.True(t, dep.running(), "late stop response must not overwrite a newer wake")
+			require.EqualValues(t, 1, p.starts.Load())
+		})
+	}
+}
+
+func TestWakeDeadlineDuringStop(t *testing.T) {
+	w, p := newDependencyLifecycleWatcher(t)
+	history := attachIdleActivityHistory(t, w)
+	w.cfg.WakeTimeout = 20 * time.Millisecond
+	entered, release := make(chan struct{}), make(chan struct{})
+	p.stop = func(ctx context.Context) error {
+		close(entered)
+		select {
+		case <-release:
+			return nil
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		}
+	}
+	stopped := make(chan error, 1)
+	go func() { stopped <- w.stopByMethod() }()
+	requireChannelClosed(t, entered, "stop did not start")
+	defer func() { close(release); <-stopped }()
+	select {
+	case result := <-w.startWake():
+		require.ErrorIs(t, result.Err, context.DeadlineExceeded)
+	case <-time.After(250 * time.Millisecond):
+		t.Fatal("wake deadline did not interrupt lifecycle wait")
+	}
+	require.NotNil(t, idleActivityAction(history, IdleEventActionError))
+}
+
+func TestDelayedStopEventKeepsSharedDependency(t *testing.T) {
+	first, p := newDependencyLifecycleWatcher(t)
+	second, _ := newDependencyLifecycleWatcher(t)
+	shared, sp := newDependencyLifecycleWatcher(t)
+	first.setDependencies([]*dependency{{Watcher: shared}})
+	second.setDependencies([]*dependency{{Watcher: shared}})
+	events := make(chan watcherEvents.Event)
+	p.events = events
+	watched := make(chan error, 1)
+	go func() { watched <- first.watchUntilDestroy() }()
+	t.Cleanup(func() { first.task.Finish(nil); <-watched })
+	require.NoError(t, first.stopByMethod())
+	require.NoError(t, first.Wake(t.Context()))
+	events <- watcherEvents.Event{Action: watcherEvents.ActionContainerStop}
+	// Receipt of the next event establishes that the stop event was handled.
+	events <- watcherEvents.Event{Action: watcherEvents.ActionForceReload}
+	require.True(t, first.running())
+	require.NoError(t, second.stopByMethod())
+	require.Zero(t, sp.stops.Load(), "a delayed stop event released a live dependency")
+}
+
+func newDependencyLifecycleWatcher(t *testing.T) (*Watcher, *dependencyLifecycleProvider) {
+	t.Helper()
+	w := newTestWatcher(t)
+	p := &dependencyLifecycleProvider{blockingStartProvider: &blockingStartProvider{
+		started: make(chan context.Context, 1),
+		release: make(chan struct{}),
+	}}
+	close(p.release)
+	p.status.Store(idlewatchertypes.ContainerStatusRunning)
+	w.provider.Store(p)
+	w.cfg.StopMethod = idlewatchertypes.ContainerStopMethodStop
+	w.cfg.StopTimeout = time.Second
+	w.setReady()
+	watcherMapMu.Lock()
+	watcherMap[w.Key()] = w
+	watcherMapMu.Unlock()
+	t.Cleanup(func() {
+		watcherMapMu.Lock()
+		delete(watcherMap, w.Key())
+		watcherMapMu.Unlock()
+	})
+	return w, p
+}
+
+type dependencyLifecycleProvider struct {
+	*blockingStartProvider
+	stops  atomic.Int64
+	status atomic.Value
+	stop   func(context.Context) error
+	events <-chan watcherEvents.Event
+}
+
+func (p *dependencyLifecycleProvider) ContainerStop(ctx context.Context, _ idlewatchertypes.Signal, _ int) error {
+	p.stops.Add(1)
+	p.status.Store(idlewatchertypes.ContainerStatusStopped)
+	if p.stop != nil {
+		return p.stop(ctx)
+	}
+	return nil
+}
+
+func (p *dependencyLifecycleProvider) ContainerPause(context.Context) error {
+	p.stops.Add(1)
+	p.status.Store(idlewatchertypes.ContainerStatusPaused)
+	return nil
+}
+
+func (p *dependencyLifecycleProvider) ContainerStart(ctx context.Context) error {
+	if err := p.blockingStartProvider.ContainerStart(ctx); err != nil {
+		return err
+	}
+	p.status.Store(idlewatchertypes.ContainerStatusRunning)
+	return nil
+}
+
+func (p *dependencyLifecycleProvider) ContainerStatus(context.Context) (idlewatchertypes.ContainerStatus, error) {
+	return p.status.Load().(idlewatchertypes.ContainerStatus), nil
+}
+
+func (p *dependencyLifecycleProvider) ContainerUnpause(ctx context.Context) error {
+	return p.ContainerStart(ctx)
+}
+
+func (p *dependencyLifecycleProvider) Watch(context.Context) (<-chan watcherEvents.Event, <-chan error) {
+	return p.events, nil
+}
+
 func TestNewWatcherReloadReplacesDependencies(t *testing.T) {
 	w, parent, mainRoute, _ := newDependencyReloadTest(t, "replace-deps", []string{"old"})
 	require.Len(t, w.dependsOn, 1)

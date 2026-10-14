@@ -824,6 +824,7 @@ func newTestWatcher(t *testing.T) *Watcher {
 			},
 			IdleTimeout: time.Hour,
 			WakeTimeout: time.Second,
+			StopTimeout: time.Second,
 		},
 		idleTicker:     idleTicker,
 		healthTicker:   healthTicker,

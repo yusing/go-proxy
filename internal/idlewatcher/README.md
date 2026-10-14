@@ -15,7 +15,6 @@ The `internal/idlewatcher` package implements idle-based container lifecycle man
 ### Non-goals
 
 - Does not implement container runtime operations directly (delegates to providers)
-- Does not manage container dependencies beyond wake ordering
 - Does not provide health checking (delegates to `internal/health/monitor`)
 
 ### Stability
@@ -161,6 +160,11 @@ flowchart TD
 ```
 
 ### State Machine
+
+Dependencies wake transitively before their dependent containers. On sleep, a
+container stops before its dependencies. A shared dependency stays running while
+another running watcher directly depends on it. Sleeping dependents do not keep
+it running; their next wake starts the dependency chain again.
 
 ```mermaid
 stateDiagram-v2
