@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	dockerapi "github.com/docker/docker/api/types/container"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"github.com/yusing/godoxy/internal/agentpool"
@@ -665,110 +664,102 @@ func TestNewWatcherReloadRefreshesDependencySettings(t *testing.T) {
 	}
 }
 
-type fakeHealthMonitor struct {
+// staticHealthMonitor stands in for a route's health monitor.
+type staticHealthMonitor struct {
 	status health.HealthStatus
 }
 
-func (m *fakeHealthMonitor) Start(task.Parent) error      { return nil }
-func (m *fakeHealthMonitor) Finish(any)                   {}
-func (m *fakeHealthMonitor) Task() *task.Task             { return nil }
-func (m *fakeHealthMonitor) String() string               { return m.status.String() }
-func (m *fakeHealthMonitor) Status() health.HealthStatus  { return m.status }
-func (m *fakeHealthMonitor) Uptime() time.Duration        { return 0 }
-func (m *fakeHealthMonitor) Latency() time.Duration       { return 0 }
-func (m *fakeHealthMonitor) Detail() string               { return "" }
-func (m *fakeHealthMonitor) Name() string                 { return "fake" }
-func (m *fakeHealthMonitor) MarshalJSON() ([]byte, error) { return []byte(`"fake"`), nil }
-func (m *fakeHealthMonitor) MarshalZerologObject(e *zerolog.Event) {
-	e.Str("status", m.status.String())
+func (staticHealthMonitor) Start(task.Parent) error             { return nil }
+func (staticHealthMonitor) Finish(any)                          {}
+func (staticHealthMonitor) Task() *task.Task                    { return nil }
+func (m staticHealthMonitor) String() string                    { return m.status.String() }
+func (staticHealthMonitor) Name() string                        { return "static" }
+func (m staticHealthMonitor) Status() health.HealthStatus       { return m.status }
+func (staticHealthMonitor) Uptime() time.Duration               { return 0 }
+func (staticHealthMonitor) Latency() time.Duration              { return 0 }
+func (staticHealthMonitor) Detail() string                      { return "" }
+func (staticHealthMonitor) MarshalJSON() ([]byte, error)        { return []byte(`"static"`), nil }
+func (staticHealthMonitor) MarshalZerologObject(*zerolog.Event) {}
+
+type alwaysOnDependencySetup struct {
+	main, shared   *Watcher
+	mainProvider   *dependencyLifecycleProvider
+	sharedProvider *dependencyLifecycleProvider
+	alwaysOn       *idlewatcherTestRoute
 }
 
-// Part 2: an always-on route has no watcher in watcherMap; a dependency it
-// declares via container labels must stay up while the route is not down.
-// The route's container is built through docker.FromDocker so the
-// proxy.depends_on label path is exercised end to end.
-func TestStopSharedDependencyKeptForAlwaysOnRoute(t *testing.T) {
-	watchers := make([]*Watcher, 2)
-	providers := make([]*dependencyLifecycleProvider, 2)
-	for i := range watchers {
-		w, p := newDependencyLifecycleWatcher(t)
-		providers[i] = p
-		watchers[i] = w
-	}
-	main, shared := watchers[0], watchers[1]
+// newAlwaysOnDependencySetup wires a watcher that declares shared as its
+// dependency, next to an always-on route that declares the same dependency
+// through container labels. The always-on route has no idle timeout, so it
+// never gets a watcher of its own: its labels are the only record of the edge.
+func newAlwaysOnDependencySetup(t *testing.T, dependencyEntry string) *alwaysOnDependencySetup {
+	t.Helper()
+
+	main, mainProvider := newDependencyLifecycleWatcher(t)
+	shared, sharedProvider := newDependencyLifecycleWatcher(t)
 	main.setDependencies([]*dependency{{Watcher: shared}})
 
 	ep := entrypoint.NewEntrypoint(task.GetTestTask(t), nil)
 	entrypoint.SetCtx(task.GetTestTask(t), ep)
 
 	routeProvider := &idlewatcherTestRouteProvider{routes: make(map[string]routing.Route)}
-	// The guard resolves dependency entries through the compose project and
-	// service labels, like NewWatcher resolves them.
-	sharedRoute := newIdlewatcherTestRoute("shared-dep-route", routeProvider, nil)
-	sharedRoute.container.ContainerID = shared.Key()
-	routeProvider.routes[shared.Key()] = sharedRoute
+	depRoute := newIdlewatcherTestRoute("koito_backend", routeProvider, nil)
+	depRoute.container.ContainerID = shared.Key()
+	routeProvider.routes[depRoute.name] = depRoute
 
-	alwaysOn := newIdlewatcherTestRoute("always-on", routeProvider, nil)
-	alwaysOn.container = docker.FromDocker(t.Context(), &dockerapi.Summary{
-		Names: []string{"/always-on"},
-		State: "running",
-		Labels: map[string]string{
-			"com.docker.compose.project": "idlewatcher-test",
-			"com.docker.compose.service": "always-on",
-			docker.LabelDependsOn:        shared.Key() + ":service_started",
-		},
-	}, godoxytypes.DockerProviderConfig{})
+	alwaysOn := newIdlewatcherTestRoute("koito", routeProvider, nil)
+	alwaysOn.container.ContainerID = "koito-container-id"
+	alwaysOn.container.Labels = map[string]string{
+		"com.docker.compose.project": "idlewatcher-test",
+		"com.docker.compose.service": "koito",
+		docker.LabelDependsOn:        dependencyEntry,
+	}
 	ep.ExcludedRoutes().Add(alwaysOn)
 
-	// Route has no health monitor (status unknown): the dependency stays up.
-	require.NoError(t, main.stopByMethod())
-	require.EqualValues(t, 1, providers[0].stops.Load())
-	require.Zero(t, providers[1].stops.Load(),
-		"dependency stopped while a healthy always-on route depends on it")
-
-	// A down route does not pin its dependency awake.
-	alwaysOn.SetHealthMonitor(&fakeHealthMonitor{status: health.StatusUnhealthy})
-	require.NoError(t, main.stopByMethod())
-	require.EqualValues(t, 1, providers[1].stops.Load(),
-		"dependency must stop once the depending route is down")
+	return &alwaysOnDependencySetup{
+		main:           main,
+		shared:         shared,
+		mainProvider:   mainProvider,
+		sharedProvider: sharedProvider,
+		alwaysOn:       alwaysOn,
+	}
 }
 
-func TestStopDependencyWhenDependingRouteNaps(t *testing.T) {
-	watchers := make([]*Watcher, 2)
-	providers := make([]*dependencyLifecycleProvider, 2)
-	for i := range watchers {
-		w, p := newDependencyLifecycleWatcher(t)
-		providers[i] = p
-		watchers[i] = w
+// Stopping an idle route must not stop a dependency an always-on route needs.
+// An unhealthy route still needs its dependency up: the dependency may be what
+// brings it back.
+func TestStopSharedDependencyKeptForAlwaysOnRoute(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		entry  string
+		health health.HealthStatus
+	}{
+		{name: "bare_service_name", entry: "koito_backend"},
+		{name: "service_started", entry: "koito_backend:service_started"},
+		{name: "service_healthy", entry: "koito_backend:service_healthy"}, // the condition must not break the lookup
+		{name: "health_unknown", entry: "koito_backend", health: health.StatusUnknown},
+		{name: "health_unhealthy", entry: "koito_backend", health: health.StatusUnhealthy},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := newAlwaysOnDependencySetup(t, tc.entry)
+			s.alwaysOn.SetHealthMonitor(staticHealthMonitor{status: tc.health})
+
+			require.NoError(t, s.main.stopByMethod())
+			require.EqualValues(t, 1, s.mainProvider.stops.Load())
+			require.Zero(t, s.sharedProvider.stops.Load(),
+				"dependency stopped while an always-on route depends on it")
+		})
 	}
-	main, shared := watchers[0], watchers[1]
-	main.setDependencies([]*dependency{{Watcher: shared}})
+}
 
-	ep := entrypoint.NewEntrypoint(task.GetTestTask(t), nil)
-	entrypoint.SetCtx(task.GetTestTask(t), ep)
+// A napping route does not pin its dependency awake: its next wake rebuilds the
+// dependency chain.
+func TestStopSharedDependencyWhenAlwaysOnRouteNaps(t *testing.T) {
+	s := newAlwaysOnDependencySetup(t, "koito_backend")
+	s.alwaysOn.SetHealthMonitor(staticHealthMonitor{status: health.StatusNapping})
 
-	routeProvider := &idlewatcherTestRouteProvider{routes: make(map[string]routing.Route)}
-	sharedRoute := newIdlewatcherTestRoute("shared-dep-route", routeProvider, nil)
-	sharedRoute.container.ContainerID = shared.Key()
-	routeProvider.routes[shared.Key()] = sharedRoute
-
-	// A watcher route that has already slept reports napping, not unhealthy.
-	// It must not pin its dependency awake.
-	mainRoute := newIdlewatcherTestRoute("main", routeProvider, nil)
-	mainRoute.container = docker.FromDocker(t.Context(), &dockerapi.Summary{
-		Names: []string{"/main"},
-		State: "running",
-		Labels: map[string]string{
-			"com.docker.compose.project": "idlewatcher-test",
-			"com.docker.compose.service": "main",
-			docker.LabelDependsOn:        shared.Key() + ":service_started",
-		},
-	}, godoxytypes.DockerProviderConfig{})
-	mainRoute.SetHealthMonitor(&fakeHealthMonitor{status: health.StatusNapping})
-	ep.ExcludedRoutes().Add(mainRoute)
-
-	require.NoError(t, main.stopByMethod())
-	require.EqualValues(t, 1, providers[0].stops.Load())
-	require.EqualValues(t, 1, providers[1].stops.Load(),
-		"dependency must stop once its depending route is napping")
+	require.NoError(t, s.main.stopByMethod())
+	require.EqualValues(t, 1, s.mainProvider.stops.Load())
+	require.EqualValues(t, 1, s.sharedProvider.stops.Load(),
+		"dependency must stop once the depending route is napping")
 }
