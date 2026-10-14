@@ -646,31 +646,39 @@ func (w *Watcher) entrypointRouteDependsOn() bool {
 	}
 	healthMap := ep.GetHealthInfoSimple()
 	for r := range ep.IterRoutes {
-		cont := r.ContainerInfo()
-		if cont == nil || cont.ContainerID == w.cfg.Key() {
+		if cont := r.ContainerInfo(); cont == nil || cont.ContainerID == w.cfg.Key() {
 			// skip routes of the watcher's own container
 			continue
 		}
-		proj := docker.DockerComposeProject(cont)
-		for _, depEntry := range docker.Dependencies(cont) {
-			depName := depEntry
-			if i := strings.IndexByte(depName, ':'); i >= 0 {
-				depName = depName[:i]
-			}
-			if depName == "" {
-				continue
-			}
-			depRoute, ok := w.resolveDepRoute(r, proj, depName)
-			if !ok {
-				continue
-			}
-			depCont := depRoute.ContainerInfo()
-			if depCont == nil || depCont.ContainerID != w.cfg.Key() {
-				continue
-			}
-			if status, ok := healthMap[r.Name()]; ok && status == health.StatusUnhealthy {
-				continue
-			}
+		if !w.routeDependsOnContainer(r) {
+			continue
+		}
+		if status, ok := healthMap[r.Name()]; ok && status == health.StatusUnhealthy {
+			continue
+		}
+		return true
+	}
+	return false
+}
+
+// routeDependsOnContainer reports whether r's container declares a
+// dependency on w's container.
+func (w *Watcher) routeDependsOnContainer(r routing.Route) bool {
+	cont := r.ContainerInfo()
+	proj := docker.DockerComposeProject(cont)
+	for _, depEntry := range docker.Dependencies(cont) {
+		depName := depEntry
+		if i := strings.IndexByte(depName, ':'); i >= 0 {
+			depName = depName[:i]
+		}
+		if depName == "" {
+			continue
+		}
+		depRoute, ok := w.resolveDepRoute(r, proj, depName)
+		if !ok {
+			continue
+		}
+		if depCont := depRoute.ContainerInfo(); depCont != nil && depCont.ContainerID == w.cfg.Key() {
 			return true
 		}
 	}
