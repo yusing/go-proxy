@@ -129,6 +129,7 @@ func TestAliasesAndDiagnostics(t *testing.T) {
 	// Opaque sentinels are intentionally never printed, even on test failure.
 	sensitive := "opaque-sensitive-marker"
 	t.Setenv("GODOXY_API_PASSWORD", sensitive)
+	t.Setenv("GODOXY_API_READONLY_TOKEN", sensitive)
 	t.Setenv("GODOXY_DOCKER_HOST", "tcp://user:"+sensitive+"@docker:2375")
 	t.Setenv("GODOXY_OIDC_ISSUER_URL", "https://issuer/?token="+sensitive)
 	t.Setenv("GODOXY_TYPO", sensitive)

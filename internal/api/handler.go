@@ -52,6 +52,9 @@ func NewHandler(requireAuth bool) *gin.Engine {
 	r.Use(ErrorHandler())
 	r.Use(ErrorLoggingMiddleware())
 	r.Use(NoCache())
+	if auth.IsEnabled() && requireAuth {
+		r.Use(readOnlyBearerMiddleware())
+	}
 
 	log.Debug().Msg("gin codec json.API: " + reflect.TypeOf(json.API).Name())
 
@@ -218,6 +221,10 @@ func NoCache() gin.HandlerFunc {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.GetBool(readOnlyBearerKey) {
+			c.Next()
+			return
+		}
 		err := auth.GetDefaultAuth().CheckToken(c.Request)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, apitypes.Error("Unauthorized", err))

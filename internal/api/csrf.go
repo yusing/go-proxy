@@ -18,6 +18,10 @@ import (
 // matching the cookie value, with a valid HMAC signature.
 func CSRFMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		if c.GetBool(readOnlyBearerKey) {
+			c.Next()
+			return
+		}
 		switch c.Request.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
 			ensureCSRFCookie(c)

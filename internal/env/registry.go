@@ -43,6 +43,7 @@ var definitions = []Definition{
 	{Name: "API_JWT_SECURE", Type: "bool", Default: "true", Description: "Require HTTPS for login cookies."},
 	{Required: true, Name: "API_JWT_SECRET", Type: "string", Default: "", Description: "JWT signing key; generate with openssl rand -base64 32. Empty generates a temporary random key.", Sensitive: true},
 	{Name: "API_JWT_TOKEN_TTL", Type: "duration", Default: "24h", Description: "Login token lifetime."},
+	{Name: "API_READONLY_TOKEN", Type: "string", Default: "", Description: "Optional secret for read-only API Bearer authentication. Allows only HTTP GET route list/detail, no upgrades. Requires browser authentication enabled; ignored by local API. Generate with openssl rand -hex 32; restart to rotate.", Sensitive: true},
 	{Required: true, Name: "API_USER", Type: "string", Default: "", Description: "WebUI username; required with password unless OIDC or disabled authentication is used.", Sensitive: true},
 	{Required: true, Name: "API_PASSWORD", Type: "string", Default: "", Description: "WebUI password.", Sensitive: true},
 	{Name: "OIDC_ISSUER_URL", Type: "string", Default: "", Description: "OIDC issuer URL; empty disables OIDC.", Sensitive: true},

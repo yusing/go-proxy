@@ -9,10 +9,11 @@ The `internal/api/v1` package implements the HTTP handlers that power GoDoxy's R
 ### Primary Consumers
 
 - **WebUI**: The homepage dashboard and admin interface consume these endpoints
+- **Machine clients**: An optional read-only bearer token permits HTTP route listing and detail reads
 
 ### Non-goals
 
-- Authentication and authorization logic (delegated to `internal/auth`)
+- Browser authentication (delegated to `internal/auth`); API bearer authorization is owned by `internal/api`
 - Route proxying and request handling (handled by `internal/route`)
 - Docker container lifecycle management (delegated to `internal/docker`)
 - Certificate issuance and storage (handled by `internal/autocert`)
@@ -75,6 +76,34 @@ sequenceDiagram
 
 API listening address is configured with `GODOXY_API_ADDR` environment variable.
 
+### Read-only machine access
+
+Set the secret environment variable `GODOXY_API_READONLY_TOKEN` before starting
+GoDoxy. Generate a high-entropy value with `openssl rand -hex 32`, store it in
+your deployment's secret environment, and send it as the Bearer credential in
+the `Authorization` header over HTTPS. Do not put it in URLs or route config.
+Restart GoDoxy after changing or removing it to rotate or revoke access.
+
+The token permits only plain HTTP `GET /api/v1/route/list` (including the
+`provider` query filter) and `GET /api/v1/route/{which}`. These responses expose
+route configuration, so share the credential only with trusted clients.
+All other endpoints, writes, and protocol upgrades are denied, including
+`GET /api/v1/cert/renew` and route-list WebSockets. New endpoints are denied
+until explicitly audited and allowed. No token management UI or database is used.
+
+This applies to the authenticated API listener and the `api` rule handler.
+Browser authentication must remain enabled with either user/password or OIDC.
+`GODOXY_DEBUG_DISABLE_AUTH` disables this protection too; setting a read-only
+token does not secure that mode. The unauthenticated local listener and
+`local_api` rule handler remain unrestricted and ignore the token.
+
+Successful bearer requests need no cookies or CSRF header and issue no cookies.
+An explicit invalid or malformed Authorization header returns 401, even with a
+valid browser cookie; valid tokens on denied endpoints return 403. Browser-only
+sessions retain their existing permissions and CSRF checks. Runtime comparison
+uses a SHA-256 digest and constant-time comparison; the token is redacted from
+environment diagnostics and is not returned by the API.
+
 ## Dependency and Integration Map
 
 ### Internal Dependencies
@@ -114,10 +143,10 @@ No dedicated metrics exposed by handlers. Request metrics collected by middlewar
 
 ## Security Considerations
 
-- All endpoints (except `/api/v1/version`) require authentication
+- Protected endpoints require authentication when enabled; `/api/v1/version` and browser login flows remain public
 - Input validation using Gin binding tags
 - File read/write handlers are rooted per file type (`config/` or `config/middlewares/`) to prevent traversal into sibling paths
-- WebSocket connections use same auth middleware as HTTP
+- WebSocket connections require browser sessions; read-only bearer tokens cannot upgrade
 
 ## Failure Modes and Recovery
 
@@ -126,7 +155,7 @@ No dedicated metrics exposed by handlers. Request metrics collected by middlewar
 | Docker host unreachable             | Returns partial results with errors logged |
 | Certificate provider not configured | Returns 404                                |
 | Invalid request body                | Returns 400 with error details             |
-| Authentication failure              | Returns 302 redirect to login              |
+| API authentication failure          | Returns 401                                |
 | Agent not found                     | Returns 404                                |
 
 ## Usage Examples
