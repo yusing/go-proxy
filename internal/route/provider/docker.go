@@ -70,9 +70,7 @@ func (p *DockerProvider) loadRoutesImpl(parentCtx context.Context) (route.Routes
 	errs := gperr.NewBuilder("")
 	routes := make(route.Routes)
 
-	for _, c := range containers {
-		container := docker.FromDocker(ctx, &c, p.dockerCfg)
-
+	for _, container := range containers {
 		if container.Errors != nil {
 			errs.AddSubject(container.Errors, container.ContainerName)
 			continue

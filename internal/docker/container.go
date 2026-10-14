@@ -196,7 +196,7 @@ func Dependencies(c *Container) []string {
 		deps = label("com.docker.compose.depends_on")
 	}
 	if deps == "" {
-		return nil
+		return c.nativeDependencies
 	}
 	return strings.Split(deps, ",")
 }
@@ -321,8 +321,6 @@ func loadDeleteIdlewatcherLabels(c *Container, helper containerHelper) {
 		switch lbl {
 		case LabelIdleTimeout:
 			hasIdleTimeout = true
-		case LabelDependsOn:
-			cfg[key] = Dependencies(c)
 		}
 	}
 
@@ -336,6 +334,7 @@ func loadDeleteIdlewatcherLabels(c *Container, helper containerHelper) {
 
 	// set only if idlewatcher is enabled
 	if hasIdleTimeout {
+		cfg["depends_on"] = Dependencies(c)
 		idwCfg := new(idlewatcher.IdlewatcherConfig)
 		idwCfg.Docker = &idlewatcher.DockerConfig{
 			DockerCfg:     c.DockerCfg,

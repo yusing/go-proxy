@@ -22,9 +22,10 @@ type (
 
 		Agent *agentpool.Agent `json:"agent"`
 
-		Labels            map[string]string              `json:"-"`
-		ActualLabels      map[string]string              `json:"labels"`
-		IdlewatcherConfig *idlewatcher.IdlewatcherConfig `json:"idlewatcher_config"`
+		Labels             map[string]string              `json:"-"`
+		ActualLabels       map[string]string              `json:"labels"`
+		IdlewatcherConfig  *idlewatcher.IdlewatcherConfig `json:"idlewatcher_config"`
+		nativeDependencies []string
 
 		Mounts *ordered.Map[string, string] `json:"mounts,omitempty" swaggertype:"object,string"`
 

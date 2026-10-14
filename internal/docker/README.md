@@ -69,7 +69,7 @@ type Container struct {
 ### Exported functions
 
 ```go
-func NewClient(cfg types.DockerProviderConfig, unique ...bool) (*SharedClient, error)
+func NewClient(ctx context.Context, cfg types.DockerProviderConfig, unique ...bool) (*SharedClient, error)
 ```
 
 Creates or returns a Docker client. Reuses existing clients for the same URL. Thread-safe.
@@ -81,7 +81,7 @@ func Clients() map[string]*SharedClient
 Returns all currently connected clients. Callers must close returned clients.
 
 ```go
-func FromDocker(c *container.Summary, dockerCfg types.DockerProviderConfig) *Container
+func FromDocker(ctx context.Context, c *container.Summary, dockerCfg types.DockerProviderConfig) *Container
 ```
 
 Records whether Docker health is enabled from the container-list status so route
@@ -113,7 +113,12 @@ Returns the Docker Compose service name.
 func Dependencies(c *Container) []string
 ```
 
-Returns container dependencies from labels.
+Returns container dependencies in precedence order: explicit `proxy.depends_on`,
+Docker Compose labels, then discovered Podman Compose dependencies.
+
+`ListContainers(ctx, cfg) ([]*Container, error)` returns parsed containers with dependency discovery
+complete. It also resolves dependencies for containers without an idle timeout,
+so the idlewatcher can follow recursive dependency groups.
 
 ```go
 func IsBlacklisted(c *Container) bool
@@ -178,17 +183,19 @@ sequenceDiagram
         DockerAPI-->>SharedClient: Client
     end
 
-    Provider->>SharedClient: ListContainers()
+    Provider->>ContainerParser: ListContainers(ctx, cfg)
+    ContainerParser->>SharedClient: ContainerList(ctx, options)
     SharedClient->>DockerAPI: GET /containers/json
     DockerAPI-->>SharedClient: Container List
-    SharedClient-->>Provider: Container List
+    SharedClient-->>ContainerParser: Container List
 
     loop For Each Container
-        Provider->>ContainerParser: FromDocker()
+        ContainerParser->>ContainerParser: FromDocker()
         ContainerParser->>ContainerParser: Parse Labels
         ContainerParser->>ContainerParser: Resolve Hostnames
-        ContainerParser-->>Provider: *Container
     end
+    ContainerParser->>DockerAPI: Native inspect for Podman Compose dependencies
+    ContainerParser-->>Provider: []*Container
 
     Provider->>RouteBuilder: Create Routes
     RouteBuilder-->>Provider: Routes
@@ -309,7 +316,7 @@ A missing label inherits `defaults.idlewatcher.notify`, staying silent when no
 global block exists. For broadcast, configure global `notify: {}`; all current
 providers are resolved at send time when targets are omitted.
 
-Like the other idle watcher labels, this only takes effect when
+Notification labels only take effect when
 `proxy.idle_timeout` is also set; without it no idlewatcher config is built and
 the label is dropped.
 
@@ -322,6 +329,18 @@ Those are created by Docker Compose.
 | `com.docker.compose.project`    | Compose project name |
 | `com.docker.compose.service`    | Service name         |
 | `com.docker.compose.depends_on` | Dependencies         |
+
+Podman Compose stores `depends_on` as native container dependencies instead of a
+Docker dependency label. Discovery reads each unlabeled Podman Compose service's
+native inspect response through the existing provider connection, including TLS
+and agents. IDs resolve to services in the same Compose project; pod infrastructure
+containers are not idlewatcher dependencies. Inspections run concurrently within
+one bounded discovery period. Failed inspections are logged without discarding
+the container's routes; reload after restoring native API access.
+
+Podman's native dependency list does not retain Compose readiness conditions.
+Discovered dependencies use `service_started`; use `proxy.depends_on` to request
+`service_healthy`. Explicit labels always override discovery.
 
 ## Dependency and Integration Map
 
@@ -343,11 +362,11 @@ Those are created by Docker Compose.
 
 ```go
 // Route provider uses docker for container discovery
-client, err := docker.NewClient(cfg)
-containers, err := client.ContainerList(ctx, container.ListOptions{})
-
-for _, c := range containers {
-    container := docker.FromDocker(c, cfg)
+containers, err := docker.ListContainers(ctx, cfg)
+if err != nil {
+    return err
+}
+for _, container := range containers {
     // Create routes from container
 }
 ```
@@ -397,7 +416,7 @@ Containers are automatically blacklisted if they:
 | Remote connection failed   | NewClient returns error      | Check network/tls config |
 | Container inspect failed   | UpdatePorts returns error    | Container may be stopped |
 | Invalid labels             | Container created with error | Fix label syntax         |
-| Agent not found            | Panic during client creation | Add agent to pool        |
+| Agent not found            | NewClient returns error      | Add agent to pool        |
 
 ## Performance Characteristics
 
@@ -415,7 +434,7 @@ dockerCfg := types.DockerProviderConfig{
     URL: "unix:///var/run/docker.sock",
 }
 
-client, err := docker.NewClient(dockerCfg)
+client, err := docker.NewClient(ctx, dockerCfg)
 if err != nil {
     log.Fatal(err)
 }
@@ -426,7 +445,7 @@ defer client.Close()
 
 ```go
 // Create a unique client that won't be shared
-client, err := docker.NewClient(cfg, true)
+client, err := docker.NewClient(ctx, cfg, true)
 if err != nil {
     log.Fatal(err)
 }
@@ -451,9 +470,8 @@ for _, client := range clients {
 ### Parsing containers
 
 ```go
-containers, err := dockerClient.ContainerList(ctx, container.ListOptions{})
-for _, c := range containers {
-    container := docker.FromDocker(c, dockerCfg)
+containers, err := docker.ListContainers(ctx, dockerCfg)
+for _, container := range containers {
     if container.Errors != nil {
         log.Printf("Container %s has errors: %v", container.ContainerName, container.Errors)
         continue
@@ -465,7 +483,7 @@ for _, c := range containers {
 ### Checking if container is blacklisted
 
 ```go
-container := docker.FromDocker(c, dockerCfg)
+container := docker.FromDocker(ctx, c, dockerCfg)
 if docker.IsBlacklisted(container) {
     log.Printf("Container %s is blacklisted, skipping", container.ContainerName)
     continue
