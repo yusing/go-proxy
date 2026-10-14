@@ -54,6 +54,11 @@ func NewHandler() http.Handler {
 
 	if DockerContainers {
 		allowedPaths = append(allowedPaths, "/containers")
+		// Dependency discovery needs only native Podman inspection. Do not
+		// expose the native container prefix or its lifecycle operations.
+		inspectPath := "/libpod" + containerPath + "/json"
+		r.HandleFunc(apiVersionPrefix+inspectPath, socketHandler).Methods(http.MethodGet)
+		r.HandleFunc(inspectPath, socketHandler).Methods(http.MethodGet)
 		if !DockerRestarts {
 			deniedPaths = append(deniedPaths, containerPath+"/stop")
 			deniedPaths = append(deniedPaths, containerPath+"/restart")

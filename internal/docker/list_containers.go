@@ -20,14 +20,23 @@ var listOptions = container.ListOptions{
 	All: true,
 }
 
-func ListContainers(ctx context.Context, dockerCfg types.DockerProviderConfig) ([]container.Summary, error) {
+func ListContainers(ctx context.Context, dockerCfg types.DockerProviderConfig) ([]*Container, error) {
 	dockerClient, err := NewClient(ctx, dockerCfg)
 	if err != nil {
 		return nil, err
 	}
 	defer dockerClient.Close()
 
-	return dockerClient.ContainerList(ctx, listOptions)
+	summaries, err := dockerClient.ContainerList(ctx, listOptions)
+	if err != nil {
+		return nil, err
+	}
+	containers := make([]*Container, len(summaries))
+	for i := range summaries {
+		containers[i] = FromDocker(ctx, &summaries[i], dockerCfg)
+	}
+	resolvePodmanDependencies(ctx, dockerClient, containers)
+	return containers, nil
 }
 
 func IsErrConnectionFailed(err error) bool {

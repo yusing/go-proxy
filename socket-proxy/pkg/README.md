@@ -58,6 +58,11 @@ The `NewHandler()` function creates an HTTP router with:
 - Version prefix support (e.g., `/v1.41/containers`)
 - Unix domain socket proxying
 
+With `CONTAINERS` enabled, GET requests to the native Podman container inspect
+endpoint (`/libpod/containers/{id}/json`, also with an API version prefix) are
+allowed for Compose dependency discovery. Other native Podman endpoints and
+methods remain denied, including when `POST` is enabled.
+
 ### Reverse Proxy (`reverseproxy/reverse_proxy.go`)
 
 Based on Go's standard library reverse proxy with enhancements:
