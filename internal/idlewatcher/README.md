@@ -160,6 +160,11 @@ container stops before its dependencies. A shared dependency stays running while
 another running watcher directly depends on it. Sleeping dependents do not keep
 it running; their next wake starts the dependency chain again.
 
+Always-on routes (no idle timeout, no watcher) keep their dependencies running
+through the entrypoint route scan: the guard reads each route's container
+dependency labels (including `proxy.depends_on` after route construction
+consumes them) and skips routes whose health is unhealthy.
+
 For `kill`, signal delivery alone does not confirm sleep. GoDoxy waits up to
 `stop_timeout` for the runtime to report a stopped or paused container before
 releasing dependencies. A non-terminal signal can time out with the container

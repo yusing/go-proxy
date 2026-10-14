@@ -307,3 +307,15 @@ func TestDependenciesWithoutLabels(t *testing.T) {
 	c := idlewatcherFromLabels(t, map[string]string{LabelIdleTimeout: "1m"})
 	expect.Equal(t, len(Dependencies(c)), 0)
 }
+
+func TestDependenciesAfterLabelConsumption(t *testing.T) {
+	// proxy.depends_on is consumed by getDeleteLabel during route
+	// construction; Dependencies must still see it afterwards via
+	// ActualLabels. The dependency guard reads it at stop time.
+	c := idlewatcherFromLabels(t, map[string]string{
+		LabelIdleTimeout: "1m",
+		LabelDependsOn:   "db:service_started",
+	})
+	require.NotContains(t, c.Labels, LabelDependsOn)
+	expect.Equal(t, []string{"db:service_started"}, Dependencies(c))
+}
