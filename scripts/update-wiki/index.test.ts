@@ -161,13 +161,16 @@ describe("syncImplDocs", () => {
     expect(files).not.toContain("webui.mdx");
   });
 
-  test("writes missing mdx files and removes orphaned generated docs", async () => {
+  test("writes links under docs and removes orphaned generated docs", async () => {
     const repoRoot = await mkdtemp(path.join(os.tmpdir(), "update-wiki-repo-"));
     const wikiRoot = await mkdtemp(path.join(os.tmpdir(), "update-wiki-docs-"));
     tempDirs.push(repoRoot, wikiRoot);
 
     const readmeDir = path.join(repoRoot, "internal", "feature");
     await mkdir(readmeDir, { recursive: true });
+    const apiDir = path.join(repoRoot, "internal", "api", "v1");
+    await mkdir(apiDir, { recursive: true });
+    await writeFile(path.join(apiDir, "README.md"), "# API\n\n## Public route URLs\n\nContract.");
     await writeFile(
       path.join(readmeDir, "README.md"),
       [
@@ -178,6 +181,7 @@ describe("syncImplDocs", () => {
         "## Usage",
         "",
         "See [config](config.go:29#section).",
+        "See [API URL contract](../api/v1/README.md#public-route-urls).",
         "",
       ].join("\n"),
       "utf8",
@@ -190,8 +194,12 @@ describe("syncImplDocs", () => {
     await syncImplDocs(repoRoot, wikiRoot);
 
     const generated = path.join(implDir, "internal-feature.mdx");
-    expect(await readFile(generated, "utf8")).toContain(
+    const content = await readFile(generated, "utf8");
+    expect(content).toContain(
       "https://github.com/yusing/godoxy/blob/main/internal/feature/config.go#L29",
+    );
+    expect(content).toContain(
+      "[API URL contract](/docs/impl/internal-api-v1#public-route-urls)",
     );
 
     const files = await readdir(implDir);

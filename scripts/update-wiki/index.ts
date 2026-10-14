@@ -8,7 +8,7 @@ type ImplDoc = {
   pkgPath: string;
   /** File name in wiki `src/impl/`, e.g. "internal-health-check.md" */
   docFileName: string;
-  /** VitePress route path (extensionless), e.g. "/impl/internal-health-check" */
+  /** Documentation route path (extensionless), e.g. "/docs/impl/internal-health-check" */
   docRoute: string;
   /** Absolute source README path */
   srcPathAbs: string;
@@ -280,11 +280,11 @@ export async function syncImplDocs(
     Bun.env.REPO_URL ?? "https://github.com/yusing/godoxy",
   );
 
-  // Precompute mapping from repo-relative README path -> VitePress route.
+  // Precompute mapping from repo-relative README path -> documentation route.
   // This lets us rewrite intra-repo README links when copying content.
   const readmeRelToDocRoute = new Map<string, string>();
 
-  // Also precompute mapping from directory path -> VitePress route.
+  // Also precompute mapping from directory path -> documentation route.
   // This handles links like "[`common/`](common)" that point to directories with READMEs.
   const dirPathToDocRoute = new Map<string, string>();
 
@@ -294,7 +294,7 @@ export async function syncImplDocs(
 
     const docStem = sanitizeFileStemFromPkgPath(pkgPath);
     if (!docStem) continue;
-    const route = `/impl/${docStem}`;
+    const route = `/docs/impl/${docStem}`;
     readmeRelToDocRoute.set(readmeRel, route);
     dirPathToDocRoute.set(pkgPath, route);
   }
