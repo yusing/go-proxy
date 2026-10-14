@@ -303,7 +303,7 @@ func setPrivateHostname(c *Container, helper containerHelper) {
 
 func loadDeleteIdlewatcherLabels(ctx context.Context, c *Container, helper containerHelper) {
 	cfg := make(map[string]any, len(idlewatcherLabels))
-	hasIdleTimeout := loadIdlewatcherLabelValues(c, helper, cfg)
+	hasIdleTimeout := loadIdlewatcherLabelValues(helper, cfg)
 	loadNotifyLabel(helper, cfg)
 
 	if !hasIdleTimeout {
@@ -315,20 +315,22 @@ func loadDeleteIdlewatcherLabels(ctx context.Context, c *Container, helper conta
 
 // loadIdlewatcherLabelValues consumes the idlewatcher labels into cfg and
 // reports whether proxy.idle_timeout was set.
-func loadIdlewatcherLabelValues(c *Container, helper containerHelper, cfg map[string]any) bool {
+func loadIdlewatcherLabelValues(helper containerHelper, cfg map[string]any) bool {
 	hasIdleTimeout := false
 	for lbl, key := range idlewatcherLabels {
 		value := helper.getDeleteLabel(lbl)
 		if value == "" {
 			continue
 		}
-		cfg[key] = value
-		switch lbl {
-		case LabelIdleTimeout:
+		if lbl == LabelIdleTimeout {
 			hasIdleTimeout = true
-		case LabelDependsOn:
-			cfg[key] = Dependencies(c)
 		}
+		if lbl == LabelDependsOn {
+			// consumes proxy.depends_on; dependency sources are the compose
+			// label and the podman --requires list, see resolveDependencies
+			continue
+		}
+		cfg[key] = value
 	}
 	return hasIdleTimeout
 }
@@ -344,13 +346,14 @@ func loadNotifyLabel(helper containerHelper, cfg map[string]any) {
 	cfg["notify"] = map[string]any{"to": to}
 }
 
-// resolveDependencies falls back to the podman libpod API when no label named a
-// dependency, because podman-compose stores compose depends_on as --requires.
+// resolveDependencies picks the dependency source: the Docker Compose label,
+// or the podman libpod --requires list that podman-compose writes instead.
 func resolveDependencies(ctx context.Context, c *Container, cfg map[string]any) {
-	if deps, _ := cfg["depends_on"].([]string); len(deps) > 0 {
-		return
+	deps := Dependencies(c)
+	if len(deps) == 0 {
+		deps = podmanDependencies(ctx, c)
 	}
-	if deps := podmanDependencies(ctx, c); len(deps) > 0 {
+	if len(deps) > 0 {
 		cfg["depends_on"] = deps
 	}
 }

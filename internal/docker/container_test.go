@@ -285,6 +285,14 @@ func TestIdlewatcherDependsOnLabel(t *testing.T) {
 			want: []string{"db:service_started:false"},
 		},
 		{
+			name: "compose label without proxy label",
+			labels: map[string]string{
+				LabelIdleTimeout:                "1m",
+				"com.docker.compose.depends_on": "db:service_started:false",
+			},
+			want: []string{"db:service_started:false"},
+		},
+		{
 			// Dependencies reads the labels after proxy.depends_on was
 			// consumed, so the label alone yields no dependencies (upstream).
 			name: "proxy label alone yields no dependencies",
