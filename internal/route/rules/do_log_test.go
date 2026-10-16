@@ -39,6 +39,30 @@ func parseRules(data string, target *Rules) error {
 	return err
 }
 
+func TestLogCommand_AfterProxy(t *testing.T) {
+	backend := httptest.NewServer(mockUpstream(http.StatusCreated, "created"))
+	t.Cleanup(backend.Close)
+	logFile := TestRandomFileName()
+	var rules Rules
+	require.NoError(t, parseRules(fmt.Sprintf(`
+path glob("/api/*") {
+  log info %q "$req_method $status_code"
+}
+path glob("/api/*") {
+  proxy %s
+}
+`, logFile, backend.URL), &rules))
+	require.NoError(t, rules.Validate())
+	handler := rules.BuildHandler(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("default upstream called after proxy")
+	})
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/api/users", nil))
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Equal(t, "created", w.Body.String())
+	assert.Equal(t, "POST 201\n", string(TestFileContent(logFile)))
+}
+
 func TestLogCommand_TemporaryFile(t *testing.T) {
 	upstream := mockUpstreamWithHeaders(http.StatusOK, "success response", http.Header{
 		"Content-Type": []string{"application/json"},
