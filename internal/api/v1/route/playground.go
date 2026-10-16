@@ -1,11 +1,12 @@
 package routeApi
 
 import (
-	"fmt"
+	"context"
+	"crypto/tls"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -112,54 +113,59 @@ func Playground(c *gin.Context) {
 		req.MockRequest.Host = "localhost"
 	}
 
-	// Parse rules
-	parsedRules, rulesList, parseErr := parseRules(req.Rules)
-
 	// Create mock HTTP request
-	mockReq := createMockRequest(req.MockRequest)
+	mockReq, err := createMockRequest(c.Request.Context(), req.MockRequest)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, apitypes.Error("invalid mock request", err))
+		return
+	}
+	if status := req.MockResponse.StatusCode; status != 0 && (status < 100 || status > 999) {
+		c.JSON(http.StatusBadRequest, apitypes.Error("invalid mock response status", gperr.New("status must be 0 or between 100 and 999")))
+		return
+	}
+
+	// Parse rules only after checking the inputs, before any action can run.
+	parsedRules, rulesList, parseErr := parseRules(req.Rules)
 
 	// Create mock HTTP response writer
 	recorder := httptest.NewRecorder()
-
-	// Set initial mock response if provided
-	if req.MockResponse.StatusCode > 0 {
-		recorder.Code = req.MockResponse.StatusCode
-	}
-	if req.MockResponse.Headers != nil {
-		for k, values := range req.MockResponse.Headers {
-			for _, v := range values {
-				recorder.Header().Add(k, v)
-			}
-		}
-	}
-	if req.MockResponse.Body != "" {
-		recorder.Body.WriteString(req.MockResponse.Body)
-	}
 
 	// Execute rules
 	matchedRules := []string{}
 	upstreamCalled := false
 	var executionError error
 
-	// Variables to capture modified request state
-	var finalReqMethod, finalReqPath, finalReqHost string
-	var finalReqHeaders http.Header
-	var finalReqQuery url.Values
+	// Capture the request at the mock upstream, before its body is consumed.
+	var finalRequest FinalRequest
+	captureRequest := func(r *http.Request) {
+		var body []byte
+		if r.Body != nil {
+			var err error
+			body, err = io.ReadAll(r.Body)
+			if err != nil {
+				executionError = gperr.Join(executionError, err)
+			}
+			r.Body.Close()
+			r.Body = io.NopCloser(strings.NewReader(string(body)))
+		}
+		finalRequest = FinalRequest{
+			Method: r.Method, Path: r.URL.Path, Host: r.Host,
+			Headers: r.Header.Clone(), Query: r.URL.Query(), Body: string(body),
+		}
+		if r.URL.RawPath != "" {
+			finalRequest.Path = r.URL.RawPath
+		}
+	}
 
 	if parseErr == nil && len(rulesList) > 0 {
 		// Create upstream handler that records if it was called and captures request state
 		upstreamHandler := func(w http.ResponseWriter, r *http.Request) {
 			upstreamCalled = true
-			// Capture the request state when upstream is called
-			finalReqMethod = r.Method
-			finalReqPath = r.URL.Path
-			finalReqHost = r.Host
-			finalReqHeaders = r.Header.Clone()
-			finalReqQuery = r.URL.Query()
-
-			// Debug: also check RequestURI
-			if r.URL.Path != r.URL.RawPath && r.URL.RawPath != "" {
-				finalReqPath = r.URL.RawPath
+			captureRequest(r)
+			for k, values := range req.MockResponse.Headers {
+				for _, v := range values {
+					w.Header().Add(k, v)
+				}
 			}
 
 			// If there's mock response body, write it during upstream call
@@ -169,7 +175,9 @@ func Playground(c *gin.Context) {
 			if req.MockResponse.StatusCode > 0 {
 				w.WriteHeader(req.MockResponse.StatusCode)
 			}
-			if req.MockResponse.Body != "" {
+			if req.MockResponse.Body != "" && req.MockRequest.Method != http.MethodHead &&
+				(req.MockResponse.StatusCode == 0 || req.MockResponse.StatusCode >= 200) &&
+				req.MockResponse.StatusCode != http.StatusNoContent && req.MockResponse.StatusCode != http.StatusNotModified {
 				w.Write([]byte(req.MockResponse.Body))
 			}
 		}
@@ -187,27 +195,8 @@ func Playground(c *gin.Context) {
 		executionError = parseErr
 	}
 
-	// Build final request state
-	// Use captured state if upstream was called, otherwise use current state
-	var finalRequest FinalRequest
-	if upstreamCalled {
-		finalRequest = FinalRequest{
-			Method:  finalReqMethod,
-			Path:    finalReqPath,
-			Host:    finalReqHost,
-			Headers: finalReqHeaders,
-			Query:   finalReqQuery,
-			Body:    req.MockRequest.Body,
-		}
-	} else {
-		finalRequest = FinalRequest{
-			Method:  mockReq.Method,
-			Path:    mockReq.URL.Path,
-			Host:    mockReq.Host,
-			Headers: mockReq.Header,
-			Query:   mockReq.URL.Query(),
-			Body:    req.MockRequest.Body,
-		}
+	if !upstreamCalled {
+		captureRequest(mockReq)
 	}
 
 	// Build final response state
@@ -249,7 +238,7 @@ func handlerWithRecover(w http.ResponseWriter, r *http.Request, h http.HandlerFu
 	defer func() {
 		if r := recover(); r != nil {
 			if outErr != nil {
-				*outErr = fmt.Errorf("panic during rule execution: %v", r)
+				*outErr = gperr.Errorf("panic during rule execution: %v", r)
 			}
 		}
 	}()
@@ -262,15 +251,17 @@ func parseRules(config string) ([]ParsedRule, rules.Rules, error) {
 		return []ParsedRule{}, nil, nil
 	}
 
-	var rawRules []RawRule
-	if err := yaml.Unmarshal([]byte(config), &rawRules); err == nil && len(rawRules) > 0 {
-		return parseRawRules(rawRules)
-	}
-
 	var rulesList rules.Rules
 	if err := rulesList.Parse(config); err != nil {
+		// Keep per-rule YAML diagnostics, but use the shared parser for execution
+		// so interpolation and validation agree with route configuration.
+		var rawRules []RawRule
+		if yaml.Unmarshal([]byte(config), &rawRules) == nil && len(rawRules) > 0 {
+			return parseRawRules(rawRules), nil, err
+		}
 		return nil, nil, err
 	}
+	validationErr := rulesList.Validate()
 
 	parsedRules := make([]ParsedRule, 0, len(rulesList))
 	for _, rule := range rulesList {
@@ -278,17 +269,17 @@ func parseRules(config string) ([]ParsedRule, rules.Rules, error) {
 			Name: rule.Name,
 			On:   rule.On.String(),
 			Do:   rule.Do.String(),
+			// A rejected rule set cannot execute any row. Keep the shared
+			// validation explanation visible in the existing per-row results.
+			ValidationError: validationErr,
 		})
 	}
 
-	return parsedRules, rulesList, nil
+	return parsedRules, rulesList, validationErr
 }
 
-func parseRawRules(rawRules []RawRule) ([]ParsedRule, rules.Rules, error) {
+func parseRawRules(rawRules []RawRule) []ParsedRule {
 	parsedRules := make([]ParsedRule, 0, len(rawRules))
-	rulesList := make(rules.Rules, 0, len(rawRules))
-
-	var valErrs gperr.Builder
 
 	// Parse each rule individually to capture per-rule errors
 	for _, rawRule := range rawRules {
@@ -298,8 +289,6 @@ func parseRawRules(rawRules []RawRule) ([]ParsedRule, rules.Rules, error) {
 		name := rawRule.Name
 		onStr := rawRule.On
 		doStr := rawRule.Do
-
-		rule.Name = name
 
 		// Parse On
 		var onErr error
@@ -313,13 +302,7 @@ func parseRawRules(rawRules []RawRule) ([]ParsedRule, rules.Rules, error) {
 			doErr = rule.Do.Parse(doStr)
 		}
 
-		// Determine if valid
-		isValid := onErr == nil && doErr == nil
-		var validationErr error
-		if !isValid {
-			validationErr = gperr.Join(gperr.PrependSubject(onErr, "on"), gperr.PrependSubject(doErr, "do"))
-			valErrs.Add(validationErr)
-		}
+		validationErr := gperr.Join(gperr.PrependSubject(onErr, "on"), gperr.PrependSubject(doErr, "do"))
 
 		parsedRules = append(parsedRules, ParsedRule{
 			Name:            name,
@@ -327,37 +310,43 @@ func parseRawRules(rawRules []RawRule) ([]ParsedRule, rules.Rules, error) {
 			Do:              doStr,
 			ValidationError: validationErr,
 		})
-
-		// Only add valid rules to execution list
-		if isValid {
-			rulesList = append(rulesList, rule)
-		}
 	}
 
-	return parsedRules, rulesList, valErrs.Error()
+	return parsedRules
 }
 
-func createMockRequest(mock MockRequest) *http.Request {
-	// Create URL
-	urlStr := mock.Path
-	if len(mock.Query) > 0 {
-		query := url.Values(mock.Query)
-		urlStr = mock.Path + "?" + query.Encode()
-	}
-
+func createMockRequest(ctx context.Context, mock MockRequest) (*http.Request, error) {
 	// Create request
 	var body io.Reader
 	if mock.Body != "" {
 		body = strings.NewReader(mock.Body)
 	}
 
-	req := httptest.NewRequest(mock.Method, urlStr, body)
+	req, err := http.NewRequestWithContext(ctx, mock.Method, mock.Path, body)
+	if err != nil {
+		return nil, err
+	}
+	if len(mock.Query) > 0 {
+		query := req.URL.Query()
+		for name, values := range mock.Query {
+			query[name] = values
+		}
+		req.URL.RawQuery = query.Encode()
+	}
+	req.RequestURI = req.URL.RequestURI()
+	if req.URL.Scheme == "https" {
+		req.TLS = &tls.ConnectionState{HandshakeComplete: true}
+	}
 
 	// Set host
 	req.Host = mock.Host
 
 	// Set headers
-	req.Header = mock.Headers
+	for name, values := range mock.Headers {
+		for _, value := range values {
+			req.Header.Add(name, value)
+		}
+	}
 
 	// Set cookies
 	if mock.Cookies != nil {
@@ -371,19 +360,21 @@ func createMockRequest(mock MockRequest) *http.Request {
 
 	// Set remote address
 	if mock.RemoteIP != "" {
-		req.RemoteAddr = mock.RemoteIP + ":0"
+		req.RemoteAddr = net.JoinHostPort(mock.RemoteIP, "0")
 	} else {
 		req.RemoteAddr = "127.0.0.1:0"
 	}
 
-	return req
+	return req, nil
 }
 
-func checkMatchedRules(rulesList rules.Rules, w http.ResponseWriter, r *http.Request) []string {
+func checkMatchedRules(rulesList rules.Rules, w *httptest.ResponseRecorder, r *http.Request) []string {
 	var matched []string
 
-	// Create a ResponseModifier to properly check rules
-	rm := httputils.NewResponseModifier(w)
+	// This is a final-state matcher view, not an execution trace.
+	response := w.Result()
+	defer response.Body.Close()
+	rm := httputils.ResponseAsRW(response)
 
 	for _, rule := range rulesList {
 		// Check if rule matches

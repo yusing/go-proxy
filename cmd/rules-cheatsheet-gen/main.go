@@ -1016,7 +1016,7 @@ func (ex *extractor) buildControlSection() section {
 	return section{
 		ID:          "control-flow",
 		Title:       "Control Flow",
-		Description: "Conditional branches inside a rule do-block (inherits the parent rule's phase).",
+		Description: "Conditional branches inside a rule do-block; response matchers or actions promote the whole nested block or branch chain to the response phase.",
 		Entries:     entries,
 	}
 }

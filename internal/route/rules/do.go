@@ -117,7 +117,7 @@ var commands = map[string]struct {
 		requestPhaseOnly: true,
 		help: Help{
 			command:     CommandRequireAuth,
-			description: makeLines("Require HTTP authentication for incoming requests"),
+			description: makeLines("Require HTTP authentication for incoming requests", "Request-phase only; cannot run in response-phase rules or nested blocks."),
 			args:        helpArgs(),
 		},
 		validate: func(args []string) (phase PhaseFlag, parsedArgs any, err error) {
@@ -454,7 +454,9 @@ var commands = map[string]struct {
 		help: Help{
 			command: CommandRequireBasicAuth,
 			description: makeLines(
-				"Require HTTP basic authentication for incoming requests, e.g.:",
+				"Send a 401 Basic authentication challenge and terminate processing.",
+				"Use with a basic_auth matcher to check credentials before challenging.",
+				"Request-phase only; cannot run in response-phase rules or nested blocks.",
 				helpExample(CommandRequireBasicAuth, "Restricted Area"),
 			),
 			args: helpArgs(
@@ -587,9 +589,8 @@ var commands = map[string]struct {
 			command: CommandLog,
 			description: makeLines(
 				"Write a log line from a template.",
-				"The template supports the following variables:",
-				helpListItem("Request", "the request object"),
-				helpListItem("Response", "the response object"),
+				"Use request and response variables such as $req_method, $req_url and $status_code.",
+				"For response logging with proxy or route, put log in a separate matching rule before the terminating action.",
 				"",
 				"Example:",
 				helpExample(CommandLog, "info", "/dev/stdout", "$req_method $req_url $status_code"),
