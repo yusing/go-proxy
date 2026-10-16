@@ -125,7 +125,6 @@ func TestParseBlockRules_EnvVars(t *testing.T) {
 }`)
 	require.Len(t, rules, 1)
 	assert.Equal(t, "path /api/*", rules[0].On.raw)
-	assert.Equal(t, `set header X-Custom "test-header"`, rules[0].Do.raw)
 	require.Len(t, rules[0].Do.pre, 1)
 	_, ok := rules[0].Do.pre[0].(Handler)
 	require.True(t, ok)

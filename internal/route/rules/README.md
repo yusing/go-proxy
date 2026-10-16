@@ -54,11 +54,8 @@ type Command struct {
 // BuildHandler converts rules to an HTTP handler
 func (rules Rules) BuildHandler(up http.HandlerFunc) http.HandlerFunc
 
-// ParseRules parses rule configuration
-func ParseRules(config string) (Rules, error)
-
-// ValidateRules validates rule syntax
-func ValidateRules(config string) error
+// Parse reads block syntax or a YAML rule list
+func (rules *Rules) Parse(config string) error
 
 // Validate validates rule semantics (e.g., prevents multiple default rules)
 func (rules Rules) Validate() gperr.Error
@@ -78,30 +75,29 @@ classDiagram
         +Name string
         +On RuleOn
         +Do Command
-        +IsResponseRule() bool
     }
 
     class RuleOn {
         +raw string
         +checker Checker
-        +isResponseChecker bool
+        +phase PhaseFlag
     }
 
     class Command {
         +raw string
-        +exec CommandHandler
-        +isResponseHandler bool
+        +pre Commands
+        +post Commands
     }
 
     class Checker {
         <<interface>>
-        +Check(r *http.Request) bool
-        +CheckResponse(w ResponseWriter, r *http.Request) bool
+        +Check(w ResponseModifier, r Request) bool
     }
 
     class CommandHandler {
         <<interface>>
-        +Execute(w ResponseWriter, r *http.Request, rm *ResponseModifier) gperr.Error
+        +ServeHTTP(w ResponseModifier, r Request, upstream HandlerFunc) error
+        +Phase() PhaseFlag
     }
 
     Rules --> Rule
@@ -225,7 +221,7 @@ wiki page.
 | `proxy <url>`                  | Proxy to upstream                         |
 | `require_basic_auth <realm>`   | Return 401 challenge                      |
 
-**Request Actions**:
+**Request and Mutation Actions**:
 
 | Command                        | Description                                         |
 | ------------------------------ | --------------------------------------------------- |
@@ -243,15 +239,20 @@ that target's options. Only middleware with a request phase is supported;
 response-only middleware is rejected while parsing the rules. A
 middleware that permits the request continues to the next action, while one
 that handles the request terminates the rule chain.
-Request middleware is rejected in response-phase rules and action blocks that run in the response phase.
+`require_auth`, `require_basic_auth`, and request middleware are rejected in response-phase rules and
+action blocks. Authentication must run before the upstream is contacted.
 
 
-**Response Actions**:
+**Logging and Notification Actions**:
 
 | Command                                    | Description       |
 | ------------------------------------------ | ----------------- |
-| `log <level> <path> <template>`            | Log response      |
+| `log <level> <path> <template>`            | Log a templated message |
 | `notify <level> <provider> <title> <body>` | Send notification |
+
+`log` and `notify` run in pre phase unless their templates require response
+variables. Response mutations run in post phase. `error 204` and `error 304`
+terminate without writing a body, regardless of the message template.
 
 ## Configuration Surface
 
@@ -284,9 +285,9 @@ It keeps the **inner** `on` and `do` DSLs exactly the same (same matchers, same 
   - line comment: `# ...` (to end of line, for YAML familiarity)
   - block comment: `/* ... */` (may span multiple lines)
   - Comments are ignored **only when outside quotes** (`"`, `'` or backticks).
-  - Environment variable syntax: `${NAME}` is supported by the inner DSL parser in [`parse()`](internal/route/rules/parser.go:34).
+  - Environment variable syntax: `${NAME}` is supported by the inner DSL parser in [`parser.go`](parser.go).
     Block-syntax rule:
-    - In `on` (rule header): `${...}` must be inside quotes/backticks.
+    - In `on` (rule header): quote `${...}` to keep the matcher argument explicit.
     - In `do` (rule body): `${...}` may be unquoted; the outer parser must treat `${...}` as an opaque token so braces inside it are not structural.
 
 #### Grammar sketch (EBNF-ish)
@@ -337,7 +338,7 @@ path glob("/admin/*") {
     level: error
     provider: ntfy
     title: error occurred
-    body: "[HTTP $status] wtf?"
+    body: "[HTTP $status_code] request failed"
   }
 }
 ```
@@ -364,7 +365,10 @@ Notes:
 - Logical headers can continue to the next line when the current line ends with `|` or `&`.
 - `on_expr` uses the same syntax as rule `on` (supports `|`, `&`, quoting/backticks, matcher functions, etc.).
 - The nested block executes **in sequence**, at the point where it appears in the parent `do` list.
-- Nested blocks are evaluated in the same phase the parent rule runs (no special phase promotion).
+- A nested block or entire `elif`/`else` chain runs in post phase if any of its
+  matchers or commands needs response data. Otherwise it runs in pre phase.
+  Keep request mutations separate from response-only actions so they run before
+  the upstream. `require_auth`, `require_basic_auth`, and request middleware are invalid in post phase.
 - Nested blocks can be chained with `elif`/`else` for conditional execution (see Elif/Else Chains section).
 
 Example:
@@ -425,8 +429,8 @@ WebSocket upgrade routing:
 # WebSocket requests
 header Connection Upgrade &
 header Upgrade websocket {
-  route ws-api
   log info /dev/stdout "Websocket request $req_path from $remote_host to $upstream_name"
+  route ws-api
 }
 ```
 
@@ -452,11 +456,11 @@ Always log the request
 - The block syntax uses `{` and `}` as structure delimiters at **top-level** (outside quotes/comments).
   - Braces inside quoted strings (including backticks) are not structural.
   - `${...}` handling:
-    - `on`: must be quoted/backticked
+    - `on`: prefer quoting/backticks
     - `do`: may be unquoted
       Preferred style: always write env vars as `${NAME}` rather than a bare `$NAME`.
     - If you need literal `{` or `}` outside quotes/backticks (for example unquoted templates like `{{ ... }}`), wrap that argument in quotes/backticks so the outer parser does not treat it as structure.
-- Rule naming remains minimal: if no explicit name is provided by the syntax, it will behave like the current YAML behavior (empty name becomes `rule[index]` in [`Rules.BuildHandler()`](internal/route/rules/rules.go:75)).
+- Rule naming remains minimal: if no explicit name is provided by the syntax, it will behave like the current YAML behavior (empty name becomes `rule[index]` in `Rules.Validate()`).
 - YAML remains supported as a fallback for backward compatibility.
 
 ### Condition Syntax
@@ -527,25 +531,24 @@ ${ENV_VAR}
 | `internal/acl`               | IP-based access control  |
 | `internal/notif`             | Notification integration |
 | `internal/logging/accesslog` | Response logging         |
-| `pkg/gperr`                  | Error handling           |
+| `github.com/yusing/goutils/errs` | Error handling          |
 | `golang.org/x/net/http2`     | HTTP/2 support           |
 
 ## Observability
 
 ### Logs
 
-- **DEBUG**: Rule matching details, variable substitution
-- **INFO**: Rule execution, terminating actions
-- **ERROR**: Rule parse errors, execution failures
-
-Log context includes: `rule`, `alias`, `match_result`
+Execution and response-flush failures are logged at error level with the HTTP
+method and request URL. Use explicit `log` actions for request or response
+diagnostics; their templates determine whether they run before or after upstream.
 
 ## Security Considerations
 
 - `require_auth` enforces authentication
 - `remote` matcher supports IP/CIDR for access control
-- Variables are sanitized to prevent injection
-- Path rewrites are validated to prevent traversal
+- Template values are text, not automatically escaped for HTML, JSON, or shell use.
+- Do not place secrets in response templates or unredacted logs.
+- Path matchers canonicalize request paths before matching.
 
 ## Failure Modes and Recovery
 
@@ -553,8 +556,8 @@ Log context includes: `rule`, `alias`, `match_result`
 | ---------------------- | ------------------------- | ---------------------------------- |
 | Invalid rule syntax    | Route validation fails    | Fix block rule syntax              |
 | Multiple default rules | Route validation fails    | Remove duplicate default rules     |
-| Missing variables      | Variable renders as empty | Check variable sources             |
-| Rule timeout           | Request times out         | Increase timeout or simplify rules |
+| Missing environment variable | Rule loading fails | Set the variable or escape a literal `${...}` |
+| Unknown template variable | Rule loading fails | Use a supported variable name |
 | Auth failure           | Returns 401/403           | Fix credentials                    |
 
 ## Usage Examples
@@ -590,10 +593,15 @@ path glob("/admin/*") {
   require_auth
 }
 
-path glob("/api/*") {
+path glob("/api/*") & !basic_auth api_user "${API_PASSWORD_HASH}" {
   require_basic_auth "API Access"
 }
 ```
+
+Set `API_PASSWORD_HASH` to the bcrypt hash for `api_user`. Valid credentials
+continue to the configured upstream; missing or invalid credentials receive a
+401 challenge. `require_basic_auth` always challenges, so use a condition to
+exclude authenticated requests.
 
 ### Path Rewriting
 
@@ -637,11 +645,11 @@ default {
 
 # Matching rules suppress default
 path glob("/api/*") {
-  proxy http://api:8080
+  set resp_header X-API true
 }
 
 path glob("/api/*") {
-  set resp_header X-API true
+  proxy http://api:8080
 }
 ```
 

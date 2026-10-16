@@ -13,6 +13,37 @@ import (
 	httputils "github.com/yusing/goutils/http"
 )
 
+func TestSetBodyProxy(t *testing.T) {
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("X-Body-Length", fmt.Sprint(r.ContentLength))
+		_, _ = w.Write(body)
+	}))
+	t.Cleanup(backend.Close)
+	var rules Rules
+	require.NoError(t, rules.Parse(fmt.Sprintf(`default {
+  set body "replacement"
+  proxy %s
+}`, backend.URL)))
+	for _, original := range []string{"", "old", "a longer original request body"} {
+		t.Run(original, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/", strings.NewReader(original))
+			req.Header.Set("Content-Length", fmt.Sprint(req.ContentLength))
+			w := httptest.NewRecorder()
+			rules.BuildHandler(func(http.ResponseWriter, *http.Request) {
+				t.Fatal("default upstream called after proxy")
+			})(w, req)
+			assert.Equal(t, http.StatusOK, w.Code)
+			assert.Equal(t, "replacement\n", w.Body.String())
+			assert.Equal(t, "12", w.Header().Get("X-Body-Length"))
+		})
+	}
+}
+
 func TestFieldHandler_Header(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -19,12 +19,11 @@ import (
 //	<on-expr> { <do...> }
 //
 // Semantics:
-//   - Evaluated in the same phase the parent rule runs.
+//   - Evaluated in post phase if any nested matcher or command requires it.
 //   - If <on-expr> matches, run the nested commands in-order.
 //   - Otherwise do nothing.
 //
-// NOTE: Per current design decision, we keep this permissive:
-// nested blocks may use response matchers and response commands; no extra phase validation is performed.
+// Request-only authentication and middleware actions are rejected in post-phase blocks.
 type IfBlockCommand struct {
 	On RuleOn
 	Do []CommandHandler

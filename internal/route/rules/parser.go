@@ -157,7 +157,7 @@ func parse(v string) (subject string, args []string, err error) {
 			buf.WriteRune('$')
 			expectingBrace = false
 		}
-		if quoteChars[r] {
+		if r < rune(len(quoteChars)) && quoteChars[r] {
 			switch {
 			case quote == 0 && brackets == 0:
 				quote = r

@@ -114,6 +114,7 @@ var commands = map[string]struct {
 		terminate: true,
 	},
 	CommandRequireAuth: {
+		requestPhaseOnly: true,
 		help: Help{
 			command:     CommandRequireAuth,
 			description: makeLines("Require HTTP authentication for incoming requests"),
@@ -436,7 +437,7 @@ var commands = map[string]struct {
 				// error command should overwrite the response body
 				w.ResetBody()
 				w.WriteHeader(code)
-				if code == http.StatusNoContent {
+				if code == http.StatusNoContent || code == http.StatusNotModified {
 					return errTerminateRule
 				}
 				_, err := textTmpl.ExpandVars(w, r, w.BodyBuffer())
@@ -449,6 +450,7 @@ var commands = map[string]struct {
 		terminate: true,
 	},
 	CommandRequireBasicAuth: {
+		requestPhaseOnly: true,
 		help: Help{
 			command: CommandRequireBasicAuth,
 			description: makeLines(

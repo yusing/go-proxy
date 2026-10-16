@@ -41,6 +41,13 @@ type MapUnmarshaller interface {
 	UnmarshalMap(m map[string]any) error
 }
 
+// EnvParser owns environment expansion within its string syntax. Configuration
+// loading leaves these strings intact so substituted values cannot become syntax.
+type EnvParser interface {
+	strutils.Parser
+	OwnsEnvExpansion()
+}
+
 var (
 	ErrInvalidType           = errors.New("invalid type")
 	ErrNilValue              = errors.New("nil")
@@ -619,7 +626,7 @@ var envRegex = regexp.MustCompile(`\$\{([^}]+)\}`) // e.g. ${CLOUDFLARE_API_KEY}
 
 // substituteEnv expands decoded strings, never YAML/JSON syntax. In particular,
 // quotes, newlines and mapping delimiters in an environment value stay data.
-func substituteEnv(m map[string]any) (map[string]any, error) {
+func substituteEnv(m map[string]any, target reflect.Type) (map[string]any, error) {
 	envError := gperr.NewBuilder("env substitution error")
 	expanded := transformStrings(m, func(value string) string {
 		return envRegex.ReplaceAllStringFunc(value, func(match string) string {
@@ -630,13 +637,19 @@ func substituteEnv(m map[string]any) (map[string]any, error) {
 			}
 			return value
 		})
-	}, &envError)
+	}, &envError, target)
 	return expanded.(map[string]any), envError.Error()
 }
 
-func transformStrings(value any, transform func(string) string, errs *gperr.Builder) any {
+func transformStrings(value any, transform func(string) string, errs *gperr.Builder, target reflect.Type) any {
+	for target != nil && target.Kind() == reflect.Pointer {
+		target = target.Elem()
+	}
 	switch value := value.(type) {
 	case string:
+		if target != nil && reflect.PointerTo(target).Implements(reflect.TypeFor[EnvParser]()) {
+			return value
+		}
 		return transform(value)
 	case map[string]any:
 		if value == nil {
@@ -650,13 +663,28 @@ func transformStrings(value any, transform func(string) string, errs *gperr.Buil
 			if _, exists := result[key]; exists {
 				errs.Adds("duplicate mapping key after environment substitution")
 			}
-			result[key] = transformStrings(item, transform, errs)
+			var fieldType reflect.Type
+			if target != nil {
+				switch target.Kind() {
+				case reflect.Map:
+					fieldType = target.Elem()
+				case reflect.Struct:
+					if index, ok := getTypeInfo(target).keyFieldIndexes[fnv1IgnoreCaseSnake(key)]; ok {
+						fieldType = target.FieldByIndex(index).Type
+					}
+				}
+			}
+			result[key] = transformStrings(item, transform, errs, fieldType)
 		}
 		return result
 	case []any:
+		var elemType reflect.Type
+		if target != nil && (target.Kind() == reflect.Slice || target.Kind() == reflect.Array) {
+			elemType = target.Elem()
+		}
 		result := make([]any, len(value))
 		for i, item := range value {
-			result[i] = transformStrings(item, transform, errs)
+			result[i] = transformStrings(item, transform, errs, elemType)
 		}
 		return result
 	}
@@ -666,7 +694,7 @@ func transformStrings(value any, transform func(string) string, errs *gperr.Buil
 // Mask braces before YAML parsing so unquoted ${VAR} works in flow collections
 // as well as block scalars. Restore references only in decoded strings, before
 // expanding them once; environment contents are never recursively expanded.
-func unmarshalEnv(data []byte, m *map[string]any, unmarshaler unmarshalFunc) error {
+func unmarshalEnv(data []byte, m *map[string]any, unmarshaler unmarshalFunc, target reflect.Type) error {
 	prefix := "GODOXY_ENV_REFERENCE_"
 	for bytes.Contains(data, []byte(prefix)) {
 		prefix += "_"
@@ -682,13 +710,13 @@ func unmarshalEnv(data []byte, m *map[string]any, unmarshaler unmarshalFunc) err
 	}
 	if len(replacements) > 0 {
 		var errs gperr.Builder
-		*m = transformStrings(*m, strings.NewReplacer(replacements...).Replace, &errs).(map[string]any)
+		*m = transformStrings(*m, strings.NewReplacer(replacements...).Replace, &errs, nil).(map[string]any)
 		if err := errs.Error(); err != nil {
 			return err
 		}
 	}
 	var err error
-	*m, err = substituteEnv(*m)
+	*m, err = substituteEnv(*m, target)
 	return err
 }
 
@@ -705,7 +733,7 @@ type (
 //   - Intercept functions can modify or validate the map before unmarshaling.
 func UnmarshalValidate[T any](data []byte, target *T, unmarshaler unmarshalFunc, interceptFns ...interceptFunc) error {
 	m := make(map[string]any)
-	if err := unmarshalEnv(data, &m, unmarshaler); err != nil {
+	if err := unmarshalEnv(data, &m, unmarshaler, reflect.TypeFor[T]()); err != nil {
 		return err
 	}
 	if m == nil {

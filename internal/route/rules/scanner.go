@@ -84,12 +84,16 @@ func (t *Tokenizer) skipComments(pos int, atLineStart bool, prevIsSpace bool) (i
 	return pos, nil
 }
 
-// scanToBrace scans from pos until it finds '{' outside quotes, or returns an error.
+// scanToBrace finds '{' outside quotes and environment references, or returns an error.
 func (t *Tokenizer) scanToBrace(pos int) (int, gperr.Error) {
 	quote := rune(0)
 	for pos < t.length {
 		c := rune(t.src[pos])
 		if quote != 0 {
+			if c == '\\' && pos+1 < t.length {
+				pos += 2
+				continue
+			}
 			if c == quote {
 				quote = 0
 			}
@@ -99,6 +103,14 @@ func (t *Tokenizer) scanToBrace(pos int) (int, gperr.Error) {
 		if c == '"' || c == '\'' || c == '`' {
 			quote = c
 			pos++
+			continue
+		}
+		if c == '$' && pos+1 < t.length && t.src[pos+1] == '{' {
+			end := strings.IndexByte(t.src[pos+2:], '}')
+			if end < 0 {
+				return 0, ErrUnterminatedEnvVar
+			}
+			pos += end + 3
 			continue
 		}
 		if c == '{' {
@@ -150,6 +162,10 @@ func (t *Tokenizer) findMatchingBrace(startPos int) (int, gperr.Error) {
 		}
 
 		if quote != 0 {
+			if c == '\\' && pos+1 < t.length {
+				pos += 2
+				continue
+			}
 			if c == quote {
 				quote = 0
 			}

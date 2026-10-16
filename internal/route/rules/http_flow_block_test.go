@@ -1478,6 +1478,35 @@ status 200 {
 	assert.Empty(t, w.Header().Get("X-After"))
 }
 
+func TestHTTPFlow_QuotedTemplates(t *testing.T) {
+	t.Setenv("GODOXY_RULE_MESSAGE", "say \"hello\" {text}\nnext line")
+	for _, tc := range []struct{ name, template, want string }{
+		{"unicode", `"拒絕存取"`, "拒絕存取\n"},
+		{"escaped quote and brace", `"quote: \" }"`, "quote: \" }\n"},
+		{"literal environment variable", `"$${GODOXY_RULE_MESSAGE}"`, "${GODOXY_RULE_MESSAGE}\n"},
+		{"environment value is not syntax", `"${GODOXY_RULE_MESSAGE}"`, "say \"hello\" {text}\nnext line\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var rules Rules
+			require.NoError(t, rules.Parse("default { error 403 "+tc.template+" }"))
+			w := httptest.NewRecorder()
+			rules.BuildHandler(mockUpstream(http.StatusOK, "upstream"))(w, httptest.NewRequest(http.MethodGet, "/", nil))
+			assert.Equal(t, http.StatusForbidden, w.Code)
+			assert.Equal(t, tc.want, w.Body.String())
+		})
+	}
+}
+
+func TestHTTPFlow_EscapedQuoteInMatcher(t *testing.T) {
+	var rules Rules
+	require.NoError(t, rules.Parse(`header X-Note "quote: \" {" { error 403 denied }`))
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Note", `quote: " {`)
+	w := httptest.NewRecorder()
+	rules.BuildHandler(mockUpstream(http.StatusOK, "upstream"))(w, req)
+	assert.Equal(t, http.StatusForbidden, w.Code)
+}
+
 func TestHTTPFlow_EnvVarExpansionInDoBody(t *testing.T) {
 	t.Setenv("GODOXY_TEST_ENV", "env-value")
 
@@ -1488,6 +1517,7 @@ func TestHTTPFlow_EnvVarExpansionInDoBody(t *testing.T) {
 {
   set resp_header X-From-Env "${GODOXY_TEST_ENV}"
 }
+
 `, &rules)
 	require.NoError(t, err)
 

@@ -266,8 +266,13 @@ var modFields = map[string]struct {
 					b := bufPool.GetBuffer()
 					_, err := tmpl.ExpandVars(w, r, b)
 					if err != nil {
+						bufPool.PutBuffer(b)
 						return err
 					}
+					r.ContentLength = int64(b.Len())
+					r.Header.Del("Content-Length")
+					r.TransferEncoding = nil
+					r.GetBody = nil
 					r.Body = ioutils.NewHookReadCloser(io.NopCloser(b), func() {
 						bufPool.PutBuffer(b)
 					})

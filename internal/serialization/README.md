@@ -21,6 +21,12 @@ single-pass and honors `GODOXY_`, `GOPROXY_`, then unprefixed lookup. JSON reque
 bodies use ordinary JSON strings, for example `{"host":"https://${HOST}"}`.
 Bare `$VAR` is not interpolated. YAML comments do not trigger env lookup.
 
+String values targeting an `EnvParser` are passed through unchanged. Such
+parsers own environment expansion after tokenizing their embedded language.
+This keeps inline routing rules consistent with standalone rule files, including
+quoted values and escaped `$${...}` references. Ordinary config strings, map
+keys, and fields inside structured YAML lists retain normal substitution.
+
 ### Primary Consumers
 
 - `internal/config/` - Configuration file loading
@@ -52,6 +58,12 @@ type SerializedObject = map[string]any
 // For custom map unmarshaling logic
 type MapUnmarshaller interface {
     UnmarshalMap(m map[string]any) error
+}
+
+// For a string parser that owns environment expansion
+type EnvParser interface {
+    Parse(string) error
+    OwnsEnvExpansion()
 }
 
 // For custom validation logic
@@ -152,9 +164,9 @@ sequenceDiagram
 ```mermaid
 flowchart TB
     subgraph Input Processing
-        Bytes[Data Bytes] --> EnvSub[Env Substitution]
-        EnvSub --> FormatParse[Format Parse]
-        FormatParse --> Map[map<string,any>]
+        Bytes[Data Bytes] --> FormatParse[Format Parse]
+        FormatParse --> EnvSub[Type-aware Env Substitution]
+        EnvSub --> Map[map<string,any>]
     end
 
     subgraph Type Inspection
@@ -239,9 +251,8 @@ nil inputs nil, so an explicit empty list remains distinct from nil.
 All errors use `gperr` with structured subjects:
 
 ```go
-ErrUnknownField.Subject("field_name").With(gperr.DoYouMeanField("field_name", ["fieldName"]))
-ErrValidationError.Subject("Namespace").Withf("required")
-ErrUnsupportedConversion.Subjectf("string to int")
+gperr.PrependSubject(serialization.ErrUnknownField, "field_name")
+gperr.PrependSubject(serialization.ErrUnsupportedConversion, "field_name")
 ```
 
 ## Performance Characteristics

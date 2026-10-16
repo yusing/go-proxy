@@ -4,7 +4,6 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/yusing/goutils/env"
 	gperr "github.com/yusing/goutils/errs"
 )
 
@@ -14,78 +13,6 @@ func getStringBuffer(size int) *strings.Builder {
 		buf.Grow(size)
 	}
 	return &buf
-}
-
-// expandEnvVarsRaw expands ${NAME} in-place using env.LookupEnv (prefix-aware).
-func expandEnvVarsRaw(v string) (string, gperr.Error) {
-	buf := getStringBuffer(len(v))
-	envVar := getStringBuffer(0)
-
-	var missingEnvVars []string
-	inEnvVar := false
-	expectingBrace := false
-
-	for _, r := range v {
-		if expectingBrace && r != '{' && r != '$' {
-			buf.WriteRune('$')
-			expectingBrace = false
-		}
-		switch r {
-		case '$':
-			if expectingBrace {
-				buf.WriteRune('$')
-				expectingBrace = false
-			} else {
-				expectingBrace = true
-			}
-		case '{':
-			if expectingBrace {
-				inEnvVar = true
-				expectingBrace = false
-				envVar.Reset()
-			} else {
-				buf.WriteRune(r)
-			}
-		case '}':
-			if inEnvVar {
-				envValue, ok := env.LookupEnv(envVar.String())
-				if !ok {
-					missingEnvVars = append(missingEnvVars, envVar.String())
-				} else {
-					buf.WriteString(envValue)
-				}
-				inEnvVar = false
-			} else {
-				buf.WriteRune(r)
-			}
-		default:
-			if expectingBrace {
-				buf.WriteRune('$')
-				expectingBrace = false
-			}
-			if inEnvVar {
-				envVar.WriteRune(r)
-			} else {
-				buf.WriteRune(r)
-			}
-		}
-	}
-
-	if expectingBrace {
-		buf.WriteRune('$')
-	}
-
-	var err gperr.Error
-	if inEnvVar {
-		// Write back the unterminated ${...} so the output matches the input.
-		buf.WriteString("${")
-		buf.WriteString(envVar.String())
-		err = ErrUnterminatedEnvVar
-	}
-	if len(missingEnvVars) > 0 {
-		err = gperr.Join(err, ErrEnvVarNotFound.With(gperr.Multiline().AddStrings(missingEnvVars...)))
-	}
-	return buf.String(), err
 }
 
 // parseBlockRules parses the block-syntax rule format.
@@ -107,8 +34,7 @@ func expandEnvVarsRaw(v string) (string, gperr.Error) {
 //
 // Brace handling:
 //   - Braces inside quotes/backticks are ignored
-//   - Braces inside ${...} (env vars) are ignored in do_body
-//   - Braces in on_expr are not ignored (env vars must be quoted in on_expr)
+//   - Braces inside ${...} (env vars) are ignored in headers and do_body
 //
 //nolint:dupword
 func parseBlockRules(src string) (Rules, gperr.Error) {
@@ -170,7 +96,6 @@ func parseBlockRules(src string) (Rules, gperr.Error) {
 		// Normalize do body for the inner DSL parser:
 		// - strip comments (outside quotes/backticks)
 		// - trim block whitespace/indentation
-		// - expand ${ENV} in-place so cmd.raw is usable/debuggable
 		doBody, err = preprocessDoBody(doBody)
 		if err != nil {
 			errs.AddSubjectf(err, "rule header %q", headerStr)
@@ -255,15 +180,8 @@ func preprocessDoBody(doBody string) (string, gperr.Error) {
 	}
 	normalized = out.String()
 
-	// Expand env vars to keep Command.raw consistent with parsed semantics.
-	if !strings.Contains(normalized, "${") {
-		return normalized, nil
-	}
-	expanded, err := expandEnvVarsRaw(normalized)
-	if err != nil {
-		return "", err
-	}
-	return expanded, nil
+	// Command parsing owns environment expansion; preserve quoting and escapes here.
+	return normalized, nil
 }
 
 // stripCommentsPreserveNewlines removes //, #, and /* */ comments outside quotes/backticks.

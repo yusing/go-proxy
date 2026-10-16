@@ -23,6 +23,62 @@ import (
 	. "github.com/yusing/godoxy/internal/route/rules"
 )
 
+func TestHTTPFlow_EnvironmentInConfigurationBindings(t *testing.T) {
+	t.Setenv("GODOXY_RULE_PATH", "/test")
+	t.Setenv("GODOXY_RULE_MESSAGE", "say \"hello\" {text}\nnext line")
+	for _, tc := range []struct {
+		name, input string
+		bind        func(*http.Request, any) error
+	}{
+		{"JSON block", `{"rules":"path \"${RULE_PATH}\" { error 403 \"${RULE_MESSAGE}\" }"}`, serialization.GinJSONBinding{}.Bind},
+		{"YAML block", "rules: |\n  path \"${RULE_PATH}\" { error 403 \"${RULE_MESSAGE}\" }", serialization.GinYAMLBinding{}.Bind},
+		{"YAML list", "rules:\n  - on: path \"${RULE_PATH}\"\n    do: error 403 \"${RULE_MESSAGE}\"", serialization.GinYAMLBinding{}.Bind},
+		{"YAML list string", "rules: |\n  - on: path \"${RULE_PATH}\"\n    do: error 403 \"${RULE_MESSAGE}\"", serialization.GinYAMLBinding{}.Bind},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, escaped := range []bool{false, true} {
+				input, want := tc.input, "say \"hello\" {text}\nnext line\n"
+				if escaped {
+					input = strings.ReplaceAll(input, "${RULE_MESSAGE}", "$${RULE_MESSAGE}")
+					want = "${RULE_MESSAGE}\n"
+				}
+				var config struct{ Rules Rules }
+				require.NoError(t, tc.bind(httptest.NewRequest(http.MethodPost, "/", strings.NewReader(input)), &config))
+				w := httptest.NewRecorder()
+				config.Rules.BuildHandler(mockUpstream(http.StatusOK, "upstream"))(w, httptest.NewRequest(http.MethodGet, "/test", nil))
+				assert.Equal(t, http.StatusForbidden, w.Code)
+				assert.Equal(t, want, w.Body.String())
+			}
+		})
+	}
+}
+
+func TestHTTPFlow_LegacyYAMLEnvironmentMetadata(t *testing.T) {
+	t.Setenv("GODOXY_RULE_NAME_FIELD", "name")
+	t.Setenv("GODOXY_RULE_NAME", "default")
+	var config struct{ Rules Rules }
+	input := `rules: |
+  - ${RULE_NAME_FIELD}: ${RULE_NAME}
+    do: error 403 denied
+  - on: path /allowed
+    do: pass
+`
+	require.NoError(t, (serialization.GinYAMLBinding{}).Bind(
+		httptest.NewRequest(http.MethodPost, "/", strings.NewReader(input)), &config))
+	handler := config.Rules.BuildHandler(mockUpstream(http.StatusOK, "upstream"))
+	for _, tc := range []struct {
+		path string
+		code int
+	}{
+		{"/allowed", http.StatusOK},
+		{"/denied", http.StatusForbidden},
+	} {
+		w := httptest.NewRecorder()
+		handler(w, httptest.NewRequest(http.MethodGet, tc.path, nil))
+		assert.Equal(t, tc.code, w.Code, tc.path)
+	}
+}
+
 // mockUpstream creates a simple upstream handler for testing
 func mockUpstream(status int, body string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

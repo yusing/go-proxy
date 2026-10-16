@@ -2,6 +2,7 @@ package rules
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -25,6 +26,51 @@ func TestErrorNoContent(t *testing.T) {
 			require.Empty(t, w.Body.String())
 		})
 	}
+}
+
+func TestErrorNotModified(t *testing.T) {
+	var rules Rules
+	require.NoError(t, rules.Parse(`default { error 304 "Not Modified" }`))
+	w := httptest.NewRecorder()
+	rules.BuildHandler(func(http.ResponseWriter, *http.Request) {
+		t.Fatal("upstream called for a terminating response")
+	})(w, httptest.NewRequest(http.MethodGet, "/", nil))
+	require.Equal(t, http.StatusNotModified, w.Code)
+	require.Empty(t, w.Body.String())
+}
+
+func TestRulesValidateRejectsResponsePhaseAuth(t *testing.T) {
+	for _, action := range []string{"require_auth", `require_basic_auth "Restricted"`} {
+		for _, template := range []string{
+			`status 200 { %s }`,
+			`default {
+  method GET {
+    %s
+    set resp_header X-Authenticated true
+  }
+}`,
+		} {
+			var rules Rules
+			require.NoError(t, rules.Parse(fmt.Sprintf(template, action)))
+			require.ErrorIs(t, rules.Validate(), ErrInvalidArguments)
+		}
+	}
+}
+
+func TestMiddlewareCommandBlockEnvironmentName(t *testing.T) {
+	t.Setenv("GODOXY_RULE_MIDDLEWARE", "test")
+	previous := requestMiddlewareResolver
+	t.Cleanup(func() { InitRequestMiddlewareResolver(previous) })
+	InitRequestMiddlewareResolver(func(name string, options map[string]any) (RequestMiddleware, error) {
+		require.Equal(t, "test", name)
+		return func(http.ResponseWriter, *http.Request) bool { return true }, nil
+	})
+	var rules Rules
+	require.NoError(t, rules.Parse(`default {
+  middleware ${GODOXY_RULE_MIDDLEWARE} {
+  }
+}`))
+	require.NoError(t, rules.Validate())
 }
 
 func TestParseCommands(t *testing.T) {
@@ -412,7 +458,7 @@ func TestRulesValidateRejectsMiddlewareAfterResponseMatcher(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var configured Rules
 			require.NoError(t, configured.Parse(config))
-			require.ErrorContains(t, configured.Validate(), "request middleware cannot be used in a response-phase rule or action block")
+			require.ErrorContains(t, configured.Validate(), "request-only actions (authentication or middleware) cannot be used in a response-phase rule or action block")
 		})
 	}
 }

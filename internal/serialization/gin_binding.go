@@ -3,6 +3,7 @@ package serialization
 import (
 	"io"
 	"net/http"
+	"reflect"
 
 	"github.com/goccy/go-yaml"
 	strutils "github.com/yusing/goutils/strings"
@@ -24,7 +25,7 @@ func (b GinJSONBinding) Bind(req *http.Request, obj any) error {
 	if err := strutils.NewJSONDecoder(req.Body).Decode(&m); err != nil {
 		return err
 	}
-	m, err := substituteEnv(m)
+	m, err := substituteEnv(m, reflect.TypeOf(obj))
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (b GinYAMLBinding) Bind(req *http.Request, obj any) error {
 	if err != nil {
 		return err
 	}
-	if err := unmarshalEnv(data, &m, yaml.Unmarshal); err != nil {
+	if err := unmarshalEnv(data, &m, yaml.Unmarshal, reflect.TypeOf(obj)); err != nil {
 		return err
 	}
 	return MapUnmarshalValidate(m, obj)

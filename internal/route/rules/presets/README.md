@@ -4,7 +4,7 @@ Provides embedded, pre-configured rule sets for common routing patterns.
 
 ## Overview
 
-The `internal/route/rules/presets` package provides embedded YAML rule configurations that can be reused across routes. Presets are compiled into the binary and loaded at runtime via `sync.Once` initialization.
+The `internal/route/rules/presets` package provides embedded rule configurations that can be reused across routes. Presets are compiled into the binary and loaded at runtime via `sync.Once` initialization.
 
 ### Primary Consumers
 
@@ -34,7 +34,8 @@ func GetRulePreset(name string) (rules.Rules, bool)
 **Contract:**
 
 - Uses `sync.Once` for one-time initialization
-- Returns a copy of the preset rules
+- Looks up the complete filename, including `.yml`
+- Returns the cached rule slice; callers must treat it as read-only
 - Second return value indicates if preset exists
 
 ## Architecture
@@ -73,22 +74,22 @@ sequenceDiagram
     participant App as Application
     participant Once as sync.Once
     participant FS as Embedded FS
-    participant Parser as YAML Parser
+    participant Parser as Rule Parser
     participant Map as rulePresets
 
-    App->>Once: GetRulePreset("webui")
+    App->>Once: GetRulePreset("webui.yml")
     Once->>Once: once.Do(initPresets)
-    Once->>FS: ReadDir("presets/")
+    Once->>FS: ReadDir(".")
     FS-->>Once: List files
     loop Each file
         Once->>FS: ReadFile(filename)
-        FS-->>Once: YAML content
-        Once->>Parser: Parse YAML
+        FS-->>Once: Rule text
+        Once->>Parser: Parse block syntax or YAML
         Parser-->>Once: rules.Rules
         Once->>Map: Store in map
     end
     Map-->>Once: Loaded presets
-    Once-->>App: Rules copy
+    Once-->>App: Cached rules
 ```
 
 ## Preset Files
@@ -108,7 +109,6 @@ The default preset for GoDoxy WebUI. Preset files use the route-rules block synt
 
 **What it does:**
 
-1. Adds long-lived cache headers for TanStack `__tsr` JSON and static asset extensions
 1. Allows unauthenticated access to `/login`
 1. Requires auth for most app paths, excluding static assets, public metadata, and auth endpoints
 1. Dispatches `/api/v1/*` to the in-process GoDoxy API handler
@@ -126,8 +126,9 @@ The default preset for GoDoxy WebUI. Preset files use the route-rules block synt
 
 ### Logs
 
-- DEBUG: Preset loading errors
-- WARN: Missing preset files
+- DEBUG: Successfully loaded preset filenames
+- ERROR: Embedded file reads and rule parsing failures
+- Unknown preset names return `false`; the caller decides how to report them.
 
 ## Security Considerations
 
@@ -148,9 +149,9 @@ The default preset for GoDoxy WebUI. Preset files use the route-rules block synt
 ### Loading a Preset
 
 ```go
-import "github.com/yusing/godoxy/internal/route/rules/presets"
+import rulepresets "github.com/yusing/godoxy/internal/route/rules/presets"
 
-rules, ok := presets.GetRulePreset("webui.yml")
+rules, ok := rulepresets.GetRulePreset("webui.yml")
 if !ok {
     return fmt.Errorf("preset not found")
 }
@@ -164,9 +165,12 @@ handler := rules.BuildHandler(upstreamHandler)
 ```bash
 # internal/route/rules/presets/api-gateway.yml
 method OPTIONS {
-  set header Access-Control-Allow-Origin *
-  set header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-  error 204 "No Content"
+  set resp_header Access-Control-Allow-Origin *
+  set resp_header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+}
+
+method OPTIONS {
+  error 204 ""
 }
 
 !path /health {
@@ -174,10 +178,10 @@ method OPTIONS {
 }
 ```
 
-Then load it:
+Rebuild GoDoxy to embed the new `.yml` file, then load it by filename:
 
 ```go
-rules, ok := presets.GetRulePreset("api-gateway")
+rules, ok := rulepresets.GetRulePreset("api-gateway.yml")
 ```
 
 ### Using Preset in Route Config
@@ -187,13 +191,12 @@ webapp:
   scheme: http
   host: localhost
   port: 3000
-  rules: |
-    - name: include webui preset
-      do: include webui
-    - name: additional rule
-      on: path /custom/*
-      do: proxy http://custom:8080
+  rule_file: embed://webui.yml
 ```
+
+`rule_file` and inline `rules` are mutually exclusive. There is no `include`
+action. To customize a preset, copy its rules into a separate rule file and use
+`rule_file: /path/to/custom.rules`, or put the combined rules in `rules: |`.
 
 ## Limitations
 

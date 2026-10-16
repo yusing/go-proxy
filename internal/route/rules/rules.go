@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"reflect"
 	"slices"
 	"strings"
 	"unicode"
@@ -56,6 +55,11 @@ type (
 	}
 )
 
+// Rule expressions expand environment references after parsing their syntax.
+func (*Rules) OwnsEnvExpansion()   {}
+func (*RuleOn) OwnsEnvExpansion()  {}
+func (*Command) OwnsEnvExpansion() {}
+
 func isDefaultRule(rule Rule) bool {
 	return rule.Name == "default" || rule.On.raw == OnDefault
 }
@@ -73,7 +77,7 @@ func (rules Rules) Validate() gperr.Error {
 		}
 		if commandsContainRequestPhaseOnly(rule.Do.post) ||
 			(rule.On.phase.IsPostRule() && commandsContainRequestPhaseOnly(rule.Do.pre)) {
-			return ErrInvalidArguments.Withf("rule[%d]: request middleware cannot be used in a response-phase rule or action block", i)
+			return ErrInvalidArguments.Withf("rule[%d]: request-only actions (authentication or middleware) cannot be used in a response-phase rule or action block", i)
 		}
 	}
 	if len(defaultRulesFound) > 1 {
@@ -258,11 +262,23 @@ func (rules *Rules) Parse(config string) error {
 		blockErr = err
 	}
 
-	// YAML fallback
-	var anySlice []any
-	yamlErr := yaml.Unmarshal([]byte(config), &anySlice)
+	// YAML fallback: metadata uses normal configuration interpolation, while
+	// matchers and commands retain ownership of their expression expansion.
+	var parsed struct{ Rules []Rule }
+	var yamlErr error
+	err := serialization.UnmarshalValidate([]byte(config), &parsed, func(data []byte, target any) error {
+		var items []any
+		yamlErr = yaml.Unmarshal(data, &items)
+		if yamlErr == nil {
+			*target.(*map[string]any) = map[string]any{"rules": items}
+		}
+		return yamlErr
+	})
 	if yamlErr == nil {
-		return serialization.ConvertSlice(reflect.ValueOf(anySlice), reflect.ValueOf(rules), false)
+		if err == nil {
+			*rules = parsed.Rules
+		}
+		return err
 	}
 
 	// If YAML fails and we haven't tried block syntax yet, try it now.
