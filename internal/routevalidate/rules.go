@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"slices"
 
 	"github.com/yusing/godoxy/internal/route"
 	rulepresets "github.com/yusing/godoxy/internal/route/rules/presets"
@@ -27,7 +28,8 @@ func validateRules(r *route.Route) error {
 			if !ok {
 				return fmt.Errorf("rule preset %q not found", src.Host)
 			}
-			r.Rules = rules
+			// Validation may assign names; cached presets remain read-only.
+			r.Rules = slices.Clone(rules)
 		case "file", "":
 			if !strutils.IsValidFilename(src.Path) {
 				return fmt.Errorf("invalid rule file path %q", src.Path)
@@ -46,5 +48,5 @@ func validateRules(r *route.Route) error {
 			return fmt.Errorf("unsupported rule file scheme %q", src.Scheme)
 		}
 	}
-	return nil
+	return r.Rules.Validate()
 }

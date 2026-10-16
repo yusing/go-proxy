@@ -15,7 +15,7 @@ route implementation from `internal/routeimpl`.
 - Resolve Docker image/alias port shortcuts.
 - Apply default health-check config from working config state.
 - Finalize homepage display config.
-- Load route rules from `rule_file`.
+- Resolve inline rules, `rule_file`, and embedded presets, then validate the complete rule set before constructing the route.
 - Validate inbound mTLS, reserved Godoxy ports, relay PROXY protocol, TLS termination, health/load-balancer/idlewatcher combinations, and URL construction.
 - Resolve proxmox node/resource metadata where configured.
 - Build `routeimpl.NewFileServer`, `routeimpl.NewReverseProxyRoute`, or `routeimpl.NewStreamRoute`.
@@ -30,7 +30,7 @@ route implementation from `internal/routeimpl`.
 ## Public Entry Point
 
 ```go
-func Validate(r *route.Route) (impl routing.Route, agent *agentpool.Agent, err error)
+func Validate(ctx context.Context, r *route.Route) (impl routing.Route, agent *agentpool.Agent, err error)
 ```
 
 `cmd/main.go` installs this as the route builder:
@@ -58,6 +58,6 @@ flowchart TD
 
 - `finalize.go`: defaults, homepage config, Docker port resolvability.
 - `port_selection.go`: image/alias port maps and preferred Docker port selection.
-- `rules.go`: `rule_file` loading and rule preset resolution.
+- `rules.go`: rule loading, preset resolution, and semantic validation.
 - `proxmox.go`: proxmox node/resource route normalization.
 - `validate.go`: top-level validation and implementation construction.
