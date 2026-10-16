@@ -127,6 +127,26 @@ const reqTimeout = 3 * time.Second
 // prevents dependencies from being stopped automatically.
 const neverTick = time.Duration(1<<63 - 1)
 
+// findDependencyRoute resolves a dependency entry to its route the way
+// NewWatcher resolves it: by compose service inside the same compose project
+// first, then by route alias. A ":service_started" or ":service_healthy"
+// condition suffix is ignored.
+func findDependencyRoute(ep routing.Entrypoint, r routing.Route, entry string) (routing.Route, bool) {
+	name, _, _ := strings.Cut(entry, ":")
+	if name == "" {
+		return nil, false
+	}
+	if cont := r.ContainerInfo(); cont != nil {
+		if depRoute, ok := r.GetProvider().FindService(docker.DockerComposeProject(cont), name); ok {
+			return depRoute, true
+		}
+	}
+	if ep == nil {
+		return nil, false
+	}
+	return ep.GetRoute(name)
+}
+
 func NewWatcher(parent task.Parent, r routing.Route, cfg *Config) (*Watcher, error) {
 	key := cfg.Key()
 	cfgDependsOn := slices.Clone(cfg.DependsOn)
@@ -169,6 +189,7 @@ func NewWatcher(parent task.Parent, r routing.Route, cfg *Config) (*Watcher, err
 	}
 	depSpecs := make([]dependencySpec, 0, len(resolvedDepNames))
 	var depErrors gperr.Builder
+	ep := entrypoint.FromCtx(parent.Context())
 	for i, dep := range resolvedDepNames {
 		depSegments := strings.Split(dep, ":")
 		dep = depSegments[0]
@@ -189,22 +210,10 @@ func NewWatcher(parent task.Parent, r routing.Route, cfg *Config) (*Watcher, err
 			}
 		}
 
-		cont := r.ContainerInfo()
-
-		var depRoute routing.Route
-		var ok bool
-
-		// try to find the dependency in the same provider and the same docker compose project first
-		if cont != nil {
-			depRoute, ok = r.GetProvider().FindService(docker.DockerComposeProject(cont), dep)
-		}
-
+		depRoute, ok := findDependencyRoute(ep, r, dep)
 		if !ok {
-			depRoute, ok = entrypoint.FromCtx(parent.Context()).GetRoute(dep)
-			if !ok {
-				depErrors.Addf("dependency %q not found", dep)
-				continue
-			}
+			depErrors.Addf("dependency %q not found", dep)
+			continue
 		}
 
 		if depRoute == r {
@@ -620,6 +629,10 @@ func (w *Watcher) stopDependencies() error {
 }
 
 func (w *Watcher) hasRunningDependent() bool {
+	return w.hasRunningWatcherDependent() || w.hasRunningRouteDependent()
+}
+
+func (w *Watcher) hasRunningWatcherDependent() bool {
 	watcherMapMu.RLock()
 	defer watcherMapMu.RUnlock()
 	for _, other := range watcherMap {
@@ -631,6 +644,49 @@ func (w *Watcher) hasRunningDependent() bool {
 			if dep.Watcher == w {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+// hasRunningRouteDependent reports whether an up route still needs w.
+//
+// Always-on routes have no watcher in watcherMap, so their container
+// dependency labels are the only record of the edge.
+func (w *Watcher) hasRunningRouteDependent() bool {
+	ep := entrypoint.FromCtx(w.task.Context())
+	if ep == nil {
+		return false
+	}
+	for r := range ep.IterRoutes {
+		if w.isNeededBy(ep, r) {
+			return true
+		}
+	}
+	return false
+}
+
+// isNeededBy reports whether r's container declares w as a dependency and r is
+// not down. Edges are resolved like NewWatcher resolves them, so compose
+// service names and container names both match.
+func (w *Watcher) isNeededBy(ep routing.Entrypoint, r routing.Route) bool {
+	cont := r.ContainerInfo()
+	if cont == nil || cont.ContainerID == w.cfg.Key() {
+		return false // r has no container, or is w's own route
+	}
+	if mon := r.HealthMonitor(); mon != nil && mon.Status() == health.StatusNapping {
+		// A sleeping route does not retain its dependencies: its next wake
+		// rebuilds the dependency chain. An unhealthy route still does, since
+		// the dependency may be what brings it back in the first place.
+		return false
+	}
+	for _, entry := range docker.Dependencies(cont) {
+		depRoute, ok := findDependencyRoute(ep, r, entry)
+		if !ok {
+			continue
+		}
+		if depCont := depRoute.ContainerInfo(); depCont != nil && depCont.ContainerID == w.cfg.Key() {
+			return true
 		}
 	}
 	return false
