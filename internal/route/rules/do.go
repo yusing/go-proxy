@@ -436,6 +436,9 @@ var commands = map[string]struct {
 				// error command should overwrite the response body
 				w.ResetBody()
 				w.WriteHeader(code)
+				if code == http.StatusNoContent {
+					return errTerminateRule
+				}
 				_, err := textTmpl.ExpandVars(w, r, w.BodyBuffer())
 				if err != nil {
 					return err

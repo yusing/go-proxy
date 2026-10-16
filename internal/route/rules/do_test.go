@@ -11,6 +11,22 @@ import (
 	expect "github.com/yusing/goutils/testing"
 )
 
+func TestErrorNoContent(t *testing.T) {
+	for _, message := range []string{`""`, `"No Content"`} {
+		t.Run(message, func(t *testing.T) {
+			var rules Rules
+			require.NoError(t, rules.Parse("default { error 204 "+message+" }"))
+			handler := rules.BuildHandler(func(http.ResponseWriter, *http.Request) {
+				t.Fatal("upstream called for a terminating response")
+			})
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, httptest.NewRequest(http.MethodOptions, "/", nil))
+			require.Equal(t, http.StatusNoContent, w.Code)
+			require.Empty(t, w.Body.String())
+		})
+	}
+}
+
 func TestParseCommands(t *testing.T) {
 	tests := []struct {
 		name    string
